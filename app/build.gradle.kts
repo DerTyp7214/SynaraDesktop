@@ -19,12 +19,7 @@ kotlin {
     sourceSets {
         val jvmMain by getting {
             dependencies {
-                implementation(compose.desktop.currentOs)
-                implementation(libs.runtime)
-                implementation(libs.foundation)
                 implementation(libs.material3)
-                implementation(libs.ui)
-                implementation(libs.components.resources)
                 implementation(libs.kotlinx.coroutines.core)
                 
                 implementation(libs.lwjgl)
