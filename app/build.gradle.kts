@@ -19,6 +19,7 @@ kotlin {
     sourceSets {
         val jvmMain by getting {
             dependencies {
+                implementation(compose.desktop.currentOs)
                 implementation(libs.material3)
                 implementation(libs.kotlinx.coroutines.core)
                 
@@ -26,6 +27,7 @@ kotlin {
                 implementation(libs.lwjgl.glfw)
                 implementation(libs.lwjgl.opengl)
                 implementation(libs.lwjgl.stb)
+                implementation(libs.skiko.awt)
 
                 runtimeOnly("org.lwjgl:lwjgl::$targetNatives")
                 runtimeOnly("org.lwjgl:lwjgl-glfw::$targetNatives")
@@ -36,6 +38,10 @@ kotlin {
             }
         }
     }
+}
+
+configurations.all {
+    exclude(group = "org.jetbrains.compose.material", module = "material-desktop")
 }
 
 compose.desktop {

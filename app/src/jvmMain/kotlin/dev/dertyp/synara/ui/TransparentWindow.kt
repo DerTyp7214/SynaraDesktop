@@ -3,24 +3,26 @@ package dev.dertyp.synara.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Shapes
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.Typography
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.InternalComposeUiApi
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asComposeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.platform.PlatformContext
+import androidx.compose.ui.platform.WindowInfo
 import androidx.compose.ui.scene.CanvasLayersComposeScene
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
@@ -33,47 +35,68 @@ import org.jetbrains.skia.*
 import org.lwjgl.glfw.Callbacks.glfwFreeCallbacks
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.opengl.GL
-import org.lwjgl.opengl.GL11
 import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.system.MemoryUtil.NULL
-import java.awt.Component
-import java.awt.event.InputEvent
-import java.awt.event.KeyEvent as AwtKeyEvent
 
-private val dummyComponent = object : Component() {}
-
-private fun glfwModsToAwt(mods: Int): Int {
-    var result = 0
-    if (mods and GLFW_MOD_SHIFT != 0) {
-        result = result or InputEvent.SHIFT_DOWN_MASK
-    }
-    if (mods and GLFW_MOD_CONTROL != 0) {
-        result = result or InputEvent.CTRL_DOWN_MASK
-    }
-    if (mods and GLFW_MOD_ALT != 0) {
-        result = result or InputEvent.ALT_DOWN_MASK
-    }
-    if (mods and GLFW_MOD_SUPER != 0) {
-        result = result or InputEvent.META_DOWN_MASK
-    }
-    return result
-}
-
-private fun glfwKeyToAwt(key: Int): Int = when (key) {
-    GLFW_KEY_ENTER -> AwtKeyEvent.VK_ENTER
-    GLFW_KEY_BACKSPACE -> AwtKeyEvent.VK_BACK_SPACE
-    GLFW_KEY_TAB -> AwtKeyEvent.VK_TAB
-    GLFW_KEY_DELETE -> AwtKeyEvent.VK_DELETE
-    GLFW_KEY_ESCAPE -> AwtKeyEvent.VK_ESCAPE
-    GLFW_KEY_UP -> AwtKeyEvent.VK_UP
-    GLFW_KEY_DOWN -> AwtKeyEvent.VK_DOWN
-    GLFW_KEY_LEFT -> AwtKeyEvent.VK_LEFT
-    GLFW_KEY_RIGHT -> AwtKeyEvent.VK_RIGHT
-    GLFW_KEY_HOME -> AwtKeyEvent.VK_HOME
-    GLFW_KEY_END -> AwtKeyEvent.VK_END
-    GLFW_KEY_PAGE_UP -> AwtKeyEvent.VK_PAGE_UP
-    GLFW_KEY_PAGE_DOWN -> AwtKeyEvent.VK_PAGE_DOWN
-    else -> key
+private fun glfwKeyToComposeKey(key: Int): Key? = when (key) {
+    GLFW_KEY_ENTER -> Key.Enter
+    GLFW_KEY_BACKSPACE -> Key.Backspace
+    GLFW_KEY_TAB -> Key.Tab
+    GLFW_KEY_DELETE -> Key.Delete
+    GLFW_KEY_ESCAPE -> Key.Escape
+    GLFW_KEY_UP -> Key.DirectionUp
+    GLFW_KEY_DOWN -> Key.DirectionDown
+    GLFW_KEY_LEFT -> Key.DirectionLeft
+    GLFW_KEY_RIGHT -> Key.DirectionRight
+    GLFW_KEY_HOME -> Key.MoveHome
+    GLFW_KEY_END -> Key.MoveEnd
+    GLFW_KEY_PAGE_UP -> Key.PageUp
+    GLFW_KEY_PAGE_DOWN -> Key.PageDown
+    GLFW_KEY_F1 -> Key.F1
+    GLFW_KEY_F2 -> Key.F2
+    GLFW_KEY_F3 -> Key.F3
+    GLFW_KEY_F4 -> Key.F4
+    GLFW_KEY_F5 -> Key.F5
+    GLFW_KEY_F6 -> Key.F6
+    GLFW_KEY_F7 -> Key.F7
+    GLFW_KEY_F8 -> Key.F8
+    GLFW_KEY_F9 -> Key.F9
+    GLFW_KEY_F10 -> Key.F10
+    GLFW_KEY_F11 -> Key.F11
+    GLFW_KEY_F12 -> Key.F12
+    GLFW_KEY_LEFT_SHIFT -> Key.ShiftLeft
+    GLFW_KEY_RIGHT_SHIFT -> Key.ShiftRight
+    GLFW_KEY_LEFT_CONTROL -> Key.CtrlLeft
+    GLFW_KEY_RIGHT_CONTROL -> Key.CtrlRight
+    GLFW_KEY_LEFT_ALT -> Key.AltLeft
+    GLFW_KEY_RIGHT_ALT -> Key.AltRight
+    GLFW_KEY_LEFT_SUPER -> Key.MetaLeft
+    GLFW_KEY_RIGHT_SUPER -> Key.MetaRight
+    GLFW_KEY_CAPS_LOCK -> Key.CapsLock
+    GLFW_KEY_SCROLL_LOCK -> Key.ScrollLock
+    GLFW_KEY_NUM_LOCK -> Key.NumLock
+    GLFW_KEY_PRINT_SCREEN -> Key.PrintScreen
+    GLFW_KEY_PAUSE -> Key.Break
+    GLFW_KEY_INSERT -> Key.Insert
+    GLFW_KEY_MENU -> Key.Menu
+    GLFW_KEY_KP_0 -> Key.NumPad0
+    GLFW_KEY_KP_1 -> Key.NumPad1
+    GLFW_KEY_KP_2 -> Key.NumPad2
+    GLFW_KEY_KP_3 -> Key.NumPad3
+    GLFW_KEY_KP_4 -> Key.NumPad4
+    GLFW_KEY_KP_5 -> Key.NumPad5
+    GLFW_KEY_KP_6 -> Key.NumPad6
+    GLFW_KEY_KP_7 -> Key.NumPad7
+    GLFW_KEY_KP_8 -> Key.NumPad8
+    GLFW_KEY_KP_9 -> Key.NumPad9
+    GLFW_KEY_KP_DECIMAL -> Key.NumPadDot
+    GLFW_KEY_KP_DIVIDE -> Key.NumPadDivide
+    GLFW_KEY_KP_MULTIPLY -> Key.NumPadMultiply
+    GLFW_KEY_KP_SUBTRACT -> Key.NumPadSubtract
+    GLFW_KEY_KP_ADD -> Key.NumPadAdd
+    GLFW_KEY_KP_ENTER -> Key.NumPadEnter
+    GLFW_KEY_KP_EQUAL -> Key.NumPadEquals
+    else -> null
 }
 
 @OptIn(InternalComposeUiApi::class, ExperimentalComposeUiApi::class)
@@ -98,7 +121,7 @@ fun runTransparentWindow(
     val isLinux = osName.contains("linux")
 
     if (isLinux) {
-        println("Linux detected. Forcing X11 platform via GLFW hint to bypass Wayland issues.")
+        println("Linux detected. Forcing X11 platform via GLFW hint.")
         glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11)
     }
 
@@ -106,16 +129,14 @@ fun runTransparentWindow(
         error("Unable to initialize GLFW")
     }
 
-    val forceDrag = System.getProperty("synara.drag.enabled", "false").toBoolean()
-    val showDragHandle = !isLinux || forceDrag
+    val showDragHandle =
+        System.getProperty("synara.drag.enabled", if (isLinux) "false" else "true").toBoolean()
 
     glfwDefaultWindowHints()
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE)
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE)
     glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE)
     glfwWindowHint(GLFW_DECORATED, GLFW_FALSE)
-    glfwWindowHint(GLFW_ALPHA_BITS, 8)
-    glfwWindowHint(GLFW_STENCIL_BITS, 8)
 
     val windowHandle = glfwCreateWindow(width, height, title, NULL, NULL)
     if (windowHandle == NULL) {
@@ -128,15 +149,7 @@ fun runTransparentWindow(
     GL.createCapabilities()
     glfwSwapInterval(1)
 
-    println("GL Vendor: ${GL11.glGetString(GL11.GL_VENDOR)}")
-    println("GL Renderer: ${GL11.glGetString(GL11.GL_RENDERER)}")
-    println("GL Version: ${GL11.glGetString(GL11.GL_VERSION)}")
-
-    val context = try {
-        DirectContext.makeGL()
-    } catch (e: Exception) {
-        error("Failed to create Skia DirectContext: ${e.message}")
-    }
+    val skiaContext = DirectContext.makeGL()
 
     val density = stackPush().use { stack ->
         val x = stack.mallocFloat(1)
@@ -145,18 +158,20 @@ fun runTransparentWindow(
         Density(x.get(0))
     }
 
+    var isWindowFocused by mutableStateOf(true)
+
+    val platformContext = object : PlatformContext.Empty() {
+        override val windowInfo: WindowInfo = object : WindowInfo {
+            override val isWindowFocused: Boolean get() = isWindowFocused
+        }
+    }
+
     val scene = CanvasLayersComposeScene(
-        coroutineContext = Dispatchers.Unconfined,
         density = density,
+        coroutineContext = Dispatchers.Unconfined,
+        platformContext = platformContext,
         invalidate = { }
     )
-
-    stackPush().use { stack ->
-        val w = stack.mallocInt(1)
-        val h = stack.mallocInt(1)
-        glfwGetFramebufferSize(windowHandle, w, h)
-        scene.size = IntSize(w.get(0), h.get(0))
-    }
 
     scene.setContent {
         MaterialTheme(
@@ -180,7 +195,11 @@ fun runTransparentWindow(
                                     val x = stack.mallocInt(1)
                                     val y = stack.mallocInt(1)
                                     glfwGetWindowPos(windowHandle, x, y)
-                                    glfwSetWindowPos(windowHandle, x.get(0) + dx.toInt(), y.get(0) + dy.toInt())
+                                    glfwSetWindowPos(
+                                        windowHandle,
+                                        x.get(0) + dx.toInt(),
+                                        y.get(0) + dy.toInt()
+                                    )
                                 }
                             }
                         ) {
@@ -198,8 +217,12 @@ fun runTransparentWindow(
         }
     }
 
-    glfwSetFramebufferSizeCallback(windowHandle) { _, width, height ->
-        scene.size = IntSize(width, height)
+    glfwSetWindowFocusCallback(windowHandle) { _, focused ->
+        isWindowFocused = focused
+    }
+
+    glfwSetFramebufferSizeCallback(windowHandle) { _, w, h ->
+        scene.size = IntSize(w, h)
     }
 
     glfwSetCursorPosCallback(windowHandle) { _, x, y ->
@@ -210,9 +233,8 @@ fun runTransparentWindow(
     }
 
     glfwSetMouseButtonCallback(windowHandle) { _, button, action, _ ->
-        val eventType = if (action == GLFW_PRESS) PointerEventType.Press else PointerEventType.Release
         scene.sendPointerEvent(
-            eventType = eventType,
+            eventType = if (action == GLFW_PRESS) PointerEventType.Press else PointerEventType.Release,
             position = run {
                 val x = DoubleArray(1)
                 val y = DoubleArray(1)
@@ -228,50 +250,60 @@ fun runTransparentWindow(
         )
     }
 
-    glfwSetKeyCallback(windowHandle) { _, key, _, action, mods ->
-        val awtAction = when (action) {
-            GLFW_PRESS -> AwtKeyEvent.KEY_PRESSED
-            GLFW_RELEASE -> AwtKeyEvent.KEY_RELEASED
-            GLFW_REPEAT -> AwtKeyEvent.KEY_PRESSED
-            else -> return@glfwSetKeyCallback
+    glfwSetKeyCallback(windowHandle) { _, key, scancode, action, mods ->
+        val type = when (action) {
+            GLFW_PRESS, GLFW_REPEAT -> KeyEventType.KeyDown
+            else -> KeyEventType.KeyUp
         }
-        val awtMods = glfwModsToAwt(mods)
-        val awtKey = glfwKeyToAwt(key)
-        val awtEvent = AwtKeyEvent(
-            dummyComponent,
-            awtAction,
-            System.currentTimeMillis(),
-            awtMods,
-            awtKey,
-            AwtKeyEvent.CHAR_UNDEFINED
+        val composeKey = glfwKeyToComposeKey(key) ?: return@glfwSetKeyCallback
+
+        scene.sendKeyEvent(
+            KeyEvent(
+                key = composeKey,
+                type = type,
+                codePoint = keyCodeToCodePoint(key, scancode, mods),
+                isCtrlPressed = (mods and GLFW_MOD_CONTROL) != 0,
+                isMetaPressed = (mods and GLFW_MOD_SUPER) != 0,
+                isAltPressed = (mods and GLFW_MOD_ALT) != 0,
+                isShiftPressed = (mods and GLFW_MOD_SHIFT) != 0,
+            )
         )
-        scene.sendKeyEvent(KeyEvent(awtEvent))
     }
 
-    glfwSetCharCallback(windowHandle) { _, codepoint ->
-        val awtEvent = AwtKeyEvent(
-            dummyComponent,
-            AwtKeyEvent.KEY_TYPED,
-            System.currentTimeMillis(),
-            0,
-            AwtKeyEvent.VK_UNDEFINED,
-            codepoint.toChar()
+    glfwSetCharCallback(windowHandle) { _, char ->
+        scene.sendKeyEvent(
+            KeyEvent(
+                key = Key.Unknown,
+                type = KeyEventType.KeyDown,
+                codePoint = char
+            )
         )
-        scene.sendKeyEvent(KeyEvent(awtEvent))
     }
 
     glfwShowWindow(windowHandle)
 
+    stackPush().use { stack ->
+        val w = stack.mallocInt(1)
+        val h = stack.mallocInt(1)
+        glfwGetFramebufferSize(windowHandle, w, h)
+        scene.size = IntSize(w.get(0), h.get(0))
+    }
+
     while (!glfwWindowShouldClose(windowHandle)) {
-        val widthArray = IntArray(1)
-        val heightArray = IntArray(1)
-        glfwGetFramebufferSize(windowHandle, widthArray, heightArray)
-        val w = widthArray[0]
-        val h = heightArray[0]
+        val size = scene.size
+        val w = size?.width ?: 0
+        val h = size?.height ?: 0
 
         if (w > 0 && h > 0) {
-            val renderTarget = BackendRenderTarget.makeGL(w, h, 0, 8, 0, FramebufferFormat.GR_GL_RGBA8)
-            val surface = Surface.makeFromBackendRenderTarget(context, renderTarget, SurfaceOrigin.BOTTOM_LEFT, SurfaceColorFormat.RGBA_8888, ColorSpace.sRGB)
+            val renderTarget =
+                BackendRenderTarget.makeGL(w, h, 0, 8, 0, FramebufferFormat.GR_GL_RGBA8)
+            val surface = Surface.makeFromBackendRenderTarget(
+                skiaContext,
+                renderTarget,
+                SurfaceOrigin.BOTTOM_LEFT,
+                SurfaceColorFormat.RGBA_8888,
+                ColorSpace.sRGB
+            )
 
             surface?.let {
                 it.canvas.clear(Color.Transparent.toArgb())
@@ -287,8 +319,33 @@ fun runTransparentWindow(
     }
 
     scene.close()
-    context.close()
+    skiaContext.close()
     glfwFreeCallbacks(windowHandle)
     glfwDestroyWindow(windowHandle)
     glfwTerminate()
+}
+
+private fun keyCodeToCodePoint(key: Int, scancode: Int, mods: Int): Int {
+    if (key == GLFW_KEY_ENTER) return 10 // \n
+    if (key == GLFW_KEY_TAB) return 9    // \t
+    if (key == GLFW_KEY_SPACE) return 32 // space
+
+    val keyName = glfwGetKeyName(key, scancode)
+
+    if (keyName.isNullOrEmpty()) return 0
+
+    val codePoint = keyName.codePointAt(0)
+    val isShiftPressed = (mods and GLFW_MOD_SHIFT) != 0
+    val isCapsLockOn = (mods and GLFW_MOD_CAPS_LOCK) != 0
+
+    return if (isShiftPressed xor isCapsLockOn) {
+        val char = codePoint.toChar()
+        if (char.isLowerCase()) {
+            char.uppercaseChar().code
+        } else {
+            codePoint
+        }
+    } else {
+        codePoint
+    }
 }

@@ -1,22 +1,16 @@
 [versions]
-componentsResources = "1.10.1"
-foundation = "1.10.1"
 kotlin = "2.3.10"
 googleDevtoolsKsp = "2.3.5"
 kotlinxCoroutinesCore = "1.10.2"
-material = "1.13.0"
 jetbrainsCompose = "1.10.1"
 kotlinxRpc = "0.10.2"
 ktor = "3.4.0"
 kotlinxSerialization = "1.10.0"
 material3 = "1.9.0"
-runtime = "1.10.1"
-ui = "1.10.1"
+skikoAwt = "0.9.41"
 lwjgl = "3.4.1"
 
 [libraries]
-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "componentsResources" }
-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "foundation" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesCore" }
 kotlinx-rpc-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-rpc-core", version.ref = "kotlinxRpc" }
 kotlinx-rpc-krpc-ktor-client = { group = "org.jetbrains.kotlinx", name = "kotlinx-rpc-krpc-ktor-client", version.ref = "kotlinxRpc" }
@@ -27,7 +21,7 @@ kotlinx-serialization-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 kotlinx-serialization-cbor = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-cbor", version.ref = "kotlinxSerialization" }
 material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "material3" }
-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "runtime" }
+skiko-awt = { module = "org.jetbrains.skiko:skiko-awt", version.ref = "skikoAwt" }
 symbol-processing-api = { group = "com.google.devtools.ksp", name = "symbol-processing-api", version.ref = "googleDevtoolsKsp" }
 lwjgl = { group = "org.lwjgl", name = "lwjgl", version.ref = "lwjgl" }
 lwjgl-glfw = { group = "org.lwjgl", name = "lwjgl-glfw", version.ref = "lwjgl" }
