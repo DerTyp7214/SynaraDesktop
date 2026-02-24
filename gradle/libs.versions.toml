@@ -1,0 +1,45 @@
+[versions]
+componentsResources = "1.10.1"
+foundation = "1.10.1"
+kotlin = "2.3.10"
+googleDevtoolsKsp = "2.3.5"
+kotlinxCoroutinesCore = "1.10.2"
+material = "1.13.0"
+jetbrainsCompose = "1.10.1"
+kotlinxRpc = "0.10.2"
+ktor = "3.4.0"
+kotlinxSerialization = "1.10.0"
+material3 = "1.9.0"
+runtime = "1.10.1"
+ui = "1.10.1"
+lwjgl = "3.4.1"
+
+[libraries]
+components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "componentsResources" }
+foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "foundation" }
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesCore" }
+kotlinx-rpc-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-rpc-core", version.ref = "kotlinxRpc" }
+kotlinx-rpc-krpc-ktor-client = { group = "org.jetbrains.kotlinx", name = "kotlinx-rpc-krpc-ktor-client", version.ref = "kotlinxRpc" }
+kotlinx-rpc-krpc-serialization-cbor = { group = "org.jetbrains.kotlinx", name = "kotlinx-rpc-krpc-serialization-cbor", version.ref = "kotlinxRpc" }
+ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
+ktor-client-cio = { group = "io.ktor", name = "ktor-client-cio", version.ref = "ktor" }
+kotlinx-serialization-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-core", version.ref = "kotlinxSerialization" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+kotlinx-serialization-cbor = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-cbor", version.ref = "kotlinxSerialization" }
+material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "material3" }
+runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "runtime" }
+symbol-processing-api = { group = "com.google.devtools.ksp", name = "symbol-processing-api", version.ref = "googleDevtoolsKsp" }
+ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "ui" }
+lwjgl = { group = "org.lwjgl", name = "lwjgl", version.ref = "lwjgl" }
+lwjgl-glfw = { group = "org.lwjgl", name = "lwjgl-glfw", version.ref = "lwjgl" }
+lwjgl-opengl = { group = "org.lwjgl", name = "lwjgl-opengl", version.ref = "lwjgl" }
+lwjgl-stb = { group = "org.lwjgl", name = "lwjgl-stb", version.ref = "lwjgl" }
+
+[plugins]
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "googleDevtoolsKsp" }
+jetbrains-compose = { id = "org.jetbrains.compose", version.ref = "jetbrainsCompose" }
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotlinx-rpc = { id = "org.jetbrains.kotlinx.rpc.plugin", version.ref = "kotlinxRpc" }
