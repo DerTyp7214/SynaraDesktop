@@ -24,6 +24,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.platform.PlatformContext
 import androidx.compose.ui.platform.WindowInfo
 import androidx.compose.ui.scene.CanvasLayersComposeScene
+import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -38,65 +39,110 @@ import org.lwjgl.opengl.GL
 import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.system.MemoryUtil.NULL
 
-private fun glfwKeyToComposeKey(key: Int): Key? = when (key) {
-    GLFW_KEY_ENTER -> Key.Enter
-    GLFW_KEY_BACKSPACE -> Key.Backspace
-    GLFW_KEY_TAB -> Key.Tab
-    GLFW_KEY_DELETE -> Key.Delete
-    GLFW_KEY_ESCAPE -> Key.Escape
-    GLFW_KEY_UP -> Key.DirectionUp
-    GLFW_KEY_DOWN -> Key.DirectionDown
-    GLFW_KEY_LEFT -> Key.DirectionLeft
-    GLFW_KEY_RIGHT -> Key.DirectionRight
-    GLFW_KEY_HOME -> Key.MoveHome
-    GLFW_KEY_END -> Key.MoveEnd
-    GLFW_KEY_PAGE_UP -> Key.PageUp
-    GLFW_KEY_PAGE_DOWN -> Key.PageDown
-    GLFW_KEY_F1 -> Key.F1
-    GLFW_KEY_F2 -> Key.F2
-    GLFW_KEY_F3 -> Key.F3
-    GLFW_KEY_F4 -> Key.F4
-    GLFW_KEY_F5 -> Key.F5
-    GLFW_KEY_F6 -> Key.F6
-    GLFW_KEY_F7 -> Key.F7
-    GLFW_KEY_F8 -> Key.F8
-    GLFW_KEY_F9 -> Key.F9
-    GLFW_KEY_F10 -> Key.F10
-    GLFW_KEY_F11 -> Key.F11
-    GLFW_KEY_F12 -> Key.F12
-    GLFW_KEY_LEFT_SHIFT -> Key.ShiftLeft
-    GLFW_KEY_RIGHT_SHIFT -> Key.ShiftRight
-    GLFW_KEY_LEFT_CONTROL -> Key.CtrlLeft
-    GLFW_KEY_RIGHT_CONTROL -> Key.CtrlRight
-    GLFW_KEY_LEFT_ALT -> Key.AltLeft
-    GLFW_KEY_RIGHT_ALT -> Key.AltRight
-    GLFW_KEY_LEFT_SUPER -> Key.MetaLeft
-    GLFW_KEY_RIGHT_SUPER -> Key.MetaRight
-    GLFW_KEY_CAPS_LOCK -> Key.CapsLock
-    GLFW_KEY_SCROLL_LOCK -> Key.ScrollLock
-    GLFW_KEY_NUM_LOCK -> Key.NumLock
-    GLFW_KEY_PRINT_SCREEN -> Key.PrintScreen
-    GLFW_KEY_PAUSE -> Key.Break
-    GLFW_KEY_INSERT -> Key.Insert
-    GLFW_KEY_MENU -> Key.Menu
-    GLFW_KEY_KP_0 -> Key.NumPad0
-    GLFW_KEY_KP_1 -> Key.NumPad1
-    GLFW_KEY_KP_2 -> Key.NumPad2
-    GLFW_KEY_KP_3 -> Key.NumPad3
-    GLFW_KEY_KP_4 -> Key.NumPad4
-    GLFW_KEY_KP_5 -> Key.NumPad5
-    GLFW_KEY_KP_6 -> Key.NumPad6
-    GLFW_KEY_KP_7 -> Key.NumPad7
-    GLFW_KEY_KP_8 -> Key.NumPad8
-    GLFW_KEY_KP_9 -> Key.NumPad9
-    GLFW_KEY_KP_DECIMAL -> Key.NumPadDot
-    GLFW_KEY_KP_DIVIDE -> Key.NumPadDivide
-    GLFW_KEY_KP_MULTIPLY -> Key.NumPadMultiply
-    GLFW_KEY_KP_SUBTRACT -> Key.NumPadSubtract
-    GLFW_KEY_KP_ADD -> Key.NumPadAdd
-    GLFW_KEY_KP_ENTER -> Key.NumPadEnter
-    GLFW_KEY_KP_EQUAL -> Key.NumPadEquals
-    else -> null
+@OptIn(ExperimentalComposeUiApi::class)
+private class GlfwTextInputService : PlatformTextInputService {
+    var onEditCommand: ((List<EditCommand>) -> Unit)? = null
+
+    override fun startInput(
+        value: TextFieldValue,
+        imeOptions: ImeOptions,
+        onEditCommand: (List<EditCommand>) -> Unit,
+        onImeActionPerformed: (ImeAction) -> Unit
+    ) {
+        this.onEditCommand = onEditCommand
+    }
+
+    override fun stopInput() {
+        this.onEditCommand = null
+    }
+
+    override fun showSoftwareKeyboard() {}
+    override fun hideSoftwareKeyboard() {}
+    override fun updateState(oldValue: TextFieldValue?, newValue: TextFieldValue) {}
+}
+
+private fun glfwKeyToComposeKey(key: Int, scancode: Int): Key {
+    val name = glfwGetKeyName(key, scancode)
+    if (name != null && name.length == 1) {
+        val char = name[0].uppercaseChar()
+        if (char in 'A'..'Z') return Key(char.code.toLong())
+        if (char in '0'..'9') return Key(char.code.toLong())
+        when (char) {
+            ',' -> return Key.Comma
+            '.' -> return Key.Period
+            '/' -> return Key.Slash
+            ';' -> return Key.Semicolon
+            '\'' -> return Key.Apostrophe
+            '[' -> return Key.LeftBracket
+            ']' -> return Key.RightBracket
+            '\\' -> return Key.Backslash
+            '`' -> return Key.Grave
+            '-' -> return Key.Minus
+            '=' -> return Key.Equals
+        }
+    }
+
+    return when (key) {
+        GLFW_KEY_ENTER -> Key.Enter
+        GLFW_KEY_BACKSPACE -> Key.Backspace
+        GLFW_KEY_TAB -> Key.Tab
+        GLFW_KEY_DELETE -> Key.Delete
+        GLFW_KEY_ESCAPE -> Key.Escape
+        GLFW_KEY_SPACE -> Key.Spacebar
+        GLFW_KEY_UP -> Key.DirectionUp
+        GLFW_KEY_DOWN -> Key.DirectionDown
+        GLFW_KEY_LEFT -> Key.DirectionLeft
+        GLFW_KEY_RIGHT -> Key.DirectionRight
+        GLFW_KEY_HOME -> Key.MoveHome
+        GLFW_KEY_END -> Key.MoveEnd
+        GLFW_KEY_PAGE_UP -> Key.PageUp
+        GLFW_KEY_PAGE_DOWN -> Key.PageDown
+        GLFW_KEY_F1 -> Key.F1
+        GLFW_KEY_F2 -> Key.F2
+        GLFW_KEY_F3 -> Key.F3
+        GLFW_KEY_F4 -> Key.F4
+        GLFW_KEY_F5 -> Key.F5
+        GLFW_KEY_F6 -> Key.F6
+        GLFW_KEY_F7 -> Key.F7
+        GLFW_KEY_F8 -> Key.F8
+        GLFW_KEY_F9 -> Key.F9
+        GLFW_KEY_F10 -> Key.F10
+        GLFW_KEY_F11 -> Key.F11
+        GLFW_KEY_F12 -> Key.F12
+        GLFW_KEY_LEFT_SHIFT -> Key.ShiftLeft
+        GLFW_KEY_RIGHT_SHIFT -> Key.ShiftRight
+        GLFW_KEY_LEFT_CONTROL -> Key.CtrlLeft
+        GLFW_KEY_RIGHT_CONTROL -> Key.CtrlRight
+        GLFW_KEY_LEFT_ALT -> Key.AltLeft
+        GLFW_KEY_RIGHT_ALT -> Key.AltRight
+        GLFW_KEY_LEFT_SUPER -> Key.MetaLeft
+        GLFW_KEY_RIGHT_SUPER -> Key.MetaRight
+        GLFW_KEY_CAPS_LOCK -> Key.CapsLock
+        GLFW_KEY_SCROLL_LOCK -> Key.ScrollLock
+        GLFW_KEY_NUM_LOCK -> Key.NumLock
+        GLFW_KEY_PRINT_SCREEN -> Key.PrintScreen
+        GLFW_KEY_PAUSE -> Key.Break
+        GLFW_KEY_INSERT -> Key.Insert
+        GLFW_KEY_MENU -> Key.Menu
+        GLFW_KEY_KP_0 -> Key.NumPad0
+        GLFW_KEY_KP_1 -> Key.NumPad1
+        GLFW_KEY_KP_2 -> Key.NumPad2
+        GLFW_KEY_KP_3 -> Key.NumPad3
+        GLFW_KEY_KP_4 -> Key.NumPad4
+        GLFW_KEY_KP_5 -> Key.NumPad5
+        GLFW_KEY_KP_6 -> Key.NumPad6
+        GLFW_KEY_KP_7 -> Key.NumPad7
+        GLFW_KEY_KP_8 -> Key.NumPad8
+        GLFW_KEY_KP_9 -> Key.NumPad9
+        GLFW_KEY_KP_DECIMAL -> Key.NumPadDot
+        GLFW_KEY_KP_DIVIDE -> Key.NumPadDivide
+        GLFW_KEY_KP_MULTIPLY -> Key.NumPadMultiply
+        GLFW_KEY_KP_SUBTRACT -> Key.NumPadSubtract
+        GLFW_KEY_KP_ADD -> Key.NumPadAdd
+        GLFW_KEY_KP_ENTER -> Key.NumPadEnter
+        GLFW_KEY_KP_EQUAL -> Key.NumPadEquals
+        else -> Key.Unknown
+    }
 }
 
 @OptIn(InternalComposeUiApi::class, ExperimentalComposeUiApi::class)
@@ -159,11 +205,13 @@ fun runTransparentWindow(
     }
 
     var isWindowFocused by mutableStateOf(true)
+    val textInputService = GlfwTextInputService()
 
     val platformContext = object : PlatformContext.Empty() {
         override val windowInfo: WindowInfo = object : WindowInfo {
             override val isWindowFocused: Boolean get() = isWindowFocused
         }
+        override val textInputService: PlatformTextInputService = textInputService
     }
 
     val scene = CanvasLayersComposeScene(
@@ -255,13 +303,12 @@ fun runTransparentWindow(
             GLFW_PRESS, GLFW_REPEAT -> KeyEventType.KeyDown
             else -> KeyEventType.KeyUp
         }
-        val composeKey = glfwKeyToComposeKey(key) ?: return@glfwSetKeyCallback
+        val composeKey = glfwKeyToComposeKey(key, scancode)
 
         scene.sendKeyEvent(
             KeyEvent(
                 key = composeKey,
                 type = type,
-                codePoint = keyCodeToCodePoint(key, scancode, mods),
                 isCtrlPressed = (mods and GLFW_MOD_CONTROL) != 0,
                 isMetaPressed = (mods and GLFW_MOD_SUPER) != 0,
                 isAltPressed = (mods and GLFW_MOD_ALT) != 0,
@@ -270,14 +317,9 @@ fun runTransparentWindow(
         )
     }
 
-    glfwSetCharCallback(windowHandle) { _, char ->
-        scene.sendKeyEvent(
-            KeyEvent(
-                key = Key.Unknown,
-                type = KeyEventType.KeyDown,
-                codePoint = char
-            )
-        )
+    glfwSetCharCallback(windowHandle) { _, codepoint ->
+        val text = String(Character.toChars(codepoint))
+        textInputService.onEditCommand?.invoke(listOf(CommitTextCommand(text, 1)))
     }
 
     glfwShowWindow(windowHandle)
@@ -323,29 +365,4 @@ fun runTransparentWindow(
     glfwFreeCallbacks(windowHandle)
     glfwDestroyWindow(windowHandle)
     glfwTerminate()
-}
-
-private fun keyCodeToCodePoint(key: Int, scancode: Int, mods: Int): Int {
-    if (key == GLFW_KEY_ENTER) return 10 // \n
-    if (key == GLFW_KEY_TAB) return 9    // \t
-    if (key == GLFW_KEY_SPACE) return 32 // space
-
-    val keyName = glfwGetKeyName(key, scancode)
-
-    if (keyName.isNullOrEmpty()) return 0
-
-    val codePoint = keyName.codePointAt(0)
-    val isShiftPressed = (mods and GLFW_MOD_SHIFT) != 0
-    val isCapsLockOn = (mods and GLFW_MOD_CAPS_LOCK) != 0
-
-    return if (isShiftPressed xor isCapsLockOn) {
-        val char = codePoint.toChar()
-        if (char.isLowerCase()) {
-            char.uppercaseChar().code
-        } else {
-            codePoint
-        }
-    } else {
-        codePoint
-    }
 }
