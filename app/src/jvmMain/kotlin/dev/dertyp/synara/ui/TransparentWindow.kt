@@ -1,13 +1,9 @@
 package dev.dertyp.synara.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.InternalComposeUiApi
@@ -28,9 +24,12 @@ import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import dev.dertyp.synara.LocalTextField
+import dev.dertyp.synara.theme.AppTheme
+import dev.dertyp.synara.theme.SynaraAppTheme
+import dev.dertyp.synara.theme.isAppDark
+import dev.dertyp.synara.ui.components.SynaraTextField
 import dev.dertyp.synara.ui.components.WindowDraggableArea
-import dev.dertyp.synara.ui.theme.DarkColors
-import dev.dertyp.synara.ui.theme.LightColors
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.skia.*
 import org.lwjgl.glfw.Callbacks.glfwFreeCallbacks
@@ -152,11 +151,12 @@ fun runTransparentWindow(
     height: Int = 720,
     minWidth: Int = GLFW_DONT_CARE,
     minHeight: Int = GLFW_DONT_CARE,
-    isDarkTheme: @Composable () -> Boolean = { isSystemInDarkTheme() },
-    colorScheme: @Composable () -> ColorScheme = { if (isDarkTheme()) DarkColors else LightColors },
-    shapes: @Composable () -> Shapes = { MaterialTheme.shapes },
-    typography: @Composable () -> Typography = { MaterialTheme.typography },
-    windowBackground: @Composable () -> Color = { MaterialTheme.colorScheme.background.copy(alpha = .6f) },
+    isDarkTheme: @Composable () -> Boolean = { isAppDark() },
+    appTheme: @Composable () -> AppTheme = { SynaraAppTheme(isDarkTheme()) },
+    colorScheme: @Composable () -> ColorScheme = { appTheme().colorScheme },
+    shapes: @Composable () -> Shapes = { appTheme().shapes },
+    typography: @Composable () -> Typography = { appTheme().typography },
+    windowBackground: @Composable () -> Color = { appTheme().colorScheme.background.copy(alpha = .6f) },
     content: @Composable () -> Unit
 ) {
     glfwSetErrorCallback { error, description ->
@@ -227,38 +227,68 @@ fun runTransparentWindow(
             shapes = shapes(),
             typography = typography()
         ) {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = windowBackground()
+            CompositionLocalProvider(
+                LocalTextField provides { value, onValueChange, modifier, enabled, readOnly, textStyle, label, placeholder, leadingIcon, trailingIcon, prefix, suffix, supportingText, isError, visualTransformation, keyboardOptions, keyboardActions, singleLine, maxLines, minLines, interactionSource, shape, colors ->
+                    SynaraTextField(
+                        value = value,
+                        onValueChange = { onValueChange(it) },
+                        modifier = modifier,
+                        enabled = enabled,
+                        readOnly = readOnly,
+                        textStyle = textStyle,
+                        label = label,
+                        placeholder = placeholder,
+                        leadingIcon = leadingIcon,
+                        trailingIcon = trailingIcon,
+                        prefix = prefix,
+                        suffix = suffix,
+                        supportingText = supportingText,
+                        isError = isError,
+                        visualTransformation = visualTransformation,
+                        keyboardOptions = keyboardOptions,
+                        keyboardActions = keyboardActions,
+                        singleLine = singleLine,
+                        maxLines = maxLines,
+                        minLines = minLines,
+                        interactionSource = interactionSource,
+                        shape = shape,
+                        colors = colors
+                    )
+                }
             ) {
-                Column {
-                    if (showDragHandle) {
-                        WindowDraggableArea(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
-                                .background(Color.Black.copy(alpha = 0.2f)),
-                            onDrag = { dx, dy ->
-                                stackPush().use { stack ->
-                                    val x = stack.mallocInt(1)
-                                    val y = stack.mallocInt(1)
-                                    glfwGetWindowPos(windowHandle, x, y)
-                                    glfwSetWindowPos(
-                                        windowHandle,
-                                        x.get(0) + dx.toInt(),
-                                        y.get(0) + dy.toInt()
-                                    )
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = windowBackground()
+                ) {
+                    Column {
+                        if (showDragHandle) {
+                            WindowDraggableArea(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp)
+                                    .background(Color.Black.copy(alpha = 0.2f)),
+                                onDrag = { dx, dy ->
+                                    stackPush().use { stack ->
+                                        val x = stack.mallocInt(1)
+                                        val y = stack.mallocInt(1)
+                                        glfwGetWindowPos(windowHandle, x, y)
+                                        glfwSetWindowPos(
+                                            windowHandle,
+                                            x.get(0) + dx.toInt(),
+                                            y.get(0) + dy.toInt()
+                                        )
+                                    }
+                                }
+                            ) {
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text("Drag me", style = MaterialTheme.typography.labelSmall)
                                 }
                             }
-                        ) {
-                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text("Drag me", style = MaterialTheme.typography.labelSmall)
-                            }
                         }
-                    }
 
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        content()
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            content()
+                        }
                     }
                 }
             }

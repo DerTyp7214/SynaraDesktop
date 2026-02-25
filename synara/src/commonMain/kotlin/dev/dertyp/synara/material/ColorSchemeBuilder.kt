@@ -1,0 +1,182 @@
+package dev.dertyp.synara.material
+
+/**
+ * Simplified Material 3 ColorScheme builder.
+ */
+class ColorSchemeBuilder(
+    private val seedColor: Int,
+    private val isDark: Boolean,
+    private val secondarySeedColor: Int? = null,
+    private val tertiarySeedColor: Int? = null
+) {
+
+    enum class Key {
+        Primary,
+        OnPrimary,
+        PrimaryContainer,
+        OnPrimaryContainer,
+        InversePrimary,
+        Secondary,
+        OnSecondary,
+        SecondaryContainer,
+        OnSecondaryContainer,
+        Tertiary,
+        OnTertiary,
+        TertiaryContainer,
+        OnTertiaryContainer,
+        Background,
+        OnBackground,
+        Surface,
+        OnSurface,
+        SurfaceVariant,
+        OnSurfaceVariant,
+        SurfaceTint,
+        InverseSurface,
+        InverseOnSurface,
+        Error,
+        OnError,
+        ErrorContainer,
+        OnErrorContainer,
+        Outline,
+        OutlineVariant,
+        Scrim,
+        SurfaceBright,
+        SurfaceDim,
+        SurfaceContainer,
+        SurfaceContainerHigh,
+        SurfaceContainerHighest,
+        SurfaceContainerLow,
+        SurfaceContainerLowest,
+        PrimaryFixed,
+        PrimaryFixedDim,
+        OnPrimaryFixed,
+        OnPrimaryFixedVariant,
+        SecondaryFixed,
+        SecondaryFixedDim,
+        OnSecondaryFixed,
+        OnSecondaryFixedVariant,
+        TertiaryFixed,
+        TertiaryFixedDim,
+        OnTertiaryFixed,
+        OnTertiaryFixedVariant,
+    }
+
+    fun build(): Map<Key, Int> {
+        val hct = Hct.fromInt(seedColor)
+        val palette = TonalPalette.fromInt(seedColor)
+        
+        val secondaryPalette = secondarySeedColor?.let { TonalPalette.fromInt(it) } 
+            ?: TonalPalette.fromHueAndChroma(hct.hue, 16.0)
+            
+        val tertiaryPalette = tertiarySeedColor?.let { TonalPalette.fromInt(it) }
+            ?: TonalPalette.fromHueAndChroma(hct.hue + 60.0, 24.0)
+
+        val neutralPalette = TonalPalette.fromHueAndChroma(hct.hue, 4.0)
+        val neutralVariantPalette = TonalPalette.fromHueAndChroma(hct.hue, 8.0)
+        val errorPalette = TonalPalette.fromHueAndChroma(25.0, 84.0)
+
+        return if (isDark) {
+            mapOf(
+                Key.Primary to palette.tone(80),
+                Key.OnPrimary to palette.tone(20),
+                Key.PrimaryContainer to palette.tone(30),
+                Key.OnPrimaryContainer to palette.tone(90),
+                Key.InversePrimary to palette.tone(40),
+                Key.Secondary to secondaryPalette.tone(80),
+                Key.OnSecondary to secondaryPalette.tone(20),
+                Key.SecondaryContainer to secondaryPalette.tone(30),
+                Key.OnSecondaryContainer to secondaryPalette.tone(90),
+                Key.Tertiary to tertiaryPalette.tone(80),
+                Key.OnTertiary to tertiaryPalette.tone(20),
+                Key.TertiaryContainer to tertiaryPalette.tone(30),
+                Key.OnTertiaryContainer to tertiaryPalette.tone(90),
+                Key.Background to neutralPalette.tone(10),
+                Key.OnBackground to neutralPalette.tone(90),
+                Key.Surface to neutralPalette.tone(10),
+                Key.OnSurface to neutralPalette.tone(90),
+                Key.SurfaceVariant to neutralVariantPalette.tone(30),
+                Key.OnSurfaceVariant to neutralVariantPalette.tone(80),
+                Key.SurfaceTint to palette.tone(80),
+                Key.InverseSurface to neutralPalette.tone(90),
+                Key.InverseOnSurface to neutralPalette.tone(20),
+                Key.Error to errorPalette.tone(80),
+                Key.OnError to errorPalette.tone(20),
+                Key.ErrorContainer to errorPalette.tone(30),
+                Key.OnErrorContainer to errorPalette.tone(90),
+                Key.Outline to neutralVariantPalette.tone(60),
+                Key.OutlineVariant to neutralVariantPalette.tone(30),
+                Key.Scrim to TonalPalette.fromHueAndChroma(0.0, 0.0).tone(0),
+                Key.SurfaceBright to neutralPalette.tone(24),
+                Key.SurfaceDim to neutralPalette.tone(6),
+                Key.SurfaceContainer to neutralPalette.tone(12),
+                Key.SurfaceContainerHigh to neutralPalette.tone(17),
+                Key.SurfaceContainerHighest to neutralPalette.tone(22),
+                Key.SurfaceContainerLow to neutralPalette.tone(10),
+                Key.SurfaceContainerLowest to neutralPalette.tone(4),
+                Key.PrimaryFixed to palette.tone(90),
+                Key.PrimaryFixedDim to palette.tone(80),
+                Key.OnPrimaryFixed to palette.tone(10),
+                Key.OnPrimaryFixedVariant to palette.tone(30),
+                Key.SecondaryFixed to secondaryPalette.tone(90),
+                Key.SecondaryFixedDim to secondaryPalette.tone(80),
+                Key.OnSecondaryFixed to secondaryPalette.tone(10),
+                Key.OnSecondaryFixedVariant to secondaryPalette.tone(30),
+                Key.TertiaryFixed to tertiaryPalette.tone(90),
+                Key.TertiaryFixedDim to tertiaryPalette.tone(80),
+                Key.OnTertiaryFixed to tertiaryPalette.tone(10),
+                Key.OnTertiaryFixedVariant to tertiaryPalette.tone(30),
+            )
+        } else {
+            mapOf(
+                Key.Primary to palette.tone(40),
+                Key.OnPrimary to palette.tone(100),
+                Key.PrimaryContainer to palette.tone(90),
+                Key.OnPrimaryContainer to palette.tone(10),
+                Key.InversePrimary to palette.tone(80),
+                Key.Secondary to secondaryPalette.tone(40),
+                Key.OnSecondary to secondaryPalette.tone(100),
+                Key.SecondaryContainer to secondaryPalette.tone(90),
+                Key.OnSecondaryContainer to secondaryPalette.tone(10),
+                Key.Tertiary to tertiaryPalette.tone(40),
+                Key.OnTertiary to tertiaryPalette.tone(100),
+                Key.TertiaryContainer to tertiaryPalette.tone(90),
+                Key.OnTertiaryContainer to tertiaryPalette.tone(10),
+                Key.Background to neutralPalette.tone(99),
+                Key.OnBackground to neutralPalette.tone(10),
+                Key.Surface to neutralPalette.tone(99),
+                Key.OnSurface to neutralPalette.tone(10),
+                Key.SurfaceVariant to neutralVariantPalette.tone(90),
+                Key.OnSurfaceVariant to neutralVariantPalette.tone(30),
+                Key.SurfaceTint to palette.tone(40),
+                Key.InverseSurface to neutralPalette.tone(20),
+                Key.InverseOnSurface to neutralPalette.tone(95),
+                Key.Error to errorPalette.tone(40),
+                Key.OnError to errorPalette.tone(100),
+                Key.ErrorContainer to errorPalette.tone(90),
+                Key.OnErrorContainer to errorPalette.tone(10),
+                Key.Outline to neutralVariantPalette.tone(50),
+                Key.OutlineVariant to neutralVariantPalette.tone(80),
+                Key.Scrim to TonalPalette.fromHueAndChroma(0.0, 0.0).tone(0),
+                Key.SurfaceBright to neutralPalette.tone(98),
+                Key.SurfaceDim to neutralPalette.tone(87),
+                Key.SurfaceContainer to neutralPalette.tone(94),
+                Key.SurfaceContainerHigh to neutralPalette.tone(92),
+                Key.SurfaceContainerHighest to neutralPalette.tone(90),
+                Key.SurfaceContainerLow to neutralPalette.tone(96),
+                Key.SurfaceContainerLowest to neutralPalette.tone(100),
+                Key.PrimaryFixed to palette.tone(90),
+                Key.PrimaryFixedDim to palette.tone(80),
+                Key.OnPrimaryFixed to palette.tone(10),
+                Key.OnPrimaryFixedVariant to palette.tone(30),
+                Key.SecondaryFixed to secondaryPalette.tone(90),
+                Key.SecondaryFixedDim to secondaryPalette.tone(80),
+                Key.OnSecondaryFixed to secondaryPalette.tone(10),
+                Key.OnSecondaryFixedVariant to secondaryPalette.tone(30),
+                Key.TertiaryFixed to tertiaryPalette.tone(90),
+                Key.TertiaryFixedDim to tertiaryPalette.tone(80),
+                Key.OnTertiaryFixed to tertiaryPalette.tone(10),
+                Key.OnTertiaryFixedVariant to tertiaryPalette.tone(30),
+            )
+        }
+    }
+}

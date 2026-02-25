@@ -28,5 +28,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "Synara"
 include(":app")
+include(":synara")
+include(":classic")
 include(":common-rpc")
 include(":common-rpc:compiler")
