@@ -12,8 +12,7 @@ import org.lwjgl.openal.ALC
 import org.lwjgl.openal.ALC10.*
 import java.nio.IntBuffer
 
-@DelicateCoroutinesApi
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, DelicateCoroutinesApi::class)
 class JvmAudioPlayer(
     songService: ISongService,
 ) : AudioPlayer {

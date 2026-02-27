@@ -10,3 +10,7 @@ import org.koin.dsl.module
 actual fun platformModule(): Module = module {
     singleOf(::JvmAudioPlayer) bind AudioPlayer::class
 }
+
+actual fun platformInit() {
+    System.setProperty("compose.accessibility.enable", "false")
+}

@@ -58,6 +58,7 @@ private fun buildHttpClient(cbor: Cbor, json: Json): HttpClient {
 }
 
 expect fun platformModule(): Module
+expect fun platformInit()
 
 @OptIn(ExperimentalSerializationApi::class)
 val appModule = module {
@@ -106,6 +107,7 @@ val appModule = module {
 }
 
 fun initializeSynara() {
+    platformInit()
     setupCoil()
     initKoin()
 }
