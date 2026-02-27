@@ -20,6 +20,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.platform.PlatformContext
 import androidx.compose.ui.platform.WindowInfo
 import androidx.compose.ui.scene.CanvasLayersComposeScene
+import androidx.compose.ui.scene.ComposeScene
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
@@ -207,9 +208,11 @@ fun runTransparentWindow(
     var isWindowFocused by mutableStateOf(true)
     val textInputService = GlfwTextInputService()
 
+    var scenePtr: ComposeScene? = null
     val platformContext = object : PlatformContext.Empty() {
         override val windowInfo: WindowInfo = object : WindowInfo {
             override val isWindowFocused: Boolean get() = isWindowFocused
+            override val containerSize: IntSize get() = scenePtr?.size ?: IntSize.Zero
         }
         override val textInputService: PlatformTextInputService = textInputService
     }
@@ -218,8 +221,9 @@ fun runTransparentWindow(
         density = density,
         coroutineContext = Dispatchers.Unconfined,
         platformContext = platformContext,
-        invalidate = { }
+        invalidate = { glfwPostEmptyEvent() }
     )
+    scenePtr = scene
 
     scene.setContent {
         MaterialTheme(
@@ -323,8 +327,26 @@ fun runTransparentWindow(
                 GLFW_MOUSE_BUTTON_LEFT -> PointerButton.Primary
                 GLFW_MOUSE_BUTTON_RIGHT -> PointerButton.Secondary
                 GLFW_MOUSE_BUTTON_MIDDLE -> PointerButton.Tertiary
+                GLFW_MOUSE_BUTTON_4 -> PointerButton.Back
+                GLFW_MOUSE_BUTTON_5 -> PointerButton.Forward
                 else -> null
             }
+        )
+    }
+
+    glfwSetScrollCallback(windowHandle) { _, xOffset, yOffset ->
+        scene.sendPointerEvent(
+            eventType = PointerEventType.Scroll,
+            position = run {
+                val x = DoubleArray(1)
+                val y = DoubleArray(1)
+                glfwGetCursorPos(windowHandle, x, y)
+                Offset(x[0].toFloat(), y[0].toFloat())
+            },
+            scrollDelta = Offset(
+                xOffset.toFloat() * 2.5f * density.density,
+                -yOffset.toFloat() * 2.5f * density.density
+            )
         )
     }
 

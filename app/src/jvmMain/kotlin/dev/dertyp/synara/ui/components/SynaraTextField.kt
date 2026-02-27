@@ -1,12 +1,13 @@
 package dev.dertyp.synara.ui.components
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.text.KeyboardActionScope
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.LocalTextStyle
-import androidx.compose.material3.TextField
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.TextFieldColors
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -42,8 +43,8 @@ fun SynaraTextField(
     maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
     minLines: Int = 1,
     interactionSource: MutableInteractionSource? = null,
-    shape: Shape = TextFieldDefaults.shape,
-    colors: TextFieldColors = TextFieldDefaults.colors(),
+    shape: Shape = OutlinedTextFieldDefaults.shape,
+    colors: TextFieldColors = OutlinedTextFieldDefaults.colors(),
 ) {
     val editProcessor = remember { EditProcessor() }
     var textFieldValueState by remember { mutableStateOf(TextFieldValue(text = value)) }
@@ -51,6 +52,14 @@ fun SynaraTextField(
     var focused by remember { mutableStateOf(false) }
 
     val inputService = LocalTextInputService.current
+
+    val scope = remember(keyboardActions) {
+        object : KeyboardActionScope {
+            override fun defaultKeyboardAction(imeAction: ImeAction) {
+            }
+        }
+    }
+
     LaunchedEffect(inputService, focused) {
         if (focused) {
             textInputSession = inputService?.startInput(
@@ -65,7 +74,17 @@ fun SynaraTextField(
                         onValueChange(textFieldValueState.text)
                     }
                 },
-                onImeActionPerformed = {}
+                onImeActionPerformed = { action ->
+                    when (action) {
+                        ImeAction.Done -> keyboardActions.onDone?.invoke(scope)
+                        ImeAction.Next -> keyboardActions.onNext?.invoke(scope)
+                        ImeAction.Search -> keyboardActions.onSearch?.invoke(scope)
+                        ImeAction.Send -> keyboardActions.onSend?.invoke(scope)
+                        ImeAction.Go -> keyboardActions.onGo?.invoke(scope)
+                        ImeAction.Previous -> keyboardActions.onPrevious?.invoke(scope)
+                        else -> {}
+                    }
+                }
             )
         } else textInputSession?.let { inputService?.stopInput(it) }
     }
@@ -76,7 +95,7 @@ fun SynaraTextField(
         }
     }
 
-    TextField(
+    OutlinedTextField(
         value = textFieldValueState,
         onValueChange = {
             textFieldValueState = it

@@ -5,21 +5,30 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import dev.dertyp.synara.SynaraView
+import dev.dertyp.synara.di.initializeSynara
 import dev.dertyp.synara.theme.SynaraAppTheme
 import dev.dertyp.synara.theme.isAppDark
 
-fun main() = application {
-    Window(onCloseRequest = ::exitApplication, title = "Classic Synara") {
-        val theme = SynaraAppTheme(isAppDark())
-        MaterialTheme(
-            colorScheme = theme.colorScheme,
-            typography = theme.typography,
-            shapes = theme.shapes
+fun main() {
+    initializeSynara()
+    application {
+        Window(
+            onCloseRequest = ::exitApplication,
+            title = "Classic Synara",
+            transparent = true,
+            undecorated = true
         ) {
-            Surface(
-                color = MaterialTheme.colorScheme.background
+            val theme = SynaraAppTheme(isAppDark())
+            MaterialTheme(
+                colorScheme = theme.colorScheme,
+                typography = theme.typography,
+                shapes = theme.shapes
             ) {
-                SynaraView()
+                Surface(
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    SynaraView()
+                }
             }
         }
     }

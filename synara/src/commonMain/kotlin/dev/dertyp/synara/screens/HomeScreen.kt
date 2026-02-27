@@ -1,0 +1,368 @@
+package dev.dertyp.synara.screens
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isBackPressed
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.koin.getScreenModel
+import cafe.adriel.voyager.navigator.Navigator
+import cafe.adriel.voyager.transitions.SlideTransition
+import dev.dertyp.data.ServerStats
+import dev.dertyp.data.UserPlaylist
+import dev.dertyp.synara.InternalTextField
+import dev.dertyp.synara.theme.isAppDark
+import dev.dertyp.synara.ui.components.PlayerBar
+import dev.dertyp.synara.viewmodels.HomeScreenModel
+import org.jetbrains.compose.resources.stringResource
+import synara.synara.generated.resources.*
+
+class HomeScreen : Screen {
+    @OptIn(ExperimentalComposeUiApi::class)
+    @Composable
+    override fun Content() {
+        val screenModel = getScreenModel<HomeScreenModel>()
+
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(modifier = Modifier.weight(1f)) {
+                Navigator(DashboardScreen()) { innerNavigator ->
+                    Sidebar(screenModel, innerNavigator)
+
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .pointerInput(innerNavigator) {
+                                awaitPointerEventScope {
+                                    while (true) {
+                                        val event = awaitPointerEvent()
+                                        if (event.type == PointerEventType.Press && (event.buttons.isBackPressed || event.button?.index == 5)) {
+                                            if (innerNavigator.canPop) {
+                                                innerNavigator.pop()
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                    ) {
+                        TopBar(screenModel, innerNavigator)
+
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            SlideTransition(innerNavigator)
+                        }
+                    }
+                }
+            }
+
+            PlayerBar()
+        }
+    }
+
+    @Composable
+    private fun Sidebar(screenModel: HomeScreenModel, navigator: Navigator) {
+        val playlists by screenModel.globalState.userPlaylists.collectAsState()
+        val isRefreshing by screenModel.globalState.isRefreshingPlaylists.collectAsState()
+
+        Surface(
+            modifier = Modifier
+                .width(260.dp)
+                .fillMaxHeight(),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+            tonalElevation = 1.dp
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(Res.string.library),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 16.dp, start = 8.dp)
+                )
+
+                NavigationItem(
+                    label = stringResource(Res.string.home),
+                    icon = Icons.Rounded.Home,
+                    selected = navigator.lastItem is DashboardScreen,
+                    onClick = { if (navigator.lastItem !is DashboardScreen) navigator.replaceAll(DashboardScreen()) }
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp, start = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(Res.string.playlists),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    
+                    if (isRefreshing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    } else {
+                        IconButton(
+                            onClick = { screenModel.globalState.refreshPlaylists() },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                Icons.Rounded.Refresh,
+                                contentDescription = stringResource(Res.string.refresh_playlists),
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    items(playlists) { playlist ->
+                        PlaylistNavItem(playlist) {
+                            val current = navigator.lastItem
+                            if (current !is PlaylistScreen || current.playlistId != playlist.id) {
+                                navigator.push(PlaylistScreen(playlist.id, isUserPlaylist = true))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun NavigationItem(
+        label: String,
+        icon: ImageVector,
+        selected: Boolean,
+        onClick: () -> Unit
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(onClick = onClick),
+            color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun PlaylistNavItem(playlist: UserPlaylist, onClick: () -> Unit) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(onClick = onClick),
+            color = Color.Transparent
+        ) {
+            Text(
+                text = playlist.name,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+
+    @Composable
+    private fun TopBar(screenModel: HomeScreenModel, navigator: Navigator) {
+        val isDark = isAppDark()
+
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+            tonalElevation = 2.dp,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                var searchQuery by remember { mutableStateOf("") }
+
+                InternalTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { 
+                        Text(
+                            stringResource(Res.string.search), 
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        ) 
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp),
+                    leadingIcon = { 
+                        Icon(
+                            Icons.Rounded.Search, 
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        ) 
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(26.dp),
+                )
+
+                IconButton(onClick = { screenModel.toggleDarkMode() }) {
+                    Icon(
+                        imageVector = if (isDark) Icons.Rounded.LightMode else Icons.Rounded.DarkMode,
+                        contentDescription = stringResource(Res.string.dark_mode)
+                    )
+                }
+
+                IconButton(onClick = { 
+                    if (navigator.lastItem !is SessionsScreen) navigator.push(SessionsScreen())
+                }) {
+                    Icon(Icons.Rounded.CastConnected, contentDescription = stringResource(Res.string.sessions), tint = MaterialTheme.colorScheme.onSurface)
+                }
+
+                IconButton(onClick = { 
+                    if (navigator.lastItem !is SettingsScreen) navigator.push(SettingsScreen())
+                }) {
+                    Icon(Icons.Rounded.Settings, contentDescription = stringResource(Res.string.settings), tint = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+        }
+    }
+}
+
+private class DashboardScreen : Screen {
+    @Composable
+    override fun Content() {
+        val screenModel = getScreenModel<HomeScreenModel>()
+        val stats by screenModel.serverStats.collectAsState()
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = stringResource(Res.string.dashboard),
+                style = MaterialTheme.typography.headlineLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+
+            stats?.let { DashboardStats(it) } ?: CircularProgressIndicator()
+        }
+    }
+
+    @Composable
+    private fun DashboardStats(stats: ServerStats) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                StatCard(stringResource(Res.string.songs), stats.songCount.toString(), Modifier.weight(1f))
+                StatCard(stringResource(Res.string.albums), stats.albumCount.toString(), Modifier.weight(1f))
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                StatCard(stringResource(Res.string.artists), stats.artistCount.toString(), Modifier.weight(1f))
+                StatCard(stringResource(Res.string.playlists), stats.playlistCount.toString(), Modifier.weight(1f))
+            }
+
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = stringResource(Res.string.server_version),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = stats.version.version,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
+        ElevatedCard(
+            modifier = modifier,
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+    }
+}
