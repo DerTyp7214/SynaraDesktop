@@ -43,10 +43,27 @@ class HomeScreen : Screen {
         val screenModel = getScreenModel<HomeScreenModel>()
         val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
         val scope = rememberCoroutineScope()
+        val isPlayerExpanded by screenModel.globalState.isPlayerExpanded.collectAsState()
 
         Navigator(DashboardScreen()) { navigator ->
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                 val isCompact = maxWidth < 900.dp
+                val playerHeight = 110.dp
+
+                val backInputModifier = Modifier.pointerInput(navigator, isPlayerExpanded) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            if (event.type == PointerEventType.Press && (event.buttons.isBackPressed || event.button?.index == 5)) {
+                                if (isPlayerExpanded) {
+                                    screenModel.globalState.setPlayerExpanded(false)
+                                } else if (navigator.canPop) {
+                                    navigator.pop()
+                                }
+                            }
+                        }
+                    }
+                }
 
                 if (isCompact) {
                     ModalNavigationDrawer(
@@ -61,56 +78,29 @@ class HomeScreen : Screen {
                                     scope.launch { drawerState.close() }
                                 })
                             }
-                        }
+                        },
+                        gesturesEnabled = !isPlayerExpanded
                     ) {
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            Row(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .pointerInput(navigator) {
-                                        awaitPointerEventScope {
-                                            while (true) {
-                                                val event = awaitPointerEvent()
-                                                if (event.type == PointerEventType.Press && (event.buttons.isBackPressed || event.button?.index == 5)) {
-                                                    if (navigator.canPop) {
-                                                        navigator.pop()
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                            ) {
-                                Column(modifier = Modifier.fillMaxSize()) {
-                                    TopBar(screenModel, navigator, onMenuClick = {
-                                        scope.launch { drawerState.open() }
-                                    }, showMenu = true)
+                        Box(modifier = Modifier.fillMaxSize().then(backInputModifier)) {
+                            Column(modifier = Modifier.fillMaxSize().padding(bottom = playerHeight)) {
+                                TopBar(screenModel, navigator, onMenuClick = {
+                                    scope.launch { drawerState.open() }
+                                }, showMenu = true)
 
-                                    Box(modifier = Modifier.fillMaxSize()) {
-                                        SlideTransition(navigator)
-                                    }
+                                Box(modifier = Modifier.fillMaxSize()) {
+                                    SlideTransition(navigator)
                                 }
                             }
-                            PlayerBar()
+                            
+                            PlayerBar(
+                                modifier = Modifier.align(Alignment.BottomCenter),
+                                height = playerHeight
+                            )
                         }
                     }
                 } else {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        Row(
-                            modifier = Modifier
-                                .weight(1f)
-                                .pointerInput(navigator) {
-                                    awaitPointerEventScope {
-                                        while (true) {
-                                            val event = awaitPointerEvent()
-                                            if (event.type == PointerEventType.Press && (event.buttons.isBackPressed || event.button?.index == 5)) {
-                                                if (navigator.canPop) {
-                                                    navigator.pop()
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                        ) {
+                    Box(modifier = Modifier.fillMaxSize().then(backInputModifier)) {
+                        Row(modifier = Modifier.fillMaxSize().padding(bottom = playerHeight)) {
                             Sidebar(screenModel, navigator)
 
                             Column(modifier = Modifier.weight(1f)) {
@@ -121,7 +111,11 @@ class HomeScreen : Screen {
                                 }
                             }
                         }
-                        PlayerBar()
+
+                        PlayerBar(
+                            modifier = Modifier.align(Alignment.BottomCenter),
+                            height = playerHeight
+                        )
                     }
                 }
             }

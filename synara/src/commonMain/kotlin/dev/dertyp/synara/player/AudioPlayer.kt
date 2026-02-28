@@ -14,6 +14,7 @@ interface AudioPlayer {
     val sampleRate: StateFlow<Int>
     val bitsPerSample: StateFlow<Int>
     val bitRate: StateFlow<Long>
+    val fftData: StateFlow<FloatArray>
 
     fun play()
     fun pause()

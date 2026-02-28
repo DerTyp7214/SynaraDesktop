@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
+import kotlin.math.min
 
 @Composable
 fun animateColorSchemeAsState(
@@ -91,4 +92,14 @@ fun animateColorSchemeAsState(
             )
         }
     }
+}
+
+fun FloatArray.takeAverage(n: Int): Float {
+    if (n <= 0) return 0f
+    var sum = 0f
+    val limit = min(n, size)
+    for (i in 0 until limit) {
+        sum += get(i)
+    }
+    return if (limit > 0) sum / limit else 0f
 }

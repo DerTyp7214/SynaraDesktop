@@ -24,6 +24,10 @@ sealed class SettingKey<T>(val name: String) {
     data object LastFmSessionKey : SettingKey<String>("lastfm_session_key")
     data object LastFmUsername : SettingKey<String>("lastfm_username")
 
+    // Visualizer
+    data object VisualizerBarCount : SettingKey<Int>("visualizer_bar_count")
+    data object ParticleMultiplier : SettingKey<Float>("particle_multiplier")
+
     companion object {
         val authKeys = setOf(AuthToken.name, RefreshToken.name, TokenExpiration.name)
     }
@@ -65,11 +69,12 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.ListenBrainzToken, is SettingKey.LastFmApiKey,
         is SettingKey.LastFmSharedSecret, is SettingKey.LastFmSessionKey,
         is SettingKey.LastFmUsername -> getStringOrNull(key.name) as T?
-        is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor -> getIntOrNull(key.name) as T?
+        is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor,
+        is SettingKey.VisualizerBarCount -> getIntOrNull(key.name) as T?
         is SettingKey.TokenExpiration -> getLongOrNull(key.name) as T?
         is SettingKey.DarkTheme, is SettingKey.UseSongColor, is SettingKey.UsePywal,
         is SettingKey.IsListenBrainzEnabled, is SettingKey.IsLastFmEnabled -> getBooleanOrNull(key.name) as T?
-        is SettingKey.Volume -> getFloatOrNull(key.name) as T?
+        is SettingKey.Volume, is SettingKey.ParticleMultiplier -> getFloatOrNull(key.name) as T?
     }
 }
 

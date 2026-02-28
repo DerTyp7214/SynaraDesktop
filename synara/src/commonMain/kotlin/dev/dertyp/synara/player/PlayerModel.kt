@@ -9,6 +9,7 @@ import dev.dertyp.synara.rpc.services.SongServiceWrapper
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.put
+import dev.dertyp.synara.takeAverage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,6 +24,7 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
+import kotlin.math.log10
 
 @Suppress("unused")
 @OptIn(ExperimentalSerializationApi::class)
@@ -74,6 +76,18 @@ class PlayerModel(
     val sampleRate: StateFlow<Int> = audioPlayer.sampleRate
     val bitsPerSample: StateFlow<Int> = audioPlayer.bitsPerSample
     val bitRate: StateFlow<Long> = audioPlayer.bitRate
+    val fftData: StateFlow<FloatArray> = audioPlayer.fftData
+
+    val audioIntensity: StateFlow<Float> = audioPlayer.fftData
+        .map { fft ->
+            if (fft.isEmpty()) return@map 0f
+            val avgMagnitude = fft.takeAverage(5)
+            val minDb = -90f
+            val maxDb = -20f
+            val db = if (avgMagnitude > 0.00003f) 20f * log10(avgMagnitude) else minDb
+            ((db - minDb) / (maxDb - minDb)).coerceIn(0f, 1f)
+        }
+        .stateIn(scope, SharingStarted.Lazily, 0f)
 
     init {
         loadState()
@@ -372,6 +386,18 @@ class PlayerModel(
         } else if (_repeatMode.value == RepeatMode.ALL && _queue.value.isNotEmpty()) {
             playAtIndex(_queue.value.size - 1)
         }
+    }
+
+    fun stop() {
+        audioPlayer.stop()
+    }
+
+    fun pause() {
+        audioPlayer.pause()
+    }
+
+    fun play() {
+        audioPlayer.play()
     }
 
     fun seekTo(positionMs: Long) {

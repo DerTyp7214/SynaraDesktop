@@ -64,6 +64,13 @@ object Config : KoinComponent {
     private val _lastFmUsername = MutableStateFlow(settings.getOrNull(SettingKey.LastFmUsername) ?: "")
     val lastFmUsername: StateFlow<String> = _lastFmUsername.asStateFlow()
 
+    // Visualizer
+    private val _visualizerBarCount = MutableStateFlow(settings.get(SettingKey.VisualizerBarCount, 120))
+    val visualizerBarCount: StateFlow<Int> = _visualizerBarCount.asStateFlow()
+
+    private val _particleMultiplier = MutableStateFlow(settings.get(SettingKey.ParticleMultiplier, 2.5f))
+    val particleMultiplier: StateFlow<Float> = _particleMultiplier.asStateFlow()
+
     fun setDarkTheme(isDark: Boolean) {
         _darkTheme.value = isDark
         settings.putBoolean("dark_theme", isDark)
@@ -150,5 +157,15 @@ object Config : KoinComponent {
     fun setLastFmUsername(username: String) {
         _lastFmUsername.value = username
         settings.put(SettingKey.LastFmUsername, username)
+    }
+
+    fun setVisualizerBarCount(count: Int) {
+        _visualizerBarCount.value = count
+        settings.put(SettingKey.VisualizerBarCount, count)
+    }
+
+    fun setParticleMultiplier(multiplier: Float) {
+        _particleMultiplier.value = multiplier
+        settings.put(SettingKey.ParticleMultiplier, multiplier)
     }
 }

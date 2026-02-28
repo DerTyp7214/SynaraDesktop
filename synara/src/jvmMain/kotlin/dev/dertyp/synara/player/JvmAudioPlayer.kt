@@ -11,6 +11,8 @@ import org.lwjgl.openal.AL11.AL_SAMPLE_OFFSET
 import org.lwjgl.openal.ALC
 import org.lwjgl.openal.ALC10.*
 import java.nio.IntBuffer
+import java.nio.ShortBuffer
+import java.util.ArrayDeque
 
 @OptIn(ExperimentalCoroutinesApi::class, DelicateCoroutinesApi::class)
 class JvmAudioPlayer(
@@ -45,6 +47,9 @@ class JvmAudioPlayer(
 
     private val _bitRate = MutableStateFlow(0L)
     override val bitRate = _bitRate.asStateFlow()
+
+    private val fftAnalyzer = FftAnalyzer(1024)
+    override val fftData = fftAnalyzer.fftData
 
     private val _onFinished = MutableSharedFlow<Unit>()
     override val onFinished = _onFinished.asSharedFlow()
@@ -152,12 +157,20 @@ class JvmAudioPlayer(
                 val channels = session.channels
                 val alFormat = if (channels == 1) AL_FORMAT_MONO16 else AL_FORMAT_STEREO16
                 var totalSamplesPlayedBase = (startTimeMs * sampleRate) / 1000
+                
+                // FFT synchronization queue
+                val fftQueue = ArrayDeque<Pair<Long, FloatArray>>()
+                var totalSamplesQueued = totalSamplesPlayedBase
 
                 val pcmChannel = session.pcmFlow.produceIn(this)
 
                 // Initial buffering
                 for (i in 0 until numBuffers) {
                     val buffer = pcmChannel.receiveCatching().getOrNull() ?: break
+                    val mags = processFft(buffer, channels)
+                    fftQueue.add(totalSamplesQueued to mags)
+                    totalSamplesQueued += buffer.remaining() / channels
+                    
                     alBufferData(buffers.get(i), alFormat, buffer, sampleRate)
                     alSourceQueueBuffers(sourceId, buffers.get(i))
                 }
@@ -178,6 +191,10 @@ class JvmAudioPlayer(
 
                         val pcmData = pcmChannel.receiveCatching().getOrNull()
                         if (pcmData != null) {
+                            val mags = processFft(pcmData, channels)
+                            fftQueue.add(totalSamplesQueued to mags)
+                            totalSamplesQueued += pcmData.remaining() / channels
+                            
                             alBufferData(bufferId, alFormat, pcmData, sampleRate)
                             alSourceQueueBuffers(sourceId, bufferId)
                         }
@@ -198,11 +215,27 @@ class JvmAudioPlayer(
                     val currentTotalSamples = totalSamplesPlayedBase + samplesInCurrentBuffer
                     _currentPosition.value = currentTotalSamples * 1000 / sampleRate
                     
+                    // Sync FFT
+                    while (fftQueue.size > 1) {
+                        val it = fftQueue.iterator()
+                        it.next() // current
+                        if (it.next().first <= currentTotalSamples) {
+                            fftQueue.removeFirst()
+                        } else {
+                            break
+                        }
+                    }
+                    fftQueue.peekFirst()?.let { (start, mags) ->
+                        if (start <= currentTotalSamples) {
+                            fftAnalyzer.updateData(mags)
+                        }
+                    }
+
                     if (alGetSourcei(sourceId, AL_BUFFERS_QUEUED) == 0 && pcmChannel.isClosedForReceive) {
                         break
                     }
 
-                    delay(100)
+                    delay(10)
                 }
 
                 if (isActive && alGetSourcei(sourceId, AL_BUFFERS_QUEUED) == 0) {
@@ -215,8 +248,25 @@ class JvmAudioPlayer(
                 }
             } finally {
                 _isPlaying.value = false
+                fftAnalyzer.updateData(FloatArray(fftAnalyzer.fftData.value.size))
             }
         }
+    }
+
+    private fun processFft(buffer: ShortBuffer, channels: Int): FloatArray {
+        val size = buffer.remaining()
+        val pcm = ShortArray(size / channels)
+        val startPos = buffer.position()
+        for (i in pcm.indices) {
+            if (channels == 2) {
+                val left = buffer.get(startPos + i * 2)
+                val right = buffer.get(startPos + i * 2 + 1)
+                pcm[i] = ((left.toInt() + right.toInt()) / 2).toShort()
+            } else {
+                pcm[i] = buffer.get(startPos + i)
+            }
+        }
+        return fftAnalyzer.getMagnitudes(pcm)
     }
 
     override fun release() {

@@ -33,6 +33,9 @@ class GlobalStateModel(
     private val _isRefreshingPlaylists = MutableStateFlow(false)
     val isRefreshingPlaylists = _isRefreshingPlaylists.asStateFlow()
 
+    private val _isPlayerExpanded = MutableStateFlow(false)
+    val isPlayerExpanded = _isPlayerExpanded.asStateFlow()
+
     init {
         refreshUser()
         refreshPlaylists()
@@ -85,5 +88,13 @@ class GlobalStateModel(
                 _isRefreshingPlaylists.value = false
             }
         }
+    }
+
+    fun setPlayerExpanded(expanded: Boolean) {
+        _isPlayerExpanded.value = expanded
+    }
+
+    fun togglePlayerExpanded() {
+        _isPlayerExpanded.value = !_isPlayerExpanded.value
     }
 }
