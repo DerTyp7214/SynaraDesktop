@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.toArgb
 import com.russhwolf.settings.Settings
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
+import dev.dertyp.synara.settings.getOrNull
 import dev.dertyp.synara.settings.put
 import dev.dertyp.synara.theme.createColorSchemeFromSeeds
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +41,28 @@ object Config : KoinComponent {
 
     private val _lightColorScheme = MutableStateFlow(createColorSchemeFromSeeds(Triple(_lightThemeColor.value.toArgb(), null, null), false))
     val lightColorScheme: StateFlow<ColorScheme> = _lightColorScheme.asStateFlow()
+
+    // Scrobbling
+    private val _isListenBrainzEnabled = MutableStateFlow(settings.get(SettingKey.IsListenBrainzEnabled, false))
+    val isListenBrainzEnabled: StateFlow<Boolean> = _isListenBrainzEnabled.asStateFlow()
+
+    private val _listenBrainzToken = MutableStateFlow(settings.getOrNull(SettingKey.ListenBrainzToken) ?: "")
+    val listenBrainzToken: StateFlow<String> = _listenBrainzToken.asStateFlow()
+
+    private val _isLastFmEnabled = MutableStateFlow(settings.get(SettingKey.IsLastFmEnabled, false))
+    val isLastFmEnabled: StateFlow<Boolean> = _isLastFmEnabled.asStateFlow()
+
+    private val _lastFmApiKey = MutableStateFlow(settings.getOrNull(SettingKey.LastFmApiKey) ?: "")
+    val lastFmApiKey: StateFlow<String> = _lastFmApiKey.asStateFlow()
+
+    private val _lastFmSharedSecret = MutableStateFlow(settings.getOrNull(SettingKey.LastFmSharedSecret) ?: "")
+    val lastFmSharedSecret: StateFlow<String> = _lastFmSharedSecret.asStateFlow()
+
+    private val _lastFmSessionKey = MutableStateFlow(settings.getOrNull(SettingKey.LastFmSessionKey) ?: "")
+    val lastFmSessionKey: StateFlow<String> = _lastFmSessionKey.asStateFlow()
+
+    private val _lastFmUsername = MutableStateFlow(settings.getOrNull(SettingKey.LastFmUsername) ?: "")
+    val lastFmUsername: StateFlow<String> = _lastFmUsername.asStateFlow()
 
     fun setDarkTheme(isDark: Boolean) {
         _darkTheme.value = isDark
@@ -92,5 +115,40 @@ object Config : KoinComponent {
 
     fun setLightColorScheme(colorScheme: ColorScheme) {
         _lightColorScheme.value = colorScheme
+    }
+
+    fun setIsListenBrainzEnabled(enabled: Boolean) {
+        _isListenBrainzEnabled.value = enabled
+        settings.put(SettingKey.IsListenBrainzEnabled, enabled)
+    }
+
+    fun setListenBrainzToken(token: String) {
+        _listenBrainzToken.value = token
+        settings.put(SettingKey.ListenBrainzToken, token)
+    }
+
+    fun setIsLastFmEnabled(enabled: Boolean) {
+        _isLastFmEnabled.value = enabled
+        settings.put(SettingKey.IsLastFmEnabled, enabled)
+    }
+
+    fun setLastFmApiKey(apiKey: String) {
+        _lastFmApiKey.value = apiKey
+        settings.put(SettingKey.LastFmApiKey, apiKey)
+    }
+
+    fun setLastFmSharedSecret(sharedSecret: String) {
+        _lastFmSharedSecret.value = sharedSecret
+        settings.put(SettingKey.LastFmSharedSecret, sharedSecret)
+    }
+
+    fun setLastFmSessionKey(sessionKey: String) {
+        _lastFmSessionKey.value = sessionKey
+        settings.put(SettingKey.LastFmSessionKey, sessionKey)
+    }
+
+    fun setLastFmUsername(username: String) {
+        _lastFmUsername.value = username
+        settings.put(SettingKey.LastFmUsername, username)
     }
 }

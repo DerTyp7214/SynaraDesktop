@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">Synara</string>
     <string name="login">Login</string>
+    <string name="logout">Logout</string>
     <string name="username">Username</string>
     <string name="password">Password</string>
     <string name="host">Host</string>
@@ -38,6 +39,24 @@
     <string name="tone">Tone</string>
     <string name="use_song_color">Use color of currently playing song</string>
     <string name="use_pywal">Use Pywal colors (Linux only)</string>
+
+    <!-- Scrobbling -->
+    <string name="scrobbling">Scrobbling</string>
+    <string name="enable_listenbrainz">Enable ListenBrainz</string>
+    <string name="listenbrainz_token">ListenBrainz Token</string>
+    <string name="enable_lastfm">Enable Last.fm</string>
+    <string name="lastfm_api_key">Last.fm API Key</string>
+    <string name="lastfm_shared_secret">Last.fm Shared Secret</string>
+    <string name="lastfm_session_key">Last.fm Session Key</string>
+    <string name="lastfm_login">Login to Last.fm</string>
+    <string name="lastfm_username">Last.fm Username</string>
+    <string name="lastfm_password">Last.fm Password</string>
+    <string name="lastfm_auth_title">Last.fm Authentication</string>
+    <string name="lastfm_login_failed">Last.fm login failed</string>
+    <string name="lastfm_authenticated">Authenticated as %1$s</string>
+    <string name="lastfm_not_authenticated">Not authenticated</string>
+    <string name="song_scrobbled">Song scrobbled</string>
+    <string name="pending_scrobble">Pending scrobble</string>
 
     <!-- Player -->
     <string name="play">Play</string>

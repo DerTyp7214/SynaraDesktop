@@ -1,0 +1,36 @@
+CREATE TABLE ScrobbleQueueEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    payload TEXT NOT NULL,
+    timestamp INTEGER NOT NULL,
+    target TEXT NOT NULL
+);
+
+CREATE TABLE LocalHistoryEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    song_id TEXT NOT NULL,
+    timestamp INTEGER NOT NULL,
+    payload TEXT NOT NULL
+);
+
+insert:
+INSERT INTO ScrobbleQueueEntity(payload, timestamp, target)
+VALUES (?, ?, ?);
+
+getAll:
+SELECT * FROM ScrobbleQueueEntity WHERE target = ? ORDER BY timestamp ASC;
+
+peek:
+SELECT * FROM ScrobbleQueueEntity WHERE target = ? ORDER BY timestamp ASC LIMIT 1;
+
+delete:
+DELETE FROM ScrobbleQueueEntity WHERE id = ?;
+
+getCount:
+SELECT count(*) FROM ScrobbleQueueEntity WHERE target = ?;
+
+insertHistory:
+INSERT INTO LocalHistoryEntity(song_id, timestamp, payload)
+VALUES (?, ?, ?);
+
+getHistory:
+SELECT * FROM LocalHistoryEntity ORDER BY timestamp DESC LIMIT ?;

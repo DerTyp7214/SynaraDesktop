@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.core.screen.ScreenKey
@@ -23,15 +24,20 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.synara.Config
 import dev.dertyp.synara.IS_DEBUG
+import dev.dertyp.synara.InternalTextField
+import dev.dertyp.synara.scrobble.LastFmScrobbler
 import dev.dertyp.synara.theme.PywalLoader
 import dev.dertyp.synara.ui.components.ColorPicker
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 import synara.synara.generated.resources.*
 
 class SettingsScreen : Screen {
 
     override val key: ScreenKey = uniqueScreenKey
 
+    @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
@@ -41,36 +47,47 @@ class SettingsScreen : Screen {
         val useSongColor by Config.useSongColor.collectAsState()
         val usePywal by Config.usePywal.collectAsState()
 
+        val isListenBrainzEnabled by Config.isListenBrainzEnabled.collectAsState()
+        val listenBrainzToken by Config.listenBrainzToken.collectAsState()
+        val isLastFmEnabled by Config.isLastFmEnabled.collectAsState()
+        val lastFmApiKey by Config.lastFmApiKey.collectAsState()
+        val lastFmSharedSecret by Config.lastFmSharedSecret.collectAsState()
+        val lastFmSessionKey by Config.lastFmSessionKey.collectAsState()
+        val lastFmUsername by Config.lastFmUsername.collectAsState()
+
         Scaffold(
-            containerColor = Color.Transparent
+            containerColor = Color.Transparent,
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = stringResource(Res.string.settings),
+                            style = MaterialTheme.typography.headlineMedium
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { navigator.pop() }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                                contentDescription = stringResource(Res.string.back)
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = Color.Transparent
+                    )
+                )
+            }
         ) { padding ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = { navigator.pop() }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = stringResource(Res.string.back)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(Res.string.settings),
-                        style = MaterialTheme.typography.headlineMedium
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
                 Column(
                     modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -78,50 +95,18 @@ class SettingsScreen : Screen {
                     LanguageSetting(currentLanguage = language)
 
                     if (PywalLoader.isSupported()) {
-                        ElevatedCard(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { Config.setUsePywal(!usePywal) }
-                                    .padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = stringResource(Res.string.use_pywal),
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                Switch(
-                                    checked = usePywal,
-                                    onCheckedChange = { Config.setUsePywal(it) }
-                                )
-                            }
-                        }
+                        SettingSwitch(
+                            title = stringResource(Res.string.use_pywal),
+                            checked = usePywal,
+                            onCheckedChange = { Config.setUsePywal(it) }
+                        )
                     }
 
-                    ElevatedCard(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { Config.setUseSongColor(!useSongColor) }
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = stringResource(Res.string.use_song_color),
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Switch(
-                                checked = useSongColor,
-                                onCheckedChange = { Config.setUseSongColor(it) }
-                            )
-                        }
-                    }
+                    SettingSwitch(
+                        title = stringResource(Res.string.use_song_color),
+                        checked = useSongColor,
+                        onCheckedChange = { Config.setUseSongColor(it) }
+                    )
 
                     if (!useSongColor && !usePywal) {
                         ThemeColorSetting(
@@ -136,6 +121,44 @@ class SettingsScreen : Screen {
                         )
                     }
 
+                    Text(
+                        text = stringResource(Res.string.scrobbling),
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+
+                    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                        Column {
+                            SettingSwitch(
+                                title = stringResource(Res.string.enable_listenbrainz),
+                                checked = isListenBrainzEnabled,
+                                onCheckedChange = { Config.setIsListenBrainzEnabled(it) },
+                                useElevatedCard = false
+                            )
+                            if (isListenBrainzEnabled) {
+                                Column(
+                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    InternalTextField(
+                                        value = listenBrainzToken,
+                                        onValueChange = { Config.setListenBrainzToken(it) },
+                                        label = { Text(stringResource(Res.string.listenbrainz_token)) },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    LastFmSettings(
+                        isEnabled = isLastFmEnabled,
+                        apiKey = lastFmApiKey,
+                        sharedSecret = lastFmSharedSecret,
+                        sessionKey = lastFmSessionKey,
+                        username = lastFmUsername
+                    )
+
                     if (IS_DEBUG) {
                         Button(
                             onClick = { navigator.push(DebugScreen()) },
@@ -146,6 +169,196 @@ class SettingsScreen : Screen {
                     }
                 }
             }
+        }
+    }
+
+    @Composable
+    private fun LastFmSettings(
+        isEnabled: Boolean,
+        apiKey: String,
+        sharedSecret: String,
+        sessionKey: String,
+        username: String
+    ) {
+        var showAuthDialog by remember { mutableStateOf(false) }
+
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Column {
+                SettingSwitch(
+                    title = stringResource(Res.string.enable_lastfm),
+                    checked = isEnabled,
+                    onCheckedChange = { Config.setIsLastFmEnabled(it) },
+                    useElevatedCard = false
+                )
+                if (isEnabled) {
+                    Column(
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        InternalTextField(
+                            value = apiKey,
+                            onValueChange = { Config.setLastFmApiKey(it) },
+                            label = { Text(stringResource(Res.string.lastfm_api_key)) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        InternalTextField(
+                            value = sharedSecret,
+                            onValueChange = { Config.setLastFmSharedSecret(it) },
+                            label = { Text(stringResource(Res.string.lastfm_shared_secret)) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        if (sessionKey.isBlank()) {
+                            Button(
+                                onClick = { showAuthDialog = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = apiKey.isNotBlank() && sharedSecret.isNotBlank()
+                            ) {
+                                Text(stringResource(Res.string.lastfm_login))
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(Res.string.lastfm_authenticated, username),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                TextButton(
+                                    onClick = {
+                                        Config.setLastFmSessionKey("")
+                                        Config.setLastFmUsername("")
+                                    },
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                ) {
+                                    Text(stringResource(Res.string.logout))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (showAuthDialog) {
+            LastFmAuthDialog(
+                onDismiss = { showAuthDialog = false }
+            )
+        }
+    }
+
+    @Composable
+    private fun LastFmAuthDialog(
+        onDismiss: () -> Unit,
+        lastFmScrobbler: LastFmScrobbler = koinInject()
+    ) {
+        var usernameInput by remember { mutableStateOf("") }
+        var passwordInput by remember { mutableStateOf("") }
+        var isLoading by remember { mutableStateOf(false) }
+        var error by remember { mutableStateOf<String?>(null) }
+        val scope = rememberCoroutineScope()
+
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(stringResource(Res.string.lastfm_auth_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    InternalTextField(
+                        value = usernameInput,
+                        onValueChange = { usernameInput = it },
+                        label = { Text(stringResource(Res.string.lastfm_username)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    InternalTextField(
+                        value = passwordInput,
+                        onValueChange = { passwordInput = it },
+                        label = { Text(stringResource(Res.string.lastfm_password)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation()
+                    )
+                    if (error != null) {
+                        Text(
+                            text = error!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                val loginFailedText = stringResource(Res.string.lastfm_login_failed)
+                Button(
+                    onClick = {
+                        scope.launch {
+                            isLoading = true
+                            error = null
+                            val session = lastFmScrobbler.getMobileSession(usernameInput, passwordInput)
+                            if (session != null) {
+                                Config.setLastFmSessionKey(session.key)
+                                Config.setLastFmUsername(session.name)
+                                onDismiss()
+                            } else {
+                                error = loginFailedText
+                            }
+                            isLoading = false
+                        }
+                    },
+                    enabled = !isLoading && usernameInput.isNotBlank() && passwordInput.isNotBlank()
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text(stringResource(Res.string.login))
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(Res.string.cancel))
+                }
+            }
+        )
+    }
+
+    @Composable
+    private fun SettingSwitch(
+        title: String,
+        checked: Boolean,
+        onCheckedChange: (Boolean) -> Unit,
+        useElevatedCard: Boolean = true
+    ) {
+        val rowContent = @Composable {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onCheckedChange(!checked) }
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = checked,
+                    onCheckedChange = { onCheckedChange(it) }
+                )
+            }
+        }
+
+        if (useElevatedCard) {
+            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                rowContent()
+            }
+        } else {
+            rowContent()
         }
     }
 

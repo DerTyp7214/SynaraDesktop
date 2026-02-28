@@ -17,10 +17,10 @@ import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.platform.PlatformContext
-import androidx.compose.ui.platform.WindowInfo
+import androidx.compose.ui.platform.*
 import androidx.compose.ui.scene.CanvasLayersComposeScene
 import androidx.compose.ui.scene.ComposeScene
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
@@ -63,28 +63,75 @@ private class GlfwTextInputService : PlatformTextInputService {
     override fun updateState(oldValue: TextFieldValue?, newValue: TextFieldValue) {}
 }
 
-private fun glfwKeyToComposeKey(key: Int, scancode: Int): Key {
-    val name = glfwGetKeyName(key, scancode)
-    if (name != null && name.length == 1) {
-        val char = name[0].uppercaseChar()
-        if (char in 'A'..'Z') return Key(char.code.toLong())
-        if (char in '0'..'9') return Key(char.code.toLong())
-        when (char) {
-            ',' -> return Key.Comma
-            '.' -> return Key.Period
-            '/' -> return Key.Slash
-            ';' -> return Key.Semicolon
-            '\'' -> return Key.Apostrophe
-            '[' -> return Key.LeftBracket
-            ']' -> return Key.RightBracket
-            '\\' -> return Key.Backslash
-            '`' -> return Key.Grave
-            '-' -> return Key.Minus
-            '=' -> return Key.Equals
-        }
+private class GlfwClipboard(private val windowHandle: Long) : Clipboard {
+    @OptIn(ExperimentalComposeUiApi::class)
+    override suspend fun getClipEntry(): ClipEntry? {
+        val text = glfwGetClipboardString(windowHandle) ?: return null
+        return ClipEntry(AnnotatedString(text))
     }
 
+    @OptIn(ExperimentalComposeUiApi::class)
+    override suspend fun setClipEntry(clipEntry: ClipEntry?) {
+        val text = (clipEntry?.nativeClipEntry as? AnnotatedString)?.text
+            ?: (clipEntry?.nativeClipEntry as? String)
+            ?: ""
+        glfwSetClipboardString(windowHandle, text)
+    }
+
+    override val nativeClipboard: Any
+        get() = windowHandle
+}
+
+@Suppress("DEPRECATION")
+private class GlfwClipboardManager(private val windowHandle: Long) : ClipboardManager {
+    override fun getText(): AnnotatedString? {
+        val text = glfwGetClipboardString(windowHandle) ?: return null
+        return AnnotatedString(text)
+    }
+
+    override fun setText(annotatedString: AnnotatedString) {
+        glfwSetClipboardString(windowHandle, annotatedString.text)
+    }
+}
+
+private fun glfwKeyToComposeKey(key: Int): Key {
     return when (key) {
+        GLFW_KEY_A -> Key.A
+        GLFW_KEY_B -> Key.B
+        GLFW_KEY_C -> Key.C
+        GLFW_KEY_D -> Key.D
+        GLFW_KEY_E -> Key.E
+        GLFW_KEY_F -> Key.F
+        GLFW_KEY_G -> Key.G
+        GLFW_KEY_H -> Key.H
+        GLFW_KEY_I -> Key.I
+        GLFW_KEY_J -> Key.J
+        GLFW_KEY_K -> Key.K
+        GLFW_KEY_L -> Key.L
+        GLFW_KEY_M -> Key.M
+        GLFW_KEY_N -> Key.N
+        GLFW_KEY_O -> Key.O
+        GLFW_KEY_P -> Key.P
+        GLFW_KEY_Q -> Key.Q
+        GLFW_KEY_R -> Key.R
+        GLFW_KEY_S -> Key.S
+        GLFW_KEY_T -> Key.T
+        GLFW_KEY_U -> Key.U
+        GLFW_KEY_V -> Key.V
+        GLFW_KEY_W -> Key.W
+        GLFW_KEY_X -> Key.X
+        GLFW_KEY_Y -> Key.Y
+        GLFW_KEY_Z -> Key.Z
+        GLFW_KEY_0 -> Key.Zero
+        GLFW_KEY_1 -> Key.One
+        GLFW_KEY_2 -> Key.Two
+        GLFW_KEY_3 -> Key.Three
+        GLFW_KEY_4 -> Key.Four
+        GLFW_KEY_5 -> Key.Five
+        GLFW_KEY_6 -> Key.Six
+        GLFW_KEY_7 -> Key.Seven
+        GLFW_KEY_8 -> Key.Eight
+        GLFW_KEY_9 -> Key.Nine
         GLFW_KEY_ENTER -> Key.Enter
         GLFW_KEY_BACKSPACE -> Key.Backspace
         GLFW_KEY_TAB -> Key.Tab
@@ -143,6 +190,17 @@ private fun glfwKeyToComposeKey(key: Int, scancode: Int): Key {
         GLFW_KEY_KP_ADD -> Key.NumPadAdd
         GLFW_KEY_KP_ENTER -> Key.NumPadEnter
         GLFW_KEY_KP_EQUAL -> Key.NumPadEquals
+        GLFW_KEY_COMMA -> Key.Comma
+        GLFW_KEY_PERIOD -> Key.Period
+        GLFW_KEY_SLASH -> Key.Slash
+        GLFW_KEY_SEMICOLON -> Key.Semicolon
+        GLFW_KEY_APOSTROPHE -> Key.Apostrophe
+        GLFW_KEY_LEFT_BRACKET -> Key.LeftBracket
+        GLFW_KEY_RIGHT_BRACKET -> Key.RightBracket
+        GLFW_KEY_BACKSLASH -> Key.Backslash
+        GLFW_KEY_GRAVE_ACCENT -> Key.Grave
+        GLFW_KEY_MINUS -> Key.Minus
+        GLFW_KEY_EQUAL -> Key.Equals
         else -> Key.Unknown
     }
 }
@@ -210,6 +268,8 @@ fun runTransparentWindow(
 
     var isWindowFocused by mutableStateOf(true)
     val textInputService = GlfwTextInputService()
+    val clipboard = GlfwClipboard(windowHandle)
+    val clipboardManager = GlfwClipboardManager(windowHandle)
 
     var scenePtr: ComposeScene? = null
     val platformContext = object : PlatformContext.Empty() {
@@ -241,7 +301,10 @@ fun runTransparentWindow(
             shapes = shapes(),
             typography = typography()
         ) {
+            @Suppress("DEPRECATION")
             CompositionLocalProvider(
+                LocalClipboard provides clipboard,
+                LocalClipboardManager provides clipboardManager,
                 LocalTextField provides { value, onValueChange, modifier, enabled, readOnly, textStyle, label, placeholder, leadingIcon, trailingIcon, prefix, suffix, supportingText, isError, visualTransformation, keyboardOptions, keyboardActions, singleLine, maxLines, minLines, interactionSource, shape, colors ->
                     SynaraTextField(
                         value = value,
@@ -371,12 +434,12 @@ fun runTransparentWindow(
         )
     }
 
-    glfwSetKeyCallback(windowHandle) { _, key, scancode, action, mods ->
+    glfwSetKeyCallback(windowHandle) { _, key, _, action, mods ->
         val type = when (action) {
             GLFW_PRESS, GLFW_REPEAT -> KeyEventType.KeyDown
             else -> KeyEventType.KeyUp
         }
-        val composeKey = glfwKeyToComposeKey(key, scancode)
+        val composeKey = glfwKeyToComposeKey(key)
 
         scene.sendKeyEvent(
             KeyEvent(

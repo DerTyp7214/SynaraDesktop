@@ -13,12 +13,17 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.input.key.*
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalTextInputService
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.text.intl.LocaleList
 
 
+@Suppress("DEPRECATION")
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun SynaraTextField(
@@ -52,6 +57,7 @@ fun SynaraTextField(
     var focused by remember { mutableStateOf(false) }
 
     val inputService = LocalTextInputService.current
+    val clipboardManager = LocalClipboardManager.current
 
     val scope = remember(keyboardActions) {
         object : KeyboardActionScope {
@@ -103,9 +109,64 @@ fun SynaraTextField(
                 onValueChange(it.text)
             }
         },
-        modifier = modifier.onFocusChanged {
-            focused = it.isFocused
-        },
+        modifier = modifier
+            .onFocusChanged {
+                focused = it.isFocused
+            }
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && (event.isCtrlPressed || event.isMetaPressed)) {
+                    when (event.key) {
+                        Key.C -> {
+                            if (!textFieldValueState.selection.collapsed) {
+                                val selectedText = textFieldValueState.text.substring(
+                                    textFieldValueState.selection.min,
+                                    textFieldValueState.selection.max
+                                )
+                                clipboardManager.setText(AnnotatedString(selectedText))
+                            }
+                            true
+                        }
+                        Key.V -> {
+                            val pastedText = clipboardManager.getText()?.text ?: ""
+                            if (pastedText.isNotEmpty()) {
+                                val newText = textFieldValueState.text.replaceRange(
+                                    textFieldValueState.selection.min,
+                                    textFieldValueState.selection.max,
+                                    pastedText
+                                )
+                                val newSelection = TextRange(textFieldValueState.selection.min + pastedText.length)
+                                textFieldValueState = TextFieldValue(newText, newSelection)
+                                onValueChange(newText)
+                            }
+                            true
+                        }
+                        Key.X -> {
+                            if (!textFieldValueState.selection.collapsed) {
+                                val selectedText = textFieldValueState.text.substring(
+                                    textFieldValueState.selection.min,
+                                    textFieldValueState.selection.max
+                                )
+                                clipboardManager.setText(AnnotatedString(selectedText))
+                                val newText = textFieldValueState.text.removeRange(
+                                    textFieldValueState.selection.min,
+                                    textFieldValueState.selection.max
+                                )
+                                val newSelection = TextRange(textFieldValueState.selection.min)
+                                textFieldValueState = TextFieldValue(newText, newSelection)
+                                onValueChange(newText)
+                            }
+                            true
+                        }
+                        Key.A -> {
+                            textFieldValueState = textFieldValueState.copy(
+                                selection = TextRange(0, textFieldValueState.text.length)
+                            )
+                            true
+                        }
+                        else -> false
+                    }
+                } else false
+            },
         label = label,
         isError = isError,
         singleLine = singleLine,

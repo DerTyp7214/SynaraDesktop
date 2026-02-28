@@ -6,6 +6,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+evaluationDependsOn(":synara")
+
 val osName = System.getProperty("os.name").lowercase()
 val targetNatives = when {
     osName.contains("win") -> "natives-windows"
@@ -55,7 +57,9 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageVersion = "1.0.0"
+            
+            val synaraVersion = project(":synara").version.toString()
+            packageVersion = synaraVersion.split("-")[0]
             packageName = "Synara"
 
             val commonIcon = project(":synara").projectDir.resolve("src/commonMain/resources/icon.png")

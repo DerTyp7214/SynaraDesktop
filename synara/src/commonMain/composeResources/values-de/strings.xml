@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">Synara</string>
     <string name="login">Anmelden</string>
+    <string name="logout">Abmelden</string>
     <string name="username">Benutzername</string>
     <string name="password">Passwort</string>
     <string name="host">Host</string>
@@ -38,6 +39,22 @@
     <string name="tone">Helligkeit (Tone)</string>
     <string name="use_song_color">Farbe des aktuell gespielten Songs verwenden</string>
     <string name="use_pywal">Pywal-Farben verwenden (nur Linux)</string>
+
+    <!-- Scrobbling -->
+    <string name="scrobbling">Scrobbling</string>
+    <string name="enable_listenbrainz">ListenBrainz aktivieren</string>
+    <string name="listenbrainz_token">ListenBrainz-Token</string>
+    <string name="enable_lastfm">Last.fm aktivieren</string>
+    <string name="lastfm_api_key">Last.fm API-Key</string>
+    <string name="lastfm_shared_secret">Last.fm Shared Secret</string>
+    <string name="lastfm_session_key">Last.fm Session-Key</string>
+    <string name="lastfm_login">Bei Last.fm anmelden</string>
+    <string name="lastfm_username">Last.fm Benutzername</string>
+    <string name="lastfm_password">Last.fm Passwort</string>
+    <string name="lastfm_auth_title">Last.fm Authentifizierung</string>
+    <string name="lastfm_login_failed">Last.fm Anmeldung fehlgeschlagen</string>
+    <string name="lastfm_authenticated">Angemeldet als %1$s</string>
+    <string name="lastfm_not_authenticated">Nicht angemeldet</string>
 
     <!-- Player -->
     <string name="play">Abspielen</string>

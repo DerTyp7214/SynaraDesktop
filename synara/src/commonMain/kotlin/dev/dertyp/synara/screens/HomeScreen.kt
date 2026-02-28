@@ -32,54 +32,104 @@ import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.theme.isAppDark
 import dev.dertyp.synara.ui.components.PlayerBar
 import dev.dertyp.synara.viewmodels.HomeScreenModel
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.*
 
 class HomeScreen : Screen {
-    @OptIn(ExperimentalComposeUiApi::class)
+    @OptIn(ExperimentalComposeUiApi::class, ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
         val screenModel = getScreenModel<HomeScreenModel>()
+        val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+        val scope = rememberCoroutineScope()
 
-        Column(modifier = Modifier.fillMaxSize()) {
-            Row(modifier = Modifier.weight(1f)) {
-                Navigator(DashboardScreen()) { innerNavigator ->
-                    Sidebar(screenModel, innerNavigator)
+        Navigator(DashboardScreen()) { navigator ->
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val isCompact = maxWidth < 900.dp
 
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .pointerInput(innerNavigator) {
-                                awaitPointerEventScope {
-                                    while (true) {
-                                        val event = awaitPointerEvent()
-                                        if (event.type == PointerEventType.Press && (event.buttons.isBackPressed || event.button?.index == 5)) {
-                                            if (innerNavigator.canPop) {
-                                                innerNavigator.pop()
+                if (isCompact) {
+                    ModalNavigationDrawer(
+                        drawerState = drawerState,
+                        drawerContent = {
+                            ModalDrawerSheet(
+                                modifier = Modifier.width(300.dp),
+                                drawerContainerColor = MaterialTheme.colorScheme.surface,
+                                drawerContentColor = MaterialTheme.colorScheme.onSurface
+                            ) {
+                                SidebarContent(screenModel, navigator, onItemClick = {
+                                    scope.launch { drawerState.close() }
+                                })
+                            }
+                        }
+                    ) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .pointerInput(navigator) {
+                                        awaitPointerEventScope {
+                                            while (true) {
+                                                val event = awaitPointerEvent()
+                                                if (event.type == PointerEventType.Press && (event.buttons.isBackPressed || event.button?.index == 5)) {
+                                                    if (navigator.canPop) {
+                                                        navigator.pop()
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                            ) {
+                                Column(modifier = Modifier.fillMaxSize()) {
+                                    TopBar(screenModel, navigator, onMenuClick = {
+                                        scope.launch { drawerState.open() }
+                                    }, showMenu = true)
+
+                                    Box(modifier = Modifier.fillMaxSize()) {
+                                        SlideTransition(navigator)
+                                    }
+                                }
+                            }
+                            PlayerBar()
+                        }
+                    }
+                } else {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .pointerInput(navigator) {
+                                    awaitPointerEventScope {
+                                        while (true) {
+                                            val event = awaitPointerEvent()
+                                            if (event.type == PointerEventType.Press && (event.buttons.isBackPressed || event.button?.index == 5)) {
+                                                if (navigator.canPop) {
+                                                    navigator.pop()
+                                                }
                                             }
                                         }
                                     }
                                 }
-                            }
-                    ) {
-                        TopBar(screenModel, innerNavigator)
+                        ) {
+                            Sidebar(screenModel, navigator)
 
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            SlideTransition(innerNavigator)
+                            Column(modifier = Modifier.weight(1f)) {
+                                TopBar(screenModel, navigator)
+
+                                Box(modifier = Modifier.fillMaxSize()) {
+                                    SlideTransition(navigator)
+                                }
+                            }
                         }
+                        PlayerBar()
                     }
                 }
             }
-
-            PlayerBar()
         }
     }
 
     @Composable
     private fun Sidebar(screenModel: HomeScreenModel, navigator: Navigator) {
-        val playlists by screenModel.globalState.userPlaylists.collectAsState()
-        val isRefreshing by screenModel.globalState.isRefreshingPlaylists.collectAsState()
-
         Surface(
             modifier = Modifier
                 .width(260.dp)
@@ -88,65 +138,81 @@ class HomeScreen : Screen {
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             tonalElevation = 1.dp
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            SidebarContent(screenModel, navigator)
+        }
+    }
+
+    @Composable
+    private fun SidebarContent(
+        screenModel: HomeScreenModel, 
+        navigator: Navigator,
+        onItemClick: (() -> Unit)? = null
+    ) {
+        val playlists by screenModel.globalState.userPlaylists.collectAsState()
+        val isRefreshing by screenModel.globalState.isRefreshingPlaylists.collectAsState()
+
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(Res.string.library),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 16.dp, start = 8.dp)
+            )
+
+            NavigationItem(
+                label = stringResource(Res.string.home),
+                icon = Icons.Rounded.Home,
+                selected = navigator.lastItem is DashboardScreen,
+                onClick = { 
+                    if (navigator.lastItem !is DashboardScreen) navigator.replaceAll(DashboardScreen()) 
+                    onItemClick?.invoke()
+                }
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp, start = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = stringResource(Res.string.library),
+                    text = stringResource(Res.string.playlists),
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(bottom = 16.dp, start = 8.dp)
+                    color = MaterialTheme.colorScheme.primary
                 )
-
-                NavigationItem(
-                    label = stringResource(Res.string.home),
-                    icon = Icons.Rounded.Home,
-                    selected = navigator.lastItem is DashboardScreen,
-                    onClick = { if (navigator.lastItem !is DashboardScreen) navigator.replaceAll(DashboardScreen()) }
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp, start = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(Res.string.playlists),
-                        style = MaterialTheme.typography.titleSmall,
+                
+                if (isRefreshing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    
-                    if (isRefreshing) {
-                        CircularProgressIndicator(
+                } else {
+                    IconButton(
+                        onClick = { screenModel.globalState.refreshPlaylists() },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.Refresh,
+                            contentDescription = stringResource(Res.string.refresh_playlists),
                             modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.primary
+                            tint = MaterialTheme.colorScheme.primary
                         )
-                    } else {
-                        IconButton(
-                            onClick = { screenModel.globalState.refreshPlaylists() },
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            Icon(
-                                Icons.Rounded.Refresh,
-                                contentDescription = stringResource(Res.string.refresh_playlists),
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
                     }
                 }
+            }
 
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    items(playlists) { playlist ->
-                        PlaylistNavItem(playlist) {
-                            val current = navigator.lastItem
-                            if (current !is PlaylistScreen || current.playlistId != playlist.id) {
-                                navigator.push(PlaylistScreen(playlist.id, isUserPlaylist = true))
-                            }
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                items(playlists) { playlist ->
+                    PlaylistNavItem(playlist) {
+                        val current = navigator.lastItem
+                        if (current !is PlaylistScreen || current.playlistId != playlist.id) {
+                            navigator.push(PlaylistScreen(playlist.id, isUserPlaylist = true))
                         }
+                        onItemClick?.invoke()
                     }
                 }
             }
@@ -209,7 +275,12 @@ class HomeScreen : Screen {
     }
 
     @Composable
-    private fun TopBar(screenModel: HomeScreenModel, navigator: Navigator) {
+    private fun TopBar(
+        screenModel: HomeScreenModel, 
+        navigator: Navigator, 
+        onMenuClick: (() -> Unit)? = null, 
+        showMenu: Boolean = false
+    ) {
         val isDark = isAppDark()
 
         Surface(
@@ -227,6 +298,12 @@ class HomeScreen : Screen {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                if (showMenu) {
+                    IconButton(onClick = { onMenuClick?.invoke() }) {
+                        Icon(Icons.Rounded.Menu, contentDescription = null)
+                    }
+                }
+
                 var searchQuery by remember { mutableStateOf("") }
 
                 InternalTextField(

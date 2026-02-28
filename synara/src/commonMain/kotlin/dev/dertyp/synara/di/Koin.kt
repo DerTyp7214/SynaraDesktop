@@ -2,12 +2,17 @@ package dev.dertyp.synara.di
 
 import com.russhwolf.settings.Settings
 import dev.dertyp.PlatformUUID
+import dev.dertyp.logging.BaseLogger
+import dev.dertyp.logging.Logger
 import dev.dertyp.serializers.AppCbor
 import dev.dertyp.serializers.AppJson
 import dev.dertyp.services.*
+import dev.dertyp.synara.BuildConfig
+import dev.dertyp.synara.db.SynaraDatabase
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.services.*
+import dev.dertyp.synara.scrobble.*
 import dev.dertyp.synara.settings.SettingsFactory
 import dev.dertyp.synara.ui.components.setupCoil
 import dev.dertyp.synara.ui.models.TrayState
@@ -36,7 +41,7 @@ import kotlinx.rpc.krpc.serialization.cbor.cbor as krpcCbor
 private fun buildHttpClient(cbor: Cbor, json: Json): HttpClient {
     return HttpClient {
         install(UserAgent) {
-            agent = "Synara/1.0.0"
+            agent = "Synara/Synara Desktop (${BuildConfig.VERSION})"
         }
         install(HttpTimeout) {
             requestTimeoutMillis = 30000
@@ -69,8 +74,16 @@ val appModule = module {
     
     val settingsFactory = SettingsFactory()
     single<Settings> { settingsFactory.create() }
+    
+    single { SynaraDatabase(get()) }
+
+    single<Logger> { BaseLogger(null, get()) }
+
     singleOf(::RpcServiceManager)
     singleOf(::GlobalStateModel)
+    singleOf(::ScrobblerService)
+    singleOf(::MusicBrainzService)
+    singleOf(::ScrobbleQueue)
     single { PlayerModel(get(), get(), get(), settingsFactory.getStatePath("player_state.pb")) }
     singleOf(::TrayState)
 
@@ -106,6 +119,10 @@ val appModule = module {
     singleOf(::SyncServiceWrapper) bind ISyncService::class
     singleOf(::UserPlaylistServiceWrapper) bind IUserPlaylistService::class
     singleOf(::UserServiceWrapper) bind IUserService::class
+
+    singleOf(::LocalSongScrobbler)
+    singleOf(::ListenBrainzScrobbler)
+    singleOf(::LastFmScrobbler)
 }
 
 fun initializeSynara() {

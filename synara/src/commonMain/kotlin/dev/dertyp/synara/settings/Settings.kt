@@ -15,6 +15,15 @@ sealed class SettingKey<T>(val name: String) {
     data object UseSongColor : SettingKey<Boolean>("use_song_color")
     data object UsePywal : SettingKey<Boolean>("use_pywal")
 
+    // Scrobbling
+    data object IsListenBrainzEnabled : SettingKey<Boolean>("is_listenbrainz_enabled")
+    data object ListenBrainzToken : SettingKey<String>("listenbrainz_token")
+    data object IsLastFmEnabled : SettingKey<Boolean>("is_lastfm_enabled")
+    data object LastFmApiKey : SettingKey<String>("lastfm_api_key")
+    data object LastFmSharedSecret : SettingKey<String>("lastfm_shared_secret")
+    data object LastFmSessionKey : SettingKey<String>("lastfm_session_key")
+    data object LastFmUsername : SettingKey<String>("lastfm_username")
+
     companion object {
         val authKeys = setOf(AuthToken.name, RefreshToken.name, TokenExpiration.name)
     }
@@ -52,10 +61,14 @@ fun <T : Any> Settings.get(key: SettingKey<T>, defaultValue: T): T {
 @Suppress("UNCHECKED_CAST")
 fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
     return when (key) {
-        is SettingKey.Host, is SettingKey.AuthToken, is SettingKey.RefreshToken -> getStringOrNull(key.name) as T?
+        is SettingKey.Host, is SettingKey.AuthToken, is SettingKey.RefreshToken,
+        is SettingKey.ListenBrainzToken, is SettingKey.LastFmApiKey,
+        is SettingKey.LastFmSharedSecret, is SettingKey.LastFmSessionKey,
+        is SettingKey.LastFmUsername -> getStringOrNull(key.name) as T?
         is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor -> getIntOrNull(key.name) as T?
         is SettingKey.TokenExpiration -> getLongOrNull(key.name) as T?
-        is SettingKey.DarkTheme, is SettingKey.UseSongColor, is SettingKey.UsePywal -> getBooleanOrNull(key.name) as T?
+        is SettingKey.DarkTheme, is SettingKey.UseSongColor, is SettingKey.UsePywal,
+        is SettingKey.IsListenBrainzEnabled, is SettingKey.IsLastFmEnabled -> getBooleanOrNull(key.name) as T?
         is SettingKey.Volume -> getFloatOrNull(key.name) as T?
     }
 }
