@@ -9,6 +9,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.transitions.SlideTransition
@@ -16,6 +17,7 @@ import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.screens.HomeScreen
 import dev.dertyp.synara.screens.LoginScreen
 import dev.dertyp.synara.screens.SetupScreen
+import dev.dertyp.synara.ui.models.TrayState
 import org.koin.compose.koinInject
 
 @Composable
@@ -26,6 +28,12 @@ fun SynaraView() {
 
     LaunchedEffect(language) {
         customAppLocale = language
+    }
+
+    val trayState = koinInject<TrayState>()
+
+    LaunchedEffect(Unit) {
+        trayState.setBadgeColor(Color.Green)
     }
 
     AppEnvironment {

@@ -1,3 +1,5 @@
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.jetbrains.compose)
@@ -12,6 +14,7 @@ kotlin {
             dependencies {
                 implementation(project(":synara"))
                 implementation(libs.material3)
+                implementation(libs.components.resources)
             }
         }
 
@@ -25,12 +28,24 @@ kotlin {
 
 compose.desktop {
     application {
-        mainClass = "dev.dertyp7214.classic.MainKt"
+        mainClass = "dev.dertyp.classic.MainKt"
 
         nativeDistributions {
-            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb)
+            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "ClassicApp"
             packageVersion = "1.0.0"
+            
+            val commonIcon = project(":synara").projectDir.resolve("src/commonMain/resources/icon.png")
+
+            linux {
+                iconFile.set(commonIcon)
+            }
+            windows {
+                iconFile.set(commonIcon)
+            }
+            macOS {
+                iconFile.set(commonIcon)
+            }
         }
     }
 }

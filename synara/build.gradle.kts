@@ -12,6 +12,9 @@ kotlin {
     sourceSets {
         commonMain {
             dependencies {
+                implementation(project(":tray"))
+                implementation(project(":common-rpc"))
+
                 implementation(libs.kotlinx.coroutines.core)
                 implementation(libs.voyager.navigator)
                 implementation(libs.voyager.screenmodel)
@@ -25,7 +28,6 @@ kotlin {
                 implementation(libs.ktor.serialization.kotlinx.cbor)
                 implementation(libs.kotlinx.rpc.krpc.serialization.cbor)
                 implementation(libs.ktor.client.websockets)
-                implementation(project(":common-rpc"))
                 
                 // Persistence
                 implementation(libs.multiplatform.settings.no.arg)

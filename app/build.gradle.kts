@@ -58,12 +58,21 @@ compose.desktop {
             packageVersion = "1.0.0"
             packageName = "Synara"
 
-            modules("jdk.unsupported")
+            val commonIcon = project(":synara").projectDir.resolve("src/commonMain/resources/icon.png")
 
             linux {
                 shortcut = true
                 menuGroup = "Audio"
+                iconFile.set(commonIcon)
             }
+            windows {
+                iconFile.set(commonIcon)
+            }
+            macOS {
+                iconFile.set(commonIcon)
+            }
+
+            modules("jdk.unsupported")
         }
     }
 }

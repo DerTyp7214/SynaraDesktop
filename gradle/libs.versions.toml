@@ -2,6 +2,7 @@
 coilCompose = "3.3.0"
 componentsResources = "1.10.1"
 foundation = "1.10.1"
+jna = "5.18.1"
 kotlin = "2.3.10"
 googleDevtoolsKsp = "2.3.6"
 kotlinxCoroutines = "1.10.2"
@@ -14,6 +15,7 @@ materialIconsExtended = "1.7.3"
 runtime = "1.10.1"
 skikoAwt = "0.9.47"
 lwjgl = "3.4.1"
+systemtray = "4.4"
 uiToolingPreview = "1.10.1"
 voyager = "1.0.1"
 koin = "4.1.1"
@@ -29,6 +31,7 @@ coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coilCo
 coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coilCompose" }
 components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "componentsResources" }
 foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "foundation" }
+jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "kotlinxCoroutines" }
 kotlinx-rpc-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-rpc-core", version.ref = "kotlinxRpc" }
@@ -54,6 +57,7 @@ lwjgl-glfw = { group = "org.lwjgl", name = "lwjgl-glfw", version.ref = "lwjgl" }
 lwjgl-opengl = { group = "org.lwjgl", name = "lwjgl-opengl", version.ref = "lwjgl" }
 lwjgl-openal = { group = "org.lwjgl", name = "lwjgl-openal", version.ref = "lwjgl" }
 lwjgl-stb = { group = "org.lwjgl", name = "lwjgl-stb", version.ref = "lwjgl" }
+systemtray = { module = "com.dorkbox:SystemTray", version.ref = "systemtray" }
 ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "uiToolingPreview" }
 voyager-navigator = { group = "cafe.adriel.voyager", name = "voyager-navigator", version.ref = "voyager" }
 voyager-screenmodel = { group = "cafe.adriel.voyager", name = "voyager-screenmodel", version.ref = "voyager" }

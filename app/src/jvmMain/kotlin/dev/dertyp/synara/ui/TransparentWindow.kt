@@ -25,11 +25,13 @@ import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.ApplicationScope
 import dev.dertyp.synara.LocalTextField
 import dev.dertyp.synara.theme.AppTheme
 import dev.dertyp.synara.theme.SynaraAppTheme
 import dev.dertyp.synara.theme.isAppDark
 import dev.dertyp.synara.ui.components.SynaraTextField
+import dev.dertyp.synara.ui.components.SynaraTray
 import dev.dertyp.synara.ui.components.WindowDraggableArea
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.skia.*
@@ -226,6 +228,13 @@ fun runTransparentWindow(
     )
     scenePtr = scene
 
+    var isVisible by mutableStateOf(true)
+    val applicationScope = object : ApplicationScope {
+        override fun exitApplication() {
+            glfwSetWindowShouldClose(windowHandle, true)
+        }
+    }
+
     scene.setContent {
         MaterialTheme(
             colorScheme = colorScheme(),
@@ -261,6 +270,16 @@ fun runTransparentWindow(
                     )
                 }
             ) {
+                with(applicationScope) {
+                    SynaraTray(
+                        onAction = {
+                            isVisible = !isVisible
+                            glfwPostEmptyEvent()
+                        },
+                        onExit = { exitApplication() }
+                    )
+                }
+
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = windowBackground(),
@@ -385,32 +404,45 @@ fun runTransparentWindow(
         scene.size = IntSize(w.get(0), h.get(0))
     }
 
+    var lastVisibleState = true
     while (!glfwWindowShouldClose(windowHandle)) {
-        val size = scene.size
-        val w = size?.width ?: 0
-        val h = size?.height ?: 0
-
-        if (w > 0 && h > 0) {
-            val renderTarget =
-                BackendRenderTarget.makeGL(w, h, 0, 8, 0, FramebufferFormat.GR_GL_RGBA8)
-            val surface = Surface.makeFromBackendRenderTarget(
-                skiaContext,
-                renderTarget,
-                SurfaceOrigin.BOTTOM_LEFT,
-                SurfaceColorFormat.RGBA_8888,
-                ColorSpace.sRGB
-            )
-
-            surface?.let {
-                it.canvas.clear(Color.Transparent.toArgb())
-                scene.render(it.canvas.asComposeCanvas(), System.nanoTime())
-                it.flushAndSubmit()
-                it.close()
+        if (isVisible != lastVisibleState) {
+            if (isVisible) {
+                glfwShowWindow(windowHandle)
+                glfwFocusWindow(windowHandle)
+            } else {
+                glfwHideWindow(windowHandle)
             }
-            renderTarget.close()
+            lastVisibleState = isVisible
         }
 
-        glfwSwapBuffers(windowHandle)
+        if (isVisible) {
+            val size = scene.size
+            val w = size?.width ?: 0
+            val h = size?.height ?: 0
+
+            if (w > 0 && h > 0) {
+                val renderTarget =
+                    BackendRenderTarget.makeGL(w, h, 0, 8, 0, FramebufferFormat.GR_GL_RGBA8)
+                val surface = Surface.makeFromBackendRenderTarget(
+                    skiaContext,
+                    renderTarget,
+                    SurfaceOrigin.BOTTOM_LEFT,
+                    SurfaceColorFormat.RGBA_8888,
+                    ColorSpace.sRGB
+                )
+
+                surface?.let {
+                    it.canvas.clear(Color.Transparent.toArgb())
+                    scene.render(it.canvas.asComposeCanvas(), System.nanoTime())
+                    it.flushAndSubmit()
+                    it.close()
+                }
+                renderTarget.close()
+            }
+
+            glfwSwapBuffers(windowHandle)
+        }
         glfwPollEvents()
     }
 

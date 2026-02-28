@@ -6,8 +6,7 @@ import androidx.compose.foundation.window.WindowDraggableArea
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -18,11 +17,21 @@ import dev.dertyp.synara.SynaraView
 import dev.dertyp.synara.di.initializeSynara
 import dev.dertyp.synara.theme.SynaraAppTheme
 import dev.dertyp.synara.theme.isAppDark
+import dev.dertyp.synara.ui.components.SynaraTray
+import org.jetbrains.compose.resources.painterResource
+import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.icon
 
 fun main() {
     val osName = System.getProperty("os.name").lowercase()
     val isMac = osName.contains("mac")
     val isWin = osName.contains("win")
+    val isLinux = osName.contains("linux")
+
+    val showTitleBar = System.getProperty(
+        "synara.drag.enabled",
+        if (isLinux) "false" else "true"
+    ).toBoolean()
 
     if (isMac) {
         System.setProperty("apple.awt.fullWindowContent", "true")
@@ -32,36 +41,46 @@ fun main() {
 
     initializeSynara()
     application {
-        Window(
-            onCloseRequest = ::exitApplication,
-            title = "Synara",
-            undecorated = false
-        ) {
-            SideEffect {
-                if (isMac) {
-                    window.rootPane.putClientProperty("apple.awt.fullWindowContent", true)
-                    window.rootPane.putClientProperty("apple.awt.transparentTitleBar", true)
-                    window.rootPane.putClientProperty("apple.awt.windowTitleVisible", false)
-                } else if (isWin) {
-                    window.rootPane.putClientProperty("rootPane.setupWindowDecoration", true)
-                }
-            }
+        var isVisible by remember { mutableStateOf(true) }
 
-            val theme = SynaraAppTheme(isAppDark())
-            MaterialTheme(
-                colorScheme = theme.colorScheme,
-                typography = theme.typography,
-                shapes = theme.shapes
+        SynaraTray(
+            onAction = { isVisible = !isVisible },
+            onExit = ::exitApplication
+        )
+
+        if (isVisible) {
+            Window(
+                onCloseRequest = { isVisible = false },
+                title = "Synara",
+                undecorated = false,
+                icon = painterResource(Res.drawable.icon)
             ) {
-                Surface(
-                    color = MaterialTheme.colorScheme.background,
-                    modifier = Modifier.fillMaxSize()
+                SideEffect {
+                    if (isMac) {
+                        window.rootPane.putClientProperty("apple.awt.fullWindowContent", true)
+                        window.rootPane.putClientProperty("apple.awt.transparentTitleBar", true)
+                        window.rootPane.putClientProperty("apple.awt.windowTitleVisible", false)
+                    } else if (isWin) {
+                        window.rootPane.putClientProperty("rootPane.setupWindowDecoration", true)
+                    }
+                }
+
+                val theme = SynaraAppTheme(isAppDark())
+                MaterialTheme(
+                    colorScheme = theme.colorScheme,
+                    typography = theme.typography,
+                    shapes = theme.shapes
                 ) {
-                    Column {
-                        CustomSystemBar(isMac)
-                        
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            SynaraView()
+                    Surface(
+                        color = MaterialTheme.colorScheme.background,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Column {
+                            if (showTitleBar) CustomSystemBar(isMac)
+
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                SynaraView()
+                            }
                         }
                     }
                 }

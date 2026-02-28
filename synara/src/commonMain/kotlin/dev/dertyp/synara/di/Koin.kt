@@ -10,6 +10,7 @@ import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.services.*
 import dev.dertyp.synara.settings.SettingsFactory
 import dev.dertyp.synara.ui.components.setupCoil
+import dev.dertyp.synara.ui.models.TrayState
 import dev.dertyp.synara.viewmodels.*
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
@@ -71,6 +72,7 @@ val appModule = module {
     singleOf(::RpcServiceManager)
     singleOf(::GlobalStateModel)
     single { PlayerModel(get(), get(), get(), settingsFactory.getStatePath("player_state.pb")) }
+    singleOf(::TrayState)
 
     factoryOf(::SetupScreenModel)
     factoryOf(::LoginScreenModel)
