@@ -132,6 +132,7 @@ class SongDataSource(
     data class PlaybackSession(
         val song: UserSong,
         val sampleRate: Int,
+        val bitsPerSample: Int,
         val channels: Int,
         val pcmFlow: Flow<ShortBuffer>
     )
@@ -241,6 +242,7 @@ class SongDataSource(
             PlaybackSession(
                 song = song,
                 sampleRate = info.sampleRate,
+                bitsPerSample = info.bitsPerSample,
                 channels = info.channels,
                 pcmFlow = flow {
                     for (buffer in pcmChannel) {

@@ -1,13 +1,12 @@
 package dev.dertyp.synara.ui.components
 
 import androidx.compose.runtime.*
-import androidx.compose.ui.window.ApplicationScope
 import dev.dertyp.synara.tray.createSynaraTray
 import dev.dertyp.synara.ui.models.TrayState
 import org.koin.compose.koinInject
 
 @Composable
-fun ApplicationScope.SynaraTray(
+fun SynaraTray(
     onAction: () -> Unit = {},
     onExit: () -> Unit = {}
 ) {
@@ -17,7 +16,7 @@ fun ApplicationScope.SynaraTray(
 
     DisposableEffect(Unit) {
         tray.show(
-            iconPath = "tray.svg", 
+            iconPath = "tray.png",
             tooltip = "Synara",
             onAction = onAction,
             onExit = onExit

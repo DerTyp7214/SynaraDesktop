@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import dev.dertyp.data.RepeatMode
 import dev.dertyp.synara.player.PlayerModel
@@ -34,6 +35,9 @@ fun PlayerBar(
     val duration by playerModel.duration.collectAsState()
     val shuffleMode by playerModel.shuffleMode.collectAsState()
     val repeatMode by playerModel.repeatMode.collectAsState()
+    val liveSampleRate by playerModel.sampleRate.collectAsState()
+    val liveBitsPerSample by playerModel.bitsPerSample.collectAsState()
+    val liveBitRate by playerModel.bitRate.collectAsState()
 
     var isSeeking by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableLongStateOf(0L) }
@@ -100,6 +104,36 @@ fun PlayerBar(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                        currentSong?.let { song ->
+                            val bitRate = if (liveBitRate > 0) liveBitRate else song.bitRate
+                            val sampleRate = if (liveSampleRate > 0) liveSampleRate.toLong() else song.sampleRate.toLong()
+                            val bits = if (liveBitsPerSample > 0) liveBitsPerSample else song.bitsPerSample
+
+                            if (bitRate > 0 || sampleRate > 0) {
+                                Text(
+                                    text = buildString {
+                                        if (bitRate > 0) append("$bitRate kbps")
+                                        if (bitRate > 0 && (bits > 0 || sampleRate > 0)) append(" • ")
+                                        if (bits > 0) append("$bits bit")
+                                        if (bits > 0 && sampleRate > 0) append(" • ")
+                                        if (sampleRate > 0) {
+                                            if (sampleRate > 1000) {
+                                                append("${sampleRate / 1000.0} kHz")
+                                            } else {
+                                                append("$sampleRate kHz")
+                                            }
+                                        }
+                                    },
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
                     }
 
                     if (currentSong != null) {

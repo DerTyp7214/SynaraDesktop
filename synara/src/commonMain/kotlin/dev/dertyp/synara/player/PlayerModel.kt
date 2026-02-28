@@ -24,6 +24,7 @@ import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
 
+@Suppress("unused")
 @OptIn(ExperimentalSerializationApi::class)
 class PlayerModel(
     private val audioPlayer: AudioPlayer,
@@ -70,6 +71,9 @@ class PlayerModel(
     val currentPosition: StateFlow<Long> = audioPlayer.currentPosition
     val duration: StateFlow<Long> = audioPlayer.duration
     val volume: StateFlow<Float> = audioPlayer.volume
+    val sampleRate: StateFlow<Int> = audioPlayer.sampleRate
+    val bitsPerSample: StateFlow<Int> = audioPlayer.bitsPerSample
+    val bitRate: StateFlow<Long> = audioPlayer.bitRate
 
     init {
         loadState()

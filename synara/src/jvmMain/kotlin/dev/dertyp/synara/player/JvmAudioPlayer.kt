@@ -37,6 +37,15 @@ class JvmAudioPlayer(
     private val _volume = MutableStateFlow(1.0f)
     override val volume = _volume.asStateFlow()
 
+    private val _sampleRate = MutableStateFlow(0)
+    override val sampleRate = _sampleRate.asStateFlow()
+
+    private val _bitsPerSample = MutableStateFlow(0)
+    override val bitsPerSample = _bitsPerSample.asStateFlow()
+
+    private val _bitRate = MutableStateFlow(0L)
+    override val bitRate = _bitRate.asStateFlow()
+
     private val _onFinished = MutableSharedFlow<Unit>()
     override val onFinished = _onFinished.asSharedFlow()
 
@@ -103,6 +112,9 @@ class JvmAudioPlayer(
             }
             _isPlaying.value = false
             _currentPosition.value = 0
+            _bitRate.value = 0
+            _sampleRate.value = 0
+            _bitsPerSample.value = 0
         }
     }
 
@@ -132,6 +144,9 @@ class JvmAudioPlayer(
             try {
                 val session = dataSource.createPlaybackSession(songId, startTimeMs, scope) ?: return@launch
                 _duration.value = session.song.duration
+                _sampleRate.value = session.sampleRate
+                _bitsPerSample.value = session.bitsPerSample
+                _bitRate.value = session.song.bitRate
 
                 val sampleRate = session.sampleRate
                 val channels = session.channels
@@ -180,7 +195,8 @@ class JvmAudioPlayer(
                     }
 
                     val samplesInCurrentBuffer = alGetSourcei(sourceId, AL_SAMPLE_OFFSET)
-                    _currentPosition.value = (totalSamplesPlayedBase + samplesInCurrentBuffer) * 1000 / sampleRate
+                    val currentTotalSamples = totalSamplesPlayedBase + samplesInCurrentBuffer
+                    _currentPosition.value = currentTotalSamples * 1000 / sampleRate
                     
                     if (alGetSourcei(sourceId, AL_BUFFERS_QUEUED) == 0 && pcmChannel.isClosedForReceive) {
                         break
