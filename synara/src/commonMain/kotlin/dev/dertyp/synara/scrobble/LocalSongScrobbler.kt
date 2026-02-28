@@ -10,6 +10,7 @@ import dev.dertyp.synara.ui.models.TrayState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 
@@ -23,7 +24,7 @@ class LocalSongScrobbler(
     override val icon: String = ""
 
     private val queries = database.scrobbleQueueQueries
-    private val currentColor = MutableStateFlow<Color?>(null)
+    private val currentColor = MutableStateFlow<Color>(Color(0xFFB3B3B3))
 
     init {
         scope.launch {
@@ -31,8 +32,8 @@ class LocalSongScrobbler(
                 playerModel.isPlaying,
                 currentColor
             ) { isPlaying, color ->
-                if (isPlaying && color != null) color else null
-            }.collectLatest { color ->
+                if (isPlaying) color else null
+            }.distinctUntilChanged().collectLatest { color ->
                 trayState.setBadgeColor(color)
             }
         }

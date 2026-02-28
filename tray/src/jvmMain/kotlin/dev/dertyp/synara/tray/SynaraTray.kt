@@ -182,22 +182,21 @@ class JvmSynaraTray : SynaraTray {
                     g2d.fillOval(x, 0, badgeSize, badgeSize)
                     g2d.dispose()
 
-                    val tempFile = if (lastBadgedIconPath != null) {
-                        File(lastBadgedIconPath!!)
-                    } else {
-                        val f = Files.createTempFile("synara-tray-badged", ".png").toFile()
-                        f.deleteOnExit()
-                        lastBadgedIconPath = f.absolutePath
-                        f
-                    }
+                    val tempFile = Files.createTempFile("synara-tray-badged", ".png").toFile()
+                    tempFile.deleteOnExit()
                     
                     ImageIO.write(bi, "png", tempFile)
                     AppIndicatorLib.INSTANCE.app_indicator_set_icon_full(indicator, tempFile.absolutePath, "synara")
+                    
+                    lastBadgedIconPath?.let { File(it).delete() }
+                    lastBadgedIconPath = tempFile.absolutePath
                 } else {
                     val originalPath = lastExtractedIconPath ?: findAbsoluteIconPath("tray.svg") ?: findAbsoluteIconPath("tray-white.png")
                     if (originalPath != null) {
                         AppIndicatorLib.INSTANCE.app_indicator_set_icon_full(indicator, originalPath, "synara")
                     }
+                    lastBadgedIconPath?.let { File(it).delete() }
+                    lastBadgedIconPath = null
                 }
             } catch (e: Exception) {
                 System.err.println("SynaraTray: Failed to update badge: ${e.message}")

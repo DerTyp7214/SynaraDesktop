@@ -204,9 +204,9 @@ fun PlayerBar(
                                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                 elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp)
                             ) {
-                                Icon(
-                                    if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                    contentDescription = if (isPlaying) stringResource(Res.string.pause) else stringResource(Res.string.play),
+                                PlayPauseIcon(
+                                    isPlaying = isPlaying,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(32.dp)
                                 )
                             }
@@ -365,6 +365,13 @@ private fun VolumeControl(
     var isHovered by remember { mutableStateOf(false) }
     var isPopupHovered by remember { mutableStateOf(false) }
     var showPopup by remember { mutableStateOf(false) }
+    var lastVolume by remember { mutableStateOf(if (volume > 0f) volume else 0.5f) }
+
+    LaunchedEffect(volume) {
+        if (volume > 0f) {
+            lastVolume = volume
+        }
+    }
     
     val density = LocalDensity.current
 
@@ -398,7 +405,7 @@ private fun VolumeControl(
         contentAlignment = Alignment.Center
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { onVolumeChange(if (volume > 0f) 0f else 0.5f) }) {
+            IconButton(onClick = { onVolumeChange(if (volume > 0f) 0f else lastVolume) }) {
                 Icon(
                     volumeIcon,
                     contentDescription = stringResource(Res.string.volume),
