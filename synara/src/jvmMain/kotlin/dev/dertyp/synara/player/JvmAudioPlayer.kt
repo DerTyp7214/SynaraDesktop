@@ -43,7 +43,7 @@ class JvmAudioPlayer(
     private var playerJob: Job? = null
     private var lastSongId: PlatformUUID? = null
 
-    private val dataSource = SongDataSource(songService, scope)
+    private val dataSource = SongDataSource(songService)
 
     init {
         scope.launch {

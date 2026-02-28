@@ -38,6 +38,7 @@ fun SynaraColorScheme(isDarkTheme: Boolean = isAppDark()): ColorScheme {
     val darkColorScheme by Config.darkColorScheme.collectAsState()
     val lightColorScheme by Config.lightColorScheme.collectAsState()
     val useSongColor by Config.useSongColor.collectAsState()
+    val usePywal by Config.usePywal.collectAsState()
     
     val playerModel: PlayerModel = koinInject()
     val currentSong by playerModel.currentSong.collectAsState()
@@ -47,10 +48,12 @@ fun SynaraColorScheme(isDarkTheme: Boolean = isAppDark()): ColorScheme {
         isDark = isDarkTheme
     )
 
-    val targetColorScheme = if (useSongColor && currentSong != null) {
-        coverScheme
-    } else {
-        if (isDarkTheme) darkColorScheme else lightColorScheme
+    val pywalScheme = rememberPywalColorScheme(isDark = isDarkTheme)
+
+    val targetColorScheme = when {
+        usePywal && pywalScheme != null -> pywalScheme
+        useSongColor && currentSong != null -> coverScheme
+        else -> if (isDarkTheme) darkColorScheme else lightColorScheme
     }
 
     val scheme by animateColorSchemeAsState(

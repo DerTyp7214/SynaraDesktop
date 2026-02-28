@@ -22,19 +22,22 @@ import kotlin.math.min
 
 class SongDataSource(
     private val songService: ISongService,
-    private val scope: CoroutineScope
 ) {
     @Suppress("PrivatePropertyName")
     private val MAX_CACHE_SIZE = 50
     private val cacheMutex = Mutex()
 
-    private val songCache = object : LinkedHashMap<PlatformUUID, UserSong>(MAX_CACHE_SIZE, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<PlatformUUID, UserSong>?): Boolean = size > MAX_CACHE_SIZE
-    }
+    private val songCache =
+        object : LinkedHashMap<PlatformUUID, UserSong>(MAX_CACHE_SIZE, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<PlatformUUID, UserSong>?): Boolean =
+                size > MAX_CACHE_SIZE
+        }
 
-    private val metadataCache = object : LinkedHashMap<PlatformUUID, ByteArray>(MAX_CACHE_SIZE, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<PlatformUUID, ByteArray>?): Boolean = size > MAX_CACHE_SIZE
-    }
+    private val metadataCache =
+        object : LinkedHashMap<PlatformUUID, ByteArray>(MAX_CACHE_SIZE, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<PlatformUUID, ByteArray>?): Boolean =
+                size > MAX_CACHE_SIZE
+        }
 
     suspend fun getSong(songId: PlatformUUID): UserSong? {
         cacheMutex.withLock {
@@ -58,15 +61,14 @@ class SongDataSource(
             val bos = ByteArrayOutputStream()
 
             var foundMagic = false
-            // Search for "fLaC" in the first few KB (skip potential ID3v2 tags)
             for (i in 0 until 65536) {
                 val b = stream.read()
                 if (b == -1) break
-                if (b == 'f'.toInt()) {
+                if (b == 'f'.code) {
                     val b2 = stream.read()
                     val b3 = stream.read()
                     val b4 = stream.read()
-                    if (b2 == 'L'.toInt() && b3 == 'a'.toInt() && b4 == 'C'.toInt()) {
+                    if (b2 == 'L'.code && b3 == 'a'.code && b4 == 'C'.code) {
                         foundMagic = true
                         break
                     }
@@ -78,7 +80,12 @@ class SongDataSource(
                 return@withContext null
             }
 
-            bos.write(byteArrayOf('f'.toByte(), 'L'.toByte(), 'a'.toByte(), 'C'.toByte()))
+            bos.write(
+                byteArrayOf(
+                    'f'.code.toByte(), 'L'.code.toByte(),
+                    'a'.code.toByte(), 'C'.code.toByte()
+                )
+            )
 
             var lastBlock = false
             while (!lastBlock) {
@@ -88,8 +95,8 @@ class SongDataSource(
 
                 lastBlock = (header[0].toInt() and 0x80) != 0
                 val length = ((header[1].toInt() and 0xFF) shl 16) or
-                             ((header[2].toInt() and 0xFF) shl 8) or
-                             (header[3].toInt() and 0xFF)
+                        ((header[2].toInt() and 0xFF) shl 8) or
+                        (header[3].toInt() and 0xFF)
 
                 if (length > 0) {
                     val data = ByteArray(length)
@@ -129,15 +136,20 @@ class SongDataSource(
         val pcmFlow: Flow<ShortBuffer>
     )
 
-    suspend fun createPlaybackSession(songId: PlatformUUID, positionMs: Long, sessionScope: CoroutineScope): PlaybackSession? {
+    suspend fun createPlaybackSession(
+        songId: PlatformUUID,
+        positionMs: Long,
+        sessionScope: CoroutineScope
+    ): PlaybackSession? {
         val song = getSong(songId) ?: return null
         val metadata = getMetadata(songId) ?: return null
-        
+
         val totalDuration = song.duration
         val mSize = metadata.size.toLong()
-        
+
         val byteOffset = if (positionMs > 0 && totalDuration > 0) {
-            val fileSize = if (song.fileSize > 0) song.fileSize else songService.getStreamSize(songId)
+            val fileSize =
+                if (song.fileSize > 0) song.fileSize else songService.getStreamSize(songId)
             val audioDataSize = fileSize - mSize
             if (audioDataSize > 0) {
                 mSize + (positionMs.toDouble() / totalDuration * audioDataSize).toLong()
@@ -207,7 +219,8 @@ class SongDataSource(
 
                     override fun processPCM(pcm: ByteData) {
                         val info = runBlocking { infoDeferred.await() }
-                        val shortBuffer = convertToShortBuffer(pcm.data, pcm.len, info.bitsPerSample)
+                        val shortBuffer =
+                            convertToShortBuffer(pcm.data, pcm.len, info.bitsPerSample)
                         runBlocking { pcmChannel.send(shortBuffer) }
                     }
                 })
@@ -235,7 +248,7 @@ class SongDataSource(
                     }
                 }
             )
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
@@ -253,6 +266,7 @@ class SongDataSource(
                     shortBuffer.put(((msb shl 8) or lsb).toShort())
                 }
             }
+
             24 -> {
                 for (i in 0 until samplesCount) {
                     val mid = data[i * 3 + 1].toInt() and 0xFF
@@ -260,6 +274,7 @@ class SongDataSource(
                     shortBuffer.put(((msb shl 8) or mid).toShort())
                 }
             }
+
             8 -> {
                 for (i in 0 until samplesCount) {
                     val s = data[i].toInt()
@@ -267,7 +282,7 @@ class SongDataSource(
                 }
             }
         }
-        
+
         return shortBuffer.flip()
     }
 
@@ -281,7 +296,7 @@ class SongDataSource(
         private var isClosed = false
         private val job: Job = scope.launch(Dispatchers.IO) {
             try {
-                flow.collect { 
+                flow.collect {
                     if (isClosed) throw CancellationException()
                     channel.send(it)
                 }

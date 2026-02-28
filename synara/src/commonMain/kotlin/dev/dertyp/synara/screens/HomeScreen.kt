@@ -4,7 +4,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -83,6 +85,7 @@ class HomeScreen : Screen {
                 .width(260.dp)
                 .fillMaxHeight(),
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             tonalElevation = 1.dp
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -162,7 +165,8 @@ class HomeScreen : Screen {
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(8.dp))
                 .clickable(onClick = onClick),
-            color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+            color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+            contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -192,14 +196,14 @@ class HomeScreen : Screen {
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(8.dp))
                 .clickable(onClick = onClick),
-            color = Color.Transparent
+            color = Color.Transparent,
+            contentColor = MaterialTheme.colorScheme.onSurface
         ) {
             Text(
                 text = playlist.name,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                color = MaterialTheme.colorScheme.onSurface
+                maxLines = 1
             )
         }
     }
@@ -259,13 +263,13 @@ class HomeScreen : Screen {
                 IconButton(onClick = { 
                     if (navigator.lastItem !is SessionsScreen) navigator.push(SessionsScreen())
                 }) {
-                    Icon(Icons.Rounded.CastConnected, contentDescription = stringResource(Res.string.sessions), tint = MaterialTheme.colorScheme.onSurface)
+                    Icon(Icons.Rounded.CastConnected, contentDescription = stringResource(Res.string.sessions))
                 }
 
                 IconButton(onClick = { 
                     if (navigator.lastItem !is SettingsScreen) navigator.push(SettingsScreen())
                 }) {
-                    Icon(Icons.Rounded.Settings, contentDescription = stringResource(Res.string.settings), tint = MaterialTheme.colorScheme.onSurface)
+                    Icon(Icons.Rounded.Settings, contentDescription = stringResource(Res.string.settings))
                 }
             }
         }
@@ -281,13 +285,13 @@ private class DashboardScreen : Screen {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = stringResource(Res.string.dashboard),
                 style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(bottom = 24.dp)
             )
 
@@ -331,8 +335,7 @@ private class DashboardScreen : Screen {
                     Text(
                         text = stats.version.version,
                         style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -359,8 +362,7 @@ private class DashboardScreen : Screen {
                 Text(
                     text = value,
                     style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    fontWeight = FontWeight.Bold
                 )
             }
         }

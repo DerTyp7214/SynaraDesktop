@@ -158,6 +158,7 @@ fun runTransparentWindow(
     shapes: @Composable () -> Shapes = { appTheme().shapes },
     typography: @Composable () -> Typography = { appTheme().typography },
     windowBackground: @Composable () -> Color = { appTheme().colorScheme.background.copy(alpha = .6f) },
+    onBackground: @Composable () -> Color = { appTheme().colorScheme.onBackground },
     content: @Composable () -> Unit
 ) {
     glfwSetErrorCallback { error, description ->
@@ -262,7 +263,8 @@ fun runTransparentWindow(
             ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = windowBackground()
+                    color = windowBackground(),
+                    contentColor = onBackground()
                 ) {
                     Column {
                         if (showDragHandle) {

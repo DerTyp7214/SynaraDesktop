@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -41,37 +42,17 @@ fun PlayerBar(
         modifier = modifier
             .fillMaxWidth()
             .height(110.dp),
-        color = MaterialTheme.colorScheme.surface,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+        contentColor = MaterialTheme.colorScheme.onSurface,
         tonalElevation = 8.dp
     ) {
-        Column {
-            val position = if (isSeeking) seekPosition else currentPosition
-
-            Slider(
-                value = if (duration > 0) position.toFloat() / duration else 0f,
-                onValueChange = {
-                    isSeeking = true
-                    seekPosition = (it * duration).toLong()
-                },
-                onValueChangeFinished = {
-                    playerModel.seekTo(seekPosition)
-                    isSeeking = false
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(12.dp)
-                    .padding(horizontal = 0.dp),
-                colors = SliderDefaults.colors(
-                    thumbColor = MaterialTheme.colorScheme.primary,
-                    activeTrackColor = MaterialTheme.colorScheme.primary,
-                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                ),
-                enabled = currentSong != null
-            )
-
+        Column(
+            modifier = Modifier.padding(bottom = 8.dp)
+        ) {
             Row(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .weight(1f)
+                    .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -122,7 +103,7 @@ fun PlayerBar(
                     }
 
                     if (currentSong != null) {
-                        IconButton(onClick = { /* TODO: Like song */ }) {
+                        IconButton(onClick = { playerModel.toggleLike() }) {
                             Icon(
                                 if (currentSong?.isFavourite == true) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                                 contentDescription = stringResource(Res.string.favorite),
@@ -170,22 +151,6 @@ fun PlayerBar(
                             Icon(Icons.Rounded.SkipNext, contentDescription = stringResource(Res.string.next_song))
                         }
                     }
-                    
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            formatDuration(position),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            formatDuration(duration),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
                 }
 
                 // Volume and other actions
@@ -230,7 +195,7 @@ fun PlayerBar(
                     Slider(
                         value = volume,
                         onValueChange = { playerModel.setVolume(it) },
-                        modifier = Modifier.width(100.dp),
+                        modifier = Modifier.width(100.dp).height(12.dp),
                         colors = SliderDefaults.colors(
                             thumbColor = MaterialTheme.colorScheme.primary,
                             activeTrackColor = MaterialTheme.colorScheme.primary,
@@ -238,6 +203,52 @@ fun PlayerBar(
                         )
                     )
                 }
+            }
+
+            val position = if (isSeeking) seekPosition else currentPosition
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    formatDuration(position.coerceAtMost(duration)),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.widthIn(min = 40.dp)
+                )
+
+                Slider(
+                    value = if (duration > 0) position.toFloat() / duration else 0f,
+                    onValueChange = {
+                        isSeeking = true
+                        seekPosition = (it * duration).toLong()
+                    },
+                    onValueChangeFinished = {
+                        playerModel.seekTo(seekPosition)
+                        isSeeking = false
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp)
+                        .height(12.dp),
+                    colors = SliderDefaults.colors(
+                        thumbColor = MaterialTheme.colorScheme.primary,
+                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    enabled = currentSong != null
+                )
+
+                Text(
+                    formatDuration(duration),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.widthIn(min = 40.dp)
+                )
             }
         }
     }

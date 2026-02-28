@@ -44,7 +44,7 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
         val state by screenModel.state.collectAsState()
 
         Scaffold(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+            containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
                     colors = TopAppBarDefaults.topAppBarColors(

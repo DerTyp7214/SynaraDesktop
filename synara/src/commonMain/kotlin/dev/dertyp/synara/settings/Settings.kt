@@ -13,6 +13,7 @@ sealed class SettingKey<T>(val name: String) {
     data object LightThemeColor : SettingKey<Int>("light_theme_color")
     data object DarkThemeColor : SettingKey<Int>("dark_theme_color")
     data object UseSongColor : SettingKey<Boolean>("use_song_color")
+    data object UsePywal : SettingKey<Boolean>("use_pywal")
 
     companion object {
         val authKeys = setOf(AuthToken.name, RefreshToken.name, TokenExpiration.name)
@@ -54,7 +55,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.Host, is SettingKey.AuthToken, is SettingKey.RefreshToken -> getStringOrNull(key.name) as T?
         is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor -> getIntOrNull(key.name) as T?
         is SettingKey.TokenExpiration -> getLongOrNull(key.name) as T?
-        is SettingKey.DarkTheme, is SettingKey.UseSongColor -> getBooleanOrNull(key.name) as T?
+        is SettingKey.DarkTheme, is SettingKey.UseSongColor, is SettingKey.UsePywal -> getBooleanOrNull(key.name) as T?
         is SettingKey.Volume -> getFloatOrNull(key.name) as T?
     }
 }

@@ -32,6 +32,9 @@ object Config : KoinComponent {
     private val _useSongColor = MutableStateFlow(settings.get(SettingKey.UseSongColor, false))
     val useSongColor: StateFlow<Boolean> = _useSongColor.asStateFlow()
 
+    private val _usePywal = MutableStateFlow(settings.get(SettingKey.UsePywal, false))
+    val usePywal: StateFlow<Boolean> = _usePywal.asStateFlow()
+
     private val _darkColorScheme = MutableStateFlow(createColorSchemeFromSeeds(Triple(_darkThemeColor.value.toArgb(), null, null), true))
     val darkColorScheme: StateFlow<ColorScheme> = _darkColorScheme.asStateFlow()
 
@@ -76,6 +79,11 @@ object Config : KoinComponent {
             _lightColorScheme.value = createColorSchemeFromSeeds(Triple(_lightThemeColor.value.toArgb(), null, null), false)
             _darkColorScheme.value = createColorSchemeFromSeeds(Triple(_darkThemeColor.value.toArgb(), null, null), true)
         }
+    }
+
+    fun setUsePywal(use: Boolean) {
+        _usePywal.value = use
+        settings.put(SettingKey.UsePywal, use)
     }
 
     fun setDarkColorScheme(colorScheme: ColorScheme) {

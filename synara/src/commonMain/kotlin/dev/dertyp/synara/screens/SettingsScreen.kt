@@ -3,7 +3,9 @@ package dev.dertyp.synara.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -20,6 +22,8 @@ import cafe.adriel.voyager.core.screen.uniqueScreenKey
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.synara.Config
+import dev.dertyp.synara.IS_DEBUG
+import dev.dertyp.synara.theme.PywalLoader
 import dev.dertyp.synara.ui.components.ColorPicker
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.*
@@ -35,72 +39,111 @@ class SettingsScreen : Screen {
         val lightThemeColor by Config.lightThemeColor.collectAsState()
         val darkThemeColor by Config.darkThemeColor.collectAsState()
         val useSongColor by Config.useSongColor.collectAsState()
+        val usePywal by Config.usePywal.collectAsState()
 
-        Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { navigator.pop() }) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = stringResource(Res.string.back),
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(Res.string.settings),
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
+        Scaffold(
+            containerColor = Color.Transparent
+        ) { padding ->
             Column(
-                modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                LanguageSetting(currentLanguage = language)
-
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { Config.setUseSongColor(!useSongColor) }
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(Res.string.use_song_color),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Switch(
-                            checked = useSongColor,
-                            onCheckedChange = { Config.setUseSongColor(it) }
+                    IconButton(onClick = { navigator.pop() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = stringResource(Res.string.back)
                         )
                     }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(Res.string.settings),
+                        style = MaterialTheme.typography.headlineMedium
+                    )
                 }
 
-                if (!useSongColor) {
-                    ThemeColorSetting(
-                        title = stringResource(Res.string.light_theme_color),
-                        color = lightThemeColor,
-                        onColorSelected = { Config.setLightThemeColor(it) }
-                    )
-                    ThemeColorSetting(
-                        title = stringResource(Res.string.dark_theme_color),
-                        color = darkThemeColor,
-                        onColorSelected = { Config.setDarkThemeColor(it) }
-                    )
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Column(
+                    modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    LanguageSetting(currentLanguage = language)
+
+                    if (PywalLoader.isSupported()) {
+                        ElevatedCard(
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { Config.setUsePywal(!usePywal) }
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(Res.string.use_pywal),
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Switch(
+                                    checked = usePywal,
+                                    onCheckedChange = { Config.setUsePywal(it) }
+                                )
+                            }
+                        }
+                    }
+
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { Config.setUseSongColor(!useSongColor) }
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.use_song_color),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Switch(
+                                checked = useSongColor,
+                                onCheckedChange = { Config.setUseSongColor(it) }
+                            )
+                        }
+                    }
+
+                    if (!useSongColor && !usePywal) {
+                        ThemeColorSetting(
+                            title = stringResource(Res.string.light_theme_color),
+                            color = lightThemeColor,
+                            onColorSelected = { Config.setLightThemeColor(it) }
+                        )
+                        ThemeColorSetting(
+                            title = stringResource(Res.string.dark_theme_color),
+                            color = darkThemeColor,
+                            onColorSelected = { Config.setDarkThemeColor(it) }
+                        )
+                    }
+
+                    if (IS_DEBUG) {
+                        Button(
+                            onClick = { navigator.push(DebugScreen()) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Open Debug Color Scheme")
+                        }
+                    }
                 }
             }
         }
@@ -130,8 +173,7 @@ class SettingsScreen : Screen {
                     Column {
                         Text(
                             text = stringResource(Res.string.language),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface
+                            style = MaterialTheme.typography.titleMedium
                         )
                         Text(
                             text = languages.find { it.first == currentLanguage }?.second
@@ -184,8 +226,7 @@ class SettingsScreen : Screen {
             ) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    style = MaterialTheme.typography.titleMedium
                 )
 
                 Box(

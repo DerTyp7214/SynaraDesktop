@@ -407,4 +407,44 @@ class PlayerModel(
             RepeatMode.ONE -> RepeatMode.OFF
         }
     }
+
+    fun toggleLike() {
+        val song = _currentSong.value ?: return
+        scope.launch {
+            try {
+                val updated = songService.setLiked(song.id, !(song.isFavourite ?: false)) ?: return@launch
+
+                val newFetched = _fetchedSongs.value.toMutableMap()
+                var changed = false
+                newFetched.entries.forEach { (entry, s) ->
+                    if (s.id == song.id) {
+                        newFetched[entry] = updated
+                        changed = true
+                    }
+                }
+                if (changed) {
+                    _fetchedSongs.value = newFetched
+                }
+
+                _queue.value = _queue.value.map { entry ->
+                    if (entry is QueueEntry.Explicit && entry.song.id == song.id) {
+                        entry.copy(song = updated)
+                    } else {
+                        entry
+                    }
+                }
+
+                originalQueue = originalQueue.map { entry ->
+                    if (entry is QueueEntry.Explicit && entry.song.id == song.id) {
+                        entry.copy(song = updated)
+                    } else {
+                        entry
+                    }
+                }
+
+                _currentSong.value = updated
+            } catch (_: Exception) {
+            }
+        }
+    }
 }

@@ -1,3 +1,5 @@
+@file:Suppress("MayBeConstant")
+
 package dev.dertyp.synara
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -13,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.VisualTransformation
+
+val IS_DEBUG = BuildConfig.IS_DEBUG
 
 typealias TextFieldComposable = @Composable (
     value: String,

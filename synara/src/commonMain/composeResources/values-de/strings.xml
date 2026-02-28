@@ -36,6 +36,8 @@
     <string name="hue">Farbton (Hue)</string>
     <string name="chroma">Sättigung (Chroma)</string>
     <string name="tone">Helligkeit (Tone)</string>
+    <string name="use_song_color">Farbe des aktuell gespielten Songs verwenden</string>
+    <string name="use_pywal">Pywal-Farben verwenden (nur Linux)</string>
 
     <!-- Player -->
     <string name="play">Abspielen</string>

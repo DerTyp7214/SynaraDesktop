@@ -49,9 +49,32 @@ compose.desktop {
     application {
         mainClass = "dev.dertyp.synara.MainKt"
 
+        buildTypes.release.proguard {
+            isEnabled.set(false)
+        }
+
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageVersion = "1.0.0"
+            packageName = "Synara"
+
+            modules("jdk.unsupported")
+
+            linux {
+                shortcut = true
+                menuGroup = "Audio"
+            }
         }
+    }
+}
+
+allprojects {
+    tasks.withType<Jar> {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        exclude("META-INF/MANIFEST.MF")
+        exclude("META-INF/INDEX.LIST")
+        exclude("META-INF/*.SF")
+        exclude("META-INF/*.DSA")
+        exclude("META-INF/*.RSA")
     }
 }
