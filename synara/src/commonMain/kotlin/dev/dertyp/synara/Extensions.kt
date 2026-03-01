@@ -6,6 +6,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
+import dev.dertyp.synara.material.Hct
 import kotlin.math.min
 
 @Composable
@@ -102,4 +105,18 @@ fun FloatArray.takeAverage(n: Int): Float {
         sum += get(i)
     }
     return if (limit > 0) sum / limit else 0f
+}
+
+fun ColorScheme.onSurfaceVariantDistinct(): Color {
+    val surfaceLum = surface.luminance()
+    val isDark = surfaceLum < 0.5f
+
+    val baseHct = Hct.fromInt(secondary.toArgb())
+
+    val targetChroma = if (baseHct.chroma < 20.0) 48.0 else baseHct.chroma.coerceIn(30.0, 60.0)
+    val targetHue = if (baseHct.chroma < 10.0) Hct.fromInt(primary.toArgb()).hue else baseHct.hue
+
+    val targetTone = if (isDark) 70.0 else 40.0
+
+    return Color(Hct.from(targetHue, targetChroma, targetTone).toInt())
 }

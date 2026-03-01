@@ -10,10 +10,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.VolumeDown
-import androidx.compose.material.icons.automirrored.rounded.VolumeMute
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.automirrored.rounded.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,6 +22,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -51,6 +49,7 @@ import dev.dertyp.core.joinArtists
 import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.animateColorSchemeAsState
+import dev.dertyp.synara.onSurfaceVariantDistinct
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.scrobble.BaseScrobbler
 import dev.dertyp.synara.scrobble.ScrobblerService
@@ -118,11 +117,12 @@ fun PlayerBar(
     var seekPosition by remember { mutableLongStateOf(0L) }
     var isWaitingForPosition by remember { mutableStateOf(false) }
 
-    val currentPosition = if (isSeeking || (isWaitingForPosition && currentPositionState <= 0L && duration > 0)) {
-        seekPosition
-    } else {
-        currentPositionState
-    }
+    val currentPosition =
+        if (isSeeking || (isWaitingForPosition && currentPositionState <= 0L && duration > 0)) {
+            seekPosition
+        } else {
+            currentPositionState
+        }
 
     LaunchedEffect(currentPositionState) {
         if (currentPositionState > 0) {
@@ -153,30 +153,52 @@ fun PlayerBar(
                             playerModel.togglePlayPause()
                             true
                         }
+
                         Key.F -> {
                             windowActions.toggleFullscreen()
                             true
                         }
+
                         Key.DirectionLeft -> {
-                            playerModel.seekTo((playerModel.currentPosition.value - 5000).coerceAtLeast(0))
+                            playerModel.seekTo(
+                                (playerModel.currentPosition.value - 5000).coerceAtLeast(
+                                    0
+                                )
+                            )
                             true
                         }
+
                         Key.DirectionRight -> {
                             playerModel.seekTo(playerModel.currentPosition.value + 5000)
                             true
                         }
+
                         Key.N -> {
                             if (event.isShiftPressed) {
                                 playerModel.skipNext()
                                 true
                             } else false
                         }
+
                         Key.P -> {
                             if (event.isShiftPressed) {
                                 playerModel.skipPrevious()
                                 true
                             } else false
                         }
+
+                        Key.L -> {
+                            if (currentSong?.lyrics?.isNotBlank() == true) {
+                                globalState.toggleLyricsExpanded()
+                                true
+                            } else false
+                        }
+
+                        Key.Q -> {
+                            globalState.toggleQueueExpanded()
+                            true
+                        }
+
                         else -> false
                     }
                 } else false
@@ -186,7 +208,12 @@ fun PlayerBar(
                     val delay = it.changes.first().scrollDelta.y
                     if (delay != 0f) {
                         val direction = if (delay > 0) -1 else 1
-                        playerModel.setVolume((playerModel.volume.value + direction * 0.02f).coerceIn(0f, 1f))
+                        playerModel.setVolume(
+                            (playerModel.volume.value + direction * 0.02f).coerceIn(
+                                0f,
+                                1f
+                            )
+                        )
                     }
                 }
             }
@@ -485,7 +512,7 @@ fun PlayerBar(
                                             Icon(
                                                 Icons.Rounded.Shuffle,
                                                 contentDescription = stringResource(Res.string.shuffle),
-                                                tint = if (shuffleMode) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                                                tint = if (shuffleMode) MaterialTheme.colorScheme.onSurfaceVariantDistinct() else LocalContentColor.current
                                             )
                                         }
                                         IconButton(
@@ -498,7 +525,7 @@ fun PlayerBar(
                                                     else -> Icons.Rounded.Repeat
                                                 },
                                                 contentDescription = stringResource(Res.string.repeat),
-                                                tint = if (repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                                                tint = if (repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.onSurfaceVariantDistinct() else LocalContentColor.current
                                             )
                                         }
 
@@ -598,7 +625,9 @@ fun PlayerBar(
                                                 Spacer(modifier = Modifier.width(4.dp))
                                                 Icon(
                                                     Icons.Rounded.Schedule,
-                                                    contentDescription = stringResource(Res.string.pending_scrobble),
+                                                    contentDescription = stringResource(
+                                                        Res.string.pending_scrobble
+                                                    ),
                                                     modifier = Modifier.size(16.dp),
                                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(
                                                         alpha = 0.6f
@@ -617,25 +646,44 @@ fun PlayerBar(
     }
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun ExpandedPlayerContent(
     currentSong: UserSong?,
     sizeResolver: ConstraintsSizeResolver,
     coverCenter: MutableState<Offset>,
     parentCoordinates: LayoutCoordinates? = null,
-    onCollapse: () -> Unit
+    onCollapse: () -> Unit,
+    globalState: GlobalStateModel = koinInject()
 ) {
     val windowActions = LocalWindowActions.current
+    val isQueueShowing by globalState.isQueueExpanded.collectAsState()
+    val isLyricsShowing by globalState.isLyricsExpanded.collectAsState()
+
+    val sideContentShowing = isQueueShowing || isLyricsShowing
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val totalWidth = maxWidth
+        val isHorizontal = totalWidth > 800.dp
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            var isTopBarHovered by remember { mutableStateOf(false) }
+            val topBarAlpha by animateFloatAsState(
+                targetValue = if (isTopBarHovered) 1f else 0.4f,
+                label = "topBarAlpha"
+            )
+
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onPointerEvent(PointerEventType.Enter) { isTopBarHovered = true }
+                    .onPointerEvent(PointerEventType.Exit) { isTopBarHovered = false }
+                    .graphicsLayer { alpha = topBarAlpha },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -647,6 +695,31 @@ private fun ExpandedPlayerContent(
                     )
                 }
 
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (currentSong?.lyrics?.isNotBlank() == true) {
+                        IconButton(onClick = { globalState.toggleLyricsExpanded() }) {
+                            Icon(
+                                Icons.Rounded.Lyrics,
+                                contentDescription = "Lyrics",
+                                modifier = Modifier.size(28.dp),
+                                tint = if (isLyricsShowing) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                            )
+                        }
+                    }
+
+                    IconButton(onClick = { globalState.toggleQueueExpanded() }) {
+                        Icon(
+                            Icons.AutoMirrored.Rounded.QueueMusic,
+                            contentDescription = "Queue",
+                            modifier = Modifier.size(28.dp),
+                            tint = if (isQueueShowing) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                        )
+                    }
+                }
+
                 IconButton(onClick = { windowActions.toggleFullscreen() }) {
                     Icon(
                         if (windowActions.isFullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
@@ -656,47 +729,156 @@ private fun ExpandedPlayerContent(
                 }
             }
 
-            Column(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Spacer(modifier = Modifier.weight(1f))
+            if (isHorizontal) {
+                Row(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val sideContentWeight by animateFloatAsState(
+                        targetValue = if (sideContentShowing) 1f else 0.0001f,
+                        animationSpec = tween(500),
+                        label = "sideContentWeight"
+                    )
 
-                LargeCover(
-                    song = currentSong,
-                    sizeResolver = sizeResolver,
-                    modifier = Modifier
-                        .sizeIn(maxHeight = 360.dp, maxWidth = 360.dp)
-                        .aspectRatio(1f)
-                        .onGloballyPositioned { coordinates ->
-                            val parent = parentCoordinates ?: return@onGloballyPositioned
-                            val relativePosition = parent.localPositionOf(coordinates, Offset.Zero)
+                    val visualizerWidthScale by animateFloatAsState(
+                        targetValue = if (sideContentShowing) 0.95f else 0.8f,
+                        animationSpec = tween(500),
+                        label = "visualizerWidthScale"
+                    )
 
-                            val localCenter = Offset(
-                                x = coordinates.size.width / 2f,
-                                y = coordinates.size.height / 2f
-                            )
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        LargeCover(
+                            song = currentSong,
+                            sizeResolver = sizeResolver,
+                            modifier = Modifier
+                                .sizeIn(maxHeight = 400.dp, maxWidth = 400.dp)
+                                .aspectRatio(1f)
+                                .onGloballyPositioned { coordinates ->
+                                    val parent = parentCoordinates ?: return@onGloballyPositioned
+                                    val relativePosition =
+                                        parent.localPositionOf(coordinates, Offset.Zero)
 
-                            coverCenter.value = relativePosition + localCenter
+                                    val localCenter = Offset(
+                                        x = coordinates.size.width / 2f,
+                                        y = coordinates.size.height / 2f
+                                    )
+
+                                    coverCenter.value = relativePosition + localCenter
+                                }
+                        )
+
+                        Spacer(modifier = Modifier.height(32.dp))
+
+                        val (colorA, colorB) = sort(
+                            MaterialTheme.colorScheme.primaryContainer,
+                            MaterialTheme.colorScheme.tertiary
+                        )
+
+                        VisualizerView(
+                            modifier = Modifier
+                                .fillMaxWidth(visualizerWidthScale)
+                                .height(80.dp),
+                            highlightColor = colorA,
+                            color = colorB
+                        )
+                    }
+
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = sideContentShowing,
+                        enter = expandHorizontally(tween(500)) + fadeIn(tween(350, 150)),
+                        exit = shrinkHorizontally(tween(500)) + fadeOut(tween(350)),
+                        modifier = Modifier.weight(sideContentWeight).fillMaxHeight()
+                    ) {
+                        Surface(
+                            modifier = Modifier.fillMaxSize().padding(start = 24.dp),
+                            color = Color.Transparent
+                        ) {
+                            AnimatedContent(
+                                targetState = Pair(isLyricsShowing, isQueueShowing),
+                                transitionSpec = {
+                                    fadeIn(tween(300)) togetherWith fadeOut(tween(300))
+                                },
+                                label = "sideContentTransition"
+                            ) { (showLyrics, showQueue) ->
+                                if (showLyrics) {
+                                    LyricsView()
+                                } else if (showQueue) {
+                                    QueueView()
+                                }
+                            }
                         }
-                )
+                    }
+                }
+            } else {
+                AnimatedContent(
+                    targetState = if (isLyricsShowing) "lyrics" else if (isQueueShowing) "queue" else "cover",
+                    transitionSpec = {
+                        (fadeIn(tween(500)) + slideInVertically(tween(500)) { it / 4 })
+                            .togetherWith(fadeOut(tween(500)) + slideOutVertically(tween(500)) { -it / 4 })
+                    },
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    label = "expandedContentTransition"
+                ) { state ->
+                    when (state) {
+                        "cover" -> {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Spacer(modifier = Modifier.weight(1f))
 
-                Spacer(modifier = Modifier.weight(.6f))
+                                LargeCover(
+                                    song = currentSong,
+                                    sizeResolver = sizeResolver,
+                                    modifier = Modifier
+                                        .sizeIn(maxHeight = 360.dp, maxWidth = 360.dp)
+                                        .aspectRatio(1f)
+                                        .onGloballyPositioned { coordinates ->
+                                            val parent =
+                                                parentCoordinates ?: return@onGloballyPositioned
+                                            val relativePosition =
+                                                parent.localPositionOf(coordinates, Offset.Zero)
 
-                val (colorA, colorB) = sort(
-                    MaterialTheme.colorScheme.primaryContainer,
-                    MaterialTheme.colorScheme.tertiary
-                )
+                                            val localCenter = Offset(
+                                                x = coordinates.size.width / 2f,
+                                                y = coordinates.size.height / 2f
+                                            )
 
-                VisualizerView(
-                    modifier = Modifier
-                        .fillMaxWidth(0.9f)
-                        .height(120.dp),
-                    highlightColor = colorA,
-                    color = colorB
-                )
+                                            coverCenter.value = relativePosition + localCenter
+                                        }
+                                )
 
-                Spacer(modifier = Modifier.weight(.3f))
+                                Spacer(modifier = Modifier.weight(.6f))
+
+                                val (colorA, colorB) = sort(
+                                    MaterialTheme.colorScheme.primaryContainer,
+                                    MaterialTheme.colorScheme.tertiary
+                                )
+
+                                VisualizerView(
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.9f)
+                                        .height(120.dp),
+                                    highlightColor = colorA,
+                                    color = colorB
+                                )
+
+                                Spacer(modifier = Modifier.weight(.3f))
+                            }
+                        }
+
+                        "queue" -> {
+                            QueueView(modifier = Modifier.fillMaxSize())
+                        }
+
+                        "lyrics" -> {
+                            LyricsView(modifier = Modifier.fillMaxSize())
+                        }
+                    }
+                }
             }
         }
     }

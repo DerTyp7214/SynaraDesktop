@@ -37,7 +37,7 @@ class AlbumScreenModel(
                 val album = albumService.byId(albumId)
                 val songsResponse = songService.byAlbum(0, 1000, albumId)
                 mutableState.update { it.copy(album = album, songs = songsResponse.data, isLoading = false) }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 mutableState.update { it.copy(isLoading = false) }
             }
         }
@@ -48,7 +48,7 @@ class AlbumScreenModel(
         val album = state.album ?: return
         playerModel.playQueue(
             PlaybackQueue(
-                source = PlaybackSource.Album(album.id, album.name)
+                source = PlaybackSource.Album(album.id)
             ),
             startIndex = startIndex
         )
@@ -59,7 +59,7 @@ class AlbumScreenModel(
         val album = state.album ?: return
         playerModel.addToQueue(
             PlaybackQueue(
-                source = PlaybackSource.Album(album.id, album.name)
+                source = PlaybackSource.Album(album.id)
             )
         )
     }

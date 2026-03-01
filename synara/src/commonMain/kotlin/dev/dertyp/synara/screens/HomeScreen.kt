@@ -31,8 +31,11 @@ import dev.dertyp.data.UserPlaylist
 import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.theme.isAppDark
 import dev.dertyp.synara.ui.components.PlayerBar
+import dev.dertyp.synara.ui.models.AnnotatedSnackbarVisuals
+import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.viewmodels.HomeScreenModel
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.*
 
@@ -41,6 +44,7 @@ class HomeScreen : Screen {
     @Composable
     override fun Content() {
         val screenModel = getScreenModel<HomeScreenModel>()
+        val snackbarManager = koinInject<SnackbarManager>()
         val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
         val scope = rememberCoroutineScope()
         val isPlayerExpanded by screenModel.globalState.isPlayerExpanded.collectAsState()
@@ -92,6 +96,31 @@ class HomeScreen : Screen {
                                 }
                             }
                             
+                            SnackbarHost(
+                                hostState = snackbarManager.snackbarHostState,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(bottom = playerHeight + 16.dp, end = 16.dp)
+                            ) { data ->
+                                val visuals = data.visuals
+                                if (visuals is AnnotatedSnackbarVisuals) {
+                                    Snackbar(
+                                        modifier = Modifier.padding(12.dp),
+                                        action = data.visuals.actionLabel?.let {
+                                            {
+                                                TextButton(onClick = { data.performAction() }) {
+                                                    Text(it)
+                                                }
+                                            }
+                                        }
+                                    ) {
+                                        Text(visuals.annotatedMessage)
+                                    }
+                                } else {
+                                    Snackbar(data)
+                                }
+                            }
+
                             PlayerBar(
                                 modifier = Modifier.align(Alignment.BottomCenter),
                                 height = playerHeight
@@ -109,6 +138,31 @@ class HomeScreen : Screen {
                                 Box(modifier = Modifier.fillMaxSize()) {
                                     SlideTransition(navigator)
                                 }
+                            }
+                        }
+
+                        SnackbarHost(
+                            hostState = snackbarManager.snackbarHostState,
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(bottom = playerHeight + 16.dp, end = 16.dp)
+                        ) { data ->
+                            val visuals = data.visuals
+                            if (visuals is AnnotatedSnackbarVisuals) {
+                                Snackbar(
+                                    modifier = Modifier.padding(12.dp),
+                                    action = data.visuals.actionLabel?.let {
+                                        {
+                                            TextButton(onClick = { data.performAction() }) {
+                                                Text(it)
+                                            }
+                                        }
+                                    }
+                                ) {
+                                    Text(visuals.annotatedMessage)
+                                }
+                            } else {
+                                Snackbar(data)
                             }
                         }
 

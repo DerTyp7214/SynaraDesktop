@@ -16,6 +16,7 @@ import dev.dertyp.synara.rpc.services.*
 import dev.dertyp.synara.scrobble.*
 import dev.dertyp.synara.settings.SettingsFactory
 import dev.dertyp.synara.ui.components.setupCoil
+import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.ui.models.TrayState
 import dev.dertyp.synara.viewmodels.*
 import io.ktor.client.HttpClient
@@ -86,8 +87,21 @@ val appModule = module {
     singleOf(::MusicBrainzService)
     singleOf(::ScrobbleQueue)
     single { SongCache() }
-    single { PlayerModel(get(), get(), get(), get(), get(), settingsFactory.getStatePath("player_state.pb")) }
+    single { 
+        PlayerModel(
+            get(), 
+            get(), 
+            get(), 
+            get(), 
+            get(), 
+            get(), 
+            get(), 
+            get(), 
+            settingsFactory.getStatePath("player_state.pb")
+        ) 
+    }
     singleOf(::TrayState)
+    singleOf(::SnackbarManager)
 
     factoryOf(::SetupScreenModel)
     factoryOf(::LoginScreenModel)

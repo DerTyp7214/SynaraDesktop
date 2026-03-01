@@ -1,5 +1,6 @@
 package dev.dertyp.synara.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -12,7 +13,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import dev.dertyp.core.joinArtists
 import dev.dertyp.data.UserSong
+import dev.dertyp.synara.onSurfaceVariantDistinct
 import dev.dertyp.synara.player.CacheUpdate
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.SongCache
@@ -58,12 +59,14 @@ fun SongItem(
             }
     }
 
+    val bgAlpha by animateFloatAsState(if (isCurrent) 0.4f else 0f)
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.small)
             .clickable(onClick = onClick),
-        color = if (isCurrent) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color.Transparent,
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = bgAlpha),
         contentColor = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
     ) {
         Row(
@@ -96,6 +99,8 @@ fun SongItem(
                     text = currentSongState.title,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isCurrent) MaterialTheme.colorScheme.onSurfaceVariantDistinct()
+                    else MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

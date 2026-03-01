@@ -73,7 +73,9 @@
     <string name="not_playing">Keine Wiedergabe</string>
     <string name="add_to_queue">Zur Warteschlange hinzufügen</string>
     <string name="added_to_queue">Zur Warteschlange hinzugefügt</string>
+    <string name="added_to_queue_item">**%1$s** zur Warteschlange hinzugefügt</string>
     <string name="play_next">Als nächstes spielen</string>
+    <string name="playing_next_item">Spiele **%1$s** als Nächstes</string>
     <string name="playlist">Playlist</string>
 
     <!-- General -->

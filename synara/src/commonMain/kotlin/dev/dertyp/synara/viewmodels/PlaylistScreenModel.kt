@@ -136,7 +136,7 @@ class PlaylistScreenModel(
     fun playPlaylist() {
         val currentState = _state.value
         if (currentState is PlaylistState.Success) {
-            val source = PlaybackSource.Playlist(playlistId, currentState.name, isUserPlaylist)
+            val source = PlaybackSource.Playlist(playlistId)
             playerModel.playQueue(PlaybackQueue(source = source))
         }
     }
@@ -144,7 +144,7 @@ class PlaylistScreenModel(
     fun playSong(song: UserSong) {
         val currentState = _state.value
         if (currentState is PlaylistState.Success) {
-            val source = PlaybackSource.Playlist(playlistId, currentState.name, isUserPlaylist)
+            val source = PlaybackSource.Playlist(playlistId)
             val index = currentState.songs.indexOf(song)
             playerModel.playQueue(
                 PlaybackQueue(source = source),

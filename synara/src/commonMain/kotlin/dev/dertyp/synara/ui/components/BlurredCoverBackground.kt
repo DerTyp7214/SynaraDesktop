@@ -103,12 +103,12 @@ fun BlurredCoverBackground(
                 label = "audioIntensityAnimation"
             )
 
-            val baseBrightness = 0.7f + (0.5f - coverLuminance) * 0.4f
+            val baseBrightness = 0.7f + (0.3f - coverLuminance) * 0.4f
 
             val audioModifier = if (audioReactive) {
                 Modifier.adjustColors(
                     saturation = .4f + smoothedAudioIntensity,
-                    brightness = baseBrightness + smoothedAudioIntensity * (.4f * (1f - coverLuminance))
+                    brightness = baseBrightness + smoothedAudioIntensity * (.3f * (1f - coverLuminance))
                 )
             } else {
                 Modifier.adjustColors(

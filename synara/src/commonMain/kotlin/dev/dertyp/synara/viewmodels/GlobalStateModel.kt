@@ -37,6 +37,12 @@ class GlobalStateModel(
     private val _isPlayerExpanded = MutableStateFlow(false)
     val isPlayerExpanded = _isPlayerExpanded.asStateFlow()
 
+    private val _isQueueExpanded = MutableStateFlow(false)
+    val isQueueExpanded = _isQueueExpanded.asStateFlow()
+
+    private val _isLyricsExpanded = MutableStateFlow(false)
+    val isLyricsExpanded = _isLyricsExpanded.asStateFlow()
+
     init {
         refreshUser()
         refreshPlaylists()
@@ -111,9 +117,37 @@ class GlobalStateModel(
 
     fun setPlayerExpanded(expanded: Boolean) {
         _isPlayerExpanded.value = expanded
+        if (!expanded) {
+            _isQueueExpanded.value = false
+            _isLyricsExpanded.value = false
+        }
     }
 
     fun togglePlayerExpanded() {
-        _isPlayerExpanded.value = !_isPlayerExpanded.value
+        setPlayerExpanded(!_isPlayerExpanded.value)
+    }
+
+    fun setQueueExpanded(expanded: Boolean) {
+        _isQueueExpanded.value = expanded
+        if (expanded) {
+            _isPlayerExpanded.value = true
+            _isLyricsExpanded.value = false
+        }
+    }
+
+    fun toggleQueueExpanded() {
+        setQueueExpanded(!_isQueueExpanded.value)
+    }
+
+    fun setLyricsExpanded(expanded: Boolean) {
+        _isLyricsExpanded.value = expanded
+        if (expanded) {
+            _isPlayerExpanded.value = true
+            _isQueueExpanded.value = false
+        }
+    }
+
+    fun toggleLyricsExpanded() {
+        setLyricsExpanded(!_isLyricsExpanded.value)
     }
 }
