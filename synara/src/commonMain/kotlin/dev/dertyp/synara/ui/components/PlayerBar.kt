@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -20,10 +21,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -86,6 +91,14 @@ fun PlayerBar(
     val isExpanded by globalState.isPlayerExpanded.collectAsState()
     val windowActions = LocalWindowActions.current
 
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(isExpanded) {
+        if (isExpanded) {
+            focusRequester.requestFocus()
+        }
+    }
+
     LaunchedEffect(isExpanded) {
         if (!isExpanded && windowActions.isFullscreen) {
             windowActions.setFullscreen(false)
@@ -95,7 +108,56 @@ fun PlayerBar(
     var isSeeking by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableLongStateOf(0L) }
 
-    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxWidth()
+            .focusRequester(focusRequester)
+            .focusable()
+            .onKeyEvent { event ->
+                if (isExpanded && event.type == KeyEventType.KeyDown) {
+                    when (event.key) {
+                        Key.Spacebar -> {
+                            playerModel.togglePlayPause()
+                            true
+                        }
+                        Key.F -> {
+                            windowActions.toggleFullscreen()
+                            true
+                        }
+                        Key.DirectionLeft -> {
+                            playerModel.seekTo((playerModel.currentPosition.value - 5000).coerceAtLeast(0))
+                            true
+                        }
+                        Key.DirectionRight -> {
+                            playerModel.seekTo(playerModel.currentPosition.value + 5000)
+                            true
+                        }
+                        Key.N -> {
+                            if (event.isShiftPressed) {
+                                playerModel.skipNext()
+                                true
+                            } else false
+                        }
+                        Key.P -> {
+                            if (event.isShiftPressed) {
+                                playerModel.skipPrevious()
+                                true
+                            } else false
+                        }
+                        else -> false
+                    }
+                } else false
+            }
+            .onPointerEvent(PointerEventType.Scroll) {
+                if (isExpanded && it.keyboardModifiers.isShiftPressed) {
+                    val delta = it.changes.first().scrollDelta.y
+                    if (delta != 0f) {
+                        val direction = if (delta > 0) -1 else 1
+                        playerModel.setVolume((playerModel.volume.value + direction * 0.02f).coerceIn(0f, 1f))
+                    }
+                }
+            }
+    ) {
         val totalMaxWidth = maxWidth
         val totalMaxHeight = maxHeight
 
