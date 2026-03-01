@@ -11,10 +11,7 @@ import dev.dertyp.synara.scrobble.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class GlobalStateModel(
@@ -42,6 +39,10 @@ class GlobalStateModel(
 
     private val _isLyricsExpanded = MutableStateFlow(false)
     val isLyricsExpanded = _isLyricsExpanded.asStateFlow()
+
+    private val _openDialogsCount = MutableStateFlow(0)
+    val openDialogsCount = _openDialogsCount.asStateFlow()
+    val isAnyDialogOpen = _openDialogsCount.map { it > 0 }.stateIn(scope, SharingStarted.Eagerly, false)
 
     init {
         refreshUser()
@@ -149,5 +150,13 @@ class GlobalStateModel(
 
     fun toggleLyricsExpanded() {
         setLyricsExpanded(!_isLyricsExpanded.value)
+    }
+
+    fun incrementDialogCount() {
+        _openDialogsCount.value++
+    }
+
+    fun decrementDialogCount() {
+        _openDialogsCount.value = (_openDialogsCount.value - 1).coerceAtLeast(0)
     }
 }

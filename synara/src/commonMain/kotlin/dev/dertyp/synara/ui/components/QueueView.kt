@@ -167,7 +167,9 @@ fun QueueView(
                                 song = song,
                                 isCurrent = isCurrent,
                                 showCover = true,
-                                onClick = { playerModel.playAtIndex(index) },
+                                onClick = { playerModel.playEntry(entry) },
+                                isInQueue = true,
+                                onRemoveFromQueue = { playerModel.removeFromQueue(entry) },
                                 modifier = Modifier.weight(1f)
                             )
                         }

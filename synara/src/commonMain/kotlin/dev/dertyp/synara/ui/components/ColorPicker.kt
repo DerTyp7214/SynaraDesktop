@@ -14,13 +14,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import dev.dertyp.synara.material.Hct
+import dev.dertyp.synara.ui.components.dialogs.SynaraDialog
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.*
 
 @Composable
 fun ColorPicker(
+    isOpen: Boolean,
     title: String,
     initialColor: Color,
     onColorSelected: (Color) -> Unit,
@@ -35,7 +36,10 @@ fun ColorPicker(
         Color(Hct.from(hue.toDouble(), chroma.toDouble(), tone.toDouble()).toInt())
     }
 
-    Dialog(onDismissRequest = onDismissRequest) {
+    SynaraDialog(
+        isOpen = isOpen,
+        onDismissRequest = onDismissRequest
+    ) {
         Surface(
             shape = MaterialTheme.shapes.large,
             tonalElevation = 6.dp,

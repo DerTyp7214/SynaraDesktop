@@ -309,6 +309,13 @@ class PlayerModel(
         _requestedWindow.value = range
     }
 
+    fun playEntry(entry: QueueEntry) {
+        val index = _queue.value.indexOf(entry)
+        if (index != -1) {
+            playAtIndex(index)
+        }
+    }
+
     fun playAtIndex(index: Int) {
         if (index in _queue.value.indices) {
             val entry = _queue.value[index]

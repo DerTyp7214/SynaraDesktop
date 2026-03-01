@@ -1,5 +1,6 @@
 package dev.dertyp.synara
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
@@ -9,6 +10,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.transitions.SlideTransition
@@ -16,13 +19,21 @@ import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.screens.HomeScreen
 import dev.dertyp.synara.screens.LoginScreen
 import dev.dertyp.synara.screens.SetupScreen
+import dev.dertyp.synara.viewmodels.GlobalStateModel
 import org.koin.compose.koinInject
 
 @Composable
 fun SynaraView() {
     val rpcServiceManager = koinInject<RpcServiceManager>()
+    val globalState = koinInject<GlobalStateModel>()
     val connectionState by rpcServiceManager.connectionState.collectAsState()
+    val isAnyDialogOpen by globalState.isAnyDialogOpen.collectAsState()
     val language by Config.language.collectAsState()
+
+    val blur by animateDpAsState(
+        targetValue = if (isAnyDialogOpen) 24.dp else 0.dp,
+        label = "Blur"
+    )
 
     LaunchedEffect(language) {
         customAppLocale = language
@@ -43,7 +54,10 @@ fun SynaraView() {
                 }
             }
 
-            SlideTransition(navigator)
+            SlideTransition(
+                navigator = navigator,
+                modifier = Modifier.blur(blur)
+            )
         }
     }
 }

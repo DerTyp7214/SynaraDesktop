@@ -237,7 +237,7 @@ fun PlayerBar(
         )
 
         val blurredAlpha by animateFloatAsState(
-            targetValue = if (isExpanded) 0.6f else 0f,
+            targetValue = if (isExpanded) 1f else 0f,
             animationSpec = tween(300),
             label = "blurredAlpha"
         )

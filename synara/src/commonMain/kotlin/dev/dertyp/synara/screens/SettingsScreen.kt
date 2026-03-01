@@ -28,6 +28,7 @@ import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.scrobble.LastFmScrobbler
 import dev.dertyp.synara.theme.PywalLoader
 import dev.dertyp.synara.ui.components.ColorPicker
+import dev.dertyp.synara.ui.components.dialogs.SynaraAlertDialog
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
@@ -164,7 +165,11 @@ class SettingsScreen : Screen {
                             )
                             if (isListenBrainzEnabled) {
                                 Column(
-                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                                    modifier = Modifier.padding(
+                                        start = 16.dp,
+                                        end = 16.dp,
+                                        bottom = 16.dp
+                                    ),
                                     verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
                                     InternalTextField(
@@ -250,7 +255,10 @@ class SettingsScreen : Screen {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = stringResource(Res.string.lastfm_authenticated, username),
+                                    text = stringResource(
+                                        Res.string.lastfm_authenticated,
+                                        username
+                                    ),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.primary
                                 )
@@ -270,15 +278,15 @@ class SettingsScreen : Screen {
             }
         }
 
-        if (showAuthDialog) {
-            LastFmAuthDialog(
-                onDismiss = { showAuthDialog = false }
-            )
-        }
+        LastFmAuthDialog(
+            isOpen = showAuthDialog,
+            onDismiss = { showAuthDialog = false }
+        )
     }
 
     @Composable
     private fun LastFmAuthDialog(
+        isOpen: Boolean,
         onDismiss: () -> Unit,
         lastFmScrobbler: LastFmScrobbler = koinInject()
     ) {
@@ -288,7 +296,8 @@ class SettingsScreen : Screen {
         var error by remember { mutableStateOf<String?>(null) }
         val scope = rememberCoroutineScope()
 
-        AlertDialog(
+        SynaraAlertDialog(
+            isOpen = isOpen,
             onDismissRequest = onDismiss,
             title = { Text(stringResource(Res.string.lastfm_auth_title)) },
             text = {
@@ -324,7 +333,8 @@ class SettingsScreen : Screen {
                         scope.launch {
                             isLoading = true
                             error = null
-                            val session = lastFmScrobbler.getMobileSession(usernameInput, passwordInput)
+                            val session =
+                                lastFmScrobbler.getMobileSession(usernameInput, passwordInput)
                             if (session != null) {
                                 Config.setLastFmSessionKey(session.key)
                                 Config.setLastFmUsername(session.name)
@@ -338,7 +348,10 @@ class SettingsScreen : Screen {
                     enabled = !isLoading && usernameInput.isNotBlank() && passwordInput.isNotBlank()
                 ) {
                     if (isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
                     } else {
                         Text(stringResource(Res.string.login))
                     }
@@ -478,14 +491,13 @@ class SettingsScreen : Screen {
             }
         }
 
-        if (showPicker) {
-            ColorPicker(
-                title = title,
-                initialColor = color,
-                onColorSelected = onColorSelected,
-                onDismissRequest = { showPicker = false }
-            )
-        }
+        ColorPicker(
+            isOpen = showPicker,
+            title = title,
+            initialColor = color,
+            onColorSelected = onColorSelected,
+            onDismissRequest = { showPicker = false }
+        )
     }
 
     @Composable
