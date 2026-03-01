@@ -307,6 +307,9 @@ fun runTransparentWindow(
             isFullscreen = enabled
         }
         override val isFullscreen: Boolean get() = isFullscreen
+        override fun setCursorVisible(enabled: Boolean) {
+            glfwSetInputMode(windowHandle, GLFW_CURSOR, if (enabled) GLFW_CURSOR_NORMAL else GLFW_CURSOR_HIDDEN)
+        }
     }
 
     scene.setContent {

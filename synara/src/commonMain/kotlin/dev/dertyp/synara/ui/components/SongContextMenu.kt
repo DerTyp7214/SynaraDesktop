@@ -1,7 +1,6 @@
 package dev.dertyp.synara.ui.components
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
@@ -32,10 +31,9 @@ fun SongContextMenu(
 ) {
     var showInfoDialog by remember { mutableStateOf(false) }
 
-    DropdownMenu(
+    SynaraMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
-        shape = RoundedCornerShape(12.dp)
     ) {
         Column(
             modifier = Modifier

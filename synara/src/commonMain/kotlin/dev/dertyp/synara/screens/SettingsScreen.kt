@@ -28,6 +28,7 @@ import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.scrobble.LastFmScrobbler
 import dev.dertyp.synara.theme.PywalLoader
 import dev.dertyp.synara.ui.components.ColorPicker
+import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.SynaraAlertDialog
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
@@ -444,7 +445,7 @@ class SettingsScreen : Screen {
                 }
             }
 
-            DropdownMenu(
+            SynaraMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
                 modifier = Modifier.widthIn(min = 200.dp)

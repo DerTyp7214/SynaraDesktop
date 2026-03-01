@@ -44,6 +44,13 @@ class GlobalStateModel(
     val openDialogsCount = _openDialogsCount.asStateFlow()
     val isAnyDialogOpen = _openDialogsCount.map { it > 0 }.stateIn(scope, SharingStarted.Eagerly, false)
 
+    private val _openMenusCount = MutableStateFlow(0)
+    val openMenusCount = _openMenusCount.asStateFlow()
+    val isAnyMenuOpen = _openMenusCount.map { it > 0 }.stateIn(scope, SharingStarted.Eagerly, false)
+
+    val isAnyOverlayOpen = combine(isAnyDialogOpen, isAnyMenuOpen) { dialog, menu -> dialog || menu }
+        .stateIn(scope, SharingStarted.Eagerly, false)
+
     init {
         refreshUser()
         refreshPlaylists()
@@ -158,5 +165,13 @@ class GlobalStateModel(
 
     fun decrementDialogCount() {
         _openDialogsCount.value = (_openDialogsCount.value - 1).coerceAtLeast(0)
+    }
+
+    fun incrementMenuCount() {
+        _openMenusCount.value++
+    }
+
+    fun decrementMenuCount() {
+        _openMenusCount.value = (_openMenusCount.value - 1).coerceAtLeast(0)
     }
 }

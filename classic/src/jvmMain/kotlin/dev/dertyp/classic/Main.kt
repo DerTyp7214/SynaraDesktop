@@ -22,6 +22,10 @@ import dev.dertyp.synara.ui.components.SynaraTray
 import org.jetbrains.compose.resources.painterResource
 import synara.synara.generated.resources.Res
 import synara.synara.generated.resources.icon
+import java.awt.Cursor
+import java.awt.Point
+import java.awt.Toolkit
+import java.awt.image.BufferedImage
 import kotlin.system.exitProcess
 
 fun main() {
@@ -47,27 +51,9 @@ fun main() {
         val windowState = rememberWindowState()
         val hideOnClose by Config.hideOnClose.collectAsState()
 
-        val windowActions = remember(windowState) {
-            object : WindowActions {
-                override fun toggleFullscreen() {
-                    windowState.placement = if (windowState.placement == WindowPlacement.Fullscreen) {
-                        WindowPlacement.Floating
-                    } else {
-                        WindowPlacement.Fullscreen
-                    }
-                }
-
-                override fun setFullscreen(enabled: Boolean) {
-                    windowState.placement = if (enabled) {
-                        WindowPlacement.Fullscreen
-                    } else {
-                        WindowPlacement.Floating
-                    }
-                }
-
-                override val isFullscreen: Boolean
-                    get() = windowState.placement == WindowPlacement.Fullscreen
-            }
+        val transparentCursor = remember {
+            val cursorImg = BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB)
+            Toolkit.getDefaultToolkit().createCustomCursor(cursorImg, Point(0, 0), "blank cursor")
         }
 
         SynaraTray(
@@ -100,6 +86,33 @@ fun main() {
                         window.rootPane.putClientProperty("apple.awt.windowTitleVisible", false)
                     } else if (isWin) {
                         window.rootPane.putClientProperty("rootPane.setupWindowDecoration", true)
+                    }
+                }
+
+                val windowActions = remember(windowState, window) {
+                    object : WindowActions {
+                        override fun toggleFullscreen() {
+                            windowState.placement = if (windowState.placement == WindowPlacement.Fullscreen) {
+                                WindowPlacement.Floating
+                            } else {
+                                WindowPlacement.Fullscreen
+                            }
+                        }
+
+                        override fun setFullscreen(enabled: Boolean) {
+                            windowState.placement = if (enabled) {
+                                WindowPlacement.Fullscreen
+                            } else {
+                                WindowPlacement.Floating
+                            }
+                        }
+
+                        override val isFullscreen: Boolean
+                            get() = windowState.placement == WindowPlacement.Fullscreen
+
+                        override fun setCursorVisible(enabled: Boolean) {
+                            window.cursor = if (enabled) Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR) else transparentCursor
+                        }
                     }
                 }
 
