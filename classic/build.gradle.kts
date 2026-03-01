@@ -15,6 +15,7 @@ kotlin {
                 implementation(project(":synara"))
                 implementation(libs.material3)
                 implementation(libs.components.resources)
+                implementation(libs.koin.core)
             }
         }
 

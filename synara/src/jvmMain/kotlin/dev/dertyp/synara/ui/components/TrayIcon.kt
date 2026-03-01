@@ -1,6 +1,7 @@
 package dev.dertyp.synara.ui.components
 
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.Snapshot
 import dev.dertyp.synara.tray.createSynaraTray
 import dev.dertyp.synara.ui.models.TrayState
 import org.koin.compose.koinInject
@@ -18,8 +19,16 @@ fun SynaraTray(
         tray.show(
             iconPath = "tray.png",
             tooltip = "Synara",
-            onAction = onAction,
-            onExit = onExit
+            onAction = {
+                Snapshot.withMutableSnapshot {
+                    onAction()
+                }
+            },
+            onExit = {
+                Snapshot.withMutableSnapshot {
+                    onExit()
+                }
+            }
         )
 
         onDispose {

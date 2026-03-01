@@ -28,6 +28,9 @@ sealed class SettingKey<T>(val name: String) {
     // Visualizer
     data object ParticleMultiplier : SettingKey<Float>("particle_multiplier")
 
+    // Window
+    data object HideOnClose : SettingKey<Boolean>("hide_on_close")
+
     companion object {
         val authKeys = setOf(AuthToken.name, RefreshToken.name, TokenExpiration.name)
     }
@@ -73,7 +76,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.TokenExpiration -> getLongOrNull(key.name) as T?
         is SettingKey.DarkTheme, is SettingKey.UseSongColor, is SettingKey.UsePywal,
         is SettingKey.IsListenBrainzEnabled, is SettingKey.IsLastFmEnabled,
-        is SettingKey.IsDiscordRpcEnabled -> getBooleanOrNull(key.name) as T?
+        is SettingKey.IsDiscordRpcEnabled, SettingKey.HideOnClose -> getBooleanOrNull(key.name) as T?
         is SettingKey.Volume, is SettingKey.ParticleMultiplier -> getFloatOrNull(key.name) as T?
     }
 }

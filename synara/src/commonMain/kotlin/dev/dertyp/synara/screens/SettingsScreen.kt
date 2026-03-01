@@ -48,6 +48,7 @@ class SettingsScreen : Screen {
         val useSongColor by Config.useSongColor.collectAsState()
         val usePywal by Config.usePywal.collectAsState()
         val particleMultiplier by Config.particleMultiplier.collectAsState()
+        val hideOnClose by Config.hideOnClose.collectAsState()
 
         val isListenBrainzEnabled by Config.isListenBrainzEnabled.collectAsState()
         val listenBrainzToken by Config.listenBrainzToken.collectAsState()
@@ -127,6 +128,18 @@ class SettingsScreen : Screen {
                     ParticleMultiplierSetting(
                         multiplier = particleMultiplier,
                         onMultiplierChange = { Config.setParticleMultiplier(it) }
+                    )
+
+                    Text(
+                        text = stringResource(Res.string.window),
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+
+                    SettingSwitch(
+                        title = stringResource(Res.string.hide_on_close),
+                        checked = hideOnClose,
+                        onCheckedChange = { Config.setHideOnClose(it) }
                     )
 
                     Text(

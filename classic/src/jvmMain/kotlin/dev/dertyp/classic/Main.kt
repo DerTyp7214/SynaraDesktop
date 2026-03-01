@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.*
+import dev.dertyp.synara.Config
 import dev.dertyp.synara.SynaraView
 import dev.dertyp.synara.di.initializeSynara
 import dev.dertyp.synara.theme.SynaraAppTheme
@@ -21,6 +22,7 @@ import dev.dertyp.synara.ui.components.SynaraTray
 import org.jetbrains.compose.resources.painterResource
 import synara.synara.generated.resources.Res
 import synara.synara.generated.resources.icon
+import kotlin.system.exitProcess
 
 fun main() {
     val osName = System.getProperty("os.name").lowercase()
@@ -43,6 +45,7 @@ fun main() {
     application {
         var isVisible by remember { mutableStateOf(true) }
         val windowState = rememberWindowState()
+        val hideOnClose by Config.hideOnClose.collectAsState()
 
         val windowActions = remember(windowState) {
             object : WindowActions {
@@ -69,12 +72,22 @@ fun main() {
 
         SynaraTray(
             onAction = { isVisible = !isVisible },
-            onExit = ::exitApplication
+            onExit = {
+                exitApplication()
+                exitProcess(0)
+            }
         )
 
         if (isVisible) {
             Window(
-                onCloseRequest = { isVisible = false },
+                onCloseRequest = {
+                    if (hideOnClose) {
+                        isVisible = false
+                    } else {
+                        exitApplication()
+                        exitProcess(0)
+                    }
+                },
                 state = windowState,
                 title = "Synara",
                 undecorated = false,

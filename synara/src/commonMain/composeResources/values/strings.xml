@@ -81,4 +81,8 @@
     <string name="ok">OK</string>
     <string name="more_options">More options</string>
     <string name="drag_me">Drag me</string>
+
+    <!-- Window -->
+    <string name="window">Window</string>
+    <string name="hide_on_close">Minimize to tray on close</string>
 </resources>

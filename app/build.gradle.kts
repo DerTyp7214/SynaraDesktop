@@ -32,6 +32,8 @@ kotlin {
                 implementation(libs.lwjgl.stb)
                 implementation(libs.skiko.awt)
 
+                implementation(libs.koin.core)
+
                 runtimeOnly("org.lwjgl:lwjgl::$targetNatives")
                 runtimeOnly("org.lwjgl:lwjgl-glfw::$targetNatives")
                 runtimeOnly("org.lwjgl:lwjgl-opengl::$targetNatives")

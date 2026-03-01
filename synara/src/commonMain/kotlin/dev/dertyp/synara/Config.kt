@@ -67,8 +67,13 @@ object Config : KoinComponent {
     private val _isDiscordRpcEnabled = MutableStateFlow(settings.get(SettingKey.IsDiscordRpcEnabled, false))
     val isDiscordRpcEnabled: StateFlow<Boolean> = _isDiscordRpcEnabled.asStateFlow()
 
+    // Visualizer
     private val _particleMultiplier = MutableStateFlow(settings.get(SettingKey.ParticleMultiplier, 2.5f))
     val particleMultiplier: StateFlow<Float> = _particleMultiplier.asStateFlow()
+
+    // Window
+    private val _hideOnClose = MutableStateFlow(settings.get(SettingKey.HideOnClose, true))
+    val hideOnClose: StateFlow<Boolean> = _hideOnClose.asStateFlow()
 
     fun setDarkTheme(isDark: Boolean) {
         _darkTheme.value = isDark
@@ -166,5 +171,10 @@ object Config : KoinComponent {
     fun setParticleMultiplier(multiplier: Float) {
         _particleMultiplier.value = multiplier
         settings.put(SettingKey.ParticleMultiplier, multiplier)
+    }
+
+    fun setHideOnClose(hide: Boolean) {
+        _hideOnClose.value = hide
+        settings.put(SettingKey.HideOnClose, hide)
     }
 }

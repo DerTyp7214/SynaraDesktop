@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ApplicationScope
+import dev.dertyp.synara.Config
 import dev.dertyp.synara.LocalTextField
 import dev.dertyp.synara.theme.AppTheme
 import dev.dertyp.synara.theme.SynaraAppTheme
@@ -40,6 +41,7 @@ import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.opengl.GL
 import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.system.MemoryUtil.NULL
+import kotlin.system.exitProcess
 
 @OptIn(ExperimentalComposeUiApi::class)
 private class GlfwTextInputService : PlatformTextInputService {
@@ -293,6 +295,7 @@ fun runTransparentWindow(
     val applicationScope = object : ApplicationScope {
         override fun exitApplication() {
             glfwSetWindowShouldClose(windowHandle, true)
+            glfwPostEmptyEvent()
         }
     }
 
@@ -397,6 +400,14 @@ fun runTransparentWindow(
 
     glfwSetWindowFocusCallback(windowHandle) { _, focused ->
         isWindowFocused = focused
+    }
+
+    glfwSetWindowCloseCallback(windowHandle) { _ ->
+        if (Config.hideOnClose.value) {
+            glfwSetWindowShouldClose(windowHandle, false)
+            isVisible = false
+            glfwPostEmptyEvent()
+        }
     }
 
     glfwSetFramebufferSizeCallback(windowHandle) { _, w, h ->
@@ -557,4 +568,5 @@ fun runTransparentWindow(
     glfwFreeCallbacks(windowHandle)
     glfwDestroyWindow(windowHandle)
     glfwTerminate()
+    exitProcess(0)
 }
