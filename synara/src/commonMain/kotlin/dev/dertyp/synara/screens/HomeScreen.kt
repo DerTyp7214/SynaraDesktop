@@ -20,17 +20,21 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isBackPressed
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.transitions.SlideTransition
+import coil3.compose.AsyncImage
 import dev.dertyp.data.ServerStats
 import dev.dertyp.data.UserPlaylist
 import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.theme.isAppDark
 import dev.dertyp.synara.ui.components.PlayerBar
+import dev.dertyp.synara.ui.components.rememberImageRequest
 import dev.dertyp.synara.ui.models.AnnotatedSnackbarVisuals
 import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.viewmodels.HomeScreenModel
@@ -267,13 +271,19 @@ class HomeScreen : Screen {
 
             LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 items(playlists) { playlist ->
-                    PlaylistNavItem(playlist) {
-                        val current = navigator.lastItem
-                        if (current !is PlaylistScreen || current.playlistId != playlist.id) {
-                            navigator.push(PlaylistScreen(playlist.id, isUserPlaylist = true))
+                    val current = navigator.lastItem
+                    val isSelected = current is PlaylistScreen && current.playlistId == playlist.id
+                    
+                    PlaylistNavItem(
+                        playlist = playlist,
+                        selected = isSelected,
+                        onClick = {
+                            if (!isSelected) {
+                                navigator.push(PlaylistScreen(playlist.id, isUserPlaylist = true))
+                            }
+                            onItemClick?.invoke()
                         }
-                        onItemClick?.invoke()
-                    }
+                    )
                 }
             }
         }
@@ -316,21 +326,40 @@ class HomeScreen : Screen {
     }
 
     @Composable
-    private fun PlaylistNavItem(playlist: UserPlaylist, onClick: () -> Unit) {
+    private fun PlaylistNavItem(
+        playlist: UserPlaylist, 
+        selected: Boolean,
+        onClick: () -> Unit
+    ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(8.dp))
                 .clickable(onClick = onClick),
-            color = Color.Transparent,
-            contentColor = MaterialTheme.colorScheme.onSurface
+            color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+            contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
         ) {
-            Text(
-                text = playlist.name,
+            Row(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1
-            )
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                AsyncImage(
+                    model = rememberImageRequest(playlist.imageId, size = 32.dp),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(4.dp)),
+                    contentScale = ContentScale.Crop
+                )
+                Text(
+                    text = playlist.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 

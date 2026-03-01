@@ -85,16 +85,22 @@ class PlaylistScreenModel(
             try {
                 val currentSongs = if (currentPage == 0) emptyList() else (_state.value as? PlaylistState.Success)?.songs ?: emptyList()
                 val playlistName = (_state.value as? PlaylistState.Success)?.name
+                val playlistImageId = (_state.value as? PlaylistState.Success)?.imageId
+                val playlistDuration = (_state.value as? PlaylistState.Success)?.totalDuration ?: 0L
 
                 if (isUserPlaylist) {
                     val playlist = if (currentPage == 0) userPlaylistService.byId(playlistId) else null
                     val name = playlist?.name ?: playlistName ?: "Playlist"
+                    val imageId = playlist?.imageId ?: playlistImageId
+                    val duration = playlist?.totalDuration ?: playlistDuration
                     
                     val songsResponse = songService.byUserPlaylist(currentPage, pageSize, playlistId)
                     
                     _state.value = PlaylistState.Success(
                         name = name,
+                        imageId = imageId,
                         songs = currentSongs + songsResponse.data,
+                        totalDuration = duration,
                         isUserPlaylist = isUserPlaylist,
                         hasNextPage = songsResponse.hasNextPage
                     )
@@ -102,12 +108,16 @@ class PlaylistScreenModel(
                 } else {
                     val playlist = if (currentPage == 0) playlistService.byId(playlistId) else null
                     val name = playlist?.name ?: playlistName ?: "Playlist"
+                    val imageId = playlist?.imageId ?: playlistImageId
+                    val duration = playlist?.totalDuration ?: playlistDuration
 
                     val songsResponse = songService.byPlaylist(currentPage, pageSize, playlistId)
                     
                     _state.value = PlaylistState.Success(
                         name = name,
+                        imageId = imageId,
                         songs = currentSongs + songsResponse.data,
+                        totalDuration = duration,
                         isUserPlaylist = isUserPlaylist,
                         hasNextPage = songsResponse.hasNextPage
                     )
@@ -157,7 +167,9 @@ class PlaylistScreenModel(
         data object Loading : PlaylistState()
         data class Success(
             val name: String, 
+            val imageId: PlatformUUID?,
             val songs: List<UserSong>, 
+            val totalDuration: Long,
             val isUserPlaylist: Boolean,
             val hasNextPage: Boolean
         ) : PlaylistState()

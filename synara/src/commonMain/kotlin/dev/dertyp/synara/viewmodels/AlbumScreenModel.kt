@@ -16,6 +16,8 @@ import kotlinx.coroutines.launch
 data class AlbumState(
     val album: Album? = null,
     val songs: List<UserSong> = emptyList(),
+    val versions: List<Album> = emptyList(),
+    val totalDuration: Long = 0,
     val isLoading: Boolean = false
 )
 
@@ -35,8 +37,17 @@ class AlbumScreenModel(
             mutableState.update { it.copy(isLoading = true) }
             try {
                 val album = albumService.byId(albumId)
-                val songsResponse = songService.byAlbum(0, 1000, albumId)
-                mutableState.update { it.copy(album = album, songs = songsResponse.data, isLoading = false) }
+                val songsResponse = songService.byAlbum(0, Int.MAX_VALUE, albumId)
+                val versions = albumService.versions(albumId)
+                mutableState.update {
+                    it.copy(
+                        album = album,
+                        songs = songsResponse.data,
+                        versions = versions,
+                        totalDuration = songsResponse.data.sumOf { s -> s.duration },
+                        isLoading = false
+                    )
+                }
             } catch (_: Exception) {
                 mutableState.update { it.copy(isLoading = false) }
             }

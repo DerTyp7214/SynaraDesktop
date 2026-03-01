@@ -2,17 +2,20 @@
 
 package dev.dertyp.synara.screens
 
+import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,16 +31,15 @@ import coil3.compose.AsyncImage
 import dev.dertyp.PlatformUUID
 import dev.dertyp.core.joinArtists
 import dev.dertyp.data.Album
-import dev.dertyp.data.UserSong
+import dev.dertyp.synara.formatHumanReadableDuration
 import dev.dertyp.synara.ui.components.SongItem
+import dev.dertyp.synara.ui.components.dialogs.AlbumVersionsDialog
+import dev.dertyp.synara.ui.components.dialogs.FullscreenImageDialog
 import dev.dertyp.synara.ui.components.rememberImageRequest
 import dev.dertyp.synara.viewmodels.AlbumScreenModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.core.parameter.parametersOf
-import synara.synara.generated.resources.Res
-import synara.synara.generated.resources.add_to_queue
-import synara.synara.generated.resources.play
-import synara.synara.generated.resources.songs
+import synara.synara.generated.resources.*
 
 class AlbumScreen(private val albumId: PlatformUUID) : Screen {
 
@@ -48,6 +50,14 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
         val screenModel = getScreenModel<AlbumScreenModel> { parametersOf(albumId) }
         val state by screenModel.state.collectAsState()
         val navigator = LocalNavigator.current
+        val lazyListState = rememberLazyListState()
+
+        var showVersionsDialog by remember { mutableStateOf(false) }
+        var showFullscreenImage by remember { mutableStateOf(false) }
+
+        val groupedSongs = remember(state.songs) {
+            state.songs.groupBy { it.discNumber }.toSortedMap()
+        }
 
         Scaffold(
             containerColor = Color.Transparent,
@@ -66,34 +76,91 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
             }
         ) { padding ->
             state.album?.let { album ->
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(padding),
-                    contentPadding = PaddingValues(16.dp)
-                ) {
-                    item {
-                        AlbumHeader(album, state.songs, screenModel)
+                Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                    LazyColumn(
+                        state = lazyListState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp)
+                    ) {
+                        item {
+                            AlbumHeader(
+                                album = album,
+                                versions = state.versions,
+                                totalDuration = state.totalDuration,
+                                onShowVersions = { showVersionsDialog = true },
+                                onImageClick = { showFullscreenImage = true },
+                                screenModel = screenModel
+                            )
+                        }
+
+                        groupedSongs.forEach { (discNumber, discSongs) ->
+                            if (groupedSongs.size > 1) {
+                                item {
+                                    Text(
+                                        text = stringResource(Res.string.disc_number, discNumber),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(
+                                            horizontal = 16.dp,
+                                            vertical = 8.dp
+                                        ),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                            items(discSongs) { song ->
+                                val currentSong by screenModel.playerModel.currentSong.collectAsState()
+                                val index = state.songs.indexOf(song)
+                                SongItem(
+                                    song = song,
+                                    index = song.trackNumber,
+                                    isCurrent = currentSong?.id == song.id,
+                                    onClick = { screenModel.playAlbum(startIndex = index) },
+                                    onPlayNext = { screenModel.playNext(song) }
+                                )
+                            }
+                        }
                     }
 
-                    itemsIndexed(state.songs) { index, song ->
-                        val currentSong by screenModel.playerModel.currentSong.collectAsState()
-                        SongItem(
-                            song = song,
-                            index = index,
-                            isCurrent = currentSong?.id == song.id,
-                            onClick = { screenModel.playAlbum(startIndex = index) },
-                            onPlayNext = { screenModel.playNext(song) },
-                            onMoreOptions = { /* TODO */ }
+                    VerticalScrollbar(
+                        modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                        adapter = rememberScrollbarAdapter(
+                            scrollState = lazyListState
                         )
-                    }
+                    )
                 }
+
+                AlbumVersionsDialog(
+                    isOpen = showVersionsDialog,
+                    versions = state.versions,
+                    onVersionClick = { version ->
+                        navigator?.push(AlbumScreen(version.id))
+                    },
+                    onDismissRequest = { showVersionsDialog = false }
+                )
+
+                FullscreenImageDialog(
+                    isOpen = showFullscreenImage,
+                    imageId = album.coverId,
+                    onDismissRequest = { showFullscreenImage = false }
+                )
             } ?: Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                if (state.isLoading) {
+                    CircularProgressIndicator()
+                }
             }
         }
     }
 
     @Composable
-    private fun AlbumHeader(album: Album, songs: List<UserSong>, screenModel: AlbumScreenModel) {
+    private fun AlbumHeader(
+        album: Album,
+        versions: List<Album>,
+        totalDuration: Long,
+        onShowVersions: () -> Unit,
+        onImageClick: () -> Unit,
+        screenModel: AlbumScreenModel
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -102,6 +169,7 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
                 modifier = Modifier
                     .size(200.dp)
                     .clip(MaterialTheme.shapes.medium)
+                    .clickable { onImageClick() }
             ) {
                 AsyncImage(
                     model = rememberImageRequest(album.coverId, size = 200.dp),
@@ -124,11 +192,40 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
                 Text(
-                    text = "${songs.size} ${stringResource(Res.string.songs)}",
+                    text = "${album.releaseDate?.year ?: ""} • ${album.songCount} ${stringResource(Res.string.songs)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                if (totalDuration > 0) {
+                    Text(
+                        text = totalDuration.formatHumanReadableDuration(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                if (versions.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = onShowVersions,
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.height(32.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    ) {
+                        Icon(Icons.Rounded.Layers, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(Res.string.other_versions, versions.size),
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 

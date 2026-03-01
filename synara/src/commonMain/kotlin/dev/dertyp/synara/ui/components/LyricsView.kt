@@ -93,7 +93,7 @@ fun LyricsView(
                         fontWeight = FontWeight.Bold,
                         fontSize = 32.sp,
                         lineHeight = 40.sp,
-                        textAlign = TextAlign.Start
+                        textAlign = TextAlign.Center
                     ),
                     color = color,
                     modifier = Modifier

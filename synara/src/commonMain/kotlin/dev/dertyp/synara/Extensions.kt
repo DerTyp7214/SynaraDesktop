@@ -9,6 +9,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import dev.dertyp.synara.material.Hct
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
+import synara.synara.generated.resources.*
 import kotlin.math.min
 
 @Composable
@@ -119,4 +122,30 @@ fun ColorScheme.onSurfaceVariantDistinct(): Color {
     val targetTone = if (isDark) 70.0 else 40.0
 
     return Color(Hct.from(targetHue, targetChroma, targetTone).toInt())
+}
+
+@Composable
+fun Long.formatHumanReadableDuration(): String {
+    val totalSeconds = this / 1000
+    val days = totalSeconds / 86400
+    val hours = (totalSeconds % 86400) / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+
+    val daysText = if (days > 0) pluralStringResource(Res.plurals.duration_days, days.toInt(), days) else null
+    val hoursText = if (hours > 0) pluralStringResource(Res.plurals.duration_hours, hours.toInt(), hours) else null
+    val minutesText = if (minutes > 0) pluralStringResource(Res.plurals.duration_minutes, minutes.toInt(), minutes) else null
+    val secondsText = if (seconds > 0) pluralStringResource(Res.plurals.duration_seconds, seconds.toInt(), seconds) else null
+
+    val parts = listOfNotNull(daysText, hoursText, minutesText, secondsText)
+
+    return when (parts.size) {
+        0 -> pluralStringResource(Res.plurals.duration_seconds, 0, 0)
+        1 -> parts[0]
+        2 -> "${parts[0]} ${stringResource(Res.string.and)} ${parts[1]}"
+        else -> {
+            val head = parts.dropLast(1).joinToString(", ")
+            "$head ${stringResource(Res.string.and)} ${parts.last()}"
+        }
+    }
 }

@@ -124,7 +124,6 @@ class LikedSongsScreen : Screen {
                         showLike = false,
                         onClick = { screenModel.playSong(song) },
                         onPlayNext = { screenModel.playerModel.playNext(song) },
-                        onMoreOptions = { /* TODO */ }
                     )
                 }
 

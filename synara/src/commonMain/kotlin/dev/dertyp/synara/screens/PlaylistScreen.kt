@@ -1,6 +1,9 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package dev.dertyp.synara.screens
 
 import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -8,39 +11,43 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.core.screen.ScreenKey
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import coil3.compose.AsyncImage
 import dev.dertyp.PlatformUUID
-import dev.dertyp.data.UserSong
+import dev.dertyp.synara.formatHumanReadableDuration
 import dev.dertyp.synara.ui.components.SongItem
+import dev.dertyp.synara.ui.components.dialogs.FullscreenImageDialog
+import dev.dertyp.synara.ui.components.rememberImageRequest
 import dev.dertyp.synara.viewmodels.PlaylistScreenModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.core.parameter.parametersOf
-import synara.synara.generated.resources.Res
-import synara.synara.generated.resources.back
-import synara.synara.generated.resources.play_all
-import synara.synara.generated.resources.playlist
+import synara.synara.generated.resources.*
 
 data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Boolean) : Screen {
 
     override val key: ScreenKey = "PlaylistScreen_$playlistId"
 
-    @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val screenModel = getScreenModel<PlaylistScreenModel> { parametersOf(playlistId, isUserPlaylist) }
         val state by screenModel.state.collectAsState()
+
+        var showFullscreenImage by remember { mutableStateOf(false) }
 
         Scaffold(
             containerColor = Color.Transparent,
@@ -63,13 +70,6 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                         }
                     }
                 )
-            },
-            floatingActionButton = {
-                if (state is PlaylistScreenModel.PlaylistState.Success) {
-                    FloatingActionButton(onClick = { screenModel.playPlaylist() }) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = stringResource(Res.string.play_all))
-                    }
-                }
             }
         ) { padding ->
             Box(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -85,11 +85,19 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                         )
                     }
                     is PlaylistScreenModel.PlaylistState.Success -> {
-                        PlaylistSongList(
-                            songs = currentState.songs,
-                            hasNextPage = currentState.hasNextPage,
-                            screenModel = screenModel
-                        )
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            PlaylistContent(
+                                state = currentState,
+                                onImageClick = { showFullscreenImage = true },
+                                screenModel = screenModel
+                            )
+
+                            FullscreenImageDialog(
+                                isOpen = showFullscreenImage,
+                                imageId = currentState.imageId,
+                                onDismissRequest = { showFullscreenImage = false }
+                            )
+                        }
                     }
                 }
             }
@@ -97,9 +105,9 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
     }
 
     @Composable
-    private fun PlaylistSongList(
-        songs: List<UserSong>,
-        hasNextPage: Boolean,
+    private fun PlaylistContent(
+        state: PlaylistScreenModel.PlaylistState.Success,
+        onImageClick: () -> Unit,
         screenModel: PlaylistScreenModel
     ) {
         val currentSong by screenModel.playerModel.currentSong.collectAsState()
@@ -124,20 +132,28 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
         Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                state = lazyListState
+                state = lazyListState,
+                contentPadding = PaddingValues(16.dp)
             ) {
-                items(songs) { song ->
+                item {
+                    PlaylistHeader(
+                        state = state,
+                        onImageClick = onImageClick,
+                        screenModel = screenModel
+                    )
+                }
+
+                items(state.songs) { song ->
                     SongItem(
                         song = song,
                         isCurrent = currentSong?.id == song.id,
                         showCover = true,
                         onClick = { screenModel.playSong(song) },
                         onPlayNext = { screenModel.playerModel.playNext(song) },
-                        onMoreOptions = { /* TODO */ }
                     )
                 }
 
-                if (hasNextPage) {
+                if (state.hasNextPage) {
                     item {
                         Box(
                             modifier = Modifier
@@ -157,6 +173,69 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                     scrollState = lazyListState
                 )
             )
+        }
+    }
+
+    @Composable
+    private fun PlaylistHeader(
+        state: PlaylistScreenModel.PlaylistState.Success,
+        onImageClick: () -> Unit,
+        screenModel: PlaylistScreenModel
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(200.dp)
+                    .clip(MaterialTheme.shapes.medium)
+                    .clickable { onImageClick() }
+            ) {
+                AsyncImage(
+                    model = rememberImageRequest(state.imageId, size = 200.dp),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
+
+            Spacer(modifier = Modifier.width(24.dp))
+
+            Column {
+                Text(
+                    text = state.name,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                Text(
+                    text = "${state.songs.size} ${stringResource(Res.string.songs)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                if (state.totalDuration > 0) {
+                    Text(
+                        text = state.totalDuration.formatHumanReadableDuration(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { screenModel.playPlaylist() },
+                        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
+                    ) {
+                        Icon(Icons.Rounded.PlayArrow, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(Res.string.play))
+                    }
+                }
+            }
         }
     }
 }

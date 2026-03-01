@@ -13,7 +13,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,12 +34,12 @@ import dev.dertyp.synara.onSurfaceVariantDistinct
 import dev.dertyp.synara.player.CacheUpdate
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.SongCache
+import dev.dertyp.synara.ui.components.menus.SongContextMenu
 import kotlinx.coroutines.flow.filterIsInstance
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import synara.synara.generated.resources.Res
 import synara.synara.generated.resources.favorite
-import synara.synara.generated.resources.more_options
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -53,7 +52,6 @@ fun SongItem(
     showLike: Boolean = true,
     onClick: () -> Unit,
     onPlayNext: (() -> Unit)? = null,
-    onMoreOptions: (() -> Unit)? = null,
     playerModel: PlayerModel = koinInject(),
     songCache: SongCache = koinInject(),
     onToggleLike: () -> Unit = { playerModel.toggleLike(song) },
@@ -118,7 +116,7 @@ fun SongItem(
             ) {
                 if (index != null) {
                     Text(
-                        text = (index + 1).toString(),
+                        text = index.toString(),
                         modifier = Modifier.width(32.dp),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -183,16 +181,6 @@ fun SongItem(
                                 Icons.AutoMirrored.Rounded.PlaylistPlay,
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-
-                    if (onMoreOptions != null) {
-                        IconButton(onClick = { showContextMenu = true }) {
-                            Icon(
-                                Icons.Rounded.MoreVert,
-                                contentDescription = stringResource(Res.string.more_options),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }

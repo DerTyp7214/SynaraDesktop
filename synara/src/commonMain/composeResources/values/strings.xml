@@ -83,9 +83,13 @@
     <string name="ok">OK</string>
     <string name="more_options">More options</string>
     <string name="drag_me">Drag me</string>
+    <string name="show_all">Show all</string>
+    <string name="show_more">Show more</string>
+    <string name="and">and</string>
 
     <!-- Context Menu -->
     <string name="info">Info</string>
+    <string name="show_artist">Show artist</string>
     <string name="show_artists">Show artists</string>
     <string name="show_album">Show album</string>
     <string name="add_to_playlist">Add to playlist</string>
@@ -110,4 +114,28 @@
     <!-- Window -->
     <string name="window">Window</string>
     <string name="hide_on_close">Minimize to tray on close</string>
+
+    <!-- Album Versions -->
+    <string name="album_versions">Album Versions</string>
+    <string name="other_versions">Other Versions (%1$d)</string>
+    <string name="disc_number">Disc %1$d</string>
+    <string name="versions_count">%1$d versions</string>
+
+    <!-- Duration -->
+    <plurals name="duration_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <plurals name="duration_hours">
+        <item quantity="one">%1$d hour</item>
+        <item quantity="other">%1$d hours</item>
+    </plurals>
+    <plurals name="duration_minutes">
+        <item quantity="one">%1$d minute</item>
+        <item quantity="other">%1$d minutes</item>
+    </plurals>
+    <plurals name="duration_seconds">
+        <item quantity="one">%1$d second</item>
+        <item quantity="other">%1$d seconds</item>
+    </plurals>
 </resources>
