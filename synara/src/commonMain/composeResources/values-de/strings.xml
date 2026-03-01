@@ -39,6 +39,7 @@
     <string name="tone">Helligkeit (Tone)</string>
     <string name="use_song_color">Farbe des aktuell gespielten Songs verwenden</string>
     <string name="use_pywal">Pywal-Farben verwenden (nur Linux)</string>
+    <string name="particle_multiplier">Partikel-Multiplikator</string>
 
     <!-- Scrobbling -->
     <string name="scrobbling">Scrobbling</string>

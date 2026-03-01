@@ -1,6 +1,10 @@
+@file:Suppress("LocalVariableName")
+
 package dev.dertyp.synara.player
 
+import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
+import dev.dertyp.synara.rpc.RpcServiceManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
 import org.freedesktop.dbus.DBusPath
@@ -12,7 +16,7 @@ import org.freedesktop.dbus.connections.impl.DBusConnectionBuilder
 import org.freedesktop.dbus.interfaces.DBusInterface
 import org.freedesktop.dbus.interfaces.Properties
 import org.freedesktop.dbus.types.Variant
-import java.util.Map as JMap
+import org.koin.java.KoinJavaComponent.getKoin
 
 @Suppress("FunctionName")
 @DBusInterfaceName("org.mpris.MediaPlayer2")
@@ -23,8 +27,16 @@ import java.util.Map as JMap
 @DBusProperty(name = "HasTrackList", type = Boolean::class, access = DBusProperty.Access.READ)
 @DBusProperty(name = "Identity", type = String::class, access = DBusProperty.Access.READ)
 @DBusProperty(name = "DesktopEntry", type = String::class, access = DBusProperty.Access.READ)
-@DBusProperty(name = "SupportedUriSchemes", type = Array<String>::class, access = DBusProperty.Access.READ)
-@DBusProperty(name = "SupportedMimeTypes", type = Array<String>::class, access = DBusProperty.Access.READ)
+@DBusProperty(
+    name = "SupportedUriSchemes",
+    type = Array<String>::class,
+    access = DBusProperty.Access.READ
+)
+@DBusProperty(
+    name = "SupportedMimeTypes",
+    type = Array<String>::class,
+    access = DBusProperty.Access.READ
+)
 interface IMprisMediaPlayer2 : DBusInterface {
     fun Raise()
     fun Quit()
@@ -47,7 +59,7 @@ interface IMprisMediaPlayer2 : DBusInterface {
 @DBusProperty(name = "LoopStatus", type = String::class, access = DBusProperty.Access.READ_WRITE)
 @DBusProperty(name = "Rate", type = Double::class, access = DBusProperty.Access.READ_WRITE)
 @DBusProperty(name = "Shuffle", type = Boolean::class, access = DBusProperty.Access.READ_WRITE)
-@DBusProperty(name = "Metadata", type = JMap::class, access = DBusProperty.Access.READ)
+@DBusProperty(name = "Metadata", type = Map::class, access = DBusProperty.Access.READ)
 @DBusProperty(name = "Volume", type = Double::class, access = DBusProperty.Access.READ_WRITE)
 @DBusProperty(name = "Position", type = Long::class, access = DBusProperty.Access.READ)
 @DBusProperty(name = "MinimumRate", type = Double::class, access = DBusProperty.Access.READ)
@@ -76,7 +88,7 @@ interface IMprisMediaPlayer2Player : DBusInterface {
     fun setRate(rate: Double)
     fun getShuffle(): Boolean
     fun setShuffle(shuffle: Boolean)
-    fun getMetadata(): JMap<String, Variant<*>>
+    fun getMetadata(): Map<String, Variant<*>>
     fun getVolume(): Double
     fun setVolume(volume: Double)
     fun getPosition(): Long
@@ -90,12 +102,13 @@ interface IMprisMediaPlayer2Player : DBusInterface {
     fun getCanControl(): Boolean
 }
 
-open class MprisObjectImpl(private val playerModel: PlayerModel) : IMprisMediaPlayer2, IMprisMediaPlayer2Player, Properties {
+open class MprisObjectImpl(private val playerModel: PlayerModel) : IMprisMediaPlayer2,
+    IMprisMediaPlayer2Player, Properties {
     override fun isRemote() = false
     override fun getObjectPath() = "/org/mpris/MediaPlayer2"
 
     @Suppress("UNCHECKED_CAST")
-    override fun <A : Any?> Get(interface_name: String?, property_name: String?): A {
+    override fun <A> Get(interface_name: String?, property_name: String?): A {
         return when (interface_name) {
             "org.mpris.MediaPlayer2" -> when (property_name) {
                 "CanQuit" -> getCanQuit() as A
@@ -107,8 +120,9 @@ open class MprisObjectImpl(private val playerModel: PlayerModel) : IMprisMediaPl
                 "DesktopEntry" -> getDesktopEntry() as A
                 "SupportedUriSchemes" -> getSupportedUriSchemes() as A
                 "SupportedMimeTypes" -> getSupportedMimeTypes() as A
-                else -> null as A
+                else -> throw IllegalArgumentException("No such property: $property_name")
             }
+
             "org.mpris.MediaPlayer2.Player" -> when (property_name) {
                 "PlaybackStatus" -> getPlaybackStatus() as A
                 "LoopStatus" -> getLoopStatus() as A
@@ -125,13 +139,14 @@ open class MprisObjectImpl(private val playerModel: PlayerModel) : IMprisMediaPl
                 "CanPause" -> getCanPause() as A
                 "CanSeek" -> getCanSeek() as A
                 "CanControl" -> getCanControl() as A
-                else -> null as A
+                else -> throw IllegalArgumentException("No such property: $property_name")
             }
-            else -> null as A
+
+            else -> throw IllegalArgumentException("No such interface: $interface_name")
         }
     }
 
-    override fun <A : Any?> Set(interface_name: String?, property_name: String?, value: A) {
+    override fun <A> Set(interface_name: String?, property_name: String?, value: A) {
         val v = if (value is Variant<*>) value.value else value
         when (interface_name) {
             "org.mpris.MediaPlayer2" -> if (property_name == "Fullscreen") setFullscreen(v as Boolean)
@@ -144,8 +159,8 @@ open class MprisObjectImpl(private val playerModel: PlayerModel) : IMprisMediaPl
         }
     }
 
-    override fun GetAll(interface_name: String?): Map<String?, Variant<*>?>? {
-        val res = HashMap<String, Variant<*>>()
+    override fun GetAll(interface_name: String?): MutableMap<String, Variant<*>> {
+        val res = mutableMapOf<String, Variant<*>>()
         when (interface_name) {
             "org.mpris.MediaPlayer2" -> {
                 res["CanQuit"] = Variant(getCanQuit())
@@ -158,6 +173,7 @@ open class MprisObjectImpl(private val playerModel: PlayerModel) : IMprisMediaPl
                 res["SupportedUriSchemes"] = Variant(getSupportedUriSchemes())
                 res["SupportedMimeTypes"] = Variant(getSupportedMimeTypes())
             }
+
             "org.mpris.MediaPlayer2.Player" -> {
                 res["PlaybackStatus"] = Variant(getPlaybackStatus())
                 res["LoopStatus"] = Variant(getLoopStatus())
@@ -176,51 +192,103 @@ open class MprisObjectImpl(private val playerModel: PlayerModel) : IMprisMediaPl
                 res["CanControl"] = Variant(getCanControl())
             }
         }
-        return res as Map<String?, Variant<*>?>?
+        return res
     }
 
     override fun Raise() {}
-    override fun Quit() { playerModel.stop() }
+    override fun Quit() {
+        playerModel.stop()
+    }
+
     override fun Next() = playerModel.skipNext()
     override fun Previous() = playerModel.skipPrevious()
     override fun Pause() = playerModel.pause()
     override fun PlayPause() = playerModel.togglePlayPause()
     override fun Stop() = playerModel.stop()
     override fun Play() = playerModel.play()
-    override fun Seek(Offset: Long) = playerModel.seekTo(playerModel.currentPosition.value + (Offset / 1000))
-    override fun SetPosition(TrackId: DBusPath, Position: Long) = playerModel.seekTo(Position / 1000)
+    override fun Seek(Offset: Long) =
+        playerModel.seekTo(playerModel.currentPosition.value + (Offset / 1000))
+
+    override fun SetPosition(TrackId: DBusPath, Position: Long) =
+        playerModel.seekTo(Position / 1000)
+
     override fun OpenUri(Uri: String) {}
 
-    @DBusBoundProperty(name = "CanQuit") override fun getCanQuit() = true
-    @DBusBoundProperty(name = "Fullscreen") override fun getFullscreen() = false
+    @DBusBoundProperty(name = "CanQuit")
+    override fun getCanQuit() = true
+    @DBusBoundProperty(name = "Fullscreen")
+    override fun getFullscreen() = false
     override fun setFullscreen(b: Boolean) {}
-    @DBusBoundProperty(name = "CanSetFullscreen") override fun getCanSetFullscreen() = false
-    @DBusBoundProperty(name = "CanRaise") override fun getCanRaise() = false
-    @DBusBoundProperty(name = "HasTrackList") override fun getHasTrackList() = false
-    @DBusBoundProperty(name = "Identity") override fun getIdentity() = "Synara"
-    @DBusBoundProperty(name = "DesktopEntry") override fun getDesktopEntry() = "synara"
-    @DBusBoundProperty(name = "SupportedUriSchemes") override fun getSupportedUriSchemes() = emptyArray<String>()
-    @DBusBoundProperty(name = "SupportedMimeTypes") override fun getSupportedMimeTypes() = emptyArray<String>()
+    @DBusBoundProperty(name = "CanSetFullscreen")
+    override fun getCanSetFullscreen() = false
+    @DBusBoundProperty(name = "CanRaise")
+    override fun getCanRaise() = false
+    @DBusBoundProperty(name = "HasTrackList")
+    override fun getHasTrackList() = false
+    @DBusBoundProperty(name = "Identity")
+    override fun getIdentity() = "Synara"
+    @DBusBoundProperty(name = "DesktopEntry")
+    override fun getDesktopEntry() = "synara"
+    @DBusBoundProperty(name = "SupportedUriSchemes")
+    override fun getSupportedUriSchemes() = emptyArray<String>()
+    @DBusBoundProperty(name = "SupportedMimeTypes")
+    override fun getSupportedMimeTypes() = emptyArray<String>()
 
-    @DBusBoundProperty(name = "PlaybackStatus") override fun getPlaybackStatus(): String = if (playerModel.isPlaying.value) "Playing" else "Paused"
-    @DBusBoundProperty(name = "LoopStatus") override fun getLoopStatus() = "None"
-    override fun setLoopStatus(status: String) {}
-    @DBusBoundProperty(name = "Rate") override fun getRate() = 1.0
+    @DBusBoundProperty(name = "PlaybackStatus")
+    override fun getPlaybackStatus(): String =
+        if (playerModel.isPlaying.value) "Playing" else "Paused"
+
+    @DBusBoundProperty(name = "LoopStatus")
+    override fun getLoopStatus() = when (playerModel.repeatMode.value) {
+        RepeatMode.OFF -> "None"
+        RepeatMode.ALL -> "Playlist"
+        RepeatMode.ONE -> "Track"
+    }
+
+    override fun setLoopStatus(status: String) {
+        val target = when (status) {
+            "None" -> RepeatMode.OFF
+            "Playlist" -> RepeatMode.ALL
+            "Track" -> RepeatMode.ONE
+            else -> return
+        }
+        playerModel.setRepeatMode(target)
+    }
+
+    @DBusBoundProperty(name = "Rate")
+    override fun getRate() = 1.0
     override fun setRate(rate: Double) {}
-    @DBusBoundProperty(name = "Shuffle") override fun getShuffle() = playerModel.shuffleMode.value
-    override fun setShuffle(shuffle: Boolean) { if (playerModel.shuffleMode.value != shuffle) playerModel.toggleShuffle() }
-    @DBusBoundProperty(name = "Metadata") override fun getMetadata(): JMap<String, Variant<*>> = createMetadata(playerModel.currentSong.value)
-    @DBusBoundProperty(name = "Volume") override fun getVolume() = playerModel.volume.value.toDouble()
+    @DBusBoundProperty(name = "Shuffle")
+    override fun getShuffle() = playerModel.shuffleMode.value
+    override fun setShuffle(shuffle: Boolean) {
+        if (playerModel.shuffleMode.value != shuffle) playerModel.toggleShuffle()
+    }
+
+    @DBusBoundProperty(name = "Metadata")
+    override fun getMetadata(): Map<String, Variant<*>> =
+        createMetadata(playerModel.currentSong.value)
+
+    @DBusBoundProperty(name = "Volume")
+    override fun getVolume() = playerModel.volume.value.toDouble()
     override fun setVolume(volume: Double) = playerModel.setVolume(volume.toFloat())
-    @DBusBoundProperty(name = "Position") override fun getPosition() = playerModel.currentPosition.value * 1000L
-    @DBusBoundProperty(name = "MinimumRate") override fun getMinimumRate() = 1.0
-    @DBusBoundProperty(name = "MaximumRate") override fun getMaximumRate() = 1.0
-    @DBusBoundProperty(name = "CanGoNext") override fun getCanGoNext() = true
-    @DBusBoundProperty(name = "CanGoPrevious") override fun getCanGoPrevious() = true
-    @DBusBoundProperty(name = "CanPlay") override fun getCanPlay() = true
-    @DBusBoundProperty(name = "CanPause") override fun getCanPause() = true
-    @DBusBoundProperty(name = "CanSeek") override fun getCanSeek() = true
-    @DBusBoundProperty(name = "CanControl") override fun getCanControl() = true
+    @DBusBoundProperty(name = "Position")
+    override fun getPosition() = playerModel.currentPosition.value * 1000L
+    @DBusBoundProperty(name = "MinimumRate")
+    override fun getMinimumRate() = 1.0
+    @DBusBoundProperty(name = "MaximumRate")
+    override fun getMaximumRate() = 1.0
+    @DBusBoundProperty(name = "CanGoNext")
+    override fun getCanGoNext() = true
+    @DBusBoundProperty(name = "CanGoPrevious")
+    override fun getCanGoPrevious() = true
+    @DBusBoundProperty(name = "CanPlay")
+    override fun getCanPlay() = true
+    @DBusBoundProperty(name = "CanPause")
+    override fun getCanPause() = true
+    @DBusBoundProperty(name = "CanSeek")
+    override fun getCanSeek() = true
+    @DBusBoundProperty(name = "CanControl")
+    override fun getCanControl() = true
 }
 
 class MprisPlayer(private val playerModel: PlayerModel) : IMprisPlayer {
@@ -238,29 +306,79 @@ class MprisPlayer(private val playerModel: PlayerModel) : IMprisPlayer {
                 connection?.requestBusName("org.mpris.MediaPlayer2.synara")
                 connection?.exportObject("/org/mpris/MediaPlayer2", MprisObjectImpl(playerModel))
 
-                launch { playerModel.isPlaying.collectLatest { sendPropertiesChangedSignal("PlaybackStatus", Variant(if (it) "Playing" else "Paused")) } }
-                launch { playerModel.currentSong.collectLatest { sendPropertiesChangedSignal("Metadata", Variant(createMetadata(it), "a{sv}")) } }
-                launch { playerModel.volume.collectLatest { sendPropertiesChangedSignal("Volume", Variant(it.toDouble())) } }
-                
-                while(isActive && connection?.isConnected == true) delay(2000)
+                launch {
+                    playerModel.isPlaying.collectLatest {
+                        sendPropertiesChangedSignal(
+                            "PlaybackStatus",
+                            Variant(if (it) "Playing" else "Paused")
+                        )
+                    }
+                }
+                launch {
+                    playerModel.currentSong.collectLatest {
+                        sendPropertiesChangedSignal(
+                            "Metadata",
+                            Variant(createMetadata(it), "a{sv}")
+                        )
+                    }
+                }
+                launch {
+                    playerModel.volume.collectLatest {
+                        sendPropertiesChangedSignal(
+                            "Volume",
+                            Variant(it.toDouble())
+                        )
+                    }
+                }
+                launch {
+                    playerModel.repeatMode.collectLatest {
+                        val status = when (it) {
+                            RepeatMode.OFF -> "None"
+                            RepeatMode.ALL -> "Playlist"
+                            RepeatMode.ONE -> "Track"
+                        }
+                        sendPropertiesChangedSignal("LoopStatus", Variant(status))
+                    }
+                }
+                launch {
+                    playerModel.shuffleMode.collectLatest {
+                        sendPropertiesChangedSignal(
+                            "Shuffle",
+                            Variant(it)
+                        )
+                    }
+                }
+
+                while (isActive && connection?.isConnected == true) delay(2000)
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
                 isStarted = false
-                try { connection?.close() } catch (_: Exception) {}
+                try {
+                    connection?.close()
+                } catch (_: Exception) {
+                }
             }
         }
     }
 
     private fun sendPropertiesChangedSignal(property: String, value: Variant<*>) {
         try {
-            connection?.sendMessage(Properties.PropertiesChanged("/org/mpris/MediaPlayer2", "org.mpris.MediaPlayer2.Player", mapOf(property to value), emptyList()))
-        } catch (_: Exception) {}
+            connection?.sendMessage(
+                Properties.PropertiesChanged(
+                    "/org/mpris/MediaPlayer2",
+                    "org.mpris.MediaPlayer2.Player",
+                    mapOf(property to value),
+                    emptyList()
+                )
+            )
+        } catch (_: Exception) {
+        }
     }
 }
 
-private fun createMetadata(song: UserSong?): JMap<String, Variant<*>> {
-    val m = HashMap<String, Variant<*>>()
+private fun createMetadata(song: UserSong?): Map<String, Variant<*>> {
+    val m = mutableMapOf<String, Variant<*>>()
     val idStr = song?.id?.toString()?.replace("-", "_") ?: "no_track"
     m["mpris:trackid"] = Variant(DBusPath("/org/mpris/MediaPlayer2/track/$idStr"))
     if (song != null) {
@@ -268,7 +386,25 @@ private fun createMetadata(song: UserSong?): JMap<String, Variant<*>> {
         m["xesam:title"] = Variant(song.title)
         m["xesam:artist"] = Variant(song.artists.map { it.name }.toTypedArray(), "as")
         song.album?.let { m["xesam:album"] = Variant(it.name) }
-        song.coverId?.let { m["mpris:artUrl"] = Variant("file://${System.getProperty("user.home")}/.synara/cache/covers/$it.jpg") }
+
+        try {
+            val manager = getKoin().get<RpcServiceManager>()
+            val host = manager.host
+            val port = manager.port
+            if (host != null && port != null && song.coverId != null) {
+                m["mpris:artUrl"] = Variant("http://$host:$port/image/byId/${song.coverId}")
+            } else {
+                song.coverId?.let {
+                    m["mpris:artUrl"] =
+                        Variant("file://${System.getProperty("user.home")}/.synara/cache/covers/$it.jpg")
+                }
+            }
+        } catch (_: Exception) {
+            song.coverId?.let {
+                m["mpris:artUrl"] =
+                    Variant("file://${System.getProperty("user.home")}/.synara/cache/covers/$it.jpg")
+            }
+        }
     }
-    return m as JMap<String, Variant<*>>
+    return m
 }

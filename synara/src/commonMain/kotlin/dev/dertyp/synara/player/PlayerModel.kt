@@ -430,6 +430,10 @@ class PlayerModel(
         }
     }
 
+    fun setRepeatMode(mode: RepeatMode) {
+        _repeatMode.value = mode
+    }
+
     fun toggleRepeat() {
         _repeatMode.value = when (_repeatMode.value) {
             RepeatMode.OFF -> RepeatMode.ALL

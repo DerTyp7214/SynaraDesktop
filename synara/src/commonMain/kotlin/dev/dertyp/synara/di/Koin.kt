@@ -126,9 +126,9 @@ val appModule = module {
 }
 
 fun initializeSynara() {
-    platformInit()
     setupCoil()
     initKoin()
+    platformInit()
 }
 
 fun initKoin() {

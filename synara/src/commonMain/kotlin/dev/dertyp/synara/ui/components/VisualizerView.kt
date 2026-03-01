@@ -27,7 +27,6 @@ fun VisualizerView(
     highlightColor: Color = MaterialTheme.colorScheme.primary,
     playerModel: PlayerModel = koinInject()
 ) {
-    val fftData by playerModel.fftData.collectAsState()
     val isPlaying by playerModel.isPlaying.collectAsState()
 
     BoxWithConstraints(modifier = modifier) {
@@ -43,14 +42,65 @@ fun VisualizerView(
         val barCount = (widthPx / (targetBarWidthPx + spacingPx)).toInt().coerceAtLeast(1)
         val actualBarWidth = (widthPx - (barCount - 1) * spacingPx) / barCount
         
-        val smoothingFactor = 0.75f
+        val smoothingFactor = 0.85f
         val smoothedHeights = remember(barCount) { FloatArray(barCount) { minHeightPx } }
 
         var tick by remember { mutableLongStateOf(0L) }
-        LaunchedEffect(isPlaying) {
-            if (!isPlaying) {
-                while (smoothedHeights.any { abs(it - minHeightPx) > 0.1f }) {
-                    withFrameMillis { tick++ }
+
+        LaunchedEffect(isPlaying, barCount, heightPx) {
+            while (true) {
+                var hasChanges = false
+                withFrameMillis {
+                    val currentFft = playerModel.fftData.value
+                    val centerIndex = (barCount - 1) / 2f
+                    val halfCount = (barCount + 1) / 2
+                    
+                    val fftSize = currentFft.size
+                    val maxFftBins = fftSize / 2
+                    val binSize = if (halfCount > 0) maxFftBins.toFloat() / halfCount else 0f
+
+                    val minDb = -60f
+                    val maxDb = -20f
+
+                    for (i in 0 until halfCount) {
+                        var maxMagnitude = 0f
+                        if (isPlaying && currentFft.isNotEmpty() && binSize > 0) {
+                            val startBin = (i * binSize).toInt()
+                            val endBin = ((i + 1) * binSize).toInt().coerceAtMost(maxFftBins - 1)
+                            
+                            for (j in startBin..endBin) {
+                                maxMagnitude = maxOf(maxMagnitude, currentFft[j])
+                            }
+                        }
+
+                        val targetHeight = if (isPlaying) {
+                            val db = if (maxMagnitude > 0.00003f) 20f * log10(maxMagnitude) else minDb
+                            val targetNormalized = ((db - minDb) / (maxDb - minDb)).coerceIn(0f, 1f)
+                            (targetNormalized * heightPx).coerceAtLeast(minHeightPx)
+                        } else {
+                            minHeightPx
+                        }
+
+                        val leftIdx = floor(centerIndex - i).toInt()
+                        val rightIdx = ceil(centerIndex + i).toInt()
+                        
+                        if (leftIdx in 0 until barCount) {
+                            val prev = smoothedHeights[leftIdx]
+                            smoothedHeights[leftIdx] = (prev * smoothingFactor) + (targetHeight * (1f - smoothingFactor))
+                            if (abs(smoothedHeights[leftIdx] - prev) > 0.1f) hasChanges = true
+                        }
+                        if (rightIdx in 0 until barCount && rightIdx != leftIdx) {
+                            val prev = smoothedHeights[rightIdx]
+                            smoothedHeights[rightIdx] = (prev * smoothingFactor) + (targetHeight * (1f - smoothingFactor))
+                            if (abs(smoothedHeights[rightIdx] - prev) > 0.1f) hasChanges = true
+                        }
+                    }
+                }
+                
+                if (isPlaying || hasChanges) {
+                    tick++
+                } else {
+                    break
                 }
             }
         }
@@ -58,46 +108,6 @@ fun VisualizerView(
         Canvas(modifier = Modifier.fillMaxSize()) {
             @Suppress("unused")
             val t = tick
-
-            val centerIndex = (barCount - 1) / 2f
-            val halfCount = (barCount + 1) / 2
-            
-            val fftSize = fftData.size
-            val maxFftBins = fftSize / 2
-            val binSize = if (halfCount > 0) maxFftBins.toFloat() / halfCount else 0f
-
-            val minDb = -60f
-            val maxDb = -20f
-
-            for (i in 0 until halfCount) {
-                var maxMagnitude = 0f
-                if (isPlaying && fftData.isNotEmpty() && binSize > 0) {
-                    val startBin = (i * binSize).toInt()
-                    val endBin = ((i + 1) * binSize).toInt().coerceAtMost(maxFftBins - 1)
-                    
-                    for (j in startBin..endBin) {
-                        maxMagnitude = maxOf(maxMagnitude, fftData[j])
-                    }
-                }
-
-                val targetHeight = if (isPlaying) {
-                    val db = if (maxMagnitude > 0.00003f) 20f * log10(maxMagnitude) else minDb
-                    val targetNormalized = ((db - minDb) / (maxDb - minDb)).coerceIn(0f, 1f)
-                    (targetNormalized * heightPx).coerceAtLeast(minHeightPx)
-                } else {
-                    minHeightPx
-                }
-
-                val leftIdx = floor(centerIndex - i).toInt()
-                val rightIdx = ceil(centerIndex + i).toInt()
-                
-                if (leftIdx in 0 until barCount) {
-                    smoothedHeights[leftIdx] = (smoothedHeights[leftIdx] * smoothingFactor) + (targetHeight * (1f - smoothingFactor))
-                }
-                if (rightIdx in 0 until barCount && rightIdx != leftIdx) {
-                    smoothedHeights[rightIdx] = (smoothedHeights[rightIdx] * smoothingFactor) + (targetHeight * (1f - smoothingFactor))
-                }
-            }
 
             for (i in 0 until barCount) {
                 val smoothedHeight = smoothedHeights[i]

@@ -8,7 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import coil3.size.SizeResolver
@@ -18,6 +18,7 @@ import dev.dertyp.synara.Config
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.delay
+import org.jetbrains.skia.Paint
 import org.koin.compose.koinInject
 import kotlin.math.*
 import kotlin.random.Random
@@ -84,12 +85,13 @@ fun ParticleView(
                 if (emitParticles && particleMultiplier > 0) {
                     val baseSpeed = (2..5).random() * audioIntensity
                     val speed = baseSpeed * density * .6f
-                    
+
                     val x = if (center.value.isSpecified) center.value.x else canvasSize.width / 2f
                     val y = if (center.value.isSpecified) center.value.y else canvasSize.height / 2f
-                    
+
                     val decayRate = max(0.001f * baseSpeed, 0.0005f)
-                    val spawnCount = (baseSpeed.pow(particleMultiplier) * audioIntensity * 2).roundToInt()
+                    val spawnCount =
+                        (baseSpeed.pow(particleMultiplier) * audioIntensity * 2).roundToInt()
 
                     repeat(spawnCount) {
                         val angle = Random.nextDouble(0.0, 2.0 * PI)
@@ -116,20 +118,29 @@ fun ParticleView(
                     }
                 }
 
-                val iterator = particles.iterator()
-                while (iterator.hasNext()) {
-                    val p = iterator.next()
+                var i = 0
+                while (i < particles.size) {
+                    val p = particles[i]
                     p.x += p.vx * normalizedDt
                     p.y += p.vy * normalizedDt
                     p.life -= p.decayRate * normalizedDt
 
                     val margin = 100f
-                    val isOutOfBounds = p.x < -margin || p.x > canvasSize.width + margin || 
-                                       p.y < -margin || p.y > canvasSize.height + margin
+                    val isOutOfBounds = p.x < -margin || p.x > canvasSize.width + margin ||
+                            p.y < -margin || p.y > canvasSize.height + margin
 
-                    if (p.life <= 0f || isOutOfBounds) {
-                        iterator.remove()
-                        if (particlePool.size < particleCap) particlePool.add(p)
+                    val isDead = p.life <= 0f || isOutOfBounds
+                    if (isDead) {
+                        val lastIdx = particles.size - 1
+
+                        val temp = particles[i]
+                        particles[i] = particles[lastIdx]
+                        particles[lastIdx] = temp
+
+                        val dead = particles.removeAt(particles.size - 1)
+                        if (particlePool.size < particleCap) particlePool.add(dead)
+                    } else {
+                        i++
                     }
                 }
 
@@ -152,25 +163,60 @@ fun ParticleView(
         val redraw = tick
 
         val pSize = 2f * density
-        val baseAlpha = color.alpha
+
+        val topR = color.red
+        val topG = color.green
+        val topB = color.blue
+        val topA = color.alpha
+
+        val botR = highlightColor.red
+        val botG = highlightColor.green
+        val botB = highlightColor.blue
+        val botA = highlightColor.alpha
+
+        val skiaCanvas = drawContext.canvas.nativeCanvas
+
+        val paint = Paint().apply {
+            isAntiAlias = false
+        }
 
         for (i in 0 until particles.size) {
             val p = particles.getOrNull(i) ?: continue
-            val lifeAlpha = p.life.coerceIn(0f, 1f)
-            val pColor = color.copy(alpha = lifeAlpha)
-                .compositeOver(highlightColor)
-                .copy(alpha = baseAlpha * lifeAlpha)
+            val life = p.life.coerceIn(0f, 1f)
 
-            drawCircle(
-                color = pColor,
-                radius = pSize * lifeAlpha,
-                center = Offset(p.x, p.y)
+            val curTopA = topA * life
+            val outA = curTopA + botA * (1f - curTopA)
+
+            val outR: Float;
+            val outG: Float;
+            val outB: Float
+            if (outA > 0f) {
+                val invTopA = 1f - curTopA
+                outR = (topR * curTopA + botR * botA * invTopA) / outA
+                outG = (topG * curTopA + botG * botA * invTopA) / outA
+                outB = (topB * curTopA + botB * botA * invTopA) / outA
+            } else {
+                outR = 0f; outG = 0f; outB = 0f
+            }
+
+            val argb = ((outA * 255f + 0.5f).toInt() shl 24) or
+                    ((outR * 255f + 0.5f).toInt() shl 16) or
+                    ((outG * 255f + 0.5f).toInt() shl 8) or
+                    (outB * 255f + 0.5f).toInt()
+
+            paint.color = argb
+
+            skiaCanvas.drawCircle(
+                p.x,
+                p.y,
+                pSize * life,
+                paint
             )
         }
     }
 }
 
-private data class Particle(
+private class Particle(
     var x: Float,
     var y: Float,
     var vx: Float,

@@ -24,6 +24,7 @@ okio = "3.16.4"
 jflac = "1.5.2"
 kmpalette = "3.1.0"
 sqldelight = "2.2.1"
+dbus-java = "5.2.0"
 
 [libraries]
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coilCompose" }
@@ -72,6 +73,8 @@ kmpalette-core = { module = "com.kmpalette:kmpalette-core", version.ref = "kmpal
 kmpalette-androidx-palette = { module = "com.kmpalette:androidx-palette", version.ref = "kmpalette" }
 sqldelight-runtime = { module = "app.cash.sqldelight:runtime", version.ref = "sqldelight" }
 sqldelight-sqlite-driver = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
+dbus-java-core = { module = "com.github.hypfvieh:dbus-java-core", version.ref = "dbus-java" }
+dbus-java-transport-native-unixsocket = { module = "com.github.hypfvieh:dbus-java-transport-native-unixsocket", version.ref = "dbus-java" }
 
 [plugins]
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import synara.synara.generated.resources.*
+import kotlin.math.roundToInt
 
 class SettingsScreen : Screen {
 
@@ -46,6 +47,7 @@ class SettingsScreen : Screen {
         val darkThemeColor by Config.darkThemeColor.collectAsState()
         val useSongColor by Config.useSongColor.collectAsState()
         val usePywal by Config.usePywal.collectAsState()
+        val particleMultiplier by Config.particleMultiplier.collectAsState()
 
         val isListenBrainzEnabled by Config.isListenBrainzEnabled.collectAsState()
         val listenBrainzToken by Config.listenBrainzToken.collectAsState()
@@ -120,6 +122,11 @@ class SettingsScreen : Screen {
                             onColorSelected = { Config.setDarkThemeColor(it) }
                         )
                     }
+
+                    ParticleMultiplierSetting(
+                        multiplier = particleMultiplier,
+                        onMultiplierChange = { Config.setParticleMultiplier(it) }
+                    )
 
                     Text(
                         text = stringResource(Res.string.scrobbling),
@@ -458,6 +465,42 @@ class SettingsScreen : Screen {
                 onColorSelected = onColorSelected,
                 onDismissRequest = { showPicker = false }
             )
+        }
+    }
+
+    @Composable
+    private fun ParticleMultiplierSetting(multiplier: Float, onMultiplierChange: (Float) -> Unit) {
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(Res.string.particle_multiplier),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = ((multiplier * 10).roundToInt() / 10f).toString(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Slider(
+                    value = multiplier,
+                    onValueChange = { onMultiplierChange(it) },
+                    valueRange = 0f..5f,
+                    steps = 49
+                )
+            }
         }
     }
 }

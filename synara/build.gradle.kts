@@ -113,6 +113,10 @@ kotlin {
                 
                 implementation(libs.sqldelight.sqlite.driver)
 
+                // D-Bus (MPRIS)
+                implementation(libs.dbus.java.core)
+                implementation(libs.dbus.java.transport.native.unixsocket)
+
                 // Add natives for all desktop platforms
                 val platforms = listOf("linux", "windows", "macos", "macos-arm64")
                 platforms.forEach { platform ->
