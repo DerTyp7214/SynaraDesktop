@@ -74,10 +74,19 @@ fun PlayerBar(
     scrobblerService: ScrobblerService = koinInject(),
     globalState: GlobalStateModel = koinInject()
 ) {
-    val isPlaying by playerModel.isPlaying.collectAsState()
+    val isPlayingState by playerModel.isPlaying.collectAsState()
+    val isPlaying by produceState(initialValue = isPlayingState, isPlayingState) {
+        if (isPlayingState) {
+            value = true
+        } else {
+            delay(50)
+            value = false
+        }
+    }
+
     val currentSong by playerModel.currentSong.collectAsState()
     val volume by playerModel.volume.collectAsState()
-    val currentPosition by playerModel.currentPosition.collectAsState()
+    val currentPositionState by playerModel.currentPosition.collectAsState()
     val duration by playerModel.duration.collectAsState()
     val shuffleMode by playerModel.shuffleMode.collectAsState()
     val repeatMode by playerModel.repeatMode.collectAsState()
@@ -107,6 +116,30 @@ fun PlayerBar(
 
     var isSeeking by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableLongStateOf(0L) }
+    var isWaitingForPosition by remember { mutableStateOf(false) }
+
+    val currentPosition = if (isSeeking || (isWaitingForPosition && currentPositionState <= 0L && duration > 0)) {
+        seekPosition
+    } else {
+        currentPositionState
+    }
+
+    LaunchedEffect(currentPositionState) {
+        if (currentPositionState > 0) {
+            isWaitingForPosition = false
+        }
+    }
+
+    LaunchedEffect(isWaitingForPosition) {
+        if (isWaitingForPosition) {
+            delay(1000)
+            isWaitingForPosition = false
+        }
+    }
+
+    LaunchedEffect(currentSong) {
+        isWaitingForPosition = false
+    }
 
     BoxWithConstraints(
         modifier = modifier
@@ -150,9 +183,9 @@ fun PlayerBar(
             }
             .onPointerEvent(PointerEventType.Scroll) {
                 if (isExpanded && it.keyboardModifiers.isShiftPressed) {
-                    val delta = it.changes.first().scrollDelta.y
-                    if (delta != 0f) {
-                        val direction = if (delta > 0) -1 else 1
+                    val delay = it.changes.first().scrollDelta.y
+                    if (delay != 0f) {
+                        val direction = if (delay > 0) -1 else 1
                         playerModel.setVolume((playerModel.volume.value + direction * 0.02f).coerceIn(0f, 1f))
                     }
                 }
@@ -479,8 +512,6 @@ fun PlayerBar(
                                     }
                                 }
 
-                                val position = if (isSeeking) seekPosition else currentPosition
-
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -488,14 +519,14 @@ fun PlayerBar(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        formatDuration(position.coerceAtMost(duration)),
+                                        formatDuration(currentPosition.coerceAtMost(duration)),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.widthIn(min = 40.dp)
                                     )
 
                                     Slider(
-                                        value = if (duration > 0) position.toFloat() / duration else 0f,
+                                        value = if (duration > 0) currentPosition.toFloat() / duration else 0f,
                                         onValueChange = {
                                             isSeeking = true
                                             seekPosition = (it * duration).toLong()
@@ -503,6 +534,7 @@ fun PlayerBar(
                                         onValueChangeFinished = {
                                             playerModel.seekTo(seekPosition)
                                             isSeeking = false
+                                            isWaitingForPosition = true
                                         },
                                         modifier = Modifier
                                             .weight(1f)
