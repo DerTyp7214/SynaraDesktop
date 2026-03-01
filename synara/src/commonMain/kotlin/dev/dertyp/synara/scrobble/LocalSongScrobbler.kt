@@ -27,7 +27,7 @@ class LocalSongScrobbler(
     private val currentColor = MutableStateFlow<Color>(Color(0xFFB3B3B3))
 
     init {
-        scope.launch {
+        this += scope.launch {
             combine(
                 playerModel.isPlaying,
                 currentColor

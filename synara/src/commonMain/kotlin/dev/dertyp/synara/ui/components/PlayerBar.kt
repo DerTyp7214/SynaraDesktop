@@ -51,6 +51,7 @@ import dev.dertyp.synara.scrobble.BaseScrobbler
 import dev.dertyp.synara.scrobble.ScrobblerService
 import dev.dertyp.synara.theme.isAppDark
 import dev.dertyp.synara.theme.rememberCoverScheme
+import dev.dertyp.synara.ui.LocalWindowActions
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
@@ -83,6 +84,13 @@ fun PlayerBar(
     val triggeredSong by scrobblerService.triggeredSong.collectAsState()
 
     val isExpanded by globalState.isPlayerExpanded.collectAsState()
+    val windowActions = LocalWindowActions.current
+
+    LaunchedEffect(isExpanded) {
+        if (!isExpanded && windowActions.isFullscreen) {
+            windowActions.setFullscreen(false)
+        }
+    }
 
     var isSeeking by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableLongStateOf(0L) }
@@ -170,7 +178,9 @@ fun PlayerBar(
                                     sizeResolver = sizeResolver,
                                     parentCoordinates = parentCoordinates,
                                     coverCenter = coverCenter,
-                                    onCollapse = { globalState.setPlayerExpanded(false) }
+                                    onCollapse = {
+                                        globalState.setPlayerExpanded(false)
+                                    }
                                 )
                             }
                         }
@@ -521,6 +531,8 @@ private fun ExpandedPlayerContent(
     parentCoordinates: LayoutCoordinates? = null,
     onCollapse: () -> Unit
 ) {
+    val windowActions = LocalWindowActions.current
+
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -530,11 +542,20 @@ private fun ExpandedPlayerContent(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Start
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onCollapse) {
                     Icon(
                         Icons.Rounded.KeyboardArrowDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+
+                IconButton(onClick = { windowActions.toggleFullscreen() }) {
+                    Icon(
+                        if (windowActions.isFullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
                         contentDescription = null,
                         modifier = Modifier.size(32.dp)
                     )

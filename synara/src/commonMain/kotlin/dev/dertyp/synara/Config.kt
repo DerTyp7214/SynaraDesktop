@@ -64,6 +64,9 @@ object Config : KoinComponent {
     private val _lastFmUsername = MutableStateFlow(settings.getOrNull(SettingKey.LastFmUsername) ?: "")
     val lastFmUsername: StateFlow<String> = _lastFmUsername.asStateFlow()
 
+    private val _isDiscordRpcEnabled = MutableStateFlow(settings.get(SettingKey.IsDiscordRpcEnabled, false))
+    val isDiscordRpcEnabled: StateFlow<Boolean> = _isDiscordRpcEnabled.asStateFlow()
+
     private val _particleMultiplier = MutableStateFlow(settings.get(SettingKey.ParticleMultiplier, 2.5f))
     val particleMultiplier: StateFlow<Float> = _particleMultiplier.asStateFlow()
 
@@ -153,6 +156,11 @@ object Config : KoinComponent {
     fun setLastFmUsername(username: String) {
         _lastFmUsername.value = username
         settings.put(SettingKey.LastFmUsername, username)
+    }
+
+    fun setIsDiscordRpcEnabled(enabled: Boolean) {
+        _isDiscordRpcEnabled.value = enabled
+        settings.put(SettingKey.IsDiscordRpcEnabled, enabled)
     }
 
     fun setParticleMultiplier(multiplier: Float) {

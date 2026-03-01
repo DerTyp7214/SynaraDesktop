@@ -101,7 +101,7 @@ class PlayerModel(
 
         scope.launch {
             combine(_queue, _currentIndex, _currentSource, _repeatMode, _shuffleMode) { q, idx, src, repeat, shuffle ->
-                PlayerState(q, originalQueue, src, idx, repeat, shuffle, audioPlayer.currentPosition.value)
+                PlayerState(q, originalQueue, src, idx, repeat, shuffle)
             }.distinctUntilChanged { old, new ->
                 old.queue == new.queue && 
                 old.currentIndex == new.currentIndex && 

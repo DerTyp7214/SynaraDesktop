@@ -56,6 +56,7 @@ class SettingsScreen : Screen {
         val lastFmSharedSecret by Config.lastFmSharedSecret.collectAsState()
         val lastFmSessionKey by Config.lastFmSessionKey.collectAsState()
         val lastFmUsername by Config.lastFmUsername.collectAsState()
+        val isDiscordRpcEnabled by Config.isDiscordRpcEnabled.collectAsState()
 
         Scaffold(
             containerColor = Color.Transparent,
@@ -132,6 +133,12 @@ class SettingsScreen : Screen {
                         text = stringResource(Res.string.scrobbling),
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.padding(top = 8.dp)
+                    )
+
+                    SettingSwitch(
+                        title = stringResource(Res.string.enable_discord_rpc),
+                        checked = isDiscordRpcEnabled,
+                        onCheckedChange = { Config.setIsDiscordRpcEnabled(it) }
                     )
 
                     ElevatedCard(modifier = Modifier.fillMaxWidth()) {

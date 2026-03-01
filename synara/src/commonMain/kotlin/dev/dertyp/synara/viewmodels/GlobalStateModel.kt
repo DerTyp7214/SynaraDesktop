@@ -7,10 +7,7 @@ import dev.dertyp.synara.player.PlaylistUpdate
 import dev.dertyp.synara.player.SongCache
 import dev.dertyp.synara.rpc.services.UserPlaylistServiceWrapper
 import dev.dertyp.synara.rpc.services.UserServiceWrapper
-import dev.dertyp.synara.scrobble.LastFmScrobbler
-import dev.dertyp.synara.scrobble.ListenBrainzScrobbler
-import dev.dertyp.synara.scrobble.LocalSongScrobbler
-import dev.dertyp.synara.scrobble.ScrobblerService
+import dev.dertyp.synara.scrobble.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -62,6 +59,16 @@ class GlobalStateModel(
                     scrobblerService.registerScrobbler(LastFmScrobbler::class)
                 } else {
                     scrobblerService.unregisterScrobbler(LastFmScrobbler::class)
+                }
+            }
+        }
+
+        scope.launch {
+            Config.isDiscordRpcEnabled.collectLatest { enabled ->
+                if (enabled) {
+                    scrobblerService.registerScrobbler(DiscordScrobbler::class)
+                } else {
+                    scrobblerService.unregisterScrobbler(DiscordScrobbler::class)
                 }
             }
         }

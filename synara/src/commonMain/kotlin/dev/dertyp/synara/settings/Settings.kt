@@ -23,6 +23,7 @@ sealed class SettingKey<T>(val name: String) {
     data object LastFmSharedSecret : SettingKey<String>("lastfm_shared_secret")
     data object LastFmSessionKey : SettingKey<String>("lastfm_session_key")
     data object LastFmUsername : SettingKey<String>("lastfm_username")
+    data object IsDiscordRpcEnabled : SettingKey<Boolean>("is_discord_rpc_enabled")
 
     // Visualizer
     data object ParticleMultiplier : SettingKey<Float>("particle_multiplier")
@@ -71,7 +72,8 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor -> getIntOrNull(key.name) as T?
         is SettingKey.TokenExpiration -> getLongOrNull(key.name) as T?
         is SettingKey.DarkTheme, is SettingKey.UseSongColor, is SettingKey.UsePywal,
-        is SettingKey.IsListenBrainzEnabled, is SettingKey.IsLastFmEnabled -> getBooleanOrNull(key.name) as T?
+        is SettingKey.IsListenBrainzEnabled, is SettingKey.IsLastFmEnabled,
+        is SettingKey.IsDiscordRpcEnabled -> getBooleanOrNull(key.name) as T?
         is SettingKey.Volume, is SettingKey.ParticleMultiplier -> getFloatOrNull(key.name) as T?
     }
 }

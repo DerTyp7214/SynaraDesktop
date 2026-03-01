@@ -56,6 +56,9 @@
     <string name="lastfm_login_failed">Last.fm Anmeldung fehlgeschlagen</string>
     <string name="lastfm_authenticated">Angemeldet als %1$s</string>
     <string name="lastfm_not_authenticated">Nicht angemeldet</string>
+    <string name="song_scrobbled">Song gescrobbelt</string>
+    <string name="pending_scrobble">Anstehender Scrobble</string>
+    <string name="enable_discord_rpc">Discord Rich Presence aktivieren</string>
 
     <!-- Player -->
     <string name="play">Abspielen</string>

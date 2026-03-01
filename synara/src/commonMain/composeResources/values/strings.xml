@@ -58,6 +58,7 @@
     <string name="lastfm_not_authenticated">Not authenticated</string>
     <string name="song_scrobbled">Song scrobbled</string>
     <string name="pending_scrobble">Pending scrobble</string>
+    <string name="enable_discord_rpc">Enable Discord Rich Presence</string>
 
     <!-- Player -->
     <string name="play">Play</string>

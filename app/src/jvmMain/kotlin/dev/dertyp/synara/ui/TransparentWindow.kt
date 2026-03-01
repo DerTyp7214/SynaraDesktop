@@ -289,10 +289,21 @@ fun runTransparentWindow(
     scenePtr = scene
 
     var isVisible by mutableStateOf(true)
+    var isFullscreen by mutableStateOf(false)
     val applicationScope = object : ApplicationScope {
         override fun exitApplication() {
             glfwSetWindowShouldClose(windowHandle, true)
         }
+    }
+
+    val windowActions = object : WindowActions {
+        override fun toggleFullscreen() {
+            isFullscreen = !isFullscreen
+        }
+        override fun setFullscreen(enabled: Boolean) {
+            isFullscreen = enabled
+        }
+        override val isFullscreen: Boolean get() = isFullscreen
     }
 
     scene.setContent {
@@ -305,6 +316,7 @@ fun runTransparentWindow(
             CompositionLocalProvider(
                 LocalClipboard provides clipboard,
                 LocalClipboardManager provides clipboardManager,
+                LocalWindowActions provides windowActions,
                 LocalTextField provides { value, onValueChange, modifier, enabled, readOnly, textStyle, label, placeholder, leadingIcon, trailingIcon, prefix, suffix, supportingText, isError, visualTransformation, keyboardOptions, keyboardActions, singleLine, maxLines, minLines, interactionSource, shape, colors ->
                     SynaraTextField(
                         value = value,
@@ -349,7 +361,7 @@ fun runTransparentWindow(
                     contentColor = onBackground()
                 ) {
                     Column {
-                        if (showDragHandle) {
+                        if (showDragHandle && !isFullscreen) {
                             WindowDraggableArea(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -468,6 +480,12 @@ fun runTransparentWindow(
     }
 
     var lastVisibleState = true
+    var lastFullscreenState = false
+    var windowX = 0
+    var windowY = 0
+    var windowWidth = width
+    var windowHeight = height
+
     while (!glfwWindowShouldClose(windowHandle)) {
         if (isVisible != lastVisibleState) {
             if (isVisible) {
@@ -477,6 +495,31 @@ fun runTransparentWindow(
                 glfwHideWindow(windowHandle)
             }
             lastVisibleState = isVisible
+        }
+
+        if (isFullscreen != lastFullscreenState) {
+            if (isFullscreen) {
+                stackPush().use { stack ->
+                    val x = stack.mallocInt(1)
+                    val y = stack.mallocInt(1)
+                    val w = stack.mallocInt(1)
+                    val h = stack.mallocInt(1)
+                    glfwGetWindowPos(windowHandle, x, y)
+                    glfwGetWindowSize(windowHandle, w, h)
+                    windowX = x.get(0)
+                    windowY = y.get(0)
+                    windowWidth = w.get(0)
+                    windowHeight = h.get(0)
+                }
+                val monitor = glfwGetPrimaryMonitor()
+                val vidMode = glfwGetVideoMode(monitor)
+                if (vidMode != null) {
+                    glfwSetWindowMonitor(windowHandle, monitor, 0, 0, vidMode.width(), vidMode.height(), vidMode.refreshRate())
+                }
+            } else {
+                glfwSetWindowMonitor(windowHandle, NULL, windowX, windowY, windowWidth, windowHeight, 0)
+            }
+            lastFullscreenState = isFullscreen
         }
 
         if (isVisible) {

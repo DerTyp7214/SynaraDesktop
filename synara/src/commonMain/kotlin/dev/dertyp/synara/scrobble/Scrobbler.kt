@@ -173,6 +173,14 @@ abstract class BaseScrobbler : KoinComponent {
     var isRunning = false
         private set
 
+    operator fun plusAssign(job: Job) {
+        jobs.add(job)
+    }
+
+    operator fun minusAssign(job: Job) {
+        jobs.remove(job)
+    }
+
     open fun onStart() {}
 
     fun startScrobbler() {
@@ -209,15 +217,23 @@ abstract class BaseScrobbler : KoinComponent {
                 reset()
             }
         }
-        onStart()
+        try {
+            onStart()
+        } catch (_: Exception) {
+        }
     }
 
     fun stopScrobbler() {
         while (jobs.isNotEmpty()) jobs.removeAt(0).cancel()
         isRunning = false
+        try {
+            onStop()
+        } catch (_: Exception) {
+        }
     }
 
     open suspend fun newSong(song: UserSong?) {}
     open suspend fun triggered(song: UserSong) {}
     open suspend fun reset() {}
+    open fun onStop() {}
 }

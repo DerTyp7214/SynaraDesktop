@@ -10,13 +10,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Window
-import androidx.compose.ui.window.WindowScope
-import androidx.compose.ui.window.application
+import androidx.compose.ui.window.*
 import dev.dertyp.synara.SynaraView
 import dev.dertyp.synara.di.initializeSynara
 import dev.dertyp.synara.theme.SynaraAppTheme
 import dev.dertyp.synara.theme.isAppDark
+import dev.dertyp.synara.ui.LocalWindowActions
+import dev.dertyp.synara.ui.WindowActions
 import dev.dertyp.synara.ui.components.SynaraTray
 import org.jetbrains.compose.resources.painterResource
 import synara.synara.generated.resources.Res
@@ -42,6 +42,30 @@ fun main() {
     initializeSynara()
     application {
         var isVisible by remember { mutableStateOf(true) }
+        val windowState = rememberWindowState()
+
+        val windowActions = remember(windowState) {
+            object : WindowActions {
+                override fun toggleFullscreen() {
+                    windowState.placement = if (windowState.placement == WindowPlacement.Fullscreen) {
+                        WindowPlacement.Floating
+                    } else {
+                        WindowPlacement.Fullscreen
+                    }
+                }
+
+                override fun setFullscreen(enabled: Boolean) {
+                    windowState.placement = if (enabled) {
+                        WindowPlacement.Fullscreen
+                    } else {
+                        WindowPlacement.Floating
+                    }
+                }
+
+                override val isFullscreen: Boolean
+                    get() = windowState.placement == WindowPlacement.Fullscreen
+            }
+        }
 
         SynaraTray(
             onAction = { isVisible = !isVisible },
@@ -51,6 +75,7 @@ fun main() {
         if (isVisible) {
             Window(
                 onCloseRequest = { isVisible = false },
+                state = windowState,
                 title = "Synara",
                 undecorated = false,
                 icon = painterResource(Res.drawable.icon)
@@ -66,20 +91,24 @@ fun main() {
                 }
 
                 val theme = SynaraAppTheme(isAppDark())
-                MaterialTheme(
-                    colorScheme = theme.colorScheme,
-                    typography = theme.typography,
-                    shapes = theme.shapes
-                ) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.background,
-                        modifier = Modifier.fillMaxSize()
+                CompositionLocalProvider(LocalWindowActions provides windowActions) {
+                    MaterialTheme(
+                        colorScheme = theme.colorScheme,
+                        typography = theme.typography,
+                        shapes = theme.shapes
                     ) {
-                        Column {
-                            if (showTitleBar) CustomSystemBar(isMac)
+                        Surface(
+                            color = MaterialTheme.colorScheme.background,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Column {
+                                if (showTitleBar && !windowActions.isFullscreen) {
+                                    CustomSystemBar(isMac)
+                                }
 
-                            Box(modifier = Modifier.fillMaxSize()) {
-                                SynaraView()
+                                Box(modifier = Modifier.fillMaxSize()) {
+                                    SynaraView()
+                                }
                             }
                         }
                     }

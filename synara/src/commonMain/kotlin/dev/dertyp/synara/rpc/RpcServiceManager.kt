@@ -64,7 +64,7 @@ class RpcServiceManager(
         return if (h != null && p != null) "ws://$h:$p" else null
     }
 
-    override fun getAuthToken(): String? = storedAuthToken
+    public override fun getAuthToken(): String? = storedAuthToken
 
     override fun getRefreshToken(): String? = storedRefreshToken
 

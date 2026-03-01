@@ -50,7 +50,7 @@ class LastFmScrobbler(
 
     @OptIn(FlowPreview::class)
     override fun onStart() {
-        scope.launch {
+        this += scope.launch {
             queueUpdateFlow
                 .onStart { emit(Unit) }
                 .debounce(100.milliseconds)

@@ -127,6 +127,7 @@ val appModule = module {
     singleOf(::LocalSongScrobbler)
     singleOf(::ListenBrainzScrobbler)
     singleOf(::LastFmScrobbler)
+    singleOf(::DiscordScrobbler)
 }
 
 fun initializeSynara() {
