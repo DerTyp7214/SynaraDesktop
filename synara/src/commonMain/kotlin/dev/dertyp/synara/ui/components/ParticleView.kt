@@ -52,8 +52,15 @@ fun ParticleView(
         }
     }
     val density = LocalDensity.current.density
-    val particlePool = remember(particleCap) { ArrayList<Particle>(particleCap) }
-    val particles = remember(particleCap) { ArrayList<Particle>(particleCap) }
+
+    val particleX = remember(particleCap) { FloatArray(particleCap) }
+    val particleY = remember(particleCap) { FloatArray(particleCap) }
+    val particleVX = remember(particleCap) { FloatArray(particleCap) }
+    val particleVY = remember(particleCap) { FloatArray(particleCap) }
+    val particleDecay = remember(particleCap) { FloatArray(particleCap) }
+    val particleLife = remember(particleCap) { FloatArray(particleCap) }
+    var activeCount by remember(particleCap) { mutableIntStateOf(0) }
+
     var tick by remember { mutableLongStateOf(0L) }
 
     val canvasSize = remember {
@@ -82,6 +89,8 @@ fun ParticleView(
                 val normalizedDt = (dt * 60f).coerceIn(0f, 2f)
                 frameTime = time
 
+                var currentCount = activeCount
+
                 if (emitParticles && particleMultiplier > 0) {
                     val baseSpeed = (2..5).random() * audioIntensity
                     val speed = baseSpeed * density * .6f
@@ -94,60 +103,63 @@ fun ParticleView(
                         (baseSpeed.pow(particleMultiplier) * audioIntensity * 2).roundToInt()
 
                     repeat(spawnCount) {
-                        val angle = Random.nextDouble(0.0, 2.0 * PI)
-                        val cosA = cos(angle).toFloat()
-                        val sinA = sin(angle).toFloat()
+                        if (currentCount < particleCap) {
+                            val angle = Random.nextDouble(0.0, 2.0 * PI)
+                            val cosA = cos(angle).toFloat()
+                            val sinA = sin(angle).toFloat()
 
-                        val velocity = (speed.pow(3) / 4).coerceAtLeast(1f)
-                        val vx = cosA * velocity
-                        val vy = sinA * velocity
+                            val velocity = (speed.pow(3) / 4).coerceAtLeast(1f)
+                            val vx = cosA * velocity
+                            val vy = sinA * velocity
 
-                        val spawnX = x + cosA * centerOffsetPx * (1f - (.4f * Random.nextFloat()))
-                        val spawnY = y + sinA * centerOffsetPx * (1f - (.4f * Random.nextFloat()))
+                            val spawnX = x + cosA * centerOffsetPx * (1f - (.4f * Random.nextFloat()))
+                            val spawnY = y + sinA * centerOffsetPx * (1f - (.4f * Random.nextFloat()))
 
-                        val p = if (particlePool.isNotEmpty()) {
-                            particlePool.removeAt(particlePool.lastIndex).also { p ->
-                                p.x = spawnX; p.y = spawnY; p.vx = vx; p.vy = vy
-                                p.decayRate = decayRate; p.life = 1f
-                            }
-                        } else {
-                            Particle(spawnX, spawnY, vx, vy, decayRate, 1f)
+                            particleX[currentCount] = spawnX
+                            particleY[currentCount] = spawnY
+                            particleVX[currentCount] = vx
+                            particleVY[currentCount] = vy
+                            particleDecay[currentCount] = decayRate
+                            particleLife[currentCount] = 1f
+                            currentCount++
                         }
-
-                        if (particles.size < particleCap) particles.add(p)
                     }
                 }
 
                 var i = 0
-                while (i < particles.size) {
-                    val p = particles[i]
-                    p.x += p.vx * normalizedDt
-                    p.y += p.vy * normalizedDt
-                    p.life -= p.decayRate * normalizedDt
+                while (i < currentCount) {
+                    particleX[i] += particleVX[i] * normalizedDt
+                    particleY[i] += particleVY[i] * normalizedDt
+                    particleLife[i] -= particleDecay[i] * normalizedDt
 
                     val margin = 100f
-                    val isOutOfBounds = p.x < -margin || p.x > canvasSize.width + margin ||
-                            p.y < -margin || p.y > canvasSize.height + margin
+                    val isOutOfBounds = particleX[i] < -margin || particleX[i] > canvasSize.width + margin ||
+                            particleY[i] < -margin || particleY[i] > canvasSize.height + margin
 
-                    val isDead = p.life <= 0f || isOutOfBounds
+                    val isDead = particleLife[i] <= 0f || isOutOfBounds
                     if (isDead) {
-                        val lastIdx = particles.size - 1
-
-                        val temp = particles[i]
-                        particles[i] = particles[lastIdx]
-                        particles[lastIdx] = temp
-
-                        val dead = particles.removeAt(particles.size - 1)
-                        if (particlePool.size < particleCap) particlePool.add(dead)
+                        val lastIdx = currentCount - 1
+                        if (i != lastIdx) {
+                            particleX[i] = particleX[lastIdx]
+                            particleY[i] = particleY[lastIdx]
+                            particleVX[i] = particleVX[lastIdx]
+                            particleVY[i] = particleVY[lastIdx]
+                            particleDecay[i] = particleDecay[lastIdx]
+                            particleLife[i] = particleLife[lastIdx]
+                        }
+                        currentCount--
                     } else {
                         i++
                     }
                 }
 
+                activeCount = currentCount
                 tick = time
             }
         }
     }
+
+    if (activeCount == 0 && !isPlayerExpanded) return
 
     Canvas(
         modifier = modifier
@@ -180,15 +192,14 @@ fun ParticleView(
             isAntiAlias = false
         }
 
-        for (i in 0 until particles.size) {
-            val p = particles.getOrNull(i) ?: continue
-            val life = p.life.coerceIn(0f, 1f)
+        for (i in 0 until activeCount) {
+            val life = particleLife[i].coerceIn(0f, 1f)
 
             val curTopA = topA * life
             val outA = curTopA + botA * (1f - curTopA)
 
-            val outR: Float;
-            val outG: Float;
+            val outR: Float
+            val outG: Float
             val outB: Float
             if (outA > 0f) {
                 val invTopA = 1f - curTopA
@@ -207,20 +218,11 @@ fun ParticleView(
             paint.color = argb
 
             skiaCanvas.drawCircle(
-                p.x,
-                p.y,
+                particleX[i],
+                particleY[i],
                 pSize * life,
                 paint
             )
         }
     }
 }
-
-private class Particle(
-    var x: Float,
-    var y: Float,
-    var vx: Float,
-    var vy: Float,
-    var decayRate: Float = 0.01f,
-    var life: Float = 1.0f
-)

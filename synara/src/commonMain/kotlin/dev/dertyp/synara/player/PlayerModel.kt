@@ -1,6 +1,7 @@
 package dev.dertyp.synara.player
 
 import com.russhwolf.settings.Settings
+import dev.dertyp.PlatformUUID
 import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
 import dev.dertyp.serializers.BaseSerializersModule
@@ -47,6 +48,7 @@ class PlayerModel(
     }
 
     private var originalQueue: List<QueueEntry> = emptyList()
+    private var currentQueueSource: QueueSource? = null
     
     private val _currentSource = MutableStateFlow<PlaybackSource?>(null)
     val currentSource: StateFlow<PlaybackSource?> = _currentSource.asStateFlow()
@@ -91,6 +93,7 @@ class PlayerModel(
 
     init {
         loadState()
+        currentQueueSource = _currentSource.value?.toQueueSource(songService)
 
         val savedVolume = settings.get(SettingKey.Volume, 0.5f)
         audioPlayer.setVolume(savedVolume)
@@ -133,9 +136,10 @@ class PlayerModel(
             
             val currentEntry = _queue.value.getOrNull(_currentIndex.value)
             if (currentEntry != null) {
-                audioPlayer.load(currentEntry.songId)
-                if (state.lastPosition > 0) {
-                    audioPlayer.seekTo(state.lastPosition)
+                scope.launch {
+                    resolveSongId(currentEntry)?.let { id ->
+                        audioPlayer.load(id)
+                    }
                 }
             }
         } catch (_: Exception) {
@@ -157,6 +161,19 @@ class PlayerModel(
         }
     }
 
+    private suspend fun resolveSongId(entry: QueueEntry): PlatformUUID? {
+        return when (entry) {
+            is QueueEntry.Explicit -> entry.song.id
+            is QueueEntry.FromSource -> entry.songId
+            is QueueEntry.Indexed -> {
+                _fetchedSongs.value[entry]?.id ?: (currentQueueSource?.getSongAt(entry.index) as? UserSong)?.let {
+                    _fetchedSongs.value += (entry to it)
+                    it.id
+                }
+            }
+        }
+    }
+
     private suspend fun updateCurrentSong(entry: QueueEntry?) {
         if (entry == null) {
             _currentSong.value = null
@@ -166,6 +183,11 @@ class PlayerModel(
         val cached = when (entry) {
             is QueueEntry.Explicit -> entry.song
             is QueueEntry.FromSource -> _fetchedSongs.value[entry]
+            is QueueEntry.Indexed -> {
+                _fetchedSongs.value[entry] ?: (currentQueueSource?.getSongAt(entry.index) as? UserSong)?.also {
+                    _fetchedSongs.value += (entry to it)
+                }
+            }
         }
 
         if (cached != null) {
@@ -187,28 +209,42 @@ class PlayerModel(
         if (index == -1 || q.isEmpty()) return
 
         val range = (index - 2)..(index + 10)
-        val toFetch = range.filter { i ->
+
+        val toFetchFromSource = range.filter { i ->
             i in q.indices && q[i] is QueueEntry.FromSource && !_fetchedSongs.value.containsKey(q[i])
         }.map { q[it] as QueueEntry.FromSource }
 
-        if (toFetch.isEmpty()) return
+        if (toFetchFromSource.isNotEmpty()) {
+            scope.launch(Dispatchers.Default) {
+                try {
+                    val ids = toFetchFromSource.map { it.songId }.distinct()
+                    val response = songService.byIds(ids)
+                    val results = mutableMapOf<QueueEntry, UserSong>()
+                    
+                    response.data.forEach { song ->
+                        toFetchFromSource.filter { it.songId == song.id }.forEach { entry ->
+                            results[entry] = song
+                        }
+                    }
 
-        scope.launch(Dispatchers.Default) {
-            try {
-                val ids = toFetch.map { it.songId }.distinct()
-                val response = songService.byIds(ids)
-                val results = mutableMapOf<QueueEntry, UserSong>()
-                
-                response.data.forEach { song ->
-                    toFetch.filter { it.songId == song.id }.forEach { entry ->
-                        results[entry] = song
+                    if (results.isNotEmpty()) {
+                        _fetchedSongs.value += results
+                    }
+                } catch (_: Exception) {
+                }
+            }
+        }
+
+        range.forEach { i ->
+            if (i in q.indices) {
+                val entry = q[i]
+                if (entry is QueueEntry.Indexed && !_fetchedSongs.value.containsKey(entry)) {
+                    scope.launch(Dispatchers.Default) {
+                        (currentQueueSource?.getSongAt(entry.index) as? UserSong)?.let { song ->
+                            _fetchedSongs.value += (entry to song)
+                        }
                     }
                 }
-
-                if (results.isNotEmpty()) {
-                    _fetchedSongs.value += results
-                }
-            } catch (_: Exception) {
             }
         }
     }
@@ -216,8 +252,14 @@ class PlayerModel(
     private fun handlePlaybackFinished() {
         when (_repeatMode.value) {
             RepeatMode.ONE -> {
-                _queue.value.getOrNull(_currentIndex.value)?.songId?.let { audioPlayer.load(it) }
-                audioPlayer.play()
+                val index = _currentIndex.value
+                val entry = _queue.value.getOrNull(index)
+                if (entry != null) {
+                    scope.launch {
+                        resolveSongId(entry)?.let { audioPlayer.load(it) }
+                        audioPlayer.play()
+                    }
+                }
             }
             RepeatMode.ALL -> {
                 val nextIndex = if (_queue.value.isNotEmpty()) (_currentIndex.value + 1) % _queue.value.size else -1
@@ -239,14 +281,19 @@ class PlayerModel(
         if (index in _queue.value.indices) {
             val entry = _queue.value[index]
             _currentIndex.value = index
-            audioPlayer.load(entry.songId)
-            audioPlayer.play()
+            scope.launch {
+                resolveSongId(entry)?.let { id ->
+                    audioPlayer.load(id)
+                    audioPlayer.play()
+                }
+            }
         }
     }
 
     fun playSong(song: UserSong) {
         val entry = QueueEntry.Explicit(song)
         _currentSource.value = PlaybackSource.Manual
+        currentQueueSource = null
         originalQueue = listOf(entry)
         _queue.value = listOf(entry)
         _currentIndex.value = 0
@@ -256,25 +303,38 @@ class PlayerModel(
 
     fun playQueue(playbackQueue: PlaybackQueue, startIndex: Int = 0) {
         _currentSource.value = playbackQueue.source
-        originalQueue = playbackQueue.items
-        if (_shuffleMode.value) {
-            val shuffled = originalQueue.shuffled().toMutableList()
-            val currentItem = originalQueue.getOrNull(startIndex)
-            if (currentItem != null) {
-                shuffled.remove(currentItem)
-                shuffled.add(0, currentItem)
+        val source = playbackQueue.source.toQueueSource(songService)
+        currentQueueSource = source
+
+        scope.launch {
+            if (playbackQueue.items.isEmpty() && source != null) {
+                val size = source.getSize()
+                originalQueue = List(size) { QueueEntry.Indexed(it) }
+            } else {
+                originalQueue = playbackQueue.items
             }
-            _queue.value = shuffled
-            _currentIndex.value = 0
-        } else {
-            _queue.value = originalQueue
-            _currentIndex.value = startIndex
-        }
-        
-        val currentItem = _queue.value.getOrNull(_currentIndex.value)
-        if (currentItem != null) {
-            audioPlayer.load(currentItem.songId)
-            audioPlayer.play()
+
+            if (_shuffleMode.value) {
+                val shuffled = originalQueue.shuffled().toMutableList()
+                val currentItem = originalQueue.getOrNull(startIndex)
+                if (currentItem != null) {
+                    shuffled.remove(currentItem)
+                    shuffled.add(0, currentItem)
+                }
+                _queue.value = shuffled
+                _currentIndex.value = 0
+            } else {
+                _queue.value = originalQueue
+                _currentIndex.value = startIndex
+            }
+
+            val currentItem = _queue.value.getOrNull(_currentIndex.value)
+            if (currentItem != null) {
+                resolveSongId(currentItem)?.let { id ->
+                    audioPlayer.load(id)
+                    audioPlayer.play()
+                }
+            }
         }
     }
 
@@ -360,6 +420,7 @@ class PlayerModel(
         _currentIndex.value = -1
         _currentSong.value = null
         _currentSource.value = null
+        currentQueueSource = null
     }
 
     fun togglePlayPause() {
@@ -443,7 +504,10 @@ class PlayerModel(
     }
 
     fun toggleLike() {
-        val song = _currentSong.value ?: return
+        _currentSong.value?.let { toggleLike(it) }
+    }
+
+    fun toggleLike(song: UserSong) {
         scope.launch {
             try {
                 val updated = songService.setLiked(song.id, !(song.isFavourite ?: false)) ?: return@launch
@@ -459,6 +523,8 @@ class PlayerModel(
                 if (changed) {
                     _fetchedSongs.value = newFetched
                 }
+
+                (currentQueueSource as? BasePagedQueueSource)?.updateSong(updated)
 
                 _queue.value = _queue.value.map { entry ->
                     if (entry is QueueEntry.Explicit && entry.song.id == song.id) {
@@ -476,7 +542,9 @@ class PlayerModel(
                     }
                 }
 
-                _currentSong.value = updated
+                if (_currentSong.value?.id == song.id) {
+                    _currentSong.value = updated
+                }
             } catch (_: Exception) {
             }
         }

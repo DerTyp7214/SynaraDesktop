@@ -10,7 +10,6 @@ import dev.dertyp.services.ISongService
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
-import dev.dertyp.synara.player.QueueEntry
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -49,8 +48,7 @@ class AlbumScreenModel(
         val album = state.album ?: return
         playerModel.playQueue(
             PlaybackQueue(
-                source = PlaybackSource.Album(album.id, album.name),
-                items = state.songs.map { QueueEntry.Explicit(it) }
+                source = PlaybackSource.Album(album.id, album.name)
             ),
             startIndex = startIndex
         )
@@ -61,8 +59,7 @@ class AlbumScreenModel(
         val album = state.album ?: return
         playerModel.addToQueue(
             PlaybackQueue(
-                source = PlaybackSource.Album(album.id, album.name),
-                items = state.songs.map { QueueEntry.Explicit(it) }
+                source = PlaybackSource.Album(album.id, album.name)
             )
         )
     }

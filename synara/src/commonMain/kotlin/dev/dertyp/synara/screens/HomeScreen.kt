@@ -163,6 +163,18 @@ class HomeScreen : Screen {
                 }
             )
 
+            Spacer(modifier = Modifier.height(8.dp))
+
+            NavigationItem(
+                label = stringResource(Res.string.favorite),
+                icon = Icons.Rounded.Favorite,
+                selected = navigator.lastItem is LikedSongsScreen,
+                onClick = {
+                    if (navigator.lastItem !is LikedSongsScreen) navigator.push(LikedSongsScreen())
+                    onItemClick?.invoke()
+                }
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
 
             Row(

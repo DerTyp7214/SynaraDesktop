@@ -33,11 +33,16 @@ fun PlaybackSource.toQueueSource(songService: ISongService): QueueSource? = when
 @Serializable
 sealed class QueueEntry {
     abstract val queueId: Long
-    abstract val songId: PlatformUUID
 
     @Serializable
     data class FromSource(
-        override val songId: PlatformUUID,
+        val songId: PlatformUUID,
+        override val queueId: Long = Random.nextLong()
+    ) : QueueEntry()
+
+    @Serializable
+    data class Indexed(
+        val index: Int,
         override val queueId: Long = Random.nextLong()
     ) : QueueEntry()
 
@@ -45,9 +50,7 @@ sealed class QueueEntry {
     data class Explicit(
         val song: UserSong,
         override val queueId: Long = Random.nextLong()
-    ) : QueueEntry() {
-        override val songId: PlatformUUID = song.id
-    }
+    ) : QueueEntry()
 }
 
 @Serializable

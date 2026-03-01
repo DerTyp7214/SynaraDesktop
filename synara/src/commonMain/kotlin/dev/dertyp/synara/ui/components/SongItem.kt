@@ -4,6 +4,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -18,8 +20,11 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import dev.dertyp.core.joinArtists
 import dev.dertyp.data.UserSong
+import dev.dertyp.synara.player.PlayerModel
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.favorite
 import synara.synara.generated.resources.more_options
 
 @Composable
@@ -29,9 +34,12 @@ fun SongItem(
     index: Int? = null,
     isCurrent: Boolean = false,
     showCover: Boolean = false,
+    showLike: Boolean = true,
     onClick: () -> Unit,
     onPlayNext: (() -> Unit)? = null,
     onMoreOptions: (() -> Unit)? = null,
+    playerModel: PlayerModel = koinInject(),
+    onToggleLike: () -> Unit = { playerModel.toggleLike(song) },
     trailingContent: (@Composable RowScope.() -> Unit)? = null
 ) {
     Surface(
@@ -94,6 +102,17 @@ fun SongItem(
             if (trailingContent != null) {
                 trailingContent()
             } else {
+                if (showLike) {
+                    IconButton(onClick = onToggleLike) {
+                        Icon(
+                            if (song.isFavourite == true) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                            contentDescription = stringResource(Res.string.favorite),
+                            modifier = Modifier.size(20.dp),
+                            tint = if (song.isFavourite == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
                 if (onPlayNext != null) {
                     IconButton(onClick = onPlayNext) {
                         Icon(

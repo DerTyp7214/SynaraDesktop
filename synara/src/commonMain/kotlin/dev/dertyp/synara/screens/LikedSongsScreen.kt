@@ -16,30 +16,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.core.screen.ScreenKey
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import dev.dertyp.PlatformUUID
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.ui.components.SongItem
-import dev.dertyp.synara.viewmodels.PlaylistScreenModel
+import dev.dertyp.synara.viewmodels.LikedSongsScreenModel
 import org.jetbrains.compose.resources.stringResource
-import org.koin.core.parameter.parametersOf
 import synara.synara.generated.resources.Res
 import synara.synara.generated.resources.back
+import synara.synara.generated.resources.favorite
 import synara.synara.generated.resources.play_all
-import synara.synara.generated.resources.playlist
 
-data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Boolean) : Screen {
-
-    override val key: ScreenKey = "PlaylistScreen_$playlistId"
+class LikedSongsScreen : Screen {
 
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = getScreenModel<PlaylistScreenModel> { parametersOf(playlistId, isUserPlaylist) }
+        val screenModel = getScreenModel<LikedSongsScreenModel>()
         val state by screenModel.state.collectAsState()
 
         Scaffold(
@@ -50,12 +45,7 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                         containerColor = Color.Transparent,
                     ),
                     title = {
-                        Text(
-                            when (val currentState = state) {
-                                is PlaylistScreenModel.PlaylistState.Success -> currentState.name
-                                else -> stringResource(Res.string.playlist)
-                            }
-                        )
+                        Text(stringResource(Res.string.favorite))
                     },
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
@@ -65,8 +55,8 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                 )
             },
             floatingActionButton = {
-                if (state is PlaylistScreenModel.PlaylistState.Success) {
-                    FloatingActionButton(onClick = { screenModel.playPlaylist() }) {
+                if (state is LikedSongsScreenModel.LikedSongsState.Success) {
+                    FloatingActionButton(onClick = { screenModel.playAll() }) {
                         Icon(Icons.Default.PlayArrow, contentDescription = stringResource(Res.string.play_all))
                     }
                 }
@@ -74,18 +64,18 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
         ) { padding ->
             Box(modifier = Modifier.fillMaxSize().padding(padding)) {
                 when (val currentState = state) {
-                    is PlaylistScreenModel.PlaylistState.Loading -> {
+                    is LikedSongsScreenModel.LikedSongsState.Loading -> {
                         CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                     }
-                    is PlaylistScreenModel.PlaylistState.Error -> {
+                    is LikedSongsScreenModel.LikedSongsState.Error -> {
                         Text(
                             text = currentState.message,
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.align(Alignment.Center).padding(16.dp)
                         )
                     }
-                    is PlaylistScreenModel.PlaylistState.Success -> {
-                        PlaylistSongList(
+                    is LikedSongsScreenModel.LikedSongsState.Success -> {
+                        LikedSongsList(
                             songs = currentState.songs,
                             hasNextPage = currentState.hasNextPage,
                             screenModel = screenModel
@@ -97,10 +87,10 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
     }
 
     @Composable
-    private fun PlaylistSongList(
+    private fun LikedSongsList(
         songs: List<UserSong>,
         hasNextPage: Boolean,
-        screenModel: PlaylistScreenModel
+        screenModel: LikedSongsScreenModel
     ) {
         val currentSong by screenModel.playerModel.currentSong.collectAsState()
         val lazyListState = rememberLazyListState()
@@ -131,6 +121,7 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                         song = song,
                         isCurrent = currentSong?.id == song.id,
                         showCover = true,
+                        showLike = false,
                         onClick = { screenModel.playSong(song) },
                         onPlayNext = { screenModel.playerModel.playNext(song) },
                         onMoreOptions = { /* TODO */ }

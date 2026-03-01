@@ -90,6 +90,7 @@ val appModule = module {
     factoryOf(::SetupScreenModel)
     factoryOf(::LoginScreenModel)
     factoryOf(::HomeScreenModel)
+    factoryOf(::LikedSongsScreenModel)
 
     factory { (albumId: PlatformUUID) -> AlbumScreenModel(albumId, get(), get(), get()) }
     factory { (playlistId: PlatformUUID, isUserPlaylist: Boolean) ->

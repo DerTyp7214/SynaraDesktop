@@ -96,6 +96,17 @@ abstract class BasePagedQueueSource(override val id: String) : QueueSource {
         }
     }
 
+    fun updateSong(song: UserSong) {
+        runBlocking {
+            cacheMutex.withLock {
+                val entriesToUpdate = cache.filter { it.value.id == song.id }
+                entriesToUpdate.forEach { (index, _) ->
+                    cache[index] = song
+                }
+            }
+        }
+    }
+
     override fun getIdFlow(): Flow<PlatformUUID> = fetchIdFlow()
 }
 
