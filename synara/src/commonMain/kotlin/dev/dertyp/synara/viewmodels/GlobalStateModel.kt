@@ -3,6 +3,8 @@ package dev.dertyp.synara.viewmodels
 import dev.dertyp.data.User
 import dev.dertyp.data.UserPlaylist
 import dev.dertyp.synara.Config
+import dev.dertyp.synara.player.PlaylistUpdate
+import dev.dertyp.synara.player.SongCache
 import dev.dertyp.synara.rpc.services.UserPlaylistServiceWrapper
 import dev.dertyp.synara.rpc.services.UserServiceWrapper
 import dev.dertyp.synara.scrobble.LastFmScrobbler
@@ -15,12 +17,14 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.launch
 
 class GlobalStateModel(
     private val userService: UserServiceWrapper,
     private val userPlaylistService: UserPlaylistServiceWrapper,
-    private val scrobblerService: ScrobblerService
+    private val scrobblerService: ScrobblerService,
+    private val songCache: SongCache
 ) {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
@@ -60,6 +64,14 @@ class GlobalStateModel(
                     scrobblerService.unregisterScrobbler(LastFmScrobbler::class)
                 }
             }
+        }
+
+        scope.launch {
+            songCache.playlistUpdates
+                .filterIsInstance<PlaylistUpdate.PlaylistsReloadRequired>()
+                .collect {
+                    refreshPlaylists()
+                }
         }
 
         scrobblerService.start()

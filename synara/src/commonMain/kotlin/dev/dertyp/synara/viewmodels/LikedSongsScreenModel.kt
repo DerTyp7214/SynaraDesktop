@@ -4,8 +4,11 @@ import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.ISongService
+import dev.dertyp.synara.player.CacheUpdate
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
+import dev.dertyp.synara.player.PlaylistUpdate
+import dev.dertyp.synara.player.SongCache
 import dev.dertyp.synara.player.PlayerModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,6 +16,7 @@ import kotlinx.coroutines.launch
 
 class LikedSongsScreenModel(
     private val songService: ISongService,
+    private val songCache: SongCache,
     val playerModel: PlayerModel
 ) : ScreenModel {
 
@@ -25,6 +29,43 @@ class LikedSongsScreenModel(
     private var isFetching = false
 
     init {
+        loadLikedSongs()
+
+        screenModelScope.launch {
+            songCache.updates.collect { update ->
+                when (update) {
+                    is CacheUpdate.SongUpdated -> {
+                        val currentState = _state.value
+                        if (currentState is LikedSongsState.Success) {
+                            val updatedSong = update.song
+                            val songs = currentState.songs.toMutableList()
+                            val index = songs.indexOfFirst { it.id == updatedSong.id }
+                            if (index != -1) {
+                                if (updatedSong.isFavourite == false) {
+                                    songs.removeAt(index)
+                                } else {
+                                    songs[index] = updatedSong
+                                }
+                                _state.value = currentState.copy(songs = songs)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        screenModelScope.launch {
+            songCache.playlistUpdates.collect { update ->
+                if (update is PlaylistUpdate.LikedSongsReloadRequired) {
+                    refresh()
+                }
+            }
+        }
+    }
+
+    fun refresh() {
+        currentPage = 0
+        hasNextPage = true
         loadLikedSongs()
     }
 
@@ -39,7 +80,7 @@ class LikedSongsScreenModel(
             
             try {
                 val songsResponse = songService.likedSongs(currentPage, pageSize, true)
-                val currentSongs = (_state.value as? LikedSongsState.Success)?.songs ?: emptyList()
+                val currentSongs = if (currentPage == 0) emptyList() else (_state.value as? LikedSongsState.Success)?.songs ?: emptyList()
                 
                 _state.value = LikedSongsState.Success(
                     songs = currentSongs + songsResponse.data,

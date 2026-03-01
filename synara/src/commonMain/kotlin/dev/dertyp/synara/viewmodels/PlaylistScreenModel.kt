@@ -7,9 +7,7 @@ import dev.dertyp.data.UserSong
 import dev.dertyp.services.IPlaylistService
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
-import dev.dertyp.synara.player.PlaybackQueue
-import dev.dertyp.synara.player.PlaybackSource
-import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.player.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -20,6 +18,7 @@ class PlaylistScreenModel(
     private val playlistService: IPlaylistService,
     private val userPlaylistService: IUserPlaylistService,
     private val songService: ISongService,
+    private val songCache: SongCache,
     val playerModel: PlayerModel
 ) : ScreenModel {
 
@@ -33,6 +32,45 @@ class PlaylistScreenModel(
 
     init {
         loadPlaylist()
+        
+        screenModelScope.launch {
+            songCache.playlistUpdates.collect { update ->
+                when (update) {
+                    is PlaylistUpdate.PlaylistContentChanged -> {
+                        if (update.playlistId == playlistId) {
+                            refreshPlaylist()
+                        }
+                    }
+                    else -> {}
+                }
+            }
+        }
+
+        screenModelScope.launch {
+            songCache.updates.collect { update ->
+                when (update) {
+                    is CacheUpdate.SongUpdated -> {
+                        val currentState = _state.value
+                        if (currentState is PlaylistState.Success) {
+                            val updatedSong = update.song
+                            val songs = currentState.songs
+                            val index = songs.indexOfFirst { it.id == updatedSong.id }
+                            if (index != -1) {
+                                val newSongs = songs.toMutableList()
+                                newSongs[index] = updatedSong
+                                _state.value = currentState.copy(songs = newSongs)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fun refreshPlaylist() {
+        currentPage = 0
+        hasNextPage = true
+        loadPlaylist()
     }
 
     fun loadPlaylist() {
@@ -45,7 +83,7 @@ class PlaylistScreenModel(
             }
 
             try {
-                val currentSongs = (_state.value as? PlaylistState.Success)?.songs ?: emptyList()
+                val currentSongs = if (currentPage == 0) emptyList() else (_state.value as? PlaylistState.Success)?.songs ?: emptyList()
                 val playlistName = (_state.value as? PlaylistState.Success)?.name
 
                 if (isUserPlaylist) {

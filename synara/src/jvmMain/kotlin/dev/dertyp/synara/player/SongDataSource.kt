@@ -22,31 +22,21 @@ import kotlin.math.min
 
 class SongDataSource(
     private val songService: ISongService,
+    private val songCache: SongCache
 ) {
     @Suppress("PrivatePropertyName")
-    private val MAX_CACHE_SIZE = 50
+    private val MAX_METADATA_CACHE_SIZE = 50
     private val cacheMutex = Mutex()
 
-    private val songCache =
-        object : LinkedHashMap<PlatformUUID, UserSong>(MAX_CACHE_SIZE, 0.75f, true) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<PlatformUUID, UserSong>?): Boolean =
-                size > MAX_CACHE_SIZE
-        }
-
     private val metadataCache =
-        object : LinkedHashMap<PlatformUUID, ByteArray>(MAX_CACHE_SIZE, 0.75f, true) {
+        object : LinkedHashMap<PlatformUUID, ByteArray>(MAX_METADATA_CACHE_SIZE, 0.75f, true) {
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<PlatformUUID, ByteArray>?): Boolean =
-                size > MAX_CACHE_SIZE
+                size > MAX_METADATA_CACHE_SIZE
         }
 
     suspend fun getSong(songId: PlatformUUID): UserSong? {
-        cacheMutex.withLock {
-            songCache[songId]?.let { return it }
-        }
-        return songService.byId(songId)?.also { song ->
-            cacheMutex.withLock {
-                songCache[songId] = song
-            }
+        return songCache.get(songId) ?: songService.byId(songId)?.also { song ->
+            songCache.put(song)
         }
     }
 

@@ -2,11 +2,13 @@ package dev.dertyp.synara.player
 
 import com.russhwolf.settings.Settings
 import dev.dertyp.PlatformUUID
+import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
 import dev.dertyp.serializers.BaseSerializersModule
 import dev.dertyp.serializers.UUIDByteSerializer
 import dev.dertyp.synara.rpc.services.SongServiceWrapper
+import dev.dertyp.synara.rpc.services.UserPlaylistServiceWrapper
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.put
@@ -32,6 +34,8 @@ import kotlin.math.log10
 class PlayerModel(
     private val audioPlayer: AudioPlayer,
     private val songService: SongServiceWrapper,
+    private val userPlaylistService: UserPlaylistServiceWrapper,
+    private val songCache: SongCache,
     private val settings: Settings,
     statePath: String
 ) {
@@ -61,9 +65,6 @@ class PlayerModel(
 
     private val _currentSong = MutableStateFlow<UserSong?>(null)
     val currentSong: StateFlow<UserSong?> = _currentSong.asStateFlow()
-
-    private val _fetchedSongs = MutableStateFlow<Map<QueueEntry, UserSong>>(emptyMap())
-    val fetchedSongs: StateFlow<Map<QueueEntry, UserSong>> = _fetchedSongs.asStateFlow()
 
     private val _repeatMode = MutableStateFlow(RepeatMode.OFF)
     val repeatMode: StateFlow<RepeatMode> = _repeatMode.asStateFlow()
@@ -118,6 +119,35 @@ class PlayerModel(
                 handlePlaybackFinished()
             }
         }
+
+        scope.launch {
+            songCache.updates.collect { update ->
+                when (update) {
+                    is CacheUpdate.SongUpdated -> {
+                        val updatedSong = update.song
+                        if (_currentSong.value?.id == updatedSong.id) {
+                            _currentSong.value = updatedSong
+                        }
+                        
+                        _queue.value = _queue.value.map { entry ->
+                            if (entry is QueueEntry.Explicit && entry.song.id == updatedSong.id) {
+                                entry.copy(song = updatedSong)
+                            } else {
+                                entry
+                            }
+                        }
+
+                        originalQueue = originalQueue.map { entry ->
+                            if (entry is QueueEntry.Explicit && entry.song.id == updatedSong.id) {
+                                entry.copy(song = updatedSong)
+                            } else {
+                                entry
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun loadState() {
@@ -163,11 +193,14 @@ class PlayerModel(
 
     private suspend fun resolveSongId(entry: QueueEntry): PlatformUUID? {
         return when (entry) {
-            is QueueEntry.Explicit -> entry.song.id
+            is QueueEntry.Explicit -> {
+                songCache.put(entry.song)
+                entry.song.id
+            }
             is QueueEntry.FromSource -> entry.songId
             is QueueEntry.Indexed -> {
-                _fetchedSongs.value[entry]?.id ?: (currentQueueSource?.getSongAt(entry.index) as? UserSong)?.let {
-                    _fetchedSongs.value += (entry to it)
+                (currentQueueSource?.getSongAt(entry.index) as? UserSong)?.let {
+                    songCache.put(it)
                     it.id
                 }
             }
@@ -180,24 +213,21 @@ class PlayerModel(
             return
         }
 
-        val cached = when (entry) {
-            is QueueEntry.Explicit -> entry.song
-            is QueueEntry.FromSource -> _fetchedSongs.value[entry]
-            is QueueEntry.Indexed -> {
-                _fetchedSongs.value[entry] ?: (currentQueueSource?.getSongAt(entry.index) as? UserSong)?.also {
-                    _fetchedSongs.value += (entry to it)
-                }
+        val id = when (entry) {
+            is QueueEntry.Explicit -> {
+                songCache.put(entry.song)
+                entry.song.id
+            }
+            is QueueEntry.FromSource -> entry.songId
+            is QueueEntry.Indexed -> (currentQueueSource?.getSongAt(entry.index) as? UserSong)?.let {
+                songCache.put(it)
+                it.id
             }
         }
 
-        if (cached != null) {
-            _currentSong.value = cached
-        } else if (entry is QueueEntry.FromSource) {
-            val song = songService.byId(entry.songId)
-            if (song != null) {
-                _fetchedSongs.value += (entry to song)
-                _currentSong.value = song
-            }
+        if (id != null) {
+            val song = songCache.get(id) ?: songService.byId(id)?.also { songCache.put(it) }
+            _currentSong.value = song
         }
         
         updateWindow()
@@ -211,24 +241,17 @@ class PlayerModel(
         val range = (index - 2)..(index + 10)
 
         val toFetchFromSource = range.filter { i ->
-            i in q.indices && q[i] is QueueEntry.FromSource && !_fetchedSongs.value.containsKey(q[i])
+            i in q.indices && q[i] is QueueEntry.FromSource
         }.map { q[it] as QueueEntry.FromSource }
 
         if (toFetchFromSource.isNotEmpty()) {
             scope.launch(Dispatchers.Default) {
                 try {
                     val ids = toFetchFromSource.map { it.songId }.distinct()
-                    val response = songService.byIds(ids)
-                    val results = mutableMapOf<QueueEntry, UserSong>()
-                    
-                    response.data.forEach { song ->
-                        toFetchFromSource.filter { it.songId == song.id }.forEach { entry ->
-                            results[entry] = song
-                        }
-                    }
-
-                    if (results.isNotEmpty()) {
-                        _fetchedSongs.value += results
+                    val neededIds = ids.filter { songCache.get(it) == null }
+                    if (neededIds.isNotEmpty()) {
+                        val response = songService.byIds(neededIds)
+                        songCache.putAll(response.data)
                     }
                 } catch (_: Exception) {
                 }
@@ -238,10 +261,10 @@ class PlayerModel(
         range.forEach { i ->
             if (i in q.indices) {
                 val entry = q[i]
-                if (entry is QueueEntry.Indexed && !_fetchedSongs.value.containsKey(entry)) {
+                if (entry is QueueEntry.Indexed) {
                     scope.launch(Dispatchers.Default) {
                         (currentQueueSource?.getSongAt(entry.index) as? UserSong)?.let { song ->
-                            _fetchedSongs.value += (entry to song)
+                            songCache.put(song)
                         }
                     }
                 }
@@ -297,6 +320,7 @@ class PlayerModel(
         originalQueue = listOf(entry)
         _queue.value = listOf(entry)
         _currentIndex.value = 0
+        scope.launch { songCache.put(song) }
         audioPlayer.load(song.id)
         audioPlayer.play()
     }
@@ -312,6 +336,8 @@ class PlayerModel(
                 originalQueue = List(size) { QueueEntry.Indexed(it) }
             } else {
                 originalQueue = playbackQueue.items
+                val explicitSongs = originalQueue.filterIsInstance<QueueEntry.Explicit>().map { it.song }
+                songCache.putAll(explicitSongs)
             }
 
             if (_shuffleMode.value) {
@@ -346,6 +372,11 @@ class PlayerModel(
         val newItems = playbackQueue.items
         if (newItems.isEmpty()) return
 
+        scope.launch {
+            val explicitSongs = newItems.filterIsInstance<QueueEntry.Explicit>().map { it.song }
+            songCache.putAll(explicitSongs)
+        }
+
         originalQueue = originalQueue + newItems
         if (_shuffleMode.value) {
             _queue.value += newItems.shuffled()
@@ -365,6 +396,11 @@ class PlayerModel(
     fun playNext(playbackQueue: PlaybackQueue) {
         val newItems = playbackQueue.items
         if (newItems.isEmpty()) return
+
+        scope.launch {
+            val explicitSongs = newItems.filterIsInstance<QueueEntry.Explicit>().map { it.song }
+            songCache.putAll(explicitSongs)
+        }
 
         if (_currentIndex.value == -1) {
             playQueue(playbackQueue)
@@ -491,8 +527,8 @@ class PlayerModel(
         }
     }
 
-    fun setRepeatMode(mode: RepeatMode) {
-        _repeatMode.value = mode
+    fun setRepeatMode(repeatMode: RepeatMode) {
+        _repeatMode.value = repeatMode
     }
 
     fun toggleRepeat() {
@@ -511,40 +547,30 @@ class PlayerModel(
         scope.launch {
             try {
                 val updated = songService.setLiked(song.id, !(song.isFavourite ?: false)) ?: return@launch
+                songCache.put(updated)
+                songCache.notifyLikedSongsChanged()
+            } catch (_: Exception) {
+            }
+        }
+    }
 
-                val newFetched = _fetchedSongs.value.toMutableMap()
-                var changed = false
-                newFetched.entries.forEach { (entry, s) ->
-                    if (s.id == song.id) {
-                        newFetched[entry] = updated
-                        changed = true
-                    }
-                }
-                if (changed) {
-                    _fetchedSongs.value = newFetched
-                }
+    fun addSongToPlaylist(playlistId: PlatformUUID, songId: PlatformUUID) {
+        scope.launch {
+            try {
+                userPlaylistService.addToPlaylist(playlistId, listOf(currentTimeMillis() to songId))
+                songCache.notifyPlaylistChanged(playlistId)
+                songCache.notifyPlaylistsChanged()
+            } catch (_: Exception) {
+            }
+        }
+    }
 
-                (currentQueueSource as? BasePagedQueueSource)?.updateSong(updated)
-
-                _queue.value = _queue.value.map { entry ->
-                    if (entry is QueueEntry.Explicit && entry.song.id == song.id) {
-                        entry.copy(song = updated)
-                    } else {
-                        entry
-                    }
-                }
-
-                originalQueue = originalQueue.map { entry ->
-                    if (entry is QueueEntry.Explicit && entry.song.id == song.id) {
-                        entry.copy(song = updated)
-                    } else {
-                        entry
-                    }
-                }
-
-                if (_currentSong.value?.id == song.id) {
-                    _currentSong.value = updated
-                }
+    fun removeSongFromPlaylist(playlistId: PlatformUUID, songId: PlatformUUID) {
+        scope.launch {
+            try {
+                userPlaylistService.removeFromPlaylist(playlistId, listOf(songId))
+                songCache.notifyPlaylistChanged(playlistId)
+                songCache.notifyPlaylistsChanged()
             } catch (_: Exception) {
             }
         }

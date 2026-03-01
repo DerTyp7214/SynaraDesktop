@@ -17,6 +17,7 @@ import java.util.ArrayDeque
 @OptIn(ExperimentalCoroutinesApi::class, DelicateCoroutinesApi::class)
 class JvmAudioPlayer(
     songService: ISongService,
+    songCache: SongCache
 ) : AudioPlayer {
     private val audioDispatcher = newSingleThreadContext("OpenAL-Audio")
     private val scope = CoroutineScope(audioDispatcher + SupervisorJob())
@@ -57,7 +58,7 @@ class JvmAudioPlayer(
     private var playerJob: Job? = null
     private var lastSongId: PlatformUUID? = null
 
-    private val dataSource = SongDataSource(songService)
+    private val dataSource = SongDataSource(songService, songCache)
 
     init {
         scope.launch {

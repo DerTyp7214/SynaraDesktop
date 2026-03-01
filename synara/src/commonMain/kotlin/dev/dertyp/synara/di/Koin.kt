@@ -10,6 +10,7 @@ import dev.dertyp.services.*
 import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.db.SynaraDatabase
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.player.SongCache
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.services.*
 import dev.dertyp.synara.scrobble.*
@@ -84,7 +85,8 @@ val appModule = module {
     singleOf(::ScrobblerService)
     singleOf(::MusicBrainzService)
     singleOf(::ScrobbleQueue)
-    single { PlayerModel(get(), get(), get(), settingsFactory.getStatePath("player_state.pb")) }
+    single { SongCache() }
+    single { PlayerModel(get(), get(), get(), get(), get(), settingsFactory.getStatePath("player_state.pb")) }
     singleOf(::TrayState)
 
     factoryOf(::SetupScreenModel)
@@ -97,6 +99,7 @@ val appModule = module {
         PlaylistScreenModel(
             playlistId,
             isUserPlaylist,
+            get(),
             get(),
             get(),
             get(),

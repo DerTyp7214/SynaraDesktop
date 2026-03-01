@@ -8,7 +8,7 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -20,7 +20,10 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import dev.dertyp.core.joinArtists
 import dev.dertyp.data.UserSong
+import dev.dertyp.synara.player.CacheUpdate
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.player.SongCache
+import kotlinx.coroutines.flow.filterIsInstance
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import synara.synara.generated.resources.Res
@@ -39,9 +42,22 @@ fun SongItem(
     onPlayNext: (() -> Unit)? = null,
     onMoreOptions: (() -> Unit)? = null,
     playerModel: PlayerModel = koinInject(),
+    songCache: SongCache = koinInject(),
     onToggleLike: () -> Unit = { playerModel.toggleLike(song) },
     trailingContent: (@Composable RowScope.() -> Unit)? = null
 ) {
+    var currentSongState by remember(song.id) { mutableStateOf(song) }
+
+    LaunchedEffect(song.id) {
+        songCache.updates
+            .filterIsInstance<CacheUpdate.SongUpdated>()
+            .collect { update ->
+                if (update.song.id == song.id) {
+                    currentSongState = update.song
+                }
+            }
+    }
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -65,7 +81,7 @@ fun SongItem(
 
             if (showCover) {
                 AsyncImage(
-                    model = rememberImageRequest(song.coverId, size = 40.dp),
+                    model = rememberImageRequest(currentSongState.coverId, size = 40.dp),
                     contentDescription = null,
                     modifier = Modifier
                         .size(40.dp)
@@ -77,14 +93,14 @@ fun SongItem(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = song.title,
+                    text = currentSongState.title,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = song.artists.joinArtists(),
+                    text = currentSongState.artists.joinArtists(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -93,7 +109,7 @@ fun SongItem(
             }
 
             Text(
-                text = formatDuration(song.duration),
+                text = formatDuration(currentSongState.duration),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 8.dp)
@@ -105,10 +121,10 @@ fun SongItem(
                 if (showLike) {
                     IconButton(onClick = onToggleLike) {
                         Icon(
-                            if (song.isFavourite == true) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                            if (currentSongState.isFavourite == true) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                             contentDescription = stringResource(Res.string.favorite),
                             modifier = Modifier.size(20.dp),
-                            tint = if (song.isFavourite == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = if (currentSongState.isFavourite == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
