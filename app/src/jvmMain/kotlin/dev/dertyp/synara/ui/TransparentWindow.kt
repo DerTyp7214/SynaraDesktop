@@ -17,6 +17,7 @@ import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.scene.CanvasLayersComposeScene
 import androidx.compose.ui.scene.ComposeScene
@@ -253,6 +254,10 @@ fun runTransparentWindow(
         error("Failed to create GLFW window")
     }
 
+    val arrowCursor = glfwCreateStandardCursor(GLFW_ARROW_CURSOR)
+    val handCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR)
+    val ibeamCursor = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR)
+
     glfwSetWindowSizeLimits(windowHandle, minWidth, minHeight, GLFW_DONT_CARE, GLFW_DONT_CARE)
 
     glfwMakeContextCurrent(windowHandle)
@@ -280,6 +285,15 @@ fun runTransparentWindow(
             override val containerSize: IntSize get() = scenePtr?.size ?: IntSize.Zero
         }
         override val textInputService: PlatformTextInputService = textInputService
+
+        override fun setPointerIcon(pointerIcon: PointerIcon) {
+            val cursor = when (pointerIcon) {
+                PointerIcon.Hand -> handCursor
+                PointerIcon.Text -> ibeamCursor
+                else -> arrowCursor
+            }
+            glfwSetCursor(windowHandle, cursor)
+        }
     }
 
     val scene = CanvasLayersComposeScene(
@@ -568,6 +582,9 @@ fun runTransparentWindow(
 
     scene.close()
     skiaContext.close()
+    glfwDestroyCursor(arrowCursor)
+    glfwDestroyCursor(handCursor)
+    glfwDestroyCursor(ibeamCursor)
     glfwFreeCallbacks(windowHandle)
     glfwDestroyWindow(windowHandle)
     glfwTerminate()
