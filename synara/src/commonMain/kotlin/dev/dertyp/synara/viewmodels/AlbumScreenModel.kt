@@ -10,6 +10,8 @@ import dev.dertyp.services.ISongService
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -36,17 +38,24 @@ class AlbumScreenModel(
         screenModelScope.launch {
             mutableState.update { it.copy(isLoading = true) }
             try {
-                val album = albumService.byId(albumId)
-                val songsResponse = songService.byAlbum(0, Int.MAX_VALUE, albumId)
-                val versions = albumService.versions(albumId)
-                mutableState.update {
-                    it.copy(
-                        album = album,
-                        songs = songsResponse.data,
-                        versions = versions,
-                        totalDuration = songsResponse.data.sumOf { s -> s.duration },
-                        isLoading = false
-                    )
+                coroutineScope {
+                    val albumDeferred = async { albumService.byId(albumId) }
+                    val songsDeferred = async { songService.byAlbum(0, Int.MAX_VALUE, albumId) }
+                    val versionsDeferred = async { albumService.versions(albumId) }
+
+                    val album = albumDeferred.await()
+                    val songsResponse = songsDeferred.await()
+                    val versions = versionsDeferred.await()
+
+                    mutableState.update {
+                        it.copy(
+                            album = album,
+                            songs = songsResponse.data,
+                            versions = versions,
+                            totalDuration = songsResponse.data.sumOf { s -> s.duration },
+                            isLoading = false
+                        )
+                    }
                 }
             } catch (_: Exception) {
                 mutableState.update { it.copy(isLoading = false) }

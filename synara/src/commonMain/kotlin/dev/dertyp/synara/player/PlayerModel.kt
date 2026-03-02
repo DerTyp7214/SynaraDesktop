@@ -3,6 +3,7 @@ package dev.dertyp.synara.player
 import com.russhwolf.settings.Settings
 import dev.dertyp.PlatformUUID
 import dev.dertyp.currentTimeMillis
+import dev.dertyp.data.PlaybackState
 import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
 import dev.dertyp.serializers.BaseSerializersModule
@@ -716,5 +717,21 @@ class PlayerModel(
                 e.printStackTrace()
             }
         }
+    }
+
+    fun getPlaybackState(): PlaybackState {
+        return PlaybackState(
+            queue = _queue.value.mapIndexed { index, entry ->
+                when (entry) {
+                    is QueueEntry.Explicit -> PlaybackState.QueueEntry.Explicit(entry.song, index.toLong())
+                    is QueueEntry.FromSource -> PlaybackState.QueueEntry.FromSource(entry.songId, index.toLong())
+                }
+            },
+            currentIndex = _currentIndex.value,
+            isPlaying = audioPlayer.isPlaying.value,
+            positionMs = audioPlayer.currentPosition.value,
+            shuffleMode = _shuffleMode.value,
+            repeatMode = _repeatMode.value
+        )
     }
 }

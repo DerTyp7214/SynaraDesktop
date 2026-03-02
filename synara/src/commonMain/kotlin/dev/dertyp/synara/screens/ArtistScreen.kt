@@ -88,6 +88,33 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
                                 )
                             }
 
+                            if (state.topLikedSongs.isNotEmpty()) {
+                                item {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        SectionHeader(stringResource(Res.string.top_liked_songs))
+                                        TextButton(onClick = { navigator?.push(ArtistLikedSongsScreen(artistId)) }) {
+                                            Text(stringResource(Res.string.show_all))
+                                        }
+                                    }
+                                }
+
+                                itemsIndexed(state.topLikedSongs) { index, song ->
+                                    val currentSong by screenModel.playerModel.currentSong.collectAsState()
+                                    SongItem(
+                                        song = song,
+                                        index = index + 1,
+                                        isCurrent = currentSong?.id == song.id,
+                                        showCover = true,
+                                        onClick = { screenModel.playSong(song) },
+                                        onPlayNext = { screenModel.playNext(song) }
+                                    )
+                                }
+                            }
+
                             if (state.topSongs.isNotEmpty()) {
                                 item {
                                     Row(

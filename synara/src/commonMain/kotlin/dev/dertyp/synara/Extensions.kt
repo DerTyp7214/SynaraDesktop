@@ -8,6 +8,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
+import dev.dertyp.formatDateTime
+import dev.dertyp.platformInstantFromEpochMilliseconds
 import dev.dertyp.synara.material.Hct
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -148,4 +150,9 @@ fun Long.formatHumanReadableDuration(): String {
             "$head ${stringResource(Res.string.and)} ${parts.last()}"
         }
     }
+}
+
+fun Long.formatDateTime(): String {
+    val instant = platformInstantFromEpochMilliseconds(this)
+    return instant.formatDateTime()
 }

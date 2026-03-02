@@ -120,6 +120,7 @@
     <string name="other_versions">Andere Versionen (%1$d)</string>
     <string name="disc_number">Disc %1$d</string>
     <string name="versions_count">%1$d Versionen</string>
+    <string name="top_liked_songs">Beliebteste geliebte Songs</string>
 
     <!-- Duration -->
     <plurals name="duration_days">

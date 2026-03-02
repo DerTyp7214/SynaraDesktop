@@ -2,6 +2,7 @@ package dev.dertyp.synara.di
 
 import com.russhwolf.settings.Settings
 import dev.dertyp.PlatformUUID
+import dev.dertyp.getPlatformName
 import dev.dertyp.logging.BaseLogger
 import dev.dertyp.logging.Logger
 import dev.dertyp.serializers.AppCbor
@@ -43,7 +44,7 @@ import kotlinx.rpc.krpc.serialization.cbor.cbor as krpcCbor
 private fun buildHttpClient(cbor: Cbor, json: Json): HttpClient {
     return HttpClient {
         install(UserAgent) {
-            agent = "Synara/Synara Desktop (${BuildConfig.VERSION})"
+            agent = "Synara/Synara Desktop (${BuildConfig.VERSION}; ${getPlatformName()})"
         }
         install(HttpTimeout) {
             requestTimeoutMillis = 30000
@@ -107,10 +108,12 @@ val appModule = module {
     factoryOf(::LoginScreenModel)
     factoryOf(::HomeScreenModel)
     factoryOf(::LikedSongsScreenModel)
+    factoryOf(::SessionsScreenModel)
 
     factory { (artistId: PlatformUUID) -> ArtistScreenModel(artistId, get(), get(), get(), get()) }
     factory { (artistId: PlatformUUID) -> ArtistSongsScreenModel(artistId, get(), get(), get()) }
     factory { (artistId: PlatformUUID) -> ArtistAlbumsScreenModel(artistId, get(), get()) }
+    factory { (artistId: PlatformUUID) -> ArtistLikedSongsScreenModel(artistId, get(), get(), get()) }
     factory { (albumId: PlatformUUID) -> AlbumScreenModel(albumId, get(), get(), get()) }
     factory { (playlistId: PlatformUUID, isUserPlaylist: Boolean) ->
         PlaylistScreenModel(

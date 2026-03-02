@@ -120,6 +120,17 @@
     <string name="other_versions">Other Versions (%1$d)</string>
     <string name="disc_number">Disc %1$d</string>
     <string name="versions_count">%1$d versions</string>
+    <string name="top_liked_songs">Top Liked Songs</string>
+
+    <!-- Sessions -->
+    <string name="active_sessions">Active Sessions</string>
+    <string name="inactive_sessions">Inactive Sessions</string>
+    <string name="own_session">Own Session</string>
+    <string name="transfer_queue">Transfer queue</string>
+    <string name="deactivate_session">Deactivate session</string>
+    <string name="deactivate_session_message">Are you sure you want to deactivate this session?</string>
+    <string name="current_session">Current Session</string>
+    <string name="last_active">Last active: %1$s</string>
 
     <!-- Duration -->
     <plurals name="duration_days">

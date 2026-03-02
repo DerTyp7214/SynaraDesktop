@@ -34,6 +34,15 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
         return manager.getService<ISongService>().byArtist(page, pageSize, artistId)
     }
 
+    override suspend fun likedByArtist(
+        page: Int,
+        pageSize: Int,
+        artistId: PlatformUUID,
+        explicit: Boolean
+    ): PaginatedResponse<UserSong> {
+        return manager.getService<ISongService>().likedByArtist(page, pageSize, artistId, explicit)
+    }
+
     override suspend fun byAlbum(page: Int, pageSize: Int, albumId: PlatformUUID): PaginatedResponse<UserSong> {
         return manager.getService<ISongService>().byAlbum(page, pageSize, albumId)
     }

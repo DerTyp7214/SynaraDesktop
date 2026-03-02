@@ -7,6 +7,8 @@ import dev.dertyp.data.Album
 import dev.dertyp.data.Artist
 import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -27,9 +29,15 @@ class ArtistAlbumsScreenModel(
     private fun loadData() {
         screenModelScope.launch {
             try {
-                val artist = artistService.byId(artistId)
-                val albumsResponse = albumService.byArtist(0, Int.MAX_VALUE, artistId)
-                _state.value = ArtistAlbumsState.Success(artist, albumsResponse.data)
+                coroutineScope {
+                    val artistDeferred = async { artistService.byId(artistId) }
+                    val albumsDeferred = async { albumService.byArtist(0, Int.MAX_VALUE, artistId) }
+
+                    val artist = artistDeferred.await()
+                    val albumsResponse = albumsDeferred.await()
+
+                    _state.value = ArtistAlbumsState.Success(artist, albumsResponse.data)
+                }
             } catch (e: Exception) {
                 _state.value = ArtistAlbumsState.Error(e.message ?: "Unknown error")
             }

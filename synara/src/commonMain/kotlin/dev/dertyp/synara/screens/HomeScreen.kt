@@ -39,8 +39,8 @@ import dev.dertyp.synara.ui.models.AnnotatedSnackbarVisuals
 import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.viewmodels.HomeScreenModel
 import kotlinx.coroutines.launch
-import org.koin.compose.koinInject
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 import synara.synara.generated.resources.*
 
 class HomeScreen : Screen {
@@ -429,7 +429,7 @@ class HomeScreen : Screen {
                 IconButton(onClick = { 
                     if (navigator.lastItem !is SessionsScreen) navigator.push(SessionsScreen())
                 }) {
-                    Icon(Icons.Rounded.CastConnected, contentDescription = stringResource(Res.string.sessions))
+                    Icon(Icons.Rounded.Devices, contentDescription = stringResource(Res.string.sessions))
                 }
 
                 IconButton(onClick = { 

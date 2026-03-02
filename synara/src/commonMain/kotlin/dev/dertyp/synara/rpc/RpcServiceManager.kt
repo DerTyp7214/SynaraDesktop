@@ -4,6 +4,7 @@ import com.russhwolf.settings.Settings
 import dev.dertyp.data.AuthenticationResponse
 import dev.dertyp.ioDispatcher
 import dev.dertyp.rpc.BaseRpcServiceManager
+import dev.dertyp.services.IUserService
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.getOrNull
 import dev.dertyp.synara.settings.put
@@ -15,7 +16,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.koin.core.component.KoinComponent
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.time.Duration.Companion.minutes
 
 class RpcServiceManager(
@@ -59,6 +65,23 @@ class RpcServiceManager(
         get() = settings.getOrNull(SettingKey.TokenExpiration)
         set(value) = settings.put(SettingKey.TokenExpiration, value)
 
+    @OptIn(ExperimentalEncodingApi::class)
+    val sessionId: String?
+        get() {
+            val token = storedAuthToken ?: return null
+            return try {
+                val parts = token.split(".")
+                if (parts.size < 2) return null
+                val payload = Base64.UrlSafe.withPadding(Base64.PaddingOption.ABSENT_OPTIONAL)
+                    .decode(parts[1]).decodeToString()
+                val json = Json.parseToJsonElement(payload).jsonObject
+                json["ses"]?.jsonPrimitive?.content
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
+
     override suspend fun getRpcUrl(): String? {
         val h = host
         val p = port
@@ -70,7 +93,8 @@ class RpcServiceManager(
     override fun getRefreshToken(): String? = storedRefreshToken
 
     override fun isTokenExpired(): Boolean {
-        return storedTokenExpiration?.let { it <= System.currentTimeMillis() + 5.minutes.inWholeMilliseconds } ?: true
+        return storedTokenExpiration?.let { it <= System.currentTimeMillis() + 5.minutes.inWholeMilliseconds }
+            ?: true
     }
 
     override fun isAuthenticated(): Boolean = getAuthToken() != null
@@ -79,7 +103,7 @@ class RpcServiceManager(
         storedAuthToken = response.token
         storedRefreshToken = response.refreshToken
         storedTokenExpiration = response.expiresAt.toEpochMilliseconds()
-        
+
         _connectionState.value = ConnectionState.Authenticated
     }
 
@@ -125,15 +149,14 @@ class RpcServiceManager(
         if (!isAuthenticated() && getRefreshToken() == null) return ConnectionState.LoginRequired
 
         return try {
-            if (isAuthenticated() && !isTokenExpired()) {
-                ConnectionState.Authenticated
-            } else if (getRefreshToken() != null) {
-                ConnectionState.Authenticated
-            } else {
-                ConnectionState.LoginRequired
-            }
+            getService<IUserService>().me()
+            ConnectionState.Authenticated
         } catch (_: Exception) {
-            ConnectionState.LoginRequired
+            if (!isAuthenticated() && getRefreshToken() == null) {
+                ConnectionState.LoginRequired
+            } else {
+                ConnectionState.Authenticated
+            }
         }
     }
 }

@@ -8,6 +8,8 @@ import dev.dertyp.services.IPlaylistService
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
 import dev.dertyp.synara.player.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -83,49 +85,57 @@ class PlaylistScreenModel(
             }
 
             try {
-                val currentSongs = if (currentPage == 0) emptyList() else (_state.value as? PlaylistState.Success)?.songs ?: emptyList()
-                val playlistName = (_state.value as? PlaylistState.Success)?.name
-                val playlistImageId = (_state.value as? PlaylistState.Success)?.imageId
-                val playlistDuration = (_state.value as? PlaylistState.Success)?.totalDuration ?: 0L
+                coroutineScope {
+                    val currentSongs = if (currentPage == 0) emptyList() else (_state.value as? PlaylistState.Success)?.songs ?: emptyList()
+                    val playlistName = (_state.value as? PlaylistState.Success)?.name
+                    val playlistImageId = (_state.value as? PlaylistState.Success)?.imageId
+                    val playlistDuration = (_state.value as? PlaylistState.Success)?.totalDuration ?: 0L
 
-                if (isUserPlaylist) {
-                    val playlist = if (currentPage == 0) userPlaylistService.byId(playlistId) else null
-                    val name = playlist?.name ?: playlistName ?: "Playlist"
-                    val imageId = playlist?.imageId ?: playlistImageId
-                    val duration = playlist?.totalDuration ?: playlistDuration
-                    
-                    val songsResponse = songService.byUserPlaylist(currentPage, pageSize, playlistId)
-                    
-                    _state.value = PlaylistState.Success(
-                        name = name,
-                        imageId = imageId,
-                        songs = currentSongs + songsResponse.data,
-                        totalDuration = duration,
-                        isUserPlaylist = isUserPlaylist,
+                    if (isUserPlaylist) {
+                        val playlistDeferred = if (currentPage == 0) async { userPlaylistService.byId(playlistId) } else null
+                        val songsResponseDeferred = async { songService.byUserPlaylist(currentPage, pageSize, playlistId) }
+                        
+                        val playlist = playlistDeferred?.await()
+                        val songsResponse = songsResponseDeferred.await()
+
+                        val name = playlist?.name ?: playlistName ?: "Playlist"
+                        val imageId = playlist?.imageId ?: playlistImageId
+                        val duration = playlist?.totalDuration ?: playlistDuration
+                        
+                        _state.value = PlaylistState.Success(
+                            name = name,
+                            imageId = imageId,
+                            songs = currentSongs + songsResponse.data,
+                            totalDuration = duration,
+                            isUserPlaylist = isUserPlaylist,
+                            hasNextPage = songsResponse.hasNextPage
+                        )
                         hasNextPage = songsResponse.hasNextPage
-                    )
-                    hasNextPage = songsResponse.hasNextPage
-                } else {
-                    val playlist = if (currentPage == 0) playlistService.byId(playlistId) else null
-                    val name = playlist?.name ?: playlistName ?: "Playlist"
-                    val imageId = playlist?.imageId ?: playlistImageId
-                    val duration = playlist?.totalDuration ?: playlistDuration
+                    } else {
+                        val playlistDeferred = if (currentPage == 0) async { playlistService.byId(playlistId) } else null
+                        val songsResponseDeferred = async { songService.byPlaylist(currentPage, pageSize, playlistId) }
+                        
+                        val playlist = playlistDeferred?.await()
+                        val songsResponse = songsResponseDeferred.await()
 
-                    val songsResponse = songService.byPlaylist(currentPage, pageSize, playlistId)
-                    
-                    _state.value = PlaylistState.Success(
-                        name = name,
-                        imageId = imageId,
-                        songs = currentSongs + songsResponse.data,
-                        totalDuration = duration,
-                        isUserPlaylist = isUserPlaylist,
+                        val name = playlist?.name ?: playlistName ?: "Playlist"
+                        val imageId = playlist?.imageId ?: playlistImageId
+                        val duration = playlist?.totalDuration ?: playlistDuration
+
+                        _state.value = PlaylistState.Success(
+                            name = name,
+                            imageId = imageId,
+                            songs = currentSongs + songsResponse.data,
+                            totalDuration = duration,
+                            isUserPlaylist = isUserPlaylist,
+                            hasNextPage = songsResponse.hasNextPage
+                        )
                         hasNextPage = songsResponse.hasNextPage
-                    )
-                    hasNextPage = songsResponse.hasNextPage
-                }
+                    }
 
-                if (hasNextPage) {
-                    currentPage++
+                    if (hasNextPage) {
+                        currentPage++
+                    }
                 }
             } catch (e: Exception) {
                 if (currentPage == 0) {

@@ -12,12 +12,15 @@ import dev.dertyp.services.ISongService
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class ArtistState(
     val artist: Artist? = null,
     val topSongs: List<UserSong> = emptyList(),
+    val topLikedSongs: List<UserSong> = emptyList(),
     val albums: List<Album> = emptyList(),
     val isLoading: Boolean = false
 )
@@ -38,17 +41,26 @@ class ArtistScreenModel(
         screenModelScope.launch {
             mutableState.update { it.copy(isLoading = true) }
             try {
-                val artist = artistService.byId(artistId)
-                val songsResponse = songService.byArtist(0, 5, artistId)
-                val albumsResponse = albumService.byArtist(0, 20, artistId)
-                
-                mutableState.update { 
-                    it.copy(
-                        artist = artist, 
-                        topSongs = songsResponse.data, 
-                        albums = albumsResponse.data,
-                        isLoading = false
-                    ) 
+                coroutineScope {
+                    val artistDeferred = async { artistService.byId(artistId) }
+                    val songsDeferred = async { songService.byArtist(0, 5, artistId) }
+                    val albumsDeferred = async { albumService.byArtist(0, 20, artistId) }
+                    val topLikedSongsDeferred = async { songService.likedByArtist(0, 5, artistId, true) }
+
+                    val artist = artistDeferred.await()
+                    val songsResponse = songsDeferred.await()
+                    val albumsResponse = albumsDeferred.await()
+                    val topLikedSongsResponse = topLikedSongsDeferred.await()
+
+                    mutableState.update {
+                        it.copy(
+                            artist = artist,
+                            topSongs = songsResponse.data,
+                            topLikedSongs = topLikedSongsResponse.data,
+                            albums = albumsResponse.data,
+                            isLoading = false
+                        )
+                    }
                 }
             } catch (_: Exception) {
                 mutableState.update { it.copy(isLoading = false) }
