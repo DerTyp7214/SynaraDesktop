@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
+import kotlin.time.Duration.Companion.minutes
 
 class RpcServiceManager(
     client: HttpClient,
@@ -69,7 +70,7 @@ class RpcServiceManager(
     override fun getRefreshToken(): String? = storedRefreshToken
 
     override fun isTokenExpired(): Boolean {
-        return storedTokenExpiration?.let { it <= System.currentTimeMillis() } ?: true
+        return storedTokenExpiration?.let { it <= System.currentTimeMillis() + 5.minutes.inWholeMilliseconds } ?: true
     }
 
     override fun isAuthenticated(): Boolean = getAuthToken() != null
@@ -78,13 +79,14 @@ class RpcServiceManager(
         storedAuthToken = response.token
         storedRefreshToken = response.refreshToken
         storedTokenExpiration = response.expiresAt.toEpochMilliseconds()
-        refreshConnectionState()
+        
+        _connectionState.value = ConnectionState.Authenticated
     }
 
     public override suspend fun handleAuthFailure() {
         clearAuth()
         clear()
-        refreshConnectionState()
+        _connectionState.value = ConnectionState.LoginRequired
     }
 
     private fun clearAuth() {
@@ -123,8 +125,13 @@ class RpcServiceManager(
         if (!isAuthenticated() && getRefreshToken() == null) return ConnectionState.LoginRequired
 
         return try {
-            getAuthenticatedClient()
-            ConnectionState.Authenticated
+            if (isAuthenticated() && !isTokenExpired()) {
+                ConnectionState.Authenticated
+            } else if (getRefreshToken() != null) {
+                ConnectionState.Authenticated
+            } else {
+                ConnectionState.LoginRequired
+            }
         } catch (_: Exception) {
             ConnectionState.LoginRequired
         }
