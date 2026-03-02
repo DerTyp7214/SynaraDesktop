@@ -28,7 +28,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import dev.dertyp.core.joinArtists
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.onSurfaceVariantDistinct
 import dev.dertyp.synara.player.CacheUpdate
@@ -145,8 +144,9 @@ fun SongItem(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Text(
-                        text = currentSongState.artists.joinArtists(),
+                    
+                    ArtistsText(
+                        artists = currentSongState.artists,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,

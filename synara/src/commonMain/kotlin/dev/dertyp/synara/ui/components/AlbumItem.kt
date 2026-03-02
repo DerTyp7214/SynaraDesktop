@@ -26,7 +26,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import dev.dertyp.core.joinArtists
 import dev.dertyp.data.Album
 import dev.dertyp.synara.ui.components.menus.AlbumContextMenu
 
@@ -94,24 +93,24 @@ fun AlbumItem(
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    val artists = album.artists.joinArtists()
-                    val secondaryText = buildString {
-                        append(artists)
-                        if (artists.isNotEmpty() && !subText.isNullOrEmpty()) {
-                            append(" • ")
-                        }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         if (!subText.isNullOrEmpty()) {
-                            append(subText)
+                            Text(
+                                text = "$subText • ",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
-                    }
 
-                    if (secondaryText.isNotEmpty()) {
-                        Text(
-                            text = secondaryText,
+                        ArtistsText(
+                            artists = album.artists,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
                     }
                 }

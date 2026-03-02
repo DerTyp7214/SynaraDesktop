@@ -96,7 +96,7 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         SectionHeader(stringResource(Res.string.songs))
-                                        TextButton(onClick = { /* TODO: Show all songs */ }) {
+                                        TextButton(onClick = { navigator?.push(ArtistSongsScreen(artistId)) }) {
                                             Text(stringResource(Res.string.show_all))
                                         }
                                     }
@@ -123,7 +123,7 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         SectionHeader(stringResource(Res.string.albums))
-                                        TextButton(onClick = { /* TODO: Show all albums */ }) {
+                                        TextButton(onClick = { navigator?.push(ArtistAlbumsScreen(artistId)) }) {
                                             Text(stringResource(Res.string.show_all))
                                         }
                                     }

@@ -41,12 +41,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
-import cafe.adriel.voyager.navigator.LocalNavigator
 import coil3.compose.AsyncImage
 import coil3.compose.ConstraintsSizeResolver
 import coil3.compose.rememberConstraintsSizeResolver
 import dev.dertyp.core.cleanTitle
-import dev.dertyp.core.joinArtists
 import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.animateColorSchemeAsState
@@ -54,7 +52,6 @@ import dev.dertyp.synara.onSurfaceVariantDistinct
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.scrobble.BaseScrobbler
 import dev.dertyp.synara.scrobble.ScrobblerService
-import dev.dertyp.synara.screens.ArtistScreen
 import dev.dertyp.synara.theme.isAppDark
 import dev.dertyp.synara.theme.rememberCoverScheme
 import dev.dertyp.synara.ui.LocalWindowActions
@@ -388,28 +385,17 @@ fun PlayerBar(
                                                     overflow = TextOverflow.Ellipsis
                                                 )
                                                 
-                                                val navigator = LocalNavigator.current
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    song?.artists?.forEachIndexed { index, artist ->
-                                                        Text(
-                                                            text = artist.name,
-                                                            style = MaterialTheme.typography.bodySmall,
-                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                            maxLines = 1,
-                                                            overflow = TextOverflow.Ellipsis,
-                                                            modifier = Modifier.clickable {
-                                                                globalState.setPlayerExpanded(false)
-                                                                navigator?.push(ArtistScreen(artist.id))
-                                                            }
-                                                        )
-                                                        if (index < song.artists.size - 1) {
-                                                            Text(
-                                                                text = ", ",
-                                                                style = MaterialTheme.typography.bodySmall,
-                                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                            )
+                                                if (song != null) {
+                                                    ArtistsText(
+                                                        artists = song.artists,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        onArtistClick = {
+                                                            globalState.setPlayerExpanded(false)
                                                         }
-                                                    }
+                                                    )
                                                 }
 
                                                 song?.let { s ->

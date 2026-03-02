@@ -29,9 +29,9 @@ import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import coil3.compose.AsyncImage
 import dev.dertyp.PlatformUUID
-import dev.dertyp.core.joinArtists
 import dev.dertyp.data.Album
 import dev.dertyp.synara.formatHumanReadableDuration
+import dev.dertyp.synara.ui.components.ArtistsText
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.dialogs.AlbumVersionsDialog
 import dev.dertyp.synara.ui.components.dialogs.FullscreenImageDialog
@@ -187,8 +187,9 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = album.artists.joinArtists(),
+                
+                ArtistsText(
+                    artists = album.artists,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
