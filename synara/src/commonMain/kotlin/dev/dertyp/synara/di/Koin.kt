@@ -107,6 +107,7 @@ val appModule = module {
     factoryOf(::SetupScreenModel)
     factoryOf(::LoginScreenModel)
     factoryOf(::HomeScreenModel)
+    factoryOf(::SearchScreenModel)
     factoryOf(::LikedSongsScreenModel)
     factoryOf(::SessionsScreenModel)
 
@@ -126,6 +127,11 @@ val appModule = module {
             get()
         )
     }
+
+    factory { (query: String) -> SearchSongsViewModel(get(), query) }
+    factory { (query: String) -> SearchArtistsViewModel(get(), query) }
+    factory { (query: String) -> SearchAlbumsViewModel(get(), query) }
+    factory { (query: String) -> SearchPlaylistsViewModel(get(), query) }
 
     singleOf(::AlbumServiceWrapper) bind IAlbumService::class
     singleOf(::ArtistServiceWrapper) bind IArtistService::class
@@ -148,6 +154,7 @@ val appModule = module {
     singleOf(::ListenBrainzScrobbler)
     singleOf(::LastFmScrobbler)
     singleOf(::DiscordScrobbler)
+    singleOf(::RecentlyPlayedScrobbler)
 }
 
 fun initializeSynara() {

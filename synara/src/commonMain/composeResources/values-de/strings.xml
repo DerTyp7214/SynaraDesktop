@@ -10,7 +10,10 @@
     <string name="connect">Verbinden</string>
     <string name="back">Zurück</string>
     <string name="library">Bibliothek</string>
-    <string name="search">Suche...</string>
+    <string name="search">Suche</string>
+    <string name="search_hint">Suchen...</string>
+    <string name="search_results_for">Ergebnisse für "%1$s"</string>
+    <string name="no_results">Keine Ergebnisse gefunden</string>
     <string name="home">Start</string>
     <string name="settings">Einstellungen</string>
     <string name="sessions">Sitzungen</string>
@@ -122,6 +125,16 @@
     <string name="versions_count">%1$d Versionen</string>
     <string name="top_liked_songs">Beliebteste geliebte Songs</string>
 
+    <!-- Sessions -->
+    <string name="active_sessions">Aktive Sitzungen</string>
+    <string name="inactive_sessions">Inaktive Sitzungen</string>
+    <string name="own_session">Eigene Sitzung</string>
+    <string name="transfer_queue">Warteschlange übertragen</string>
+    <string name="deactivate_session">Sitzung deaktivieren</string>
+    <string name="deactivate_session_message">Bist du sicher, dass du diese Sitzung deaktivieren möchtest?</string>
+    <string name="current_session">Aktuelle Sitzung</string>
+    <string name="last_active">Zuletzt aktiv: %1$s</string>
+
     <!-- Duration -->
     <plurals name="duration_days">
         <item quantity="one">%1$d Tag</item>
@@ -139,4 +152,9 @@
         <item quantity="one">%1$d Sekunde</item>
         <item quantity="other">%1$d Sekunden</item>
     </plurals>
+
+    <!-- Recently Played -->
+    <string name="recently_played_songs">Zuletzt gespielte Songs</string>
+    <string name="recently_played_albums">Zuletzt gespielte Alben</string>
+    <string name="recently_played_artists">Zuletzt gespielte Künstler</string>
 </resources>

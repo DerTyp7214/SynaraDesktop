@@ -26,16 +26,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import dev.dertyp.data.Album
-import dev.dertyp.synara.ui.components.menus.AlbumContextMenu
+import dev.dertyp.data.UserPlaylist
+import dev.dertyp.synara.ui.components.menus.PlaylistContextMenu
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun AlbumItem(
-    album: Album,
+fun PlaylistItem(
+    playlist: UserPlaylist,
     modifier: Modifier = Modifier,
-    subText: String? = null,
-    horizontal: Boolean = true,
+    horizontal: Boolean = false,
     onClick: () -> Unit,
 ) {
     var showContextMenu by remember { mutableStateOf(false) }
@@ -59,7 +58,7 @@ fun AlbumItem(
                 onClick = { showContextMenu = true }
             )
             .pointerHoverIcon(PointerIcon.Hand)
-            .pointerInput(album.id) {
+            .pointerInput(playlist.id) {
                 detectTapGestures(
                     onTap = { onClick() },
                     onLongPress = { showContextMenu = true },
@@ -75,7 +74,7 @@ fun AlbumItem(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     AsyncImage(
-                        model = rememberImageRequest(album.coverId, size = 64.dp),
+                        model = rememberImageRequest(playlist.imageId, size = 64.dp),
                         contentDescription = null,
                         modifier = Modifier
                             .size(64.dp)
@@ -85,43 +84,20 @@ fun AlbumItem(
 
                     Spacer(modifier = Modifier.width(16.dp))
 
-                    Column {
-                        Text(
-                            text = album.name,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (!subText.isNullOrEmpty()) {
-                                Text(
-                                    text = "$subText • ",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-
-                            ArtistsText(
-                                artists = album.artists,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false)
-                            )
-                        }
-                    }
+                    Text(
+                        text = playlist.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             } else {
                 Column(
                     modifier = Modifier.padding(12.dp)
                 ) {
                     AsyncImage(
-                        model = rememberImageRequest(album.coverId, size = 180.dp),
+                        model = rememberImageRequest(playlist.imageId, size = 136.dp),
                         contentDescription = null,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -133,25 +109,17 @@ fun AlbumItem(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = album.name,
+                        text = playlist.name,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    ArtistsText(
-                        artists = album.artists,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
             }
 
-            AlbumContextMenu(
-                album = album,
+            PlaylistContextMenu(
+                playlist = playlist,
                 expanded = showContextMenu,
                 onDismissRequest = { showContextMenu = false }
             )

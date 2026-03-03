@@ -161,6 +161,7 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
                                     val (album, versions) = albumVersions.parseVersions()
                                     AlbumItem(
                                         album = album,
+                                        modifier = Modifier.fillMaxWidth(),
                                         subText = if (versions.size > 1) {
                                             stringResource(Res.string.versions_count, versions.size)
                                         } else {

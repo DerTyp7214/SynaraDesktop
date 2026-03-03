@@ -1,11 +1,11 @@
-CREATE TABLE ScrobbleQueueEntity (
+CREATE TABLE IF NOT EXISTS ScrobbleQueueEntity (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     payload TEXT NOT NULL,
     timestamp INTEGER NOT NULL,
     target TEXT NOT NULL
 );
 
-CREATE TABLE LocalHistoryEntity (
+CREATE TABLE IF NOT EXISTS LocalHistoryEntity (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     song_id TEXT NOT NULL,
     timestamp INTEGER NOT NULL,

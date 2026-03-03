@@ -1,16 +1,26 @@
 package dev.dertyp.synara.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -26,15 +36,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
+import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
+import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.transitions.SlideTransition
 import coil3.compose.AsyncImage
 import dev.dertyp.data.ServerStats
 import dev.dertyp.data.UserPlaylist
 import dev.dertyp.synara.InternalTextField
+import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.theme.isAppDark
-import dev.dertyp.synara.ui.components.PlayerBar
-import dev.dertyp.synara.ui.components.rememberImageRequest
+import dev.dertyp.synara.ui.components.*
 import dev.dertyp.synara.ui.models.AnnotatedSnackbarVisuals
 import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.viewmodels.HomeScreenModel
@@ -196,7 +208,7 @@ class HomeScreen : Screen {
 
     @Composable
     private fun SidebarContent(
-        screenModel: HomeScreenModel, 
+        screenModel: HomeScreenModel,
         navigator: Navigator,
         onItemClick: (() -> Unit)? = null
     ) {
@@ -215,8 +227,8 @@ class HomeScreen : Screen {
                 label = stringResource(Res.string.home),
                 icon = Icons.Rounded.Home,
                 selected = navigator.lastItem is DashboardScreen,
-                onClick = { 
-                    if (navigator.lastItem !is DashboardScreen) navigator.replaceAll(DashboardScreen()) 
+                onClick = {
+                    if (navigator.lastItem !is DashboardScreen) navigator.replaceAll(DashboardScreen())
                     onItemClick?.invoke()
                 }
             )
@@ -247,7 +259,7 @@ class HomeScreen : Screen {
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary
                 )
-                
+
                 if (isRefreshing) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
@@ -273,7 +285,7 @@ class HomeScreen : Screen {
                 items(playlists) { playlist ->
                     val current = navigator.lastItem
                     val isSelected = current is PlaylistScreen && current.playlistId == playlist.id
-                    
+
                     PlaylistNavItem(
                         playlist = playlist,
                         selected = isSelected,
@@ -371,6 +383,7 @@ class HomeScreen : Screen {
         showMenu: Boolean = false
     ) {
         val isDark = isAppDark()
+        val searchQuery by screenModel.globalState.searchQuery.collectAsState()
 
         Surface(
             modifier = Modifier
@@ -393,14 +406,17 @@ class HomeScreen : Screen {
                     }
                 }
 
-                var searchQuery by remember { mutableStateOf("") }
-
                 InternalTextField(
                     value = searchQuery,
-                    onValueChange = { searchQuery = it },
+                    onValueChange = { 
+                        screenModel.globalState.setSearchQuery(it)
+                        if (it.isNotEmpty() && navigator.lastItem !is SearchScreen) {
+                            navigator.push(SearchScreen())
+                        }
+                    },
                     placeholder = { 
                         Text(
-                            stringResource(Res.string.search), 
+                            stringResource(Res.string.search_hint), 
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         ) 
@@ -414,6 +430,17 @@ class HomeScreen : Screen {
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         ) 
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { screenModel.globalState.setSearchQuery("") }) {
+                                Icon(
+                                    Icons.Rounded.Clear,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     },
                     singleLine = true,
                     shape = RoundedCornerShape(26.dp),
@@ -443,25 +470,148 @@ class HomeScreen : Screen {
 }
 
 private class DashboardScreen : Screen {
+    @OptIn(ExperimentalFoundationApi::class)
     @Composable
     override fun Content() {
         val screenModel = getScreenModel<HomeScreenModel>()
+        val playerModel = koinInject<PlayerModel>()
+        val navigator = LocalNavigator.currentOrThrow
         val stats by screenModel.serverStats.collectAsState()
+        val recentSongs by screenModel.recentSongs.collectAsState(emptyList())
+        val recentAlbums by screenModel.recentAlbums.collectAsState(emptyList())
+        val recentArtists by screenModel.recentArtists.collectAsState(emptyList())
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = stringResource(Res.string.dashboard),
-                style = MaterialTheme.typography.headlineLarge,
-                modifier = Modifier.padding(bottom = 24.dp)
+        val lazyListState = rememberLazyListState()
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                state = lazyListState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item {
+                    Text(
+                        text = stringResource(Res.string.dashboard),
+                        style = MaterialTheme.typography.headlineLarge,
+                        modifier = Modifier.padding(bottom = 24.dp)
+                    )
+                }
+
+                if (recentAlbums.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(24.dp))
+                        RecentlyPlayedSection(
+                            title = stringResource(Res.string.recently_played_albums),
+                        ) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                contentPadding = PaddingValues(vertical = 8.dp)
+                            ) {
+                                items(recentAlbums, key = { it.id }) { album ->
+                                    Box(modifier = Modifier.animateItem()) {
+                                        AlbumItem(
+                                            album = album,
+                                            horizontal = false,
+                                            modifier = Modifier.width(160.dp),
+                                            onClick = { navigator.push(PlaylistScreen(album.id, isUserPlaylist = false)) }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (recentArtists.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(24.dp))
+                        RecentlyPlayedSection(
+                            title = stringResource(Res.string.recently_played_artists),
+                        ) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                contentPadding = PaddingValues(vertical = 8.dp)
+                            ) {
+                                items(recentArtists, key = { it.id }) { artist ->
+                                    Box(modifier = Modifier.animateItem()) {
+                                        ArtistItem(
+                                            artist = artist,
+                                            modifier = Modifier.width(140.dp),
+                                            onClick = { navigator.push(ArtistScreen(artist.id)) }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (recentSongs.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = stringResource(Res.string.recently_played_songs),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+
+                    items(recentSongs, key = { it.id }) { song ->
+                        Box(modifier = Modifier.animateItem()) {
+                            SongItem(
+                                song = song,
+                                showCover = true,
+                                onClick = { playerModel.playSong(song) }
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    AnimatedContent(
+                        targetState = stats,
+                        transitionSpec = {
+                            fadeIn() togetherWith fadeOut()
+                        }
+                    ) { targetStats ->
+                        if (targetStats != null) {
+                            DashboardStats(targetStats)
+                        } else {
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        }
+                    }
+                }
+            }
+
+            VerticalScrollbar(
+                adapter = rememberScrollbarAdapter(lazyListState),
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxHeight()
+                    .padding(end = 4.dp, top = 24.dp, bottom = 24.dp)
             )
+        }
+    }
 
-            stats?.let { DashboardStats(it) } ?: CircularProgressIndicator()
+    @Composable
+    private fun RecentlyPlayedSection(
+        title: String,
+        content: @Composable () -> Unit
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            content()
         }
     }
 
@@ -486,10 +636,10 @@ private class DashboardScreen : Screen {
                 StatCard(stringResource(Res.string.playlists), stats.playlistCount.toString(), Modifier.weight(1f))
             }
 
-            ElevatedCard(
+            Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                 )
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -509,11 +659,11 @@ private class DashboardScreen : Screen {
     }
 
     @Composable
-    private fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
-        ElevatedCard(
+    private fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
+        Card(
             modifier = modifier,
-            colors = CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
             )
         ) {
             Column(
@@ -521,14 +671,15 @@ private class DashboardScreen : Screen {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelMedium,
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = value,
                     style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }

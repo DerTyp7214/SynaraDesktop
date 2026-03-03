@@ -51,11 +51,15 @@ class GlobalStateModel(
     val isAnyOverlayOpen = combine(isAnyDialogOpen, isAnyMenuOpen) { dialog, menu -> dialog || menu }
         .stateIn(scope, SharingStarted.Eagerly, false)
 
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery = _searchQuery.asStateFlow()
+
     init {
         refreshUser()
         refreshPlaylists()
 
         scrobblerService.registerScrobbler(LocalSongScrobbler::class)
+        scrobblerService.registerScrobbler(RecentlyPlayedScrobbler::class)
         
         scope.launch {
             Config.isListenBrainzEnabled.collectLatest { enabled ->
@@ -173,5 +177,9 @@ class GlobalStateModel(
 
     fun decrementMenuCount() {
         _openMenusCount.value = (_openMenusCount.value - 1).coerceAtLeast(0)
+    }
+
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
     }
 }

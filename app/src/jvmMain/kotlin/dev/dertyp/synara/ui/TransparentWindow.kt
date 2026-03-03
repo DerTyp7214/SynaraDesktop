@@ -18,6 +18,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.PointerKeyboardModifiers
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.scene.CanvasLayersComposeScene
 import androidx.compose.ui.scene.ComposeScene
@@ -438,7 +439,7 @@ fun runTransparentWindow(
         )
     }
 
-    glfwSetMouseButtonCallback(windowHandle) { _, button, action, _ ->
+    glfwSetMouseButtonCallback(windowHandle) { _, button, action, mods ->
         scene.sendPointerEvent(
             eventType = if (action == GLFW_PRESS) PointerEventType.Press else PointerEventType.Release,
             position = run {
@@ -454,11 +455,29 @@ fun runTransparentWindow(
                 GLFW_MOUSE_BUTTON_4 -> PointerButton.Back
                 GLFW_MOUSE_BUTTON_5 -> PointerButton.Forward
                 else -> null
-            }
+            },
+            keyboardModifiers = PointerKeyboardModifiers(
+                isCtrlPressed = (mods and GLFW_MOD_CONTROL) != 0,
+                isMetaPressed = (mods and GLFW_MOD_SUPER) != 0,
+                isAltPressed = (mods and GLFW_MOD_ALT) != 0,
+                isShiftPressed = (mods and GLFW_MOD_SHIFT) != 0,
+            )
         )
     }
 
     glfwSetScrollCallback(windowHandle) { _, xOffset, yOffset ->
+        val isShiftPressed = glfwGetKey(windowHandle, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || 
+                             glfwGetKey(windowHandle, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS
+        val isCtrlPressed = glfwGetKey(windowHandle, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS ||
+                            glfwGetKey(windowHandle, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS
+        val isAltPressed = glfwGetKey(windowHandle, GLFW_KEY_LEFT_ALT) == GLFW_PRESS ||
+                           glfwGetKey(windowHandle, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS
+        val isMetaPressed = glfwGetKey(windowHandle, GLFW_KEY_LEFT_SUPER) == GLFW_PRESS ||
+                            glfwGetKey(windowHandle, GLFW_KEY_RIGHT_SUPER) == GLFW_PRESS
+
+        val scrollX = if (isShiftPressed) -yOffset else xOffset
+        val scrollY = if (isShiftPressed) xOffset else -yOffset
+
         scene.sendPointerEvent(
             eventType = PointerEventType.Scroll,
             position = run {
@@ -468,8 +487,14 @@ fun runTransparentWindow(
                 Offset(x[0].toFloat(), y[0].toFloat())
             },
             scrollDelta = Offset(
-                xOffset.toFloat() * 2.5f * density.density,
-                -yOffset.toFloat() * 2.5f * density.density
+                scrollX.toFloat() * 2.5f * density.density,
+                scrollY.toFloat() * 2.5f * density.density
+            ),
+            keyboardModifiers = PointerKeyboardModifiers(
+                isCtrlPressed = isCtrlPressed,
+                isMetaPressed = isMetaPressed,
+                isAltPressed = isAltPressed,
+                isShiftPressed = isShiftPressed,
             )
         )
     }

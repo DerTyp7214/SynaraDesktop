@@ -59,7 +59,7 @@ class PlayerModel(
 
     private var originalQueue: List<QueueEntry> = emptyList()
     private var setSourceJob: Job? = null
-    
+
     private val _currentSource = MutableStateFlow<PlaybackSource?>(null)
     val currentSource: StateFlow<PlaybackSource?> = _currentSource.asStateFlow()
 
@@ -110,8 +110,8 @@ class PlayerModel(
             combine(_queue, _currentIndex, _currentSource, _repeatMode, _shuffleMode) { q, idx, src, repeat, shuffle ->
                 PlayerState(q, originalQueue, src, idx, repeat, shuffle)
             }.distinctUntilChanged { old, new ->
-                old.queue == new.queue && 
-                old.currentIndex == new.currentIndex && 
+                old.queue == new.queue &&
+                old.currentIndex == new.currentIndex &&
                 old.source == new.source &&
                 old.repeatMode == new.repeatMode &&
                 old.shuffleMode == new.shuffleMode
@@ -141,7 +141,7 @@ class PlayerModel(
                         if (_currentSong.value?.id == updatedSong.id) {
                             _currentSong.value = updatedSong
                         }
-                        
+
                         _queue.value = _queue.value.map { entry ->
                             if (entry is QueueEntry.Explicit && entry.song.id == updatedSong.id) {
                                 entry.copy(song = updatedSong)
@@ -176,12 +176,12 @@ class PlayerModel(
             _currentIndex.value = state.currentIndex
             _repeatMode.value = state.repeatMode
             _shuffleMode.value = state.shuffleMode
-            
+
             val currentEntry = _queue.value.getOrNull(_currentIndex.value)
             if (currentEntry != null) {
                 scope.launch {
                     resolveSongId(currentEntry)?.let { id ->
-                        audioPlayer.load(id)
+                        audioPlayer.load(id, playImmediately = false)
                     }
                 }
             }
@@ -230,7 +230,7 @@ class PlayerModel(
 
         val song = songCache.get(id) ?: songService.byId(id)?.also { songCache.put(it) }
         _currentSong.value = song
-        
+
         updateWindow()
     }
 
@@ -241,7 +241,7 @@ class PlayerModel(
 
         val requested = _requestedWindow.value
         val playingRange = (index - 2)..(index + 10)
-        
+
         val range = if (requested != null) {
             (minOf(playingRange.first, requested.first - 5))..(maxOf(playingRange.last, requested.last + 5))
         } else {
@@ -258,7 +258,7 @@ class PlayerModel(
                     val neededIds = toFetchFromSource.map { it.songId }
                         .distinct()
                         .filter { songCache.get(it) == null }
-                    
+
                     if (neededIds.isNotEmpty()) {
                         neededIds.chunked(50).forEach { chunk ->
                             val response = songService.byIds(chunk)
@@ -480,11 +480,11 @@ class PlayerModel(
                 } else {
                     _queue.value += newItems
                 }
-                
+
                 if (_currentIndex.value == -1) {
                     playAtIndex(0)
                 }
-                
+
                 snackbarManager.showSnackbar(message)
             }
         }
@@ -517,18 +517,18 @@ class PlayerModel(
                     snackbarManager.showSnackbar(message)
                     return@withContext
                 }
-                
+
                 val insertIndex = _currentIndex.value + 1
                 val newQueue = _queue.value.toMutableList()
                 newQueue.addAll(insertIndex, newItems)
                 _queue.value = newQueue
-                
+
                 val currentEntry = _queue.value.getOrNull(_currentIndex.value)
                 val origInsertIndex = originalQueue.indexOf(currentEntry).let { if (it == -1) originalQueue.size else it + 1 }
                 val newOrigQueue = originalQueue.toMutableList()
                 newOrigQueue.addAll(origInsertIndex, newItems)
                 originalQueue = newOrigQueue
-                
+
                 snackbarManager.showSnackbar(message)
             }
         }
@@ -566,7 +566,7 @@ class PlayerModel(
 
         val newQueue = _queue.value.toMutableList()
         newQueue.removeAt(index)
-        
+
         val currentIdx = _currentIndex.value
         if (index == currentIdx) {
             if (newQueue.isEmpty()) {
@@ -650,7 +650,7 @@ class PlayerModel(
         val currentEntry = _queue.value.getOrNull(_currentIndex.value)
         val newShuffleMode = !_shuffleMode.value
         _shuffleMode.value = newShuffleMode
-        
+
         if (newShuffleMode) {
             val shuffled = originalQueue.shuffled().toMutableList()
             if (currentEntry != null) {

@@ -126,7 +126,7 @@ class JvmAudioPlayer(
 
     override fun seekTo(positionMs: Long) {
         val songId = lastSongId ?: return
-        loadInternal(songId, positionMs)
+        loadInternal(songId, positionMs, _isPlaying.value)
     }
 
     override fun setVolume(volume: Float) {
@@ -138,14 +138,14 @@ class JvmAudioPlayer(
         }
     }
 
-    override fun load(songId: PlatformUUID) {
-        loadInternal(songId, 0L)
+    override fun load(songId: PlatformUUID, playImmediately: Boolean) {
+        loadInternal(songId, 0L, playImmediately)
     }
 
-    private fun loadInternal(songId: PlatformUUID, startTimeMs: Long) {
+    private fun loadInternal(songId: PlatformUUID, startTimeMs: Long, playImmediately: Boolean) {
         stop()
         lastSongId = songId
-        
+
         playerJob = scope.launch {
             try {
                 val session = dataSource.createPlaybackSession(songId, startTimeMs, scope) ?: return@launch
@@ -177,8 +177,13 @@ class JvmAudioPlayer(
                 }
 
                 alSourcef(sourceId, AL_GAIN, _volume.value)
-                alSourcePlay(sourceId)
-                _isPlaying.value = true
+                if (playImmediately) {
+                    alSourcePlay(sourceId)
+                    _isPlaying.value = true
+                } else {
+                    alSourcePause(sourceId)
+                    _isPlaying.value = false
+                }
 
                 while (isActive) {
                     val processed = alGetSourcei(sourceId, AL_BUFFERS_PROCESSED)

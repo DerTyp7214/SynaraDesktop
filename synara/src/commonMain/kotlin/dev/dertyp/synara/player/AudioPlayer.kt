@@ -21,6 +21,6 @@ interface AudioPlayer {
     fun stop()
     fun seekTo(positionMs: Long)
     fun setVolume(volume: Float)
-    fun load(songId: PlatformUUID)
+    fun load(songId: PlatformUUID, playImmediately: Boolean = true)
     fun release()
 }

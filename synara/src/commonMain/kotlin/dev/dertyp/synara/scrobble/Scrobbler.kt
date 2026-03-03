@@ -14,6 +14,8 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
+val LogTag.Companion.RECENTLY_PLAYED get() = LogTag("recently_played")
+
 class ScrobbleTimer(private val scope: CoroutineScope) {
 
     private val _time = MutableStateFlow(0)

@@ -51,6 +51,7 @@ kotlin {
                 implementation(libs.kotlinx.serialization.protobuf)
                 implementation(libs.okio)
                 implementation(libs.sqldelight.runtime)
+                implementation(libs.sqldelight.coroutines.extensions)
 
                 // Compose Resources
                 implementation(libs.runtime)

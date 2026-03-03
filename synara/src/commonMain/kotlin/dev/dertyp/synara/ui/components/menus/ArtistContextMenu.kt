@@ -1,0 +1,73 @@
+package dev.dertyp.synara.ui.components.menus
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import dev.dertyp.data.Artist
+import dev.dertyp.synara.player.PlaybackQueue
+import dev.dertyp.synara.player.PlaybackSource
+import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.ui.components.SynaraMenu
+import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
+import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.add_to_queue
+import synara.synara.generated.resources.play_next
+
+@Composable
+fun ArtistContextMenu(
+    artist: Artist,
+    expanded: Boolean,
+    onDismissRequest: () -> Unit,
+    playerModel: PlayerModel = koinInject(),
+) {
+    SynaraMenu(
+        expanded = expanded,
+        onDismissRequest = onDismissRequest,
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .widthIn(max = 200.dp)
+        ) {
+            Text(
+                text = artist.name,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        HorizontalDivider()
+
+        DropdownMenuItem(
+            text = { Text(stringResource(Res.string.add_to_queue)) },
+            onClick = {
+                playerModel.addToQueue(PlaybackQueue(source = PlaybackSource.Artist(artist.id)))
+                onDismissRequest()
+            },
+            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null, modifier = Modifier.size(20.dp)) }
+        )
+
+        DropdownMenuItem(
+            text = { Text(stringResource(Res.string.play_next)) },
+            onClick = {
+                playerModel.playNext(PlaybackQueue(source = PlaybackSource.Artist(artist.id)))
+                onDismissRequest()
+            },
+            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistPlay, contentDescription = null, modifier = Modifier.size(20.dp)) }
+        )
+    }
+}
