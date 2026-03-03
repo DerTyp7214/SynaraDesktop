@@ -4,7 +4,6 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
@@ -17,7 +16,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
@@ -28,7 +26,6 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.ui.input.pointer.onPointerEvent
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -41,7 +38,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
-import coil3.compose.AsyncImage
 import coil3.compose.ConstraintsSizeResolver
 import coil3.compose.rememberConstraintsSizeResolver
 import dev.dertyp.core.cleanTitle
@@ -336,31 +332,12 @@ fun PlayerBar(
                                             },
                                             label = "smallCoverTransition"
                                         ) { coverId ->
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(56.dp)
-                                                    .clip(MaterialTheme.shapes.small)
-                                                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                                                    .clickable { globalState.togglePlayerExpanded() }
-                                            ) {
-                                                if (coverId != null) {
-                                                    val imageRequest =
-                                                        rememberImageRequest(coverId, size = 56.dp)
-                                                    AsyncImage(
-                                                        model = imageRequest,
-                                                        contentDescription = null,
-                                                        modifier = Modifier.fillMaxSize(),
-                                                        contentScale = ContentScale.Crop
-                                                    )
-                                                } else {
-                                                    Icon(
-                                                        Icons.Rounded.MusicNote,
-                                                        contentDescription = null,
-                                                        modifier = Modifier.align(Alignment.Center),
-                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                                    )
-                                                }
-                                            }
+                                            SynaraImage(
+                                                imageId = coverId,
+                                                size = 56.dp,
+                                                modifier = Modifier.clickable { globalState.togglePlayerExpanded() },
+                                                fallbackIcon = Icons.Rounded.MusicNote
+                                            )
                                         }
 
                                         Spacer(modifier = Modifier.width(12.dp))
@@ -907,29 +884,12 @@ private fun LargeCover(
         label = "largeCoverTransition",
         modifier = modifier
     ) { coverId ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            if (coverId != null) {
-                val imageRequest = rememberImageRequest(coverId, size = 1000.dp)
-                AsyncImage(
-                    model = imageRequest,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize().then(sizeResolver),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Icon(
-                    Icons.Rounded.MusicNote,
-                    contentDescription = null,
-                    modifier = Modifier.size(128.dp).align(Alignment.Center),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
+        SynaraImage(
+            imageId = coverId,
+            modifier = Modifier.fillMaxSize().then(sizeResolver),
+            shape = RoundedCornerShape(16.dp),
+            fallbackIcon = Icons.Rounded.MusicNote
+        )
     }
 }
 

@@ -9,6 +9,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.onClick
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -21,11 +23,9 @@ import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import dev.dertyp.data.UserPlaylist
 import dev.dertyp.synara.ui.components.menus.PlaylistContextMenu
 
@@ -73,13 +73,10 @@ fun PlaylistItem(
                     modifier = Modifier.padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    AsyncImage(
-                        model = rememberImageRequest(playlist.imageId, size = 64.dp),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(64.dp)
-                            .clip(MaterialTheme.shapes.small),
-                        contentScale = ContentScale.Crop
+                    SynaraImage(
+                        imageId = playlist.imageId,
+                        size = 64.dp,
+                        fallbackIcon = Icons.AutoMirrored.Rounded.PlaylistPlay
                     )
 
                     Spacer(modifier = Modifier.width(16.dp))
@@ -96,14 +93,13 @@ fun PlaylistItem(
                 Column(
                     modifier = Modifier.padding(12.dp)
                 ) {
-                    AsyncImage(
-                        model = rememberImageRequest(playlist.imageId, size = 136.dp),
-                        contentDescription = null,
+                    SynaraImage(
+                        imageId = playlist.imageId,
+                        size = 136.dp,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .aspectRatio(1f)
-                            .clip(MaterialTheme.shapes.small),
-                        contentScale = ContentScale.Crop
+                            .aspectRatio(1f),
+                        fallbackIcon = Icons.AutoMirrored.Rounded.PlaylistPlay
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))

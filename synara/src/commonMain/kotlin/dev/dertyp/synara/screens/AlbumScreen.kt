@@ -12,30 +12,28 @@ import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.core.screen.ScreenKey
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
-import coil3.compose.AsyncImage
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.Album
 import dev.dertyp.synara.formatHumanReadableDuration
 import dev.dertyp.synara.ui.components.ArtistsText
 import dev.dertyp.synara.ui.components.SongItem
+import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.dialogs.AlbumVersionsDialog
 import dev.dertyp.synara.ui.components.dialogs.FullscreenImageDialog
-import dev.dertyp.synara.ui.components.rememberImageRequest
 import dev.dertyp.synara.viewmodels.AlbumScreenModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.core.parameter.parametersOf
@@ -165,19 +163,13 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
             modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(200.dp)
-                    .clip(MaterialTheme.shapes.medium)
-                    .clickable { onImageClick() }
-            ) {
-                AsyncImage(
-                    model = rememberImageRequest(album.coverId, size = 200.dp),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            }
+            SynaraImage(
+                imageId = album.coverId,
+                size = 200.dp,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.clickable { onImageClick() },
+                fallbackIcon = Icons.Rounded.Album
+            )
 
             Spacer(modifier = Modifier.width(24.dp))
 

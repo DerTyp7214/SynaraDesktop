@@ -11,6 +11,8 @@ import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -40,16 +42,21 @@ class SearchScreenModel(
     private val _isSearching = MutableStateFlow(false)
     val isSearching = _isSearching.asStateFlow()
 
+    private var searchJob: Job? = null
+
     fun search(query: String) {
+        searchJob?.cancel()
         if (query.isBlank()) {
             _songs.value = emptyList()
             _albums.value = emptyList()
             _artists.value = emptyList()
             _playlists.value = emptyList()
+            _isSearching.value = false
             return
         }
 
-        screenModelScope.launch {
+        searchJob = screenModelScope.launch {
+            delay(400)
             _isSearching.value = true
             try {
                 val songsJob = launch { _songs.value = songService.rankedSearch(0, 10, query, explicit = true).data }

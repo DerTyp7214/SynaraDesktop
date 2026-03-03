@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,11 +24,9 @@ import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.onSurfaceVariantDistinct
 import dev.dertyp.synara.player.CacheUpdate
@@ -123,13 +122,11 @@ fun SongItem(
                 }
 
                 if (showCover) {
-                    AsyncImage(
-                        model = rememberImageRequest(currentSongState.coverId, size = 40.dp),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(MaterialTheme.shapes.extraSmall),
-                        contentScale = ContentScale.Crop
+                    SynaraImage(
+                        imageId = currentSongState.coverId,
+                        size = 40.dp,
+                        shape = MaterialTheme.shapes.extraSmall,
+                        fallbackIcon = Icons.Rounded.MusicNote
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                 }

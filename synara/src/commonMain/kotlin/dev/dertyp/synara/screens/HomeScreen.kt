@@ -15,12 +15,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -30,7 +28,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isBackPressed
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,7 +37,6 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.transitions.SlideTransition
-import coil3.compose.AsyncImage
 import dev.dertyp.data.ServerStats
 import dev.dertyp.data.UserPlaylist
 import dev.dertyp.synara.InternalTextField
@@ -356,13 +352,11 @@ class HomeScreen : Screen {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                AsyncImage(
-                    model = rememberImageRequest(playlist.imageId, size = 32.dp),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(4.dp)),
-                    contentScale = ContentScale.Crop
+                SynaraImage(
+                    imageId = playlist.imageId,
+                    size = 32.dp,
+                    shape = RoundedCornerShape(4.dp),
+                    fallbackIcon = Icons.AutoMirrored.Rounded.PlaylistPlay
                 )
                 Text(
                     text = playlist.name,
@@ -482,6 +476,20 @@ private class DashboardScreen : Screen {
         val recentArtists by screenModel.recentArtists.collectAsState(emptyList())
 
         val lazyListState = rememberLazyListState()
+        val albumsLazyListState = rememberLazyListState()
+        val artistsLazyListState = rememberLazyListState()
+
+        LaunchedEffect(recentAlbums) {
+            if (albumsLazyListState.firstVisibleItemIndex <= 1) {
+                albumsLazyListState.animateScrollToItem(0)
+            }
+        }
+
+        LaunchedEffect(recentArtists) {
+            if (artistsLazyListState.firstVisibleItemIndex <= 1) {
+                artistsLazyListState.animateScrollToItem(0)
+            }
+        }
 
         Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
@@ -505,6 +513,7 @@ private class DashboardScreen : Screen {
                             title = stringResource(Res.string.recently_played_albums),
                         ) {
                             LazyRow(
+                                state = albumsLazyListState,
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 contentPadding = PaddingValues(vertical = 8.dp)
                             ) {
@@ -514,7 +523,7 @@ private class DashboardScreen : Screen {
                                             album = album,
                                             horizontal = false,
                                             modifier = Modifier.width(160.dp),
-                                            onClick = { navigator.push(PlaylistScreen(album.id, isUserPlaylist = false)) }
+                                            onClick = { navigator.push(AlbumScreen(album.id)) }
                                         )
                                     }
                                 }
@@ -530,6 +539,7 @@ private class DashboardScreen : Screen {
                             title = stringResource(Res.string.recently_played_artists),
                         ) {
                             LazyRow(
+                                state = artistsLazyListState,
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 contentPadding = PaddingValues(vertical = 8.dp)
                             ) {

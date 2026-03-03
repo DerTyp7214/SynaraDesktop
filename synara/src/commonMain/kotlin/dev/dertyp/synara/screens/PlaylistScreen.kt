@@ -11,14 +11,13 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
@@ -26,12 +25,11 @@ import cafe.adriel.voyager.core.screen.ScreenKey
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import coil3.compose.AsyncImage
 import dev.dertyp.PlatformUUID
 import dev.dertyp.synara.formatHumanReadableDuration
 import dev.dertyp.synara.ui.components.SongItem
+import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.dialogs.FullscreenImageDialog
-import dev.dertyp.synara.ui.components.rememberImageRequest
 import dev.dertyp.synara.viewmodels.PlaylistScreenModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.core.parameter.parametersOf
@@ -186,19 +184,13 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
             modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(200.dp)
-                    .clip(MaterialTheme.shapes.medium)
-                    .clickable { onImageClick() }
-            ) {
-                AsyncImage(
-                    model = rememberImageRequest(state.imageId, size = 200.dp),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            }
+            SynaraImage(
+                imageId = state.imageId,
+                size = 200.dp,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.clickable { onImageClick() },
+                fallbackIcon = Icons.AutoMirrored.Rounded.PlaylistPlay
+            )
 
             Spacer(modifier = Modifier.width(24.dp))
 
