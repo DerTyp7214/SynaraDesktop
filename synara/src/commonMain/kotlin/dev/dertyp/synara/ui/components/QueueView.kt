@@ -1,18 +1,23 @@
 package dev.dertyp.synara.ui.components
 
+import androidx.compose.animation.*
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DragHandle
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,6 +30,7 @@ import dev.dertyp.data.UserSong
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import kotlin.math.abs
 
@@ -39,6 +45,18 @@ fun QueueView(
     val currentIndex by playerModel.currentIndex.collectAsState()
     val isQueueExpanded by globalState.isQueueExpanded.collectAsState()
     val lazyListState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
+    val showScrollToCurrent by remember(currentIndex, queue.size) {
+        derivedStateOf {
+            if (currentIndex < 0 || currentIndex >= queue.size) false
+            else {
+                val visibleItems = lazyListState.layoutInfo.visibleItemsInfo
+                if (visibleItems.isEmpty()) false
+                else visibleItems.none { it.index == currentIndex }
+            }
+        }
+    }
 
     var draggedItemIndex by remember { mutableStateOf<Int?>(null) }
     var draggingOffset by remember { mutableStateOf(0f) }
@@ -185,6 +203,46 @@ fun QueueView(
                         }
                     }
                 }
+            }
+        }
+
+        VerticalScrollbar(
+            adapter = rememberScrollbarAdapter(lazyListState),
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .padding(vertical = 48.dp, horizontal = 4.dp)
+        )
+
+        AnimatedVisibility(
+            visible = showScrollToCurrent,
+            enter = fadeIn() + scaleIn(),
+            exit = fadeOut() + scaleOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 64.dp)
+        ) {
+            SmallFloatingActionButton(
+                onClick = {
+                    scope.launch {
+                        val firstVisible = lazyListState.firstVisibleItemIndex
+                        val distance = abs(firstVisible - currentIndex)
+                        if (distance > 100) {
+                            lazyListState.scrollToItem(currentIndex)
+                        } else {
+                            lazyListState.animateScrollToItem(currentIndex)
+                        }
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Icon(
+                    Icons.Rounded.MusicNote,
+                    contentDescription = "Scroll to current song",
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }
