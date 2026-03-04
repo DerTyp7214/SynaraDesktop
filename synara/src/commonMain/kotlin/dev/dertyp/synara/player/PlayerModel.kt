@@ -48,7 +48,7 @@ class PlayerModel(
 ) {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val fileSystem = FileSystem.SYSTEM
-    private val path: Path = settingsFactory.getStatePath("player_state.cbor.xz").toPath()
+    private val path: Path = settingsFactory.getStatePath("player_state.cbor.zstd").toPath()
     private val oldPath: Path = settingsFactory.getStatePath("player_state.pb").toPath()
 
     private val migrationProtoBuf = ProtoBuf {

@@ -118,7 +118,7 @@ kotlin {
                 // D-Bus (MPRIS)
                 implementation(libs.dbus.java.core)
                 implementation(libs.dbus.java.transport.native.unixsocket)
-                implementation(libs.xz)
+                implementation(libs.zstd)
 
                 // Add natives for all desktop platforms
                 val platforms = listOf("linux", "windows", "macos", "macos-arm64")
