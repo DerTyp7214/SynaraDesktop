@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PromptTemplates">
+    <option name="builtInPromptOverrides">
+      <list>
+        <BuiltInPromptOverride>
+          <option name="groupId" value="rules" />
+          <option name="promptId" value="project" />
+          <option name="text" value="# Synara Project - AI Instructions &amp; Guidelines&#10;&#10;## ⚠️ CRITICAL PRIORITY: DO NOT ACT WITHOUT EXPLICIT COMMAND&#10;1. **Never** modify files, create new files, or execute any &quot;write&quot; actions unless explicitly instructed by the user to do so.&#10;2. If a request is ambiguous or framed as a question/observation, provide an **opinion, feedback, or analysis** instead of performing an action.&#10;3. Your number one priority is to avoid unauthorized changes to the codebase.&#10;&#10;## Development Workflow&#10;1. **Observation Mode**: Use read-only tools (grep, find_files, read_file, view_file_outline) to gather context and provide informed opinions.&#10;2. **Buffering &amp; Safety**: Always use `replace_text`, `multi_replace_file_content`, or `write_file`. **NEVER** use shell commands like `sed`, `awk`, or redirection to edit files.&#10;3. **Verification**: After making changes (when instructed), validate by running relevant Gradle tasks or unit tests in the affected sub-projects.&#10;&#10;## Project Patterns &amp; Knowledge&#10;- **Global Dialog Tracking**: `GlobalStateModel` tracks open dialogs via `openDialogsCount`.&#10;- **Dialog Pattern**: Use `SynaraDialog` or `SynaraAlertDialog` wrappers. They handle visibility via an `isOpen` parameter and automate global count tracking.&#10;- **Queue Identity**: Always use `playerModel.playEntry(entry)` instead of index-based playback to avoid synchronization issues with reordered queues.&#10;&#10;## Navigation&#10;- The project uses the **Voyager** navigation library (`Navigator`, `Screen`).&#10;- Screens are located in `synara/src/commonMain/kotlin/dev/dertyp/synara/screens/`.&#10;" />
+        </BuiltInPromptOverride>
+      </list>
+    </option>
+  </component>
+</project>

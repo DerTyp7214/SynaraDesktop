@@ -13,7 +13,7 @@ val minor = 0
 val patch = 0
 val buildMajor = 0
 val buildMinor = 0
-val buildPatch = 1
+val buildPatch = 2
 
 fun getVersionName(): String {
     return "$major.$minor.$patch${if (prerelease) "-prerelease$buildMajor.$buildMinor.$buildPatch" else ""}"
@@ -48,6 +48,7 @@ kotlin {
                 implementation(libs.multiplatform.settings.no.arg)
                 implementation(libs.multiplatform.settings.serialization)
                 implementation(libs.kaml)
+                implementation(libs.kotlinx.serialization.cbor)
                 implementation(libs.kotlinx.serialization.protobuf)
                 implementation(libs.okio)
                 implementation(libs.sqldelight.runtime)
@@ -117,6 +118,7 @@ kotlin {
                 // D-Bus (MPRIS)
                 implementation(libs.dbus.java.core)
                 implementation(libs.dbus.java.transport.native.unixsocket)
+                implementation(libs.xz)
 
                 // Add natives for all desktop platforms
                 val platforms = listOf("linux", "windows", "macos", "macos-arm64")

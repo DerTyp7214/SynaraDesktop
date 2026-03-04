@@ -75,9 +75,9 @@ val appModule = module {
     single<Json> { AppJson }
     single<Cbor> { AppCbor }
     singleOf(::buildHttpClient)
-    
-    val settingsFactory = SettingsFactory()
-    single<Settings> { settingsFactory.create() }
+
+    singleOf(::SettingsFactory)
+    single<Settings> { get<SettingsFactory>().create() }
     
     single { SynaraDatabase(get()) }
 
@@ -89,19 +89,7 @@ val appModule = module {
     singleOf(::MusicBrainzService)
     singleOf(::ScrobbleQueue)
     single { SongCache() }
-    single { 
-        PlayerModel(
-            get(), 
-            get(), 
-            get(), 
-            get(), 
-            get(), 
-            get(), 
-            get(), 
-            get(), 
-            settingsFactory.getStatePath("player_state.pb")
-        ) 
-    }
+    singleOf(::PlayerModel)
     singleOf(::TrayState)
     singleOf(::SnackbarManager)
 

@@ -28,6 +28,7 @@ import dev.dertyp.synara.player.PlayerModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
+import kotlin.math.pow
 
 private val luminanceCache = LruCache<PlatformUUID, Float>(1000)
 
@@ -112,8 +113,8 @@ fun BlurredCoverBackground(
 
             val audioModifier = if (audioReactive) {
                 Modifier.adjustColors(
-                    saturation = .4f + smoothedAudioIntensity,
-                    brightness = baseBrightness + smoothedAudioIntensity * (0.3f * (1f - coverLuminance * 0.5f))
+                    saturation = .4f + smoothedAudioIntensity.pow(2),
+                    brightness = baseBrightness + smoothedAudioIntensity.pow(2) * (0.3f * (1f - coverLuminance * 0.5f))
                 )
             } else {
                 Modifier.adjustColors(

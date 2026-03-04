@@ -46,8 +46,10 @@ jobs:
         run: |
           ./gradlew :app:createDistributable :classic:createDistributable
           
-          VERSION=$(./gradlew :synara:properties -q | grep "^version:" | cut -d' ' -f2 | cut -d'-' -f1 | tr -d '\r')
+          VERSION=$(./gradlew :synara:properties -q | grep "^version:" | cut -d' ' -f2 | tr -d '\r')
           [ -z "$VERSION" ] && VERSION="1.0.0"
+          
+          ARCH_VERSION=$(echo "$VERSION" | tr '-' '_')
           
           # For Synara (app)
           cd app/build/compose/binaries/main/app
@@ -95,7 +97,7 @@ jobs:
           SIZE=$(du -sb ../../../../../../arch-app | cut -f1)
           cat <<EOF > ../../../../../../arch-app/.PKGINFO
           pkgname = synara
-          pkgver = $VERSION-1
+          pkgver = $ARCH_VERSION-1
           pkgdesc = Synara Music Player
           arch = x86_64
           url = https://github.com/${{ github.repository }}
@@ -155,7 +157,8 @@ jobs:
           SIZE=$(du -sb ../../../../../../arch-classic | cut -f1)
           cat <<EOF > ../../../../../../arch-classic/.PKGINFO
           pkgname = synara-classic
-          pkgver = $VERSION-1
+          pkgver = $ARCH_VERSION-1
+
           pkgdesc = Synara Music Player (Classic)
           arch = x86_64
           url = https://github.com/${{ github.repository }}

@@ -6,24 +6,24 @@ import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.PlaybackState
 import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
-import dev.dertyp.serializers.BaseSerializersModule
-import dev.dertyp.serializers.UUIDByteSerializer
 import dev.dertyp.synara.rpc.services.AlbumServiceWrapper
 import dev.dertyp.synara.rpc.services.ArtistServiceWrapper
 import dev.dertyp.synara.rpc.services.SongServiceWrapper
 import dev.dertyp.synara.rpc.services.UserPlaylistServiceWrapper
 import dev.dertyp.synara.settings.SettingKey
+import dev.dertyp.synara.settings.SettingsFactory
 import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.put
 import dev.dertyp.synara.takeAverage
 import dev.dertyp.synara.ui.models.SnackbarManager
+import dev.dertyp.synara.utils.compress
+import dev.dertyp.synara.utils.decompress
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
-import kotlinx.serialization.modules.SerializersModule
-import kotlinx.serialization.modules.contextual
 import kotlinx.serialization.protobuf.ProtoBuf
 import okio.FileSystem
 import okio.Path
@@ -43,18 +43,17 @@ class PlayerModel(
     private val songCache: SongCache,
     private val settings: Settings,
     private val snackbarManager: SnackbarManager,
-    statePath: String
+    private val cbor: Cbor,
+    settingsFactory: SettingsFactory,
 ) {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val fileSystem = FileSystem.SYSTEM
-    private val path: Path = statePath.toPath()
+    private val path: Path = settingsFactory.getStatePath("player_state.cbor.xz").toPath()
+    private val oldPath: Path = settingsFactory.getStatePath("player_state.pb").toPath()
 
-    private val protoBuf = ProtoBuf {
+    private val migrationProtoBuf = ProtoBuf {
         encodeDefaults = true
-        serializersModule = SerializersModule {
-            include(BaseSerializersModule)
-            contextual(UUIDByteSerializer)
-        }
+        serializersModule = cbor.serializersModule
     }
 
     private var originalQueue: List<QueueEntry> = emptyList()
@@ -165,10 +164,24 @@ class PlayerModel(
 
     private fun loadState() {
         try {
-            if (!fileSystem.exists(path)) return
-
-            val bytes = fileSystem.read(path) { readByteArray() }
-            val state: PlayerState = protoBuf.decodeFromByteArray(bytes)
+            val state = when {
+                fileSystem.exists(path) -> {
+                    val bytes = fileSystem.read(path) { readByteArray() }
+                    val decompressed = try {
+                        decompress(bytes)
+                    } catch (_: Exception) {
+                        bytes
+                    }
+                    cbor.decodeFromByteArray<PlayerState>(decompressed)
+                }
+                fileSystem.exists(oldPath) -> {
+                    val bytes = fileSystem.read(oldPath) { readByteArray() }
+                    val decoded = migrationProtoBuf.decodeFromByteArray<PlayerState>(bytes)
+                    fileSystem.delete(oldPath)
+                    decoded
+                }
+                else -> null
+            } ?: return
 
             _queue.value = state.queue
             originalQueue = state.originalQueue
@@ -185,7 +198,8 @@ class PlayerModel(
                     }
                 }
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            e.printStackTrace()
             _queue.value = emptyList()
             originalQueue = emptyList()
             _currentIndex.value = -1
@@ -195,11 +209,13 @@ class PlayerModel(
     private fun saveState(state: PlayerState) {
         scope.launch(Dispatchers.Default) {
             try {
-                val bytes = protoBuf.encodeToByteArray(state)
+                val bytes = cbor.encodeToByteArray(state)
+                val compressed = compress(bytes)
                 fileSystem.write(path) {
-                    write(bytes)
+                    write(compressed)
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }
