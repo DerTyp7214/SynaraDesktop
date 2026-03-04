@@ -127,6 +127,10 @@ jobs:
           # Use Arch Linux container to run repo-add
           docker run --rm -v $(pwd):/repo archlinux:base bash -c "cd /repo && repo-add synara.db.tar.gz *.pkg.tar.zst"
           
+          # Copy to non-extension versions for pacman
+          cp synara.db.tar.gz synara.db
+          cp synara.files.tar.gz synara.files
+
           # Create a helper .conf file for pacman
           cat <<EOF > synara.conf
           [synara]
@@ -164,7 +168,9 @@ jobs:
             all-artifacts/ClassicApp-linux-x64.tar.gz
             all-artifacts/Synara-linux-x64.pkg.tar.zst
             all-artifacts/ClassicApp-linux-x64.pkg.tar.zst
+            all-artifacts/synara.db
             all-artifacts/synara.db.tar.gz
+            all-artifacts/synara.files
             all-artifacts/synara.files.tar.gz
             all-artifacts/synara.conf
           generate_release_notes: true
