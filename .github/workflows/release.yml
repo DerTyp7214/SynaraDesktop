@@ -40,14 +40,12 @@ jobs:
         run: |
           ./gradlew :app:createDistributable :classic:createDistributable
           
-          # Get version (removing prerelease info for Arch compatibility)
           VERSION=$(./gradlew :synara:properties -q | grep "^version:" | cut -d' ' -f2 | cut -d'-' -f1)
           
           # For Synara (app)
           cd app/build/compose/binaries/main/app
           tar -czf ../../../../../../Synara-linux-x64.tar.gz Synara
           
-          # Prepare Arch Linux Package for Synara (app)
           mkdir -p ../../../../../../arch-app/opt/synara
           cp -r Synara/* ../../../../../../arch-app/opt/synara/
           # Create a simple PKGBUILD-like PKGINFO
@@ -67,7 +65,6 @@ jobs:
           cd classic/build/compose/binaries/main/app
           tar -czf ../../../../../../ClassicApp-linux-x64.tar.gz Synara
           
-          # Prepare Arch Linux Package for Synara (classic)
           mkdir -p ../../../../../../arch-classic/opt/synara-classic
           cp -r Synara/* ../../../../../../arch-classic/opt/synara-classic/
           cat <<EOF > ../../../../../../arch-classic/.PKGINFO
@@ -124,14 +121,12 @@ jobs:
       - name: Create Arch Linux Repository Database
         run: |
           cd all-artifacts
-          # Use Arch Linux container to run repo-add
           docker run --rm -v $(pwd):/repo archlinux:base bash -c "cd /repo && repo-add synara.db.tar.gz *.pkg.tar.zst"
           
-          # Copy to non-extension versions for pacman
+          rm -f synara.db synara.files
           cp synara.db.tar.gz synara.db
           cp synara.files.tar.gz synara.files
 
-          # Create a helper .conf file for pacman
           cat <<EOF > synara.conf
           [synara]
           SigLevel = Optional TrustAll
@@ -144,9 +139,9 @@ jobs:
           tag_name: latest-dev
           name: Latest Development Build
           body: |
-            Automated build from the latest commit on `main`.
+            Automated build from the latest commit on `master`.
             
-            This release is updated on every push to the `main` branch.
+            This release is updated on every push to the `master` branch.
             
             ### Arch Linux Repository
             To use this release as a pacman repository, add the following to your `/etc/pacman.conf`:
