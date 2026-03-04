@@ -35,18 +35,52 @@ jobs:
       - name: Build Distributions
         run: ./gradlew :app:packageDistributionForCurrentOS :classic:packageDistributionForCurrentOS
 
-      - name: Build Linux Tarball
+      - name: Build Linux Tarballs and Arch Packages
         if: matrix.os == 'ubuntu-latest'
         run: |
           ./gradlew :app:createDistributable :classic:createDistributable
+          
+          # Get version (removing prerelease info for Arch compatibility)
+          VERSION=$(./gradlew :synara:properties -q | grep "^version:" | cut -d' ' -f2 | cut -d'-' -f1)
+          
           # For Synara (app)
           cd app/build/compose/binaries/main/app
           tar -czf ../../../../../../Synara-linux-x64.tar.gz Synara
-          cd ../../../../../../
+          
+          # Prepare Arch Linux Package for Synara (app)
+          mkdir -p ../../../../../../arch-app/opt/synara
+          cp -r Synara/* ../../../../../../arch-app/opt/synara/
+          # Create a simple PKGBUILD-like PKGINFO
+          cat <<EOF > ../../../../../../arch-app/.PKGINFO
+          pkgname = synara
+          pkgver = $VERSION
+          pkgrel = 1
+          pkgdesc = Synara Music Player
+          arch = x86_64
+          license = custom
+          EOF
+          cd ../../../../../../arch-app
+          tar --zstd -cf ../Synara-linux-x64.pkg.tar.zst .
+          cd ..
+
           # For Synara (classic)
           cd classic/build/compose/binaries/main/app
           tar -czf ../../../../../../ClassicApp-linux-x64.tar.gz Synara
-          cd ../../../../../../
+          
+          # Prepare Arch Linux Package for Synara (classic)
+          mkdir -p ../../../../../../arch-classic/opt/synara-classic
+          cp -r Synara/* ../../../../../../arch-classic/opt/synara-classic/
+          cat <<EOF > ../../../../../../arch-classic/.PKGINFO
+          pkgname = synara-classic
+          pkgver = $VERSION
+          pkgrel = 1
+          pkgdesc = Synara Music Player (Classic)
+          arch = x86_64
+          license = custom
+          EOF
+          cd ../../../../../../arch-classic
+          tar --zstd -cf ../ClassicApp-linux-x64.pkg.tar.zst .
+          cd ..
 
       - name: Collect Artifacts
         shell: bash
@@ -63,6 +97,8 @@ jobs:
             cp classic/build/compose/binaries/main/deb/*.deb artifacts/ClassicApp-linux-x64.deb || true
             if [ -f Synara-linux-x64.tar.gz ]; then mv Synara-linux-x64.tar.gz artifacts/; fi
             if [ -f ClassicApp-linux-x64.tar.gz ]; then mv ClassicApp-linux-x64.tar.gz artifacts/; fi
+            if [ -f Synara-linux-x64.pkg.tar.zst ]; then mv Synara-linux-x64.pkg.tar.zst artifacts/; fi
+            if [ -f ClassicApp-linux-x64.pkg.tar.zst ]; then mv ClassicApp-linux-x64.pkg.tar.zst artifacts/; fi
           fi
 
       - name: Upload artifacts
@@ -85,6 +121,19 @@ jobs:
           path: all-artifacts
           merge-multiple: true
 
+      - name: Create Arch Linux Repository Database
+        run: |
+          cd all-artifacts
+          # Use Arch Linux container to run repo-add
+          docker run --rm -v $(pwd):/repo archlinux:base bash -c "cd /repo && repo-add synara.db.tar.gz *.pkg.tar.zst"
+          
+          # Create a helper .conf file for pacman
+          cat <<EOF > synara.conf
+          [synara]
+          SigLevel = Optional TrustAll
+          Server = https://github.com/${{ github.repository }}/releases/download/latest-dev
+          EOF
+
       - name: Create or Update Release
         uses: softprops/action-gh-release@v2
         with:
@@ -94,6 +143,15 @@ jobs:
             Automated build from the latest commit on `main`.
             
             This release is updated on every push to the `main` branch.
+            
+            ### Arch Linux Repository
+            To use this release as a pacman repository, add the following to your `/etc/pacman.conf`:
+            ```ini
+            [synara]
+            SigLevel = Optional TrustAll
+            Server = https://github.com/${{ github.repository }}/releases/download/latest-dev
+            ```
+            Alternatively, download `synara.conf` and use `Include = /path/to/synara.conf`.
           prerelease: true
           files: |
             all-artifacts/Synara-windows-x64.msi
@@ -104,6 +162,11 @@ jobs:
             all-artifacts/ClassicApp-linux-x64.deb
             all-artifacts/Synara-linux-x64.tar.gz
             all-artifacts/ClassicApp-linux-x64.tar.gz
+            all-artifacts/Synara-linux-x64.pkg.tar.zst
+            all-artifacts/ClassicApp-linux-x64.pkg.tar.zst
+            all-artifacts/synara.db.tar.gz
+            all-artifacts/synara.files.tar.gz
+            all-artifacts/synara.conf
           generate_release_notes: true
           make_latest: true
         env:
