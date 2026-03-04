@@ -32,7 +32,15 @@ sealed class SettingKey<T>(val name: String) {
     data object HideOnClose : SettingKey<Boolean>("hide_on_close")
 
     companion object {
-        val authKeys = setOf(AuthToken.name, RefreshToken.name, TokenExpiration.name)
+        val authKeys = setOf(
+            AuthToken.name,
+            RefreshToken.name,
+            TokenExpiration.name,
+            ListenBrainzToken.name,
+            LastFmApiKey.name,
+            LastFmSharedSecret.name,
+            LastFmSessionKey.name
+        )
     }
 }
 
@@ -72,11 +80,16 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.ListenBrainzToken, is SettingKey.LastFmApiKey,
         is SettingKey.LastFmSharedSecret, is SettingKey.LastFmSessionKey,
         is SettingKey.LastFmUsername -> getStringOrNull(key.name) as T?
-        is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor -> getIntOrNull(key.name) as T?
+
+        is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor -> getIntOrNull(
+            key.name
+        ) as T?
+
         is SettingKey.TokenExpiration -> getLongOrNull(key.name) as T?
         is SettingKey.DarkTheme, is SettingKey.UseSongColor, is SettingKey.UsePywal,
         is SettingKey.IsListenBrainzEnabled, is SettingKey.IsLastFmEnabled,
         is SettingKey.IsDiscordRpcEnabled, SettingKey.HideOnClose -> getBooleanOrNull(key.name) as T?
+
         is SettingKey.Volume, is SettingKey.ParticleMultiplier -> getFloatOrNull(key.name) as T?
     }
 }
