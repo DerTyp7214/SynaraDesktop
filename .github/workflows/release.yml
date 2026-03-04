@@ -62,7 +62,7 @@ jobs:
           size = $SIZE
           EOF
           cd ../../../../../../arch-app
-          tar --zstd -cf ../Synara-linux-x64.pkg.tar.zst .
+          tar --zstd -cf ../Synara-linux-x64.pkg.tar.zst .PKGINFO opt
           cd ..
 
           # For Synara (classic)
@@ -84,7 +84,7 @@ jobs:
           size = $SIZE
           EOF
           cd ../../../../../../arch-classic
-          tar --zstd -cf ../ClassicApp-linux-x64.pkg.tar.zst .
+          tar --zstd -cf ../ClassicApp-linux-x64.pkg.tar.zst .PKGINFO opt
           cd ..
 
       - name: Collect Artifacts
