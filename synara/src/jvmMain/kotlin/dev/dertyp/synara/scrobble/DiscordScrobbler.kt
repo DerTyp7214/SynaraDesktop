@@ -5,6 +5,7 @@ import dev.dertyp.core.cleanTitle
 import dev.dertyp.core.joinArtists
 import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
+import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.settings.SettingKey
@@ -33,15 +34,17 @@ actual class DiscordScrobbler actual constructor(
 
     private var client: DiscordIpcClient? = null
     private var isClientRunning = false
-    private val applicationId = "1435589125301600356"
+    private val applicationId = if (BuildConfig.IS_DEBUG) "1435589125301600356"
+    else "1451162371497263104"
 
     private var updateJob: Job? = null
 
-    private val imageCache = Collections.synchronizedMap(object : LinkedHashMap<String, String>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?): Boolean {
-            return size > 1000
-        }
-    })
+    private val imageCache =
+        Collections.synchronizedMap(object : LinkedHashMap<String, String>(16, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?): Boolean {
+                return size > 1000
+            }
+        })
 
     private val imageJobs = mutableMapOf<String, Deferred<String?>>()
 
@@ -102,9 +105,10 @@ actual class DiscordScrobbler actual constructor(
                         val port = rpcServiceManager.port ?: return@async null
                         val token = rpcServiceManager.getAuthToken() ?: return@async null
 
-                        val response = httpClient.get("http://$host:$port/metadata/imageCache/imageUrlById/$imageId") {
-                            header("Authorization", "Bearer $token")
-                        }
+                        val response =
+                            httpClient.get("http://$host:$port/metadata/imageCache/imageUrlById/$imageId") {
+                                header("Authorization", "Bearer $token")
+                            }
                         if (response.status.value in 200..299) {
                             val url = response.bodyAsText()
                             imageCache[imageId] = url
@@ -113,7 +117,10 @@ actual class DiscordScrobbler actual constructor(
                             null
                         }
                     } catch (e: Exception) {
-                        logger.error(LogTag.SCROBBLER, "Failed to fetch image URL from cache: ${e.message}")
+                        logger.error(
+                            LogTag.SCROBBLER,
+                            "Failed to fetch image URL from cache: ${e.message}"
+                        )
                         null
                     } finally {
                         @Suppress("DeferredResultUnused")

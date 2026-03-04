@@ -10,6 +10,7 @@ import dev.dertyp.serializers.AppJson
 import dev.dertyp.services.*
 import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.db.SynaraDatabase
+import dev.dertyp.synara.logging.StdoutLogPersistence
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.SongCache
 import dev.dertyp.synara.rpc.RpcServiceManager
@@ -80,7 +81,7 @@ val appModule = module {
     
     single { SynaraDatabase(get()) }
 
-    single<Logger> { BaseLogger(null, get()) }
+    single<Logger> { BaseLogger(StdoutLogPersistence(), get()) }
 
     singleOf(::RpcServiceManager)
     singleOf(::GlobalStateModel)

@@ -4,6 +4,7 @@ package dev.dertyp.synara.player
 
 import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
+import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.rpc.RpcServiceManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
@@ -226,9 +227,9 @@ open class MprisObjectImpl(private val playerModel: PlayerModel) : IMprisMediaPl
     @DBusBoundProperty(name = "HasTrackList")
     override fun getHasTrackList() = false
     @DBusBoundProperty(name = "Identity")
-    override fun getIdentity() = "Synara"
+    override fun getIdentity() = if (BuildConfig.IS_DEBUG) "Synara Dev" else "Synara"
     @DBusBoundProperty(name = "DesktopEntry")
-    override fun getDesktopEntry() = "synara"
+    override fun getDesktopEntry() = if (BuildConfig.IS_DEBUG) "synara-dev" else "synara"
     @DBusBoundProperty(name = "SupportedUriSchemes")
     override fun getSupportedUriSchemes() = emptyArray<String>()
     @DBusBoundProperty(name = "SupportedMimeTypes")
@@ -303,7 +304,8 @@ class MprisPlayer(private val playerModel: PlayerModel) : IMprisPlayer {
         scope.launch {
             try {
                 connection = DBusConnectionBuilder.forSessionBus().withShared(false).build()
-                connection?.requestBusName("org.mpris.MediaPlayer2.synara")
+                val busName = if (BuildConfig.IS_DEBUG) "org.mpris.MediaPlayer2.synara-dev" else "org.mpris.MediaPlayer2.synara"
+                connection?.requestBusName(busName)
                 connection?.exportObject("/org/mpris/MediaPlayer2", MprisObjectImpl(playerModel))
 
                 launch {

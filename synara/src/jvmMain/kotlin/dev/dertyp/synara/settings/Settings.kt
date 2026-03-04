@@ -2,27 +2,14 @@ package dev.dertyp.synara.settings
 
 import com.charleskorn.kaml.*
 import com.russhwolf.settings.Settings
+import dev.dertyp.synara.utils.getAppDataDir
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import java.io.File
 
 actual class SettingsFactory actual constructor() {
-    private fun getConfigDir(): File {
-        val os = System.getProperty("os.name").lowercase()
-        val configDir = when {
-            os.contains("win") -> File(System.getenv("AppData"), "synara")
-            os.contains("mac") -> File(System.getProperty("user.home"), "Library/Application Support/synara")
-            else -> File(System.getProperty("user.home"), ".config/synara")
-        }
-
-        if (!configDir.exists()) {
-            configDir.mkdirs()
-        }
-        return configDir
-    }
-
     actual fun create(): Settings {
-        val configDir = getConfigDir()
+        val configDir = getAppDataDir()
         val configFile = File(configDir, "config.yml")
         val authFile = File(configDir, "auth.yml")
 
@@ -34,7 +21,7 @@ actual class SettingsFactory actual constructor() {
     }
 
     actual fun getStatePath(fileName: String): String {
-        return File(getConfigDir(), fileName).absolutePath
+        return File(getAppDataDir(), fileName).absolutePath
     }
 }
 
