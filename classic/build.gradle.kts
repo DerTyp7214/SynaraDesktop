@@ -47,6 +47,8 @@ compose.desktop {
             macOS {
                 iconFile.set(commonIcon)
             }
+
+            modules("jdk.unsupported", "java.sql", "jdk.security.auth", "java.naming")
         }
     }
 }

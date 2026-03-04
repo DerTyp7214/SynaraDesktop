@@ -50,15 +50,17 @@ jobs:
           mkdir -p ../../../../../../arch-app/opt/synara
           mkdir -p ../../../../../../arch-app/usr/share/applications
           mkdir -p ../../../../../../arch-app/usr/share/icons/hicolor/512x512/apps
+          mkdir -p ../../../../../../arch-app/usr/share/pixmaps
           
           cp -r Synara/* ../../../../../../arch-app/opt/synara/
           cp ../../../../../../synara/src/commonMain/resources/icon.png ../../../../../../arch-app/usr/share/icons/hicolor/512x512/apps/synara.png
+          cp ../../../../../../synara/src/commonMain/resources/icon.png ../../../../../../arch-app/usr/share/pixmaps/synara.png
           
           cat <<EOF > ../../../../../../arch-app/usr/share/applications/synara.desktop
           [Desktop Entry]
           Name=Synara
           Comment=Synara Music Player
-          Exec=/opt/synara/Synara
+          Exec=/opt/synara/bin/Synara
           Icon=synara
           Terminal=false
           Type=Application
@@ -88,15 +90,17 @@ jobs:
           mkdir -p ../../../../../../arch-classic/opt/synara-classic
           mkdir -p ../../../../../../arch-classic/usr/share/applications
           mkdir -p ../../../../../../arch-classic/usr/share/icons/hicolor/512x512/apps
+          mkdir -p ../../../../../../arch-classic/usr/share/pixmaps
           
           cp -r Synara/* ../../../../../../arch-classic/opt/synara-classic/
           cp ../../../../../../synara/src/commonMain/resources/icon.png ../../../../../../arch-classic/usr/share/icons/hicolor/512x512/apps/synara-classic.png
+          cp ../../../../../../synara/src/commonMain/resources/icon.png ../../../../../../arch-classic/usr/share/pixmaps/synara-classic.png
           
           cat <<EOF > ../../../../../../arch-classic/usr/share/applications/synara-classic.desktop
           [Desktop Entry]
           Name=Synara (Classic)
           Comment=Synara Music Player (Classic)
-          Exec=/opt/synara-classic/Synara
+          Exec=/opt/synara-classic/bin/Synara
           Icon=synara-classic
           Terminal=false
           Type=Application

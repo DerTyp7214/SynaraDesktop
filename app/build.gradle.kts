@@ -78,7 +78,7 @@ compose.desktop {
                 iconFile.set(commonIcon)
             }
 
-            modules("jdk.unsupported")
+            modules("jdk.unsupported", "java.sql", "jdk.security.auth", "java.naming")
         }
     }
 }
