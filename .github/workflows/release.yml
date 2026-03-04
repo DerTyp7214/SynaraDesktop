@@ -38,11 +38,11 @@ jobs:
           # For Synara (app)
           cd app/build/compose/binaries/main/app
           tar -czf ../../../../../Synara-linux-x64.tar.gz Synara
-          cd ../../../../../
+          cd ../../../../../../
           # For Synara (classic)
           cd classic/build/compose/binaries/main/app
           tar -czf ../../../../../ClassicApp-linux-x64.tar.gz Synara
-          cd ../../../../../
+          cd ../../../../../../
 
       - name: Collect Artifacts
         shell: bash
