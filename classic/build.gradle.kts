@@ -33,7 +33,7 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "ClassicApp"
+            packageName = "Synara"
             packageVersion = "1.0.0"
             
             val commonIcon = project(":synara").projectDir.resolve("src/commonMain/resources/icon.png")
