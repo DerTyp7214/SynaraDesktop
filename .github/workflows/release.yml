@@ -64,6 +64,7 @@ jobs:
         with:
           name: artifacts-${{ matrix.os }}
           path: artifacts/
+          retention-days: 1
 
   release:
     name: Create/Update Release
