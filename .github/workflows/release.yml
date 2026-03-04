@@ -6,6 +6,10 @@ on:
       - master
   workflow_dispatch:
 
+concurrency:
+  group: release
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build for ${{ matrix.os }}
@@ -37,11 +41,11 @@ jobs:
           ./gradlew :app:createDistributable :classic:createDistributable
           # For Synara (app)
           cd app/build/compose/binaries/main/app
-          tar -czf ../../../../../Synara-linux-x64.tar.gz Synara
+          tar -czf ../../../../../../Synara-linux-x64.tar.gz Synara
           cd ../../../../../../
           # For Synara (classic)
           cd classic/build/compose/binaries/main/app
-          tar -czf ../../../../../ClassicApp-linux-x64.tar.gz Synara
+          tar -czf ../../../../../../ClassicApp-linux-x64.tar.gz Synara
           cd ../../../../../../
 
       - name: Collect Artifacts
