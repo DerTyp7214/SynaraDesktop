@@ -32,6 +32,12 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v5
 
+      - name: Install dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+
       - name: Build Distributions
         run: ./gradlew :app:packageDistributionForCurrentOS :classic:packageDistributionForCurrentOS
 
@@ -49,12 +55,17 @@ jobs:
           
           mkdir -p ../../../../../../arch-app/opt/synara
           mkdir -p ../../../../../../arch-app/usr/share/applications
-          mkdir -p ../../../../../../arch-app/usr/share/icons/hicolor/512x512/apps
+          mkdir -p ../../../../../../arch-app/usr/share/icons/hicolor/scalable/apps
           mkdir -p ../../../../../../arch-app/usr/share/pixmaps
           
           cp -r Synara/* ../../../../../../arch-app/opt/synara/
-          cp ../../../../../../synara/src/commonMain/resources/icon.png ../../../../../../arch-app/usr/share/icons/hicolor/512x512/apps/synara.png
+          cp ../../../../../../synara/src/commonMain/resources/icon.svg ../../../../../../arch-app/usr/share/icons/hicolor/scalable/apps/synara.svg
           cp ../../../../../../synara/src/commonMain/resources/icon.png ../../../../../../arch-app/usr/share/pixmaps/synara.png
+          
+          for size in 16 24 32 48 64 96 128 256 512 1024; do
+            mkdir -p ../../../../../../arch-app/usr/share/icons/hicolor/${size}x${size}/apps
+            convert ../../../../../../synara/src/commonMain/resources/icon.png -resize ${size}x${size} ../../../../../../arch-app/usr/share/icons/hicolor/${size}x${size}/apps/synara.png
+          done
           
           cat <<EOF > ../../../../../../arch-app/usr/share/applications/synara.desktop
           [Desktop Entry]
@@ -65,6 +76,20 @@ jobs:
           Terminal=false
           Type=Application
           Categories=Audio;Music;Player;
+          EOF
+
+          # Add .INSTALL script for post-install triggers
+          cat <<EOF > ../../../../../../arch-app/.INSTALL
+          post_install() {
+            update-desktop-database -q
+            gtk-update-icon-cache -q -t -f usr/share/icons/hicolor
+          }
+          post_upgrade() {
+            post_install
+          }
+          post_remove() {
+            post_install
+          }
           EOF
 
           SIZE=$(du -sb ../../../../../../arch-app | cut -f1)
@@ -78,9 +103,10 @@ jobs:
           builddate = $(date +%s)
           packager = GitHub Actions
           size = $SIZE
+          install = .INSTALL
           EOF
           cd ../../../../../../arch-app
-          tar --zstd -cf ../Synara-linux-x64.pkg.tar.zst .PKGINFO opt usr
+          tar --zstd -cf ../Synara-linux-x64.pkg.tar.zst .PKGINFO .INSTALL opt usr
           cd ..
 
           # For Synara (classic)
@@ -89,12 +115,17 @@ jobs:
           
           mkdir -p ../../../../../../arch-classic/opt/synara-classic
           mkdir -p ../../../../../../arch-classic/usr/share/applications
-          mkdir -p ../../../../../../arch-classic/usr/share/icons/hicolor/512x512/apps
+          mkdir -p ../../../../../../arch-classic/usr/share/icons/hicolor/scalable/apps
           mkdir -p ../../../../../../arch-classic/usr/share/pixmaps
           
           cp -r Synara/* ../../../../../../arch-classic/opt/synara-classic/
-          cp ../../../../../../synara/src/commonMain/resources/icon.png ../../../../../../arch-classic/usr/share/icons/hicolor/512x512/apps/synara-classic.png
+          cp ../../../../../../synara/src/commonMain/resources/icon.svg ../../../../../../arch-classic/usr/share/icons/hicolor/scalable/apps/synara-classic.svg
           cp ../../../../../../synara/src/commonMain/resources/icon.png ../../../../../../arch-classic/usr/share/pixmaps/synara-classic.png
+          
+          for size in 16 24 32 48 64 96 128 256 512 1024; do
+            mkdir -p ../../../../../../arch-classic/usr/share/icons/hicolor/${size}x${size}/apps
+            convert ../../../../../../synara/src/commonMain/resources/icon.png -resize ${size}x${size} ../../../../../../arch-classic/usr/share/icons/hicolor/${size}x${size}/apps/synara-classic.png
+          done
           
           cat <<EOF > ../../../../../../arch-classic/usr/share/applications/synara-classic.desktop
           [Desktop Entry]
@@ -105,6 +136,20 @@ jobs:
           Terminal=false
           Type=Application
           Categories=Audio;Music;Player;
+          EOF
+
+          # Add .INSTALL script for classic
+          cat <<EOF > ../../../../../../arch-classic/.INSTALL
+          post_install() {
+            update-desktop-database -q
+            gtk-update-icon-cache -q -t -f usr/share/icons/hicolor
+          }
+          post_upgrade() {
+            post_install
+          }
+          post_remove() {
+            post_install
+          }
           EOF
 
           SIZE=$(du -sb ../../../../../../arch-classic | cut -f1)
@@ -118,9 +163,10 @@ jobs:
           builddate = $(date +%s)
           packager = GitHub Actions
           size = $SIZE
+          install = .INSTALL
           EOF
           cd ../../../../../../arch-classic
-          tar --zstd -cf ../ClassicApp-linux-x64.pkg.tar.zst .PKGINFO opt usr
+          tar --zstd -cf ../ClassicApp-linux-x64.pkg.tar.zst .PKGINFO .INSTALL opt usr
           cd ..
 
       - name: Collect Artifacts
