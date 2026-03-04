@@ -42,7 +42,7 @@ fun VisualizerView(
         val barCount = (widthPx / (targetBarWidthPx + spacingPx)).toInt().coerceAtLeast(1)
         val actualBarWidth = (widthPx - (barCount - 1) * spacingPx) / barCount
         
-        val smoothingFactor = 0.85f
+        val smoothingFactor = 0.75f
         val smoothedHeights = remember(barCount) { FloatArray(barCount) { minHeightPx } }
 
         var tick by remember { mutableLongStateOf(0L) }

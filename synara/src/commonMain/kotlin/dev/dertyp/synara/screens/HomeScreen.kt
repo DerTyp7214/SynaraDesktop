@@ -241,6 +241,18 @@ class HomeScreen : Screen {
                 }
             )
 
+            Spacer(modifier = Modifier.height(8.dp))
+
+            NavigationItem(
+                label = stringResource(Res.string.songs),
+                icon = Icons.Rounded.MusicNote,
+                selected = navigator.lastItem is AllSongsScreen,
+                onClick = {
+                    if (navigator.lastItem !is AllSongsScreen) navigator.push(AllSongsScreen())
+                    onItemClick?.invoke()
+                }
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
 
             Row(
@@ -627,6 +639,7 @@ private class DashboardScreen : Screen {
 
     @Composable
     private fun DashboardStats(stats: ServerStats) {
+        val navigator = LocalNavigator.currentOrThrow
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -635,7 +648,11 @@ private class DashboardScreen : Screen {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                StatCard(stringResource(Res.string.songs), stats.songCount.toString(), Modifier.weight(1f))
+                StatCard(
+                    stringResource(Res.string.songs),
+                    stats.songCount.toString(),
+                    Modifier.weight(1f),
+                )
                 StatCard(stringResource(Res.string.albums), stats.albumCount.toString(), Modifier.weight(1f))
             }
             Row(
@@ -669,12 +686,14 @@ private class DashboardScreen : Screen {
     }
 
     @Composable
-    private fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
+    private fun StatCard(title: String, value: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
         Card(
             modifier = modifier,
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            )
+            ),
+            onClick = { onClick?.invoke() },
+            enabled = onClick != null
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
