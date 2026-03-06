@@ -148,6 +148,8 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                         showCover = true,
                         onClick = { screenModel.playSong(song) },
                         onPlayNext = { screenModel.playerModel.playNext(song) },
+                        isInPlaylist = state.isUserPlaylist,
+                        onRemoveFromPlaylist = { screenModel.playerModel.removeSongFromPlaylist(playlistId, song.id) }
                     )
                 }
 

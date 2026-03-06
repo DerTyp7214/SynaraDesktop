@@ -18,6 +18,8 @@ import dev.dertyp.synara.screens.AlbumScreen
 import dev.dertyp.synara.screens.ArtistScreen
 import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.ArtistListDialog
+import dev.dertyp.synara.ui.components.dialogs.CreatePlaylistDialog
+import dev.dertyp.synara.ui.components.dialogs.PlaylistPickerDialog
 import dev.dertyp.synara.ui.components.dialogs.SongInfoDialog
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import org.jetbrains.compose.resources.stringResource
@@ -38,6 +40,8 @@ fun SongContextMenu(
 ) {
     var showInfoDialog by remember { mutableStateOf(false) }
     var showArtistListDialog by remember { mutableStateOf(false) }
+    var showPlaylistPickerDialog by remember { mutableStateOf(false) }
+    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     val navigator = LocalNavigator.current
 
     SynaraMenu(
@@ -154,7 +158,10 @@ fun SongContextMenu(
         )
         DropdownMenuItem(
             text = { Text(stringResource(Res.string.add_to_playlist)) },
-            onClick = { onDismissRequest() },
+            onClick = {
+                showPlaylistPickerDialog = true
+                onDismissRequest()
+            },
             leadingIcon = {
                 Icon(
                     Icons.AutoMirrored.Rounded.PlaylistAdd,
@@ -258,5 +265,24 @@ fun SongContextMenu(
             navigator?.push(ArtistScreen(artist.id))
         },
         onDismissRequest = { showArtistListDialog = false }
+    )
+
+    PlaylistPickerDialog(
+        isOpen = showPlaylistPickerDialog,
+        onPlaylistSelected = { playlist ->
+            playerModel.addSongToPlaylist(playlist.id, song.id)
+        },
+        onCreatePlaylist = {
+            showCreatePlaylistDialog = true
+        },
+        onDismissRequest = { showPlaylistPickerDialog = false }
+    )
+
+    CreatePlaylistDialog(
+        isOpen = showCreatePlaylistDialog,
+        onConfirm = { name ->
+            playerModel.createPlaylist(name, song.id)
+        },
+        onDismissRequest = { showCreatePlaylistDialog = false }
     )
 }

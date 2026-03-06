@@ -96,6 +96,14 @@
     <string name="show_artists">Show artists</string>
     <string name="show_album">Show album</string>
     <string name="add_to_playlist">Add to playlist</string>
+    <string name="added_to_playlist">Added to playlist</string>
+    <string name="added_to_playlist_item">Added **%1$s** to **%2$s**</string>
+    <string name="select_playlist">Select playlist</string>
+    <string name="new_playlist">New playlist</string>
+    <string name="create_playlist">Create playlist</string>
+    <string name="playlist_created">Playlist created</string>
+    <string name="playlist_name">Playlist name</string>
+    <string name="playlist_name_hint">Enter playlist name</string>
     <string name="remove_from_playlist">Remove from playlist</string>
     <string name="remove_from_queue">Remove from queue</string>
     <string name="delete">Delete</string>

@@ -117,7 +117,7 @@ class GlobalStateModel(
             _isRefreshingPlaylists.value = true
             try {
                 val currentUser = _user.value ?: userService.me().also { _user.value = it }
-                val response = userPlaylistService.allPlaylists(currentUser.id, 0, 100)
+                val response = userPlaylistService.allPlaylists(currentUser.id, 0, Int.MAX_VALUE)
                 _userPlaylists.value = response.data
             } catch (e: Exception) {
                 e.printStackTrace()

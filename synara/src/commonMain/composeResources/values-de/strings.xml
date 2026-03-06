@@ -96,6 +96,14 @@
     <string name="show_artists">Künstler anzeigen</string>
     <string name="show_album">Album anzeigen</string>
     <string name="add_to_playlist">Zur Playlist hinzufügen</string>
+    <string name="added_to_playlist">Zur Playlist hinzugefügt</string>
+    <string name="added_to_playlist_item">**%1$s** zu **%2$s** hinzugefügt</string>
+    <string name="select_playlist">Playlist auswählen</string>
+    <string name="new_playlist">Neue Playlist</string>
+    <string name="create_playlist">Playlist erstellen</string>
+    <string name="playlist_created">Playlist erstellt</string>
+    <string name="playlist_name">Name der Playlist</string>
+    <string name="playlist_name_hint">Name der Playlist eingeben</string>
     <string name="remove_from_playlist">Aus Playlist entfernen</string>
     <string name="remove_from_queue">Aus Warteschlange entfernen</string>
     <string name="delete">Löschen</string>

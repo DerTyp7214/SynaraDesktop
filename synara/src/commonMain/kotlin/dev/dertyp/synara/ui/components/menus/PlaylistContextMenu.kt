@@ -8,7 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -18,9 +18,12 @@ import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.ui.components.SynaraMenu
+import dev.dertyp.synara.ui.components.dialogs.CreatePlaylistDialog
+import dev.dertyp.synara.ui.components.dialogs.PlaylistPickerDialog
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.add_to_playlist
 import synara.synara.generated.resources.add_to_queue
 import synara.synara.generated.resources.play_next
 
@@ -31,6 +34,9 @@ fun PlaylistContextMenu(
     onDismissRequest: () -> Unit,
     playerModel: PlayerModel = koinInject(),
 ) {
+    var showPlaylistPickerDialog by remember { mutableStateOf(false) }
+    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+
     SynaraMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
@@ -69,5 +75,33 @@ fun PlaylistContextMenu(
             },
             leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistPlay, contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
+
+        DropdownMenuItem(
+            text = { Text(stringResource(Res.string.add_to_playlist)) },
+            onClick = {
+                showPlaylistPickerDialog = true
+                onDismissRequest()
+            },
+            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null, modifier = Modifier.size(20.dp)) }
+        )
     }
+
+    PlaylistPickerDialog(
+        isOpen = showPlaylistPickerDialog,
+        onPlaylistSelected = { targetPlaylist ->
+            playerModel.addPlaylistToPlaylist(playlist.id, targetPlaylist.id)
+        },
+        onCreatePlaylist = {
+            showCreatePlaylistDialog = true
+        },
+        onDismissRequest = { showPlaylistPickerDialog = false }
+    )
+
+    CreatePlaylistDialog(
+        isOpen = showCreatePlaylistDialog,
+        onConfirm = { name ->
+            playerModel.createPlaylistWithPlaylist(name, playlist.id)
+        },
+        onDismissRequest = { showCreatePlaylistDialog = false }
+    )
 }
