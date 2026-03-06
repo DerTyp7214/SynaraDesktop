@@ -13,7 +13,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.data.UserSong
+import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.player.QueueEntry
 import dev.dertyp.synara.screens.AlbumScreen
 import dev.dertyp.synara.screens.ArtistScreen
 import dev.dertyp.synara.ui.components.SynaraMenu
@@ -270,9 +272,10 @@ fun SongContextMenu(
     PlaylistPickerDialog(
         isOpen = showPlaylistPickerDialog,
         onPlaylistSelected = { playlist ->
-            playerModel.addSongToPlaylist(playlist.id, song.id)
+            playerModel.addSongsToPlaylist(playlist.id, PlaybackQueue(items = listOf(QueueEntry.Explicit(song))))
         },
         onCreatePlaylist = {
+            showPlaylistPickerDialog = false
             showCreatePlaylistDialog = true
         },
         onDismissRequest = { showPlaylistPickerDialog = false }
@@ -281,7 +284,7 @@ fun SongContextMenu(
     CreatePlaylistDialog(
         isOpen = showCreatePlaylistDialog,
         onConfirm = { name ->
-            playerModel.createPlaylist(name, song.id)
+            playerModel.createPlaylist(name, PlaybackQueue(items = listOf(QueueEntry.Explicit(song))))
         },
         onDismissRequest = { showCreatePlaylistDialog = false }
     )

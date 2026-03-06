@@ -10,6 +10,7 @@ import dev.dertyp.services.ISongService
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.rpc.RpcServiceManager
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.update
@@ -25,13 +26,17 @@ data class AlbumState(
 
 class AlbumScreenModel(
     private val albumId: PlatformUUID,
+    private val rpcServiceManager: RpcServiceManager,
     private val albumService: IAlbumService,
     private val songService: ISongService,
     val playerModel: PlayerModel
 ) : StateScreenModel<AlbumState>(AlbumState()) {
 
     init {
-        loadAlbum()
+        screenModelScope.launch {
+            rpcServiceManager.awaitAuthentication()
+            loadAlbum()
+        }
     }
 
     private fun loadAlbum() {

@@ -89,9 +89,10 @@ fun PlaylistContextMenu(
     PlaylistPickerDialog(
         isOpen = showPlaylistPickerDialog,
         onPlaylistSelected = { targetPlaylist ->
-            playerModel.addPlaylistToPlaylist(playlist.id, targetPlaylist.id)
+            playerModel.addSongsToPlaylist(targetPlaylist.id, PlaybackQueue(source = PlaybackSource.Playlist(playlist.id)))
         },
         onCreatePlaylist = {
+            showPlaylistPickerDialog = false
             showCreatePlaylistDialog = true
         },
         onDismissRequest = { showPlaylistPickerDialog = false }
@@ -100,7 +101,7 @@ fun PlaylistContextMenu(
     CreatePlaylistDialog(
         isOpen = showCreatePlaylistDialog,
         onConfirm = { name ->
-            playerModel.createPlaylistWithPlaylist(name, playlist.id)
+            playerModel.createPlaylist(name, PlaybackQueue(source = PlaybackSource.Playlist(playlist.id)))
         },
         onDismissRequest = { showCreatePlaylistDialog = false }
     )

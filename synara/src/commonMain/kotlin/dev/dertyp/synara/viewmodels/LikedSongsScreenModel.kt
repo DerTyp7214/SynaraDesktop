@@ -4,17 +4,14 @@ import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.ISongService
-import dev.dertyp.synara.player.CacheUpdate
-import dev.dertyp.synara.player.PlaybackQueue
-import dev.dertyp.synara.player.PlaybackSource
-import dev.dertyp.synara.player.PlaylistUpdate
-import dev.dertyp.synara.player.SongCache
-import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.player.*
+import dev.dertyp.synara.rpc.RpcServiceManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class LikedSongsScreenModel(
+    private val rpcServiceManager: RpcServiceManager,
     private val songService: ISongService,
     private val songCache: SongCache,
     val playerModel: PlayerModel
@@ -29,7 +26,10 @@ class LikedSongsScreenModel(
     private var isFetching = false
 
     init {
-        loadLikedSongs()
+        screenModelScope.launch {
+            rpcServiceManager.awaitAuthentication()
+            loadLikedSongs()
+        }
 
         screenModelScope.launch {
             songCache.updates.collect { update ->

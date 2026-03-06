@@ -5,11 +5,13 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.ISongService
 import dev.dertyp.synara.player.*
+import dev.dertyp.synara.rpc.RpcServiceManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class AllSongsScreenModel(
+    private val rpcServiceManager: RpcServiceManager,
     private val songService: ISongService,
     private val songCache: SongCache,
     val playerModel: PlayerModel
@@ -22,7 +24,10 @@ class AllSongsScreenModel(
     private val loadingPages = mutableSetOf<Int>()
 
     init {
-        loadInitialData()
+        screenModelScope.launch {
+            rpcServiceManager.awaitAuthentication()
+            loadInitialData()
+        }
 
         screenModelScope.launch {
             songCache.updates.collect { update ->

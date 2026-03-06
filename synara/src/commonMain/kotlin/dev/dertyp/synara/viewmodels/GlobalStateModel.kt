@@ -5,6 +5,7 @@ import dev.dertyp.data.UserPlaylist
 import dev.dertyp.synara.Config
 import dev.dertyp.synara.player.PlaylistUpdate
 import dev.dertyp.synara.player.SongCache
+import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.services.UserPlaylistServiceWrapper
 import dev.dertyp.synara.rpc.services.UserServiceWrapper
 import dev.dertyp.synara.scrobble.*
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class GlobalStateModel(
+    private val rpcServiceManager: RpcServiceManager,
     private val userService: UserServiceWrapper,
     private val userPlaylistService: UserPlaylistServiceWrapper,
     private val scrobblerService: ScrobblerService,
@@ -55,8 +57,14 @@ class GlobalStateModel(
     val searchQuery = _searchQuery.asStateFlow()
 
     init {
-        refreshUser()
-        refreshPlaylists()
+        scope.launch {
+            rpcServiceManager.connectionState.collectLatest { state ->
+                if (state == RpcServiceManager.ConnectionState.Authenticated) {
+                    refreshUser()
+                    refreshPlaylists()
+                }
+            }
+        }
 
         scrobblerService.registerScrobbler(LocalSongScrobbler::class)
         scrobblerService.registerScrobbler(RecentlyPlayedScrobbler::class)

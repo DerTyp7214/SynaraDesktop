@@ -12,6 +12,7 @@ import dev.dertyp.services.ISongService
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.rpc.RpcServiceManager
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.update
@@ -27,6 +28,7 @@ data class ArtistState(
 
 class ArtistScreenModel(
     private val artistId: PlatformUUID,
+    private val rpcServiceManager: RpcServiceManager,
     private val artistService: IArtistService,
     private val songService: ISongService,
     private val albumService: IAlbumService,
@@ -34,7 +36,10 @@ class ArtistScreenModel(
 ) : StateScreenModel<ArtistState>(ArtistState()) {
 
     init {
-        loadArtist()
+        screenModelScope.launch {
+            rpcServiceManager.awaitAuthentication()
+            loadArtist()
+        }
     }
 
     private fun loadArtist() {

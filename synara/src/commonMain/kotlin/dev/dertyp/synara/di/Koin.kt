@@ -101,15 +101,16 @@ val appModule = module {
     factoryOf(::AllSongsScreenModel)
     factoryOf(::SessionsScreenModel)
 
-    factory { (artistId: PlatformUUID) -> ArtistScreenModel(artistId, get(), get(), get(), get()) }
-    factory { (artistId: PlatformUUID) -> ArtistSongsScreenModel(artistId, get(), get(), get()) }
-    factory { (artistId: PlatformUUID) -> ArtistAlbumsScreenModel(artistId, get(), get()) }
-    factory { (artistId: PlatformUUID) -> ArtistLikedSongsScreenModel(artistId, get(), get(), get()) }
-    factory { (albumId: PlatformUUID) -> AlbumScreenModel(albumId, get(), get(), get()) }
+    factory { (artistId: PlatformUUID) -> ArtistScreenModel(artistId, get(), get(), get(), get(), get()) }
+    factory { (artistId: PlatformUUID) -> ArtistSongsScreenModel(artistId, get(), get(), get(), get()) }
+    factory { (artistId: PlatformUUID) -> ArtistAlbumsScreenModel(artistId, get(), get(), get()) }
+    factory { (artistId: PlatformUUID) -> ArtistLikedSongsScreenModel(artistId, get(), get(), get(), get()) }
+    factory { (albumId: PlatformUUID) -> AlbumScreenModel(albumId, get(), get(), get(), get()) }
     factory { (playlistId: PlatformUUID, isUserPlaylist: Boolean) ->
         PlaylistScreenModel(
             playlistId,
             isUserPlaylist,
+            get(),
             get(),
             get(),
             get(),

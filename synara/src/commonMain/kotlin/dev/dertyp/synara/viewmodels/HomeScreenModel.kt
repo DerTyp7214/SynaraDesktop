@@ -49,7 +49,10 @@ class HomeScreenModel(
         .stateIn(screenModelScope, SharingStarted.Eagerly, emptyList())
 
     init {
-        loadStats()
+        screenModelScope.launch {
+            rpcServiceManager.awaitAuthentication()
+            loadStats()
+        }
     }
 
     fun loadStats() {

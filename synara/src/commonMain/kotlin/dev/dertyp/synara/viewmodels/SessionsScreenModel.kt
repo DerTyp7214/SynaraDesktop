@@ -29,7 +29,10 @@ class SessionsScreenModel(
         get() = rpcServiceManager.sessionId?.toPlatformUUID()
 
     init {
-        loadSessions()
+        screenModelScope.launch {
+            rpcServiceManager.awaitAuthentication()
+            loadSessions()
+        }
     }
 
     fun loadSessions() {

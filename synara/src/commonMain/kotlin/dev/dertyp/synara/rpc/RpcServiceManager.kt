@@ -12,9 +12,7 @@ import dev.dertyp.toEpochMilliseconds
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -141,6 +139,10 @@ class RpcServiceManager(
 
     suspend fun refreshConnectionState() {
         _connectionState.value = checkConnectionState()
+    }
+
+    suspend fun awaitAuthentication() {
+        connectionState.filter { it == ConnectionState.Authenticated }.first()
     }
 
     private suspend fun checkConnectionState(): ConnectionState {

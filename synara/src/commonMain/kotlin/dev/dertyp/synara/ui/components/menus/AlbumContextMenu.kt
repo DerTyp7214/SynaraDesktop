@@ -141,9 +141,10 @@ fun AlbumContextMenu(
     PlaylistPickerDialog(
         isOpen = showPlaylistPickerDialog,
         onPlaylistSelected = { playlist ->
-            playerModel.addAlbumToPlaylist(playlist.id, album.id)
+            playerModel.addSongsToPlaylist(playlist.id, PlaybackQueue(source = PlaybackSource.Album(album.id)))
         },
         onCreatePlaylist = {
+            showPlaylistPickerDialog = false
             showCreatePlaylistDialog = true
         },
         onDismissRequest = { showPlaylistPickerDialog = false }
@@ -152,7 +153,7 @@ fun AlbumContextMenu(
     CreatePlaylistDialog(
         isOpen = showCreatePlaylistDialog,
         onConfirm = { name ->
-            playerModel.createPlaylistWithAlbum(name, album.id)
+            playerModel.createPlaylist(name, PlaybackQueue(source = PlaybackSource.Album(album.id)))
         },
         onDismissRequest = { showCreatePlaylistDialog = false }
     )

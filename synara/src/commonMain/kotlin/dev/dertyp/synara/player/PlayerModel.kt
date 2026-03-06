@@ -7,6 +7,7 @@ import dev.dertyp.data.InsertablePlaylist
 import dev.dertyp.data.PlaybackState
 import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
+import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.services.*
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.SettingsFactory
@@ -33,6 +34,7 @@ import kotlin.math.log10
 @Suppress("unused")
 @OptIn(ExperimentalSerializationApi::class)
 class PlayerModel(
+    private val rpcServiceManager: RpcServiceManager,
     private val audioPlayer: AudioPlayer,
     private val songService: SongServiceWrapper,
     private val userPlaylistService: UserPlaylistServiceWrapper,
@@ -243,7 +245,10 @@ class PlayerModel(
             is QueueEntry.FromSource -> entry.songId
         }
 
-        val song = songCache.get(id) ?: songService.byId(id)?.also { songCache.put(it) }
+        val song = songCache.get(id) ?: run {
+            rpcServiceManager.awaitAuthentication()
+            songService.byId(id)?.also { songCache.put(it) }
+        }
         _currentSong.value = song
 
         updateWindow()
@@ -275,6 +280,7 @@ class PlayerModel(
                         .filter { songCache.get(it) == null }
 
                     if (neededIds.isNotEmpty()) {
+                        rpcServiceManager.awaitAuthentication()
                         neededIds.chunked(50).forEach { chunk ->
                             val response = songService.byIds(chunk)
                             songCache.putAll(response.data)
@@ -710,39 +716,31 @@ class PlayerModel(
         }
     }
 
-    fun addSongToPlaylist(playlistId: PlatformUUID, songId: PlatformUUID) {
+    fun addSongsToPlaylist(playlistId: PlatformUUID, playbackQueue: PlaybackQueue) {
         scope.launch {
             try {
-                userPlaylistService.addToPlaylist(playlistId, listOf(currentTimeMillis() to songId))
-                songCache.notifyPlaylistChanged(playlistId)
-                songCache.notifyPlaylistsChanged()
-
-                val song = songCache.get(songId) ?: songService.byId(songId)
-                val playlist = userPlaylistService.byId(playlistId)
-
-                val message = if (song != null && playlist != null) {
-                    getString(Res.string.added_to_playlist_item, song.title, playlist.name)
-                } else {
-                    getString(Res.string.added_to_playlist)
+                val entries = resolvePlaybackQueueItems(playbackQueue)
+                val songIds = entries.map {
+                    when (it) {
+                        is QueueEntry.Explicit -> it.song.id
+                        is QueueEntry.FromSource -> it.songId
+                    }
                 }
+                if (songIds.isEmpty()) return@launch
 
-                snackbarManager.showSnackbar(message)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    fun addSongsToPlaylist(playlistId: PlatformUUID, songIds: List<PlatformUUID>) {
-        scope.launch {
-            try {
                 userPlaylistService.addToPlaylist(playlistId, songIds.map { currentTimeMillis() to it })
                 songCache.notifyPlaylistChanged(playlistId)
                 songCache.notifyPlaylistsChanged()
 
                 val playlist = userPlaylistService.byId(playlistId)
-                val message = if (playlist != null) {
-                    getString(Res.string.added_to_playlist_item, "${songIds.size} songs", playlist.name)
+                val itemName = if (entries.size == 1) {
+                    resolveSong(entries[0])?.title
+                } else {
+                    getSourceDisplayName(playbackQueue.source)
+                }
+
+                val message = if (playlist != null && itemName != null) {
+                    getString(Res.string.added_to_playlist_item, itemName, playlist.name)
                 } else {
                     getString(Res.string.added_to_playlist)
                 }
@@ -753,104 +751,25 @@ class PlayerModel(
         }
     }
 
-    fun addAlbumToPlaylist(playlistId: PlatformUUID, albumId: PlatformUUID) {
-        scope.launch {
-            try {
-                val songs = songService.byAlbum(0, Int.MAX_VALUE, albumId).data
-                if (songs.isEmpty()) return@launch
-                userPlaylistService.addToPlaylist(playlistId, songs.map { currentTimeMillis() to it.id })
-                songCache.notifyPlaylistChanged(playlistId)
-                songCache.notifyPlaylistsChanged()
-
-                val album = albumService.byId(albumId)
-                val playlist = userPlaylistService.byId(playlistId)
-                val message = if (album != null && playlist != null) {
-                    getString(Res.string.added_to_playlist_item, album.name, playlist.name)
-                } else {
-                    getString(Res.string.added_to_playlist)
-                }
-                snackbarManager.showSnackbar(message)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    fun addPlaylistToPlaylist(sourcePlaylistId: PlatformUUID, targetPlaylistId: PlatformUUID) {
-        scope.launch {
-            try {
-                val songs = songService.byUserPlaylist(0, Int.MAX_VALUE, sourcePlaylistId).data
-                if (songs.isEmpty()) return@launch
-                userPlaylistService.addToPlaylist(targetPlaylistId, songs.map { currentTimeMillis() to it.id })
-                songCache.notifyPlaylistChanged(targetPlaylistId)
-                songCache.notifyPlaylistsChanged()
-
-                val source = userPlaylistService.byId(sourcePlaylistId)
-                val target = userPlaylistService.byId(targetPlaylistId)
-                val message = if (source != null && target != null) {
-                    getString(Res.string.added_to_playlist_item, source.name, target.name)
-                } else {
-                    getString(Res.string.added_to_playlist)
-                }
-                snackbarManager.showSnackbar(message)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    fun createPlaylist(name: String, songId: PlatformUUID? = null) {
+    fun createPlaylist(name: String, playbackQueue: PlaybackQueue? = null) {
         scope.launch {
             try {
                 val currentUser = userService.me()
                 val insertable = InsertablePlaylist(name = name, songPaths = emptyList())
                 val playlistId = userPlaylistService.getOrAddPlaylist(currentUser, null, insertable)
 
-                songId?.let {
-                    userPlaylistService.addToPlaylist(playlistId, listOf(currentTimeMillis() to it))
-                    songCache.notifyPlaylistChanged(playlistId)
-                }
-
-                songCache.notifyPlaylistsChanged()
-                snackbarManager.showSnackbar(getString(Res.string.playlist_created))
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    fun createPlaylistWithAlbum(name: String, albumId: PlatformUUID) {
-        scope.launch {
-            try {
-                val currentUser = userService.me()
-                val insertable = InsertablePlaylist(name = name, songPaths = emptyList())
-                val playlistId = userPlaylistService.getOrAddPlaylist(currentUser, null, insertable)
-
-                val songs = songService.byAlbum(0, Int.MAX_VALUE, albumId).data
-                if (songs.isNotEmpty()) {
-                    userPlaylistService.addToPlaylist(playlistId, songs.map { currentTimeMillis() to it.id })
-                    songCache.notifyPlaylistChanged(playlistId)
-                }
-
-                songCache.notifyPlaylistsChanged()
-                snackbarManager.showSnackbar(getString(Res.string.playlist_created))
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    fun createPlaylistWithPlaylist(name: String, sourcePlaylistId: PlatformUUID) {
-        scope.launch {
-            try {
-                val currentUser = userService.me()
-                val insertable = InsertablePlaylist(name = name, songPaths = emptyList())
-                val playlistId = userPlaylistService.getOrAddPlaylist(currentUser, null, insertable)
-
-                val songs = songService.byUserPlaylist(0, Int.MAX_VALUE, sourcePlaylistId).data
-                if (songs.isNotEmpty()) {
-                    userPlaylistService.addToPlaylist(playlistId, songs.map { currentTimeMillis() to it.id })
-                    songCache.notifyPlaylistChanged(playlistId)
+                if (playbackQueue != null) {
+                    val entries = resolvePlaybackQueueItems(playbackQueue)
+                    val songIds = entries.map {
+                        when (it) {
+                            is QueueEntry.Explicit -> it.song.id
+                            is QueueEntry.FromSource -> it.songId
+                        }
+                    }
+                    if (songIds.isNotEmpty()) {
+                        userPlaylistService.addToPlaylist(playlistId, songIds.map { currentTimeMillis() to it })
+                        songCache.notifyPlaylistChanged(playlistId)
+                    }
                 }
 
                 songCache.notifyPlaylistsChanged()

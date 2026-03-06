@@ -8,6 +8,7 @@ import dev.dertyp.services.IPlaylistService
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
 import dev.dertyp.synara.player.*
+import dev.dertyp.synara.rpc.RpcServiceManager
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +18,7 @@ import kotlinx.coroutines.launch
 class PlaylistScreenModel(
     private val playlistId: PlatformUUID,
     private val isUserPlaylist: Boolean,
+    private val rpcServiceManager: RpcServiceManager,
     private val playlistService: IPlaylistService,
     private val userPlaylistService: IUserPlaylistService,
     private val songService: ISongService,
@@ -33,7 +35,10 @@ class PlaylistScreenModel(
     private var isFetching = false
 
     init {
-        loadPlaylist()
+        screenModelScope.launch {
+            rpcServiceManager.awaitAuthentication()
+            loadPlaylist()
+        }
         
         screenModelScope.launch {
             songCache.playlistUpdates.collect { update ->

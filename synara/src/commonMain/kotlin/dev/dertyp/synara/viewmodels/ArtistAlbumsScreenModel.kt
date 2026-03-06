@@ -7,6 +7,7 @@ import dev.dertyp.data.Album
 import dev.dertyp.data.Artist
 import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
+import dev.dertyp.synara.rpc.RpcServiceManager
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.launch
 
 class ArtistAlbumsScreenModel(
     private val artistId: PlatformUUID,
+    private val rpcServiceManager: RpcServiceManager,
     private val artistService: IArtistService,
     private val albumService: IAlbumService
 ) : ScreenModel {
@@ -23,7 +25,10 @@ class ArtistAlbumsScreenModel(
     val state = _state.asStateFlow()
 
     init {
-        loadData()
+        screenModelScope.launch {
+            rpcServiceManager.awaitAuthentication()
+            loadData()
+        }
     }
 
     private fun loadData() {

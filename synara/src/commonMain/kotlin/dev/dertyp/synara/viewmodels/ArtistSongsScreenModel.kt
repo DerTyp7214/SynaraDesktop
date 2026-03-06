@@ -10,12 +10,14 @@ import dev.dertyp.services.ISongService
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.rpc.RpcServiceManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class ArtistSongsScreenModel(
     private val artistId: PlatformUUID,
+    private val rpcServiceManager: RpcServiceManager,
     private val artistService: IArtistService,
     private val songService: ISongService,
     val playerModel: PlayerModel
@@ -30,8 +32,11 @@ class ArtistSongsScreenModel(
     private var isFetching = false
 
     init {
-        loadArtist()
-        loadSongs()
+        screenModelScope.launch {
+            rpcServiceManager.awaitAuthentication()
+            loadArtist()
+            loadSongs()
+        }
     }
 
     private fun loadArtist() {
