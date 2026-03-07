@@ -81,7 +81,7 @@ fun PlaylistPickerDialog(
                         }
                     }
 
-                    items(playlists.sortedBy { it.name }) { playlist ->
+                    items(playlists) { playlist ->
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()

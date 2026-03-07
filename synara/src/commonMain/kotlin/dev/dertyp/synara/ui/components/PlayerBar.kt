@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -23,9 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.key.*
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.isShiftPressed
-import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -51,6 +50,7 @@ import dev.dertyp.synara.scrobble.ScrobblerService
 import dev.dertyp.synara.theme.isAppDark
 import dev.dertyp.synara.theme.rememberCoverScheme
 import dev.dertyp.synara.ui.LocalWindowActions
+import dev.dertyp.synara.ui.components.menus.SongContextMenu
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
@@ -135,6 +135,8 @@ fun PlayerBar(
     LaunchedEffect(currentSong) {
         isWaitingForPosition = false
     }
+
+    var showSongContextMenu by remember { mutableStateOf(false) }
 
     BoxWithConstraints(
         modifier = modifier
@@ -356,6 +358,20 @@ fun PlayerBar(
                                                         ?: stringResource(
                                                             Res.string.not_playing
                                                         ),
+                                                    modifier = Modifier
+                                                        .pointerInput(song?.id) {
+                                                            detectTapGestures(
+                                                                onLongPress = {
+                                                                    if (song != null) showSongContextMenu = true
+                                                                },
+                                                            )
+                                                        }
+                                                        .onPointerEvent(PointerEventType.Release) {
+                                                            if (it.button == PointerButton.Secondary && song != null) {
+                                                                showSongContextMenu = true
+                                                            }
+                                                        }
+                                                        .pointerHoverIcon(if (song != null) PointerIcon.Hand else PointerIcon.Default),
                                                     style = MaterialTheme.typography.bodyLarge,
                                                     fontWeight = FontWeight.Bold,
                                                     maxLines = 1,
@@ -626,6 +642,14 @@ fun PlayerBar(
                 }
             }
         }
+
+        currentSong?.let { song ->
+            SongContextMenu(
+                song = song,
+                expanded = showSongContextMenu,
+                onDismissRequest = { showSongContextMenu = false }
+            )
+        }
     }
 }
 
@@ -763,7 +787,7 @@ private fun ExpandedPlayerContent(
                         VisualizerView(
                             modifier = Modifier
                                 .fillMaxWidth(visualizerWidthScale)
-                                .height(80.dp),
+                                .requiredHeight(80.dp),
                             highlightColor = colorA,
                             color = colorB
                         )
@@ -844,7 +868,7 @@ private fun ExpandedPlayerContent(
                                 VisualizerView(
                                     modifier = Modifier
                                         .fillMaxWidth(0.9f)
-                                        .height(120.dp),
+                                        .requiredHeight(120.dp),
                                     highlightColor = colorA,
                                     color = colorB
                                 )

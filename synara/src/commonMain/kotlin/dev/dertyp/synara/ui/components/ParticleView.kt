@@ -13,7 +13,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import coil3.size.SizeResolver
 import coil3.size.pxOrElse
-import dev.dertyp.core.ifZeroNullable
 import dev.dertyp.synara.Config
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.viewmodels.GlobalStateModel
@@ -70,18 +69,27 @@ fun ParticleView(
         }
     }
 
-    LaunchedEffect(particleMultiplier, isPlayerExpanded) {
-        if (isPlayerExpanded) delay(450)
+    val centerOffsetPx by produceState(0, centerResolver, isPlayerExpanded, density) {
+        if (centerResolver == null) {
+            value = 0
+            return@produceState
+        }
 
+        while (true) {
+            val resolvedWidth = centerResolver.size().width.pxOrElse { 0 }
+            val newValue = if (resolvedWidth > 0) (resolvedWidth / 2f - 5 * density).roundToInt() else 0
+
+            if (value != newValue) value = newValue
+
+            when {
+                isPlayerExpanded && value == 0 -> delay(32)
+                else -> delay(250)
+            }
+        }
+    }
+
+    LaunchedEffect(particleCap) {
         var frameTime = 0L
-        val centerOffsetPx = centerResolver?.let {
-            it.size().width
-                .pxOrElse { 0 }
-                .ifZeroNullable { null }
-                ?.div(2)
-                ?.minus(5 * density)
-                ?.roundToInt()
-        } ?: 0
 
         while (true) {
             withFrameNanos { time ->
@@ -92,15 +100,17 @@ fun ParticleView(
                 var currentCount = activeCount
 
                 if (emitParticles && particleMultiplier > 0) {
-                    val baseSpeed = (2..5).random() * audioIntensity
+                    val intensity = audioIntensity
+                    val baseSpeed = (2..5).random() * intensity
                     val speed = baseSpeed * density * .6f
+                    val velocity = (speed * speed * speed / 4f).coerceAtLeast(1f)
+                    val decayRate = max(0.001f * baseSpeed, 0.0005f)
 
                     val x = if (center.value.isSpecified) center.value.x else canvasSize.width / 2f
                     val y = if (center.value.isSpecified) center.value.y else canvasSize.height / 2f
 
-                    val decayRate = max(0.001f * baseSpeed, 0.0005f)
-                    val spawnCount =
-                        (baseSpeed.pow(particleMultiplier) * audioIntensity * 2).roundToInt()
+                    val spawnCount = (baseSpeed.pow(particleMultiplier) * intensity * 2).roundToInt()
+                        .coerceAtMost(2000)
 
                     repeat(spawnCount) {
                         if (currentCount < particleCap) {
@@ -108,17 +118,10 @@ fun ParticleView(
                             val cosA = cos(angle).toFloat()
                             val sinA = sin(angle).toFloat()
 
-                            val velocity = (speed.pow(3) / 4).coerceAtLeast(1f)
-                            val vx = cosA * velocity
-                            val vy = sinA * velocity
-
-                            val spawnX = x + cosA * centerOffsetPx * (1f - (.4f * Random.nextFloat()))
-                            val spawnY = y + sinA * centerOffsetPx * (1f - (.4f * Random.nextFloat()))
-
-                            particleX[currentCount] = spawnX
-                            particleY[currentCount] = spawnY
-                            particleVX[currentCount] = vx
-                            particleVY[currentCount] = vy
+                            particleX[currentCount] = x + cosA * centerOffsetPx * (1f - (.4f * Random.nextFloat()))
+                            particleY[currentCount] = y + sinA * centerOffsetPx * (1f - (.4f * Random.nextFloat()))
+                            particleVX[currentCount] = cosA * velocity
+                            particleVY[currentCount] = sinA * velocity
                             particleDecay[currentCount] = decayRate
                             particleLife[currentCount] = 1f
                             currentCount++
