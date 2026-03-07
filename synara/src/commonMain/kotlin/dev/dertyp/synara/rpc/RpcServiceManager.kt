@@ -12,14 +12,18 @@ import dev.dertyp.toEpochMilliseconds
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.rpc.annotations.Rpc
+import kotlinx.rpc.withService
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.koin.core.component.KoinComponent
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
+import kotlin.reflect.KClass
 import kotlin.time.Duration.Companion.minutes
 
 class RpcServiceManager(
@@ -37,7 +41,25 @@ class RpcServiceManager(
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Loading)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
 
+    private val authUpdates = MutableSharedFlow<Unit>(
+        replay = 0,
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
     init {
+        scope.launch {
+            authUpdates.collect {
+                if (isAuthenticated()) {
+                    try {
+                        getAuthenticatedClient()
+                        onServerReachable()
+                    } catch (_: Exception) {
+                        onServerUnreachable()
+                    }
+                }
+            }
+        }
         scope.launch {
             refreshConnectionState()
         }
@@ -62,6 +84,9 @@ class RpcServiceManager(
     private var storedTokenExpiration: Long?
         get() = settings.getOrNull(SettingKey.TokenExpiration)
         set(value) = settings.put(SettingKey.TokenExpiration, value)
+
+    val tokenExpiration: Long?
+        get() = storedTokenExpiration
 
     @OptIn(ExperimentalEncodingApi::class)
     val sessionId: String?
@@ -103,6 +128,7 @@ class RpcServiceManager(
         storedTokenExpiration = response.expiresAt.toEpochMilliseconds()
 
         _connectionState.value = ConnectionState.Authenticated
+        authUpdates.emit(Unit)
     }
 
     public override suspend fun handleAuthFailure() {
@@ -159,6 +185,42 @@ class RpcServiceManager(
             } else {
                 ConnectionState.Authenticated
             }
+        }
+    }
+
+    fun preloadServices(vararg services: KClass<out Any>) {
+        scope.launch {
+            if (!isAuthenticated()) return@launch
+            services.forEach {
+                try {
+                    getService(it)
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
+    fun retryConnection() {
+        scope.launch {
+            val baseUrl = getRpcUrl()
+            if (baseUrl != null) {
+                val reachable = validateServer(baseUrl)
+                if (reachable) {
+                    onServerReachable()
+                    clear()
+                } else {
+                    onServerUnreachable()
+                }
+            }
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    override fun <@Rpc T : Any> getService(serviceClass: KClass<T>): T {
+        return synchronized(serviceCache) {
+            serviceCache.getOrPut(serviceClass) {
+                transparentClient.withService(serviceClass)
+            } as T
         }
     }
 }

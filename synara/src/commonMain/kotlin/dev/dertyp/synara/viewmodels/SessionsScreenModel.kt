@@ -15,7 +15,8 @@ import kotlinx.coroutines.launch
 data class SessionsState(
     val sessions: List<Session> = emptyList(),
     val isLoading: Boolean = true,
-    val isRefreshing: Boolean = false
+    val isRefreshing: Boolean = false,
+    val tokenExpiration: Long? = null
 )
 
 class SessionsScreenModel(
@@ -31,6 +32,7 @@ class SessionsScreenModel(
     init {
         screenModelScope.launch {
             rpcServiceManager.awaitAuthentication()
+            mutableState.update { it.copy(tokenExpiration = rpcServiceManager.tokenExpiration) }
             loadSessions()
         }
     }

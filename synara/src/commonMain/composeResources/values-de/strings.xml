@@ -142,6 +142,9 @@
     <string name="deactivate_session_message">Bist du sicher, dass du diese Sitzung deaktivieren möchtest?</string>
     <string name="current_session">Aktuelle Sitzung</string>
     <string name="last_active">Zuletzt aktiv: %1$s</string>
+    <string name="token_expiration">Token-Ablauf</string>
+    <string name="token_expires_in">Token läuft in %1$s ab</string>
+    <string name="token_expires_at">Token läuft am %1$s ab</string>
 
     <!-- Duration -->
     <plurals name="duration_days">

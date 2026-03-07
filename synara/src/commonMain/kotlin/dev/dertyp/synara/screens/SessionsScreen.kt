@@ -18,10 +18,13 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
+import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.Session
 import dev.dertyp.synara.formatDateTime
+import dev.dertyp.synara.formatHumanReadableDuration
 import dev.dertyp.synara.ui.components.dialogs.SynaraAlertDialog
 import dev.dertyp.synara.viewmodels.SessionsScreenModel
+import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.*
 
@@ -62,6 +65,10 @@ class SessionsScreen : Screen {
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = 16.dp)
                     ) {
+                        item {
+                            TokenExpirationCard(state.tokenExpiration)
+                        }
+
                         if (ownSessions.isNotEmpty()) {
                             item {
                                 SectionHeader(stringResource(Res.string.own_session))
@@ -129,6 +136,62 @@ class SessionsScreen : Screen {
                     }
                 }
             )
+        }
+    }
+
+    @Composable
+    private fun TokenExpirationCard(expirationTime: Long?) {
+        if (expirationTime == null) return
+
+        var currentTime by remember { mutableLongStateOf(currentTimeMillis()) }
+        LaunchedEffect(Unit) {
+            while (true) {
+                currentTime = currentTimeMillis()
+                delay(1000)
+            }
+        }
+
+        val remaining = (expirationTime - currentTime).coerceAtLeast(0)
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.Timer,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = stringResource(Res.string.token_expiration),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+
+                Text(
+                    text = stringResource(Res.string.token_expires_in, remaining.formatHumanReadableDuration()),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Text(
+                    text = stringResource(Res.string.token_expires_at, expirationTime.formatDateTime()),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
         }
     }
 
