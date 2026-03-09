@@ -32,11 +32,17 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v5
 
-      - name: Install dependencies
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install ImageMagick
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y imagemagick
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            sudo apt-get update
+            sudo apt-get install -y imagemagick
+          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+            brew install imagemagick
+          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
+            choco install imagemagick.app
+          fi
 
       - name: Build Distributions
         run: ./gradlew :app:packageDistributionForCurrentOS :classic:packageDistributionForCurrentOS
