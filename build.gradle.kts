@@ -2,10 +2,6 @@ buildscript {
     repositories {
         mavenCentral()
     }
-    dependencies {
-        classpath(libs.imageio.ico)
-        classpath(libs.imageio.icns)
-    }
 }
 
 plugins {

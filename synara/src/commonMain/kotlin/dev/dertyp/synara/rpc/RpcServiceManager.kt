@@ -4,8 +4,11 @@ import com.russhwolf.settings.Settings
 import dev.dertyp.data.AuthenticationResponse
 import dev.dertyp.ioDispatcher
 import dev.dertyp.rpc.BaseRpcServiceManager
+import dev.dertyp.services.IServerStatsService
 import dev.dertyp.services.IUserService
+import dev.dertyp.synara.Config
 import dev.dertyp.synara.settings.SettingKey
+import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.getOrNull
 import dev.dertyp.synara.settings.put
 import dev.dertyp.toEpochMilliseconds
@@ -41,6 +44,9 @@ class RpcServiceManager(
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Loading)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
 
+    private var isUsingFallback = false
+    private var hasFetchedProxyInfo = false
+
     private val authUpdates = MutableSharedFlow<Unit>(
         replay = 0,
         extraBufferCapacity = 1,
@@ -49,11 +55,22 @@ class RpcServiceManager(
 
     init {
         scope.launch {
+            Config.isProxyEnabled.collect {
+                isUsingFallback = false
+                clear()
+            }
+        }
+        scope.launch {
             authUpdates.collect {
                 if (isAuthenticated()) {
                     try {
                         getAuthenticatedClient()
                         onServerReachable()
+
+                        if (!hasFetchedProxyInfo) {
+                            hasFetchedProxyInfo = true
+                            launch { fetchProxyInfo() }
+                        }
                     } catch (_: Exception) {
                         onServerUnreachable()
                     }
@@ -108,7 +125,40 @@ class RpcServiceManager(
     override suspend fun getRpcUrl(): String? {
         val h = host
         val p = port
-        return if (h != null && p != null) "ws://$h:$p" else null
+        val base = if (h != null && p != null) "ws://$h:$p" else null
+
+        val ph = settings.getOrNull(SettingKey.ProxyHost)
+        val pp = settings.getOrNull(SettingKey.ProxyPort)
+        val pi = settings.getOrNull(SettingKey.ProxyId)
+        val ps = settings.get(SettingKey.ProxySsl, false)
+        val proxy = if (ph != null && pp != null) {
+            val scheme = if (ps) "wss://" else "ws://"
+            "$scheme$ph:$pp${pi?.let { "/$it" } ?: ""}"
+        } else null
+
+        val preferProxy = settings.get(SettingKey.IsProxyEnabled, false)
+        val useProxy = isUsingFallback || preferProxy
+
+        return if (useProxy && proxy != null) proxy else base
+    }
+
+    override fun onServerUnreachable() {
+        isUsingFallback = !isUsingFallback
+        super.onServerUnreachable()
+    }
+
+    private suspend fun fetchProxyInfo() {
+        try {
+            val statsService = getService<IServerStatsService>()
+            val info = statsService.getProxyInfo()
+            if (info != null) {
+                Config.setProxyHost(info.host)
+                Config.setProxyPort(info.controlPort)
+                Config.setProxyId(info.id)
+                Config.setProxySsl(info.ssl)
+            }
+        } catch (_: Exception) {
+        }
     }
 
     public override fun getAuthToken(): String? = storedAuthToken
@@ -146,6 +196,7 @@ class RpcServiceManager(
     fun setServer(host: String, port: Int) {
         this.host = host
         this.port = port
+        hasFetchedProxyInfo = false
         scope.launch {
             clearAuth()
             clear()
@@ -156,6 +207,7 @@ class RpcServiceManager(
     fun clearServerConfig() {
         this.host = null
         this.port = null
+        hasFetchedProxyInfo = false
         scope.launch {
             clearAuth()
             clear()
@@ -202,16 +254,46 @@ class RpcServiceManager(
 
     fun retryConnection() {
         scope.launch {
-            val baseUrl = getRpcUrl()
-            if (baseUrl != null) {
-                val reachable = validateServer(baseUrl)
-                if (reachable) {
-                    onServerReachable()
-                    clear()
-                } else {
-                    onServerUnreachable()
+            val h = host
+            val p = port
+            val base = if (h != null && p != null) "ws://$h:$p" else null
+
+            val ph = settings.getOrNull(SettingKey.ProxyHost)
+            val pp = settings.getOrNull(SettingKey.ProxyPort)
+            val pi = settings.getOrNull(SettingKey.ProxyId)
+            val ps = settings.get(SettingKey.ProxySsl, false)
+            val proxy = if (ph != null && pp != null) {
+                val scheme = if (ps) "wss://" else "ws://"
+                "$scheme$ph:$pp${pi?.let { "/$it" } ?: ""}"
+            } else null
+
+            val preferProxy = settings.get(SettingKey.IsProxyEnabled, false)
+            val primary = if (preferProxy) proxy else base
+            val secondary = if (preferProxy) base else proxy
+
+            if (primary != null && validateServer(primary)) {
+                isUsingFallback = false
+                onServerReachable()
+                if (!hasFetchedProxyInfo) {
+                    hasFetchedProxyInfo = true
+                    launch { fetchProxyInfo() }
                 }
+                clear()
+                return@launch
             }
+
+            if (secondary != null && validateServer(secondary)) {
+                isUsingFallback = true
+                onServerReachable()
+                if (!hasFetchedProxyInfo) {
+                    hasFetchedProxyInfo = true
+                    launch { fetchProxyInfo() }
+                }
+                clear()
+                return@launch
+            }
+
+            onServerUnreachable()
         }
     }
 

@@ -15,6 +15,13 @@ sealed class SettingKey<T>(val name: String) {
     data object UseSongColor : SettingKey<Boolean>("use_song_color")
     data object UsePywal : SettingKey<Boolean>("use_pywal")
 
+    // Proxy
+    data object IsProxyEnabled : SettingKey<Boolean>("is_proxy_enabled")
+    data object ProxyHost : SettingKey<String>("proxy_host")
+    data object ProxyPort : SettingKey<Int>("proxy_port")
+    data object ProxyId : SettingKey<String>("proxy_id")
+    data object ProxySsl : SettingKey<Boolean>("proxy_ssl")
+
     // Scrobbling
     data object IsListenBrainzEnabled : SettingKey<Boolean>("is_listenbrainz_enabled")
     data object ListenBrainzToken : SettingKey<String>("listenbrainz_token")
@@ -79,16 +86,18 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.Host, is SettingKey.AuthToken, is SettingKey.RefreshToken,
         is SettingKey.ListenBrainzToken, is SettingKey.LastFmApiKey,
         is SettingKey.LastFmSharedSecret, is SettingKey.LastFmSessionKey,
-        is SettingKey.LastFmUsername -> getStringOrNull(key.name) as T?
+        is SettingKey.LastFmUsername, is SettingKey.ProxyHost, is SettingKey.ProxyId -> getStringOrNull(key.name) as T?
 
-        is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor -> getIntOrNull(
+        is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor,
+        is SettingKey.ProxyPort -> getIntOrNull(
             key.name
         ) as T?
 
         is SettingKey.TokenExpiration -> getLongOrNull(key.name) as T?
         is SettingKey.DarkTheme, is SettingKey.UseSongColor, is SettingKey.UsePywal,
         is SettingKey.IsListenBrainzEnabled, is SettingKey.IsLastFmEnabled,
-        is SettingKey.IsDiscordRpcEnabled, SettingKey.HideOnClose -> getBooleanOrNull(key.name) as T?
+        is SettingKey.IsDiscordRpcEnabled, SettingKey.HideOnClose,
+        is SettingKey.IsProxyEnabled, is SettingKey.ProxySsl -> getBooleanOrNull(key.name) as T?
 
         is SettingKey.Volume, is SettingKey.ParticleMultiplier -> getFloatOrNull(key.name) as T?
     }

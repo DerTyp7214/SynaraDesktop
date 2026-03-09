@@ -75,6 +75,22 @@ object Config : KoinComponent {
     private val _hideOnClose = MutableStateFlow(settings.get(SettingKey.HideOnClose, true))
     val hideOnClose: StateFlow<Boolean> = _hideOnClose.asStateFlow()
 
+    // Proxy
+    private val _isProxyEnabled = MutableStateFlow(settings.get(SettingKey.IsProxyEnabled, false))
+    val isProxyEnabled: StateFlow<Boolean> = _isProxyEnabled.asStateFlow()
+
+    private val _proxyHost = MutableStateFlow(settings.getOrNull(SettingKey.ProxyHost) ?: "")
+    val proxyHost: StateFlow<String> = _proxyHost.asStateFlow()
+
+    private val _proxyPort = MutableStateFlow(settings.getOrNull(SettingKey.ProxyPort) ?: 8080)
+    val proxyPort: StateFlow<Int> = _proxyPort.asStateFlow()
+
+    private val _proxyId = MutableStateFlow(settings.getOrNull(SettingKey.ProxyId) ?: "")
+    val proxyId: StateFlow<String> = _proxyId.asStateFlow()
+
+    private val _proxySsl = MutableStateFlow(settings.get(SettingKey.ProxySsl, false))
+    val proxySsl: StateFlow<Boolean> = _proxySsl.asStateFlow()
+
     fun setDarkTheme(isDark: Boolean) {
         _darkTheme.value = isDark
         settings.putBoolean("dark_theme", isDark)
@@ -176,5 +192,30 @@ object Config : KoinComponent {
     fun setHideOnClose(hide: Boolean) {
         _hideOnClose.value = hide
         settings.put(SettingKey.HideOnClose, hide)
+    }
+
+    fun setIsProxyEnabled(enabled: Boolean) {
+        _isProxyEnabled.value = enabled
+        settings.put(SettingKey.IsProxyEnabled, enabled)
+    }
+
+    fun setProxyHost(host: String) {
+        _proxyHost.value = host
+        settings.put(SettingKey.ProxyHost, host)
+    }
+
+    fun setProxyPort(port: Int) {
+        _proxyPort.value = port
+        settings.put(SettingKey.ProxyPort, port)
+    }
+
+    fun setProxyId(id: String?) {
+        _proxyId.value = id ?: ""
+        settings.put(SettingKey.ProxyId, id)
+    }
+
+    fun setProxySsl(ssl: Boolean) {
+        _proxySsl.value = ssl
+        settings.put(SettingKey.ProxySsl, ssl)
     }
 }

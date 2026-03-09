@@ -1,8 +1,5 @@
 
-import java.awt.RenderingHints
-import java.awt.image.BufferedImage
-import javax.imageio.IIOImage
-import javax.imageio.ImageIO
+import java.net.URI
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -158,6 +155,7 @@ compose.resources {
 
 configurations.all {
     exclude(group = "org.jetbrains.compose.material", module = "material-desktop")
+    exclude(group = "com.github.hypfvieh", module = "dbus-java-transport-jnr-unixsocket")
 }
 
 tasks.register("generateIcons") {
@@ -169,46 +167,113 @@ tasks.register("generateIcons") {
     doLast {
         if (!outputDir.get().asFile.exists()) outputDir.get().asFile.mkdirs()
         
-        val originalImage = ImageIO.read(inputIcon)
-        val sizes = listOf(16, 32, 48, 64, 128, 256, 512, 1024)
-        
-        fun createResizedImage(size: Int): BufferedImage {
-            val resized = BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
-            val g = resized.createGraphics()
-            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC)
-            g.drawImage(originalImage, 0, 0, size, size, null)
-            g.dispose()
-            return resized
-        }
-
         val icoFile = outputDir.get().file("icon.ico").asFile
-        try {
-            val icoWriter = ImageIO.getImageWritersByFormatName("ICO").next()
-            ImageIO.createImageOutputStream(icoFile).use { ios ->
-                icoWriter.output = ios
-                icoWriter.prepareWriteSequence(null)
-                sizes.filter { it <= 256 }.forEach { size ->
-                    icoWriter.writeToSequence(IIOImage(createResizedImage(size), null, null), null)
-                }
-                icoWriter.endWriteSequence()
+        val icnsFile = outputDir.get().file("icon.icns").asFile
+        
+        fun runCommand(vararg args: String): Boolean {
+            return try {
+                providers.exec {
+                    commandLine(*args)
+                }.result.get().exitValue == 0
+            } catch (_: Exception) {
+                false
             }
-        } catch (e: Exception) {
-            logger.warn("Could not generate .ico file: ${e.message}")
         }
 
-        val icnsFile = outputDir.get().file("icon.icns").asFile
-        try {
-            val icnsWriter = ImageIO.getImageWritersByFormatName("ICNS").next()
-            ImageIO.createImageOutputStream(icnsFile).use { ios ->
-                icnsWriter.output = ios
-                icnsWriter.prepareWriteSequence(null)
-                sizes.forEach { size ->
-                    icnsWriter.writeToSequence(IIOImage(createResizedImage(size), null, null), null)
+        val os = System.getProperty("os.name").lowercase()
+        val isWindows = os.contains("win")
+        val isMac = os.contains("mac")
+
+        var magickExec: List<String>? = when {
+            runCommand("convert", "--version") -> listOf("convert")
+            runCommand("magick", "--version") -> listOf("magick", "convert")
+            else -> null
+        }
+
+        if (magickExec == null && !isMac) {
+            val toolDir = layout.buildDirectory.dir("magick-tool").get().asFile
+            if (!toolDir.exists()) toolDir.mkdirs()
+            val binaryName = if (isWindows) "magick.exe" else "magick"
+            val binary = File(toolDir, binaryName)
+            
+            if (!binary.exists()) {
+                logger.lifecycle("ImageMagick not found. Attempting to download binary...")
+                try {
+                    val index = URI("https://imagemagick.org/archive/binaries/").toURL().readText()
+                    
+                    fun findBinary(pattern: String): String? {
+                        return """href="($pattern)"""".toRegex().findAll(index)
+                            .maxOfOrNull { it.groupValues[1] }?.let { "https://imagemagick.org/archive/binaries/$it" }
+                    }
+
+                    val url = when {
+                        isWindows -> findBinary("ImageMagick-7.*portable.*\\.7z")
+                            ?: "https://imagemagick.org/archive/binaries/ImageMagick-7.1.2-16-portable-Q16-x64.7z"
+                        isMac -> findBinary("ImageMagick-x86_64-apple-darwin.*\\.tar\\.gz")
+                            ?: "https://imagemagick.org/archive/binaries/ImageMagick-x86_64-apple-darwin20.1.0.tar.gz"
+                        else -> "https://imagemagick.org/archive/binaries/magick"
+                    }
+                    val downloadFile = File(toolDir, url.substringAfterLast("/"))
+                    if (!downloadFile.exists()) {
+                        URI(url).toURL().openStream().use { input ->
+                            downloadFile.outputStream().use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                    }
+                    if (url.endsWith(".7z")) {
+                        val extractResult = when {
+                            isWindows -> runCommand("tar", "-xf", downloadFile.absolutePath, "-C", toolDir.absolutePath)
+                            runCommand("7z", "x", downloadFile.absolutePath, "-o${toolDir.absolutePath}", "-y") -> true
+                            else -> false
+                        }
+                        if (!extractResult) {
+                            logger.warn("Downloaded a .7z file ($url), but failed to extract it. Please ensure 'tar' (Windows) or '7z' is installed, or install ImageMagick manually.")
+                        }
+                    } else if (url.endsWith(".zip")) {
+                        project.copy {
+                            from(zipTree(downloadFile))
+                            into(toolDir)
+                        }
+                    } else if (url.endsWith(".tar.gz")) {
+                        project.copy {
+                            from(tarTree(resources.gzip(downloadFile)))
+                            into(toolDir)
+                        }
+                    } else {
+                        downloadFile.copyTo(binary, overwrite = true)
+                    }
+                    
+                    if (url.endsWith(".zip") || url.endsWith(".tar.gz") || url.endsWith(".7z")) {
+                        toolDir.walkTopDown().find { it.name == binaryName && it.isFile }
+                            ?.copyTo(binary, overwrite = true)
+                    }
+                    
+                    if (!isWindows) binary.setExecutable(true)
+                } catch (e: Exception) {
+                    logger.warn("Failed to download ImageMagick: ${e.message}")
                 }
-                icnsWriter.endWriteSequence()
             }
-        } catch (e: Exception) {
-            logger.warn("Could not generate .icns file: ${e.message}")
+            if (binary.exists()) magickExec = listOf(binary.absolutePath, "convert")
+        }
+
+        if (magickExec != null) {
+            providers.exec {
+                commandLine(*magickExec.toTypedArray(), inputIcon.absolutePath, "-define", "icon:auto-resize=16,32,48,64,128,256", icoFile.absolutePath)
+            }.result.get()
+
+            providers.exec {
+                commandLine(*magickExec.toTypedArray(), inputIcon.absolutePath, "-define", "icns:auto-resize=16,32,64,128,256,512,1024", icnsFile.absolutePath)
+            }.result.get()
+            
+            logger.lifecycle("Icons generated successfully using ${magickExec.joinToString(" ")}.")
+        } else if (isMac && runCommand("sips", "--help")) {
+            providers.exec {
+                commandLine("sips", "-s", "format", "icns", inputIcon.absolutePath, "--out", icnsFile.absolutePath)
+            }.result.get()
+            logger.lifecycle("ICNS generated successfully using sips. ICO skipped.")
+        } else {
+            logger.error("No image conversion tool found (convert, magick, or sips). Please install ImageMagick.")
         }
     }
 }

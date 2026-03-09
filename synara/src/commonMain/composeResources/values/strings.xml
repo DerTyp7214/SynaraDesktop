@@ -126,6 +126,15 @@
     <string name="window">Window</string>
     <string name="hide_on_close">Minimize to tray on close</string>
 
+    <!-- Proxy -->
+    <string name="proxy">Proxy</string>
+    <string name="enable_proxy">Use Proxy</string>
+    <string name="enable_proxy_summary">Use the server provided proxy instead of a direct connection</string>
+    <string name="proxy_host">Proxy Host</string>
+    <string name="proxy_port">Proxy Port</string>
+    <string name="proxy_id">Proxy ID</string>
+    <string name="proxy_ssl">Use SSL for Proxy</string>
+
     <!-- Album Versions -->
     <string name="album_versions">Album Versions</string>
     <string name="other_versions">Other Versions (%1$d)</string>

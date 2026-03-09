@@ -28,6 +28,7 @@ import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.scrobble.LastFmScrobbler
 import dev.dertyp.synara.theme.PywalLoader
 import dev.dertyp.synara.ui.components.ColorPicker
+import dev.dertyp.synara.ui.components.SettingsCard
 import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.SynaraAlertDialog
 import kotlinx.coroutines.launch
@@ -51,6 +52,12 @@ class SettingsScreen : Screen {
         val usePywal by Config.usePywal.collectAsState()
         val particleMultiplier by Config.particleMultiplier.collectAsState()
         val hideOnClose by Config.hideOnClose.collectAsState()
+
+        val isProxyEnabled by Config.isProxyEnabled.collectAsState()
+        val proxyHost by Config.proxyHost.collectAsState()
+        val proxyPort by Config.proxyPort.collectAsState()
+        val proxyId by Config.proxyId.collectAsState()
+        val proxySsl by Config.proxySsl.collectAsState()
 
         val isListenBrainzEnabled by Config.isListenBrainzEnabled.collectAsState()
         val listenBrainzToken by Config.listenBrainzToken.collectAsState()
@@ -145,6 +152,37 @@ class SettingsScreen : Screen {
                     )
 
                     Text(
+                        text = stringResource(Res.string.proxy),
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+
+                    SettingsCard(innerPadding = PaddingValues(0.dp)) {
+                        SettingSwitch(
+                            title = stringResource(Res.string.enable_proxy),
+                            checked = isProxyEnabled,
+                            onCheckedChange = { Config.setIsProxyEnabled(it) },
+                            useElevatedCard = false
+                        )
+                        if (isProxyEnabled && proxyHost.isNotBlank()) {
+                            Column(
+                                modifier = Modifier.padding(
+                                    start = 16.dp,
+                                    end = 16.dp,
+                                    bottom = 16.dp
+                                ),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "${if (proxySsl) "wss" else "ws"}://$proxyHost:$proxyPort${if (proxyId.isNotBlank()) "/$proxyId" else ""}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
+                    Text(
                         text = stringResource(Res.string.scrobbling),
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.padding(top = 8.dp)
@@ -156,30 +194,28 @@ class SettingsScreen : Screen {
                         onCheckedChange = { Config.setIsDiscordRpcEnabled(it) }
                     )
 
-                    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                        Column {
-                            SettingSwitch(
-                                title = stringResource(Res.string.enable_listenbrainz),
-                                checked = isListenBrainzEnabled,
-                                onCheckedChange = { Config.setIsListenBrainzEnabled(it) },
-                                useElevatedCard = false
-                            )
-                            if (isListenBrainzEnabled) {
-                                Column(
-                                    modifier = Modifier.padding(
-                                        start = 16.dp,
-                                        end = 16.dp,
-                                        bottom = 16.dp
-                                    ),
-                                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                                ) {
-                                    InternalTextField(
-                                        value = listenBrainzToken,
-                                        onValueChange = { Config.setListenBrainzToken(it) },
-                                        label = { Text(stringResource(Res.string.listenbrainz_token)) },
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
+                    SettingsCard(innerPadding = PaddingValues(0.dp)) {
+                        SettingSwitch(
+                            title = stringResource(Res.string.enable_listenbrainz),
+                            checked = isListenBrainzEnabled,
+                            onCheckedChange = { Config.setIsListenBrainzEnabled(it) },
+                            useElevatedCard = false
+                        )
+                        if (isListenBrainzEnabled) {
+                            Column(
+                                modifier = Modifier.padding(
+                                    start = 16.dp,
+                                    end = 16.dp,
+                                    bottom = 16.dp
+                                ),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                InternalTextField(
+                                    value = listenBrainzToken,
+                                    onValueChange = { Config.setListenBrainzToken(it) },
+                                    label = { Text(stringResource(Res.string.listenbrainz_token)) },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
                             }
                         }
                     }
@@ -215,45 +251,59 @@ class SettingsScreen : Screen {
     ) {
         var showAuthDialog by remember { mutableStateOf(false) }
 
-        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-            Column {
-                SettingSwitch(
-                    title = stringResource(Res.string.enable_lastfm),
-                    checked = isEnabled,
-                    onCheckedChange = { Config.setIsLastFmEnabled(it) },
-                    useElevatedCard = false
-                )
-                if (isEnabled) {
-                    Column(
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        InternalTextField(
-                            value = apiKey,
-                            onValueChange = { Config.setLastFmApiKey(it) },
-                            label = { Text(stringResource(Res.string.lastfm_api_key)) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        InternalTextField(
-                            value = sharedSecret,
-                            onValueChange = { Config.setLastFmSharedSecret(it) },
-                            label = { Text(stringResource(Res.string.lastfm_shared_secret)) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
+        SettingsCard(innerPadding = PaddingValues(0.dp)) {
+            SettingSwitch(
+                title = stringResource(Res.string.enable_lastfm),
+                checked = isEnabled,
+                onCheckedChange = { Config.setIsLastFmEnabled(it) },
+                useElevatedCard = false
+            )
+            if (isEnabled) {
+                Column(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    InternalTextField(
+                        value = apiKey,
+                        onValueChange = { Config.setLastFmApiKey(it) },
+                        label = { Text(stringResource(Res.string.lastfm_api_key)) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    InternalTextField(
+                        value = sharedSecret,
+                        onValueChange = { Config.setLastFmSharedSecret(it) },
+                        label = { Text(stringResource(Res.string.lastfm_shared_secret)) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
-                        if (sessionKey.isBlank()) {
-                            Button(
-                                onClick = { showAuthDialog = true },
-                                modifier = Modifier.fillMaxWidth(),
-                                enabled = apiKey.isNotBlank() && sharedSecret.isNotBlank()
-                            ) {
-                                Text(stringResource(Res.string.lastfm_login))
-                            }
-                        } else {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                    if (sessionKey.isBlank()) {
+                        Button(
+                            onClick = { showAuthDialog = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = apiKey.isNotBlank() && sharedSecret.isNotBlank()
+                        ) {
+                            Text(stringResource(Res.string.lastfm_login))
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(
+                                    Res.string.lastfm_authenticated,
+                                    username
+                                ),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            TextButton(
+                                onClick = {
+                                    Config.setLastFmSessionKey("")
+                                    Config.setLastFmUsername("")
+                                },
+                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                             ) {
                                 Text(
                                     text = stringResource(
@@ -373,12 +423,11 @@ class SettingsScreen : Screen {
         onCheckedChange: (Boolean) -> Unit,
         useElevatedCard: Boolean = true
     ) {
-        val rowContent = @Composable {
+        val rowContent = @Composable { modifier: Modifier ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onCheckedChange(!checked) }
-                    .padding(16.dp),
+                    .then(modifier),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -395,11 +444,11 @@ class SettingsScreen : Screen {
         }
 
         if (useElevatedCard) {
-            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                rowContent()
+            SettingsCard(onClick = { onCheckedChange(!checked) }) {
+                rowContent(Modifier)
             }
         } else {
-            rowContent()
+            rowContent(Modifier.clickable { onCheckedChange(!checked) }.padding(16.dp))
         }
     }
 
@@ -413,14 +462,11 @@ class SettingsScreen : Screen {
         )
 
         Box {
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth()
+            SettingsCard(
+                onClick = { expanded = true }
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { expanded = true }
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -467,14 +513,11 @@ class SettingsScreen : Screen {
     private fun ThemeColorSetting(title: String, color: Color, onColorSelected: (Color) -> Unit) {
         var showPicker by remember { mutableStateOf(false) }
 
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth()
+        SettingsCard(
+            onClick = { showPicker = true }
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showPicker = true }
-                    .padding(16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -503,15 +546,8 @@ class SettingsScreen : Screen {
 
     @Composable
     private fun ParticleMultiplierSetting(multiplier: Float, onMultiplierChange: (Float) -> Unit) {
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+        SettingsCard {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
