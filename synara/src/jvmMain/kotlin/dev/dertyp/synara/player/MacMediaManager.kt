@@ -3,14 +3,19 @@ package dev.dertyp.synara.player
 import com.sun.jna.*
 import dev.dertyp.core.joinArtists
 import dev.dertyp.data.UserSong
+import dev.dertyp.services.IImageService
 import dev.dertyp.synara.utils.OSUtils
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
+import org.koin.java.KoinJavaComponent.getKoin
 import com.sun.jna.Function as JnaFunction
 
 class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var isStarted = false
+    private var artworkJob: Job? = null
+    private var lastCoverId: String? = null
+    private var lastArtwork: Pointer? = null
 
     @Suppress("FunctionName", "unused")
     private interface ObjCRuntime : Library {
@@ -93,7 +98,7 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
     private val seekCallback = object : Callback {
         @Suppress("unused")
         fun invoke(self: Pointer, cmd: Pointer, event: Pointer): Int {
-            val seekTime = msgDouble(event, "seekTime")
+            val seekTime = msgDouble(event, "positionTime")
             playerModel.seekTo((seekTime * 1000).toLong())
             return 0
         }
@@ -175,6 +180,19 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
             return
         }
 
+        if (song.coverId?.toString() != lastCoverId) {
+            lastCoverId = song.coverId?.toString()
+            lastArtwork = null
+            artworkJob?.cancel()
+            artworkJob = scope.launch {
+                val artwork = fetchArtwork(song)
+                if (artwork != null) {
+                    lastArtwork = artwork
+                    updateMetadata(song, isPlaying, positionMs)
+                }
+            }
+        }
+
         val dictClass = objc.objc_getClass("NSMutableDictionary")
         val dict = msg(dictClass, "dictionary") ?: return
 
@@ -187,10 +205,43 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
         msg(dict, "setObject:forKey:", nsNumber(positionMs / 1000.0), nsString("elapsedPlaybackTime"))
         msg(dict, "setObject:forKey:", nsNumber(if (isPlaying) 1.0 else 0.0), nsString("playbackRate"))
 
+        lastArtwork?.let {
+            msg(dict, "setObject:forKey:", it, nsString("artwork"))
+        }
+
         msg(defaultCenter, "setNowPlayingInfo:", dict)
 
         val state = if (isPlaying) 1L else 2L
         val selSetPlaybackState = objc.sel_registerName("setPlaybackState:")
         objcMsgSend.invoke(arrayOf(defaultCenter, selSetPlaybackState, state))
+    }
+
+    private suspend fun fetchArtwork(song: UserSong): Pointer? {
+        val imageService = getKoin().get<IImageService>()
+        if (song.coverId == null) return null
+
+        return try {
+            val bytes = imageService.getImageData(song.coverId!!, 256) ?: return null
+            createMpArtwork(bytes)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun createMpArtwork(bytes: ByteArray): Pointer? {
+        val objc = ObjCRuntime.INSTANCE
+        val nsDataClass = objc.objc_getClass("NSData")
+        val nsData = msg(nsDataClass, "dataWithBytes:length:", bytes, bytes.size) ?: return null
+
+        val nsImageClass = objc.objc_getClass("NSImage")
+        val nsImage = msg(msg(nsImageClass, "alloc")!!, "initWithData:", nsData) ?: return null
+
+        val artworkClass = objc.objc_getClass("MPMediaItemArtwork")
+        val artwork = try {
+            msg(msg(artworkClass, "alloc")!!, "initWithImage:", nsImage)
+        } catch (_: Exception) {
+            null
+        }
+        return artwork ?: nsImage
     }
 }
