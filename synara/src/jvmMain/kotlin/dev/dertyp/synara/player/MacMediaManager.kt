@@ -8,6 +8,7 @@ import dev.dertyp.synara.utils.OSUtils
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
 import org.koin.java.KoinJavaComponent.getKoin
+import kotlin.math.abs
 import com.sun.jna.Function as JnaFunction
 
 class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager {
@@ -53,6 +54,11 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
     private fun nsNumber(value: Double): Pointer {
         val nsNumberClass = ObjCRuntime.INSTANCE.objc_getClass("NSNumber")
         return msg(nsNumberClass, "numberWithDouble:", value)!!
+    }
+
+    private fun nsDateNow(): Pointer {
+        val nsDateClass = ObjCRuntime.INSTANCE.objc_getClass("NSDate")
+        return msg(nsDateClass, "date")!!
     }
 
     private val playCallback = object : Callback {
@@ -152,11 +158,12 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
             }
 
             scope.launch {
-                while (isActive) {
-                    if (playerModel.isPlaying.value) {
-                        updateMetadata(playerModel.currentSong.value, true, playerModel.currentPosition.value)
+                var lastPos = 0L
+                playerModel.currentPosition.collect { currentPos ->
+                    if (abs(currentPos - lastPos) > 1000) {
+                        updateMetadata(playerModel.currentSong.value, playerModel.isPlaying.value, currentPos)
                     }
-                    delay(1000)
+                    lastPos = currentPos
                 }
             }
 
@@ -207,6 +214,8 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
         msg(dict, "setObject:forKey:", nsNumber(song.duration / 1000.0), nsString("playbackDuration"))
         msg(dict, "setObject:forKey:", nsNumber(positionMs / 1000.0), nsString("elapsedPlaybackTime"))
         msg(dict, "setObject:forKey:", nsNumber(if (isPlaying) 1.0 else 0.0), nsString("playbackRate"))
+        msg(dict, "setObject:forKey:", nsNumber(1.0), nsString("defaultPlaybackRate"))
+        msg(dict, "setObject:forKey:", nsDateNow(), nsString("nowPlayingInfoPropertyTimestamp"))
 
         lastArtwork?.let {
             msg(dict, "setObject:forKey:", it, nsString("artwork"))

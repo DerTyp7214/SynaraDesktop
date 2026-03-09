@@ -112,13 +112,17 @@ class JvmAudioPlayer(
         stopInternal(true)
     }
 
-    private fun stopInternal(resetDesiredPlaying: Boolean) {
+    private fun stopInternal(resetDesiredPlaying: Boolean, resetPosition: Boolean = true, resetIsPlaying: Boolean = true) {
         if (resetDesiredPlaying) {
             isDesiredPlaying = false
         }
         playerJob?.cancel()
-        _isPlaying.value = false
-        _currentPosition.value = 0
+        if (resetIsPlaying) {
+            _isPlaying.value = false
+        }
+        if (resetPosition) {
+            _currentPosition.value = 0
+        }
         scope.launch {
             if (sourceId != 0) {
                 alSourceStop(sourceId)
@@ -154,7 +158,7 @@ class JvmAudioPlayer(
 
     private fun loadInternal(songId: PlatformUUID, startTimeMs: Long, playImmediately: Boolean) {
         isDesiredPlaying = playImmediately
-        stopInternal(false)
+        stopInternal(false, resetPosition = false, resetIsPlaying = !playImmediately)
         _currentPosition.value = startTimeMs
         lastSongId = songId
 
