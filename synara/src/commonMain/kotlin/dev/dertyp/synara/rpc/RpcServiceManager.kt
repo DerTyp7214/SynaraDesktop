@@ -4,7 +4,6 @@ import com.russhwolf.settings.Settings
 import dev.dertyp.data.AuthenticationResponse
 import dev.dertyp.ioDispatcher
 import dev.dertyp.rpc.BaseRpcServiceManager
-import dev.dertyp.services.IServerStatsService
 import dev.dertyp.services.IUserService
 import dev.dertyp.synara.Config
 import dev.dertyp.synara.settings.SettingKey
@@ -61,6 +60,10 @@ class RpcServiceManager(
             }
         }
         scope.launch {
+            if (!hasFetchedProxyInfo) {
+                hasFetchedProxyInfo = true
+                launch { fetchProxyInfo() }
+            }
             authUpdates.collect {
                 if (isAuthenticated()) {
                     try {
@@ -149,7 +152,7 @@ class RpcServiceManager(
 
     private suspend fun fetchProxyInfo() {
         try {
-            val statsService = getService<IServerStatsService>()
+            val statsService = getServerStatsService()
             val info = statsService.getProxyInfo()
             if (info != null) {
                 Config.setProxyHost(info.host)

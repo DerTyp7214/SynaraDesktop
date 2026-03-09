@@ -57,50 +57,50 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
 
     private val playCallback = object : Callback {
         @Suppress("unused")
-        fun invoke(self: Pointer, cmd: Pointer, event: Pointer): Int {
+        fun invoke(self: Pointer, cmd: Pointer, event: Pointer): Long {
             playerModel.play()
-            return 0
+            return 0L
         }
     }
 
     private val pauseCallback = object : Callback {
         @Suppress("unused")
-        fun invoke(self: Pointer, cmd: Pointer, event: Pointer): Int {
+        fun invoke(self: Pointer, cmd: Pointer, event: Pointer): Long {
             playerModel.pause()
-            return 0
+            return 0L
         }
     }
 
     private val nextCallback = object : Callback {
         @Suppress("unused")
-        fun invoke(self: Pointer, cmd: Pointer, event: Pointer): Int {
+        fun invoke(self: Pointer, cmd: Pointer, event: Pointer): Long {
             playerModel.skipNext()
-            return 0
+            return 0L
         }
     }
 
     private val previousCallback = object : Callback {
         @Suppress("unused")
-        fun invoke(self: Pointer, cmd: Pointer, event: Pointer): Int {
+        fun invoke(self: Pointer, cmd: Pointer, event: Pointer): Long {
             playerModel.skipPrevious()
-            return 0
+            return 0L
         }
     }
 
     private val toggleCallback = object : Callback {
         @Suppress("unused")
-        fun invoke(self: Pointer, cmd: Pointer, event: Pointer): Int {
+        fun invoke(self: Pointer, cmd: Pointer, event: Pointer): Long {
             playerModel.togglePlayPause()
-            return 0
+            return 0L
         }
     }
 
     private val seekCallback = object : Callback {
         @Suppress("unused")
-        fun invoke(self: Pointer, cmd: Pointer, event: Pointer): Int {
+        fun invoke(self: Pointer, cmd: Pointer, event: Pointer): Long {
             val seekTime = msgDouble(event, "positionTime")
             playerModel.seekTo((seekTime * 1000).toLong())
-            return 0
+            return 0L
         }
     }
 
@@ -119,12 +119,12 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
             val nsObject = objc.objc_getClass("NSObject")
             val customClass = objc.objc_allocateClassPair(nsObject, "SynaraMediaTarget", 0)
 
-            objc.class_addMethod(customClass, objc.sel_registerName("play:"), playCallback, "i@:@")
-            objc.class_addMethod(customClass, objc.sel_registerName("pause:"), pauseCallback, "i@:@")
-            objc.class_addMethod(customClass, objc.sel_registerName("next:"), nextCallback, "i@:@")
-            objc.class_addMethod(customClass, objc.sel_registerName("previous:"), previousCallback, "i@:@")
-            objc.class_addMethod(customClass, objc.sel_registerName("toggle:"), toggleCallback, "i@:@")
-            objc.class_addMethod(customClass, objc.sel_registerName("seek:"), seekCallback, "i@:@")
+            objc.class_addMethod(customClass, objc.sel_registerName("play:"), playCallback, "q@:@")
+            objc.class_addMethod(customClass, objc.sel_registerName("pause:"), pauseCallback, "q@:@")
+            objc.class_addMethod(customClass, objc.sel_registerName("next:"), nextCallback, "q@:@")
+            objc.class_addMethod(customClass, objc.sel_registerName("previous:"), previousCallback, "q@:@")
+            objc.class_addMethod(customClass, objc.sel_registerName("toggle:"), toggleCallback, "q@:@")
+            objc.class_addMethod(customClass, objc.sel_registerName("seek:"), seekCallback, "q@:@")
 
             objc.objc_registerClassPair(customClass)
             targetInstance = msg(msg(customClass, "alloc")!!, "init")
@@ -166,8 +166,11 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
     }
 
     private fun setupCommand(command: Pointer, selector: String, target: Pointer) {
-        msg(command, "setEnabled:", true)
-        msg(command, "addTarget:action:", target, ObjCRuntime.INSTANCE.sel_registerName(selector))
+        val selEnabled = ObjCRuntime.INSTANCE.sel_registerName("setEnabled:")
+        objcMsgSend.invoke(arrayOf(command, selEnabled, 1.toByte()))
+        
+        val selAddTarget = ObjCRuntime.INSTANCE.sel_registerName("addTarget:action:")
+        objcMsgSend.invoke(arrayOf(command, selAddTarget, target, ObjCRuntime.INSTANCE.sel_registerName(selector)))
     }
 
     private fun updateMetadata(song: UserSong?, isPlaying: Boolean, positionMs: Long) {

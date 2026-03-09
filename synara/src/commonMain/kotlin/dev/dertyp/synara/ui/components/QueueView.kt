@@ -69,12 +69,14 @@ fun QueueView(
             if (!isVisible) {
                 val firstVisible = lazyListState.firstVisibleItemIndex
                 val distance = abs(firstVisible - currentIndex)
-                
-                if (distance > 15) {
-                    lazyListState.scrollToItem(currentIndex)
-                } else {
-                    lazyListState.animateScrollToItem(currentIndex)
-                }
+
+                try {
+                    if (distance > 15) {
+                        lazyListState.scrollToItem(currentIndex)
+                    } else {
+                        lazyListState.animateScrollToItem(currentIndex)
+                    }
+                } catch (_: Exception) {}
             }
         }
     }

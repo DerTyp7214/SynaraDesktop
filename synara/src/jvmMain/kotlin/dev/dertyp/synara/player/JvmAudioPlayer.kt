@@ -57,6 +57,7 @@ class JvmAudioPlayer(
 
     private var playerJob: Job? = null
     private var lastSongId: PlatformUUID? = null
+    private var isDesiredPlaying: Boolean = false
 
     private val dataSource = SongDataSource(songService, songCache)
 
@@ -88,6 +89,7 @@ class JvmAudioPlayer(
     }
 
     override fun play() {
+        isDesiredPlaying = true
         scope.launch {
             if (sourceId != 0 && !_isPlaying.value) {
                 alSourcePlay(sourceId)
@@ -97,6 +99,7 @@ class JvmAudioPlayer(
     }
 
     override fun pause() {
+        isDesiredPlaying = false
         scope.launch {
             if (sourceId != 0 && _isPlaying.value) {
                 alSourcePause(sourceId)
@@ -106,7 +109,16 @@ class JvmAudioPlayer(
     }
 
     override fun stop() {
+        stopInternal(true)
+    }
+
+    private fun stopInternal(resetDesiredPlaying: Boolean) {
+        if (resetDesiredPlaying) {
+            isDesiredPlaying = false
+        }
         playerJob?.cancel()
+        _isPlaying.value = false
+        _currentPosition.value = 0
         scope.launch {
             if (sourceId != 0) {
                 alSourceStop(sourceId)
@@ -116,8 +128,6 @@ class JvmAudioPlayer(
                 }
                 alSourcei(sourceId, AL_BUFFER, 0)
             }
-            _isPlaying.value = false
-            _currentPosition.value = 0
             _bitRate.value = 0
             _sampleRate.value = 0
             _bitsPerSample.value = 0
@@ -126,7 +136,7 @@ class JvmAudioPlayer(
 
     override fun seekTo(positionMs: Long) {
         val songId = lastSongId ?: return
-        loadInternal(songId, positionMs, _isPlaying.value)
+        loadInternal(songId, positionMs, isDesiredPlaying)
     }
 
     override fun setVolume(volume: Float) {
@@ -143,7 +153,9 @@ class JvmAudioPlayer(
     }
 
     private fun loadInternal(songId: PlatformUUID, startTimeMs: Long, playImmediately: Boolean) {
-        stop()
+        isDesiredPlaying = playImmediately
+        stopInternal(false)
+        _currentPosition.value = startTimeMs
         lastSongId = songId
 
         playerJob = scope.launch {
