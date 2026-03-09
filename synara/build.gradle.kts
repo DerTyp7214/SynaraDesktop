@@ -16,7 +16,7 @@ val minor = 0
 val patch = 0
 val buildMajor = 0
 val buildMinor = 0
-val buildPatch = 5
+val buildPatch = 6
 
 fun getVersionName(): String {
     return "$major.$minor.$patch${if (prerelease) "-prerelease$buildMajor.$buildMinor.$buildPatch" else ""}"
