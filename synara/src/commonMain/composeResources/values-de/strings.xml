@@ -168,4 +168,5 @@
     <string name="recently_played_songs">Zuletzt gespielte Songs</string>
     <string name="recently_played_albums">Zuletzt gespielte Alben</string>
     <string name="recently_played_artists">Zuletzt gespielte Künstler</string>
+    <string name="account">Konto</string>
 </resources>

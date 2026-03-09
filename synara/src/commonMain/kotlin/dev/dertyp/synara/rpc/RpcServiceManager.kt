@@ -187,7 +187,15 @@ class RpcServiceManager(
         _connectionState.value = ConnectionState.LoginRequired
     }
 
-    private fun clearAuth() {
+    fun logout() {
+        scope.launch {
+            clearAuth()
+            clear()
+            refreshConnectionState()
+        }
+    }
+
+    fun clearAuth() {
         storedAuthToken = null
         storedRefreshToken = null
         storedTokenExpiration = null

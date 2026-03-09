@@ -190,7 +190,7 @@ tasks.register("generateIcons") {
             else -> null
         }
 
-        if (magickExec == null && !isMac) {
+        if (magickExec == null) {
             val toolDir = layout.buildDirectory.dir("magick-tool").get().asFile
             if (!toolDir.exists()) toolDir.mkdirs()
             val binaryName = if (isWindows) "magick.exe" else "magick"
@@ -257,22 +257,42 @@ tasks.register("generateIcons") {
             if (binary.exists()) magickExec = listOf(binary.absolutePath, "convert")
         }
 
+        var iconsGenerated = false
         if (magickExec != null) {
-            providers.exec {
-                commandLine(*magickExec.toTypedArray(), inputIcon.absolutePath, "-define", "icon:auto-resize=16,32,48,64,128,256", icoFile.absolutePath)
-            }.result.get()
+            try {
+                providers.exec {
+                    commandLine(*magickExec.toTypedArray(), inputIcon.absolutePath, "-define", "icon:auto-resize=16,32,48,64,128,256", icoFile.absolutePath)
+                }.result.get()
 
-            providers.exec {
-                commandLine(*magickExec.toTypedArray(), inputIcon.absolutePath, "-define", "icns:auto-resize=16,32,64,128,256,512,1024", icnsFile.absolutePath)
-            }.result.get()
+                providers.exec {
+                    commandLine(*magickExec.toTypedArray(), inputIcon.absolutePath, "-define", "icns:auto-resize=16,32,64,128,256,512,1024", icnsFile.absolutePath)
+                }.result.get()
+                
+                logger.lifecycle("Icons generated successfully using ${magickExec.joinToString(" ")}.")
+                iconsGenerated = true
+            } catch (e: Exception) {
+                logger.warn("ImageMagick conversion failed: ${e.message}")
+            }
+        }
+
+        if (!iconsGenerated && isMac && runCommand("sips", "--help")) {
+            val success = try {
+                providers.exec {
+                    commandLine("sips", "-s", "format", "icns", inputIcon.absolutePath, "--out", icnsFile.absolutePath)
+                }.result.get().exitValue == 0
+            } catch (_: Exception) {
+                false
+            }
             
-            logger.lifecycle("Icons generated successfully using ${magickExec.joinToString(" ")}.")
-        } else if (isMac && runCommand("sips", "--help")) {
-            providers.exec {
-                commandLine("sips", "-s", "format", "icns", inputIcon.absolutePath, "--out", icnsFile.absolutePath)
-            }.result.get()
-            logger.lifecycle("ICNS generated successfully using sips. ICO skipped.")
-        } else {
+            if (success) {
+                logger.lifecycle("ICNS generated successfully using sips. ICO skipped.")
+                iconsGenerated = true
+            } else {
+                logger.warn("sips failed to generate ICNS. Please install ImageMagick (e.g. 'brew install imagemagick') for full icon support.")
+            }
+        }
+        
+        if (!iconsGenerated && magickExec == null && (!isMac || !runCommand("sips", "--help"))) {
             logger.error("No image conversion tool found (convert, magick, or sips). Please install ImageMagick.")
         }
     }

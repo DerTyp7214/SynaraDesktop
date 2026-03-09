@@ -25,6 +25,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.synara.Config
 import dev.dertyp.synara.IS_DEBUG
 import dev.dertyp.synara.InternalTextField
+import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.scrobble.LastFmScrobbler
 import dev.dertyp.synara.theme.PywalLoader
 import dev.dertyp.synara.ui.components.ColorPicker
@@ -67,6 +68,8 @@ class SettingsScreen : Screen {
         val lastFmSessionKey by Config.lastFmSessionKey.collectAsState()
         val lastFmUsername by Config.lastFmUsername.collectAsState()
         val isDiscordRpcEnabled by Config.isDiscordRpcEnabled.collectAsState()
+
+        val rpcServiceManager = koinInject<RpcServiceManager>()
 
         Scaffold(
             containerColor = Color.Transparent,
@@ -227,6 +230,26 @@ class SettingsScreen : Screen {
                         sessionKey = lastFmSessionKey,
                         username = lastFmUsername
                     )
+
+                    Text(
+                        text = stringResource(Res.string.account),
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+
+                    SettingsCard(onClick = { rpcServiceManager.logout() }) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.logout),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
 
                     if (IS_DEBUG) {
                         Button(

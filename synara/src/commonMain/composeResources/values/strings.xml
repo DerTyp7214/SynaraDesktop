@@ -177,4 +177,5 @@
     <string name="recently_played_songs">Recently Played Songs</string>
     <string name="recently_played_albums">Recently Played Albums</string>
     <string name="recently_played_artists">Recently Played Artists</string>
+    <string name="account">Account</string>
 </resources>
