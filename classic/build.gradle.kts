@@ -37,15 +37,20 @@ compose.desktop {
             packageVersion = "1.0.0"
             
             val commonIcon = project(":synara").projectDir.resolve("src/commonMain/resources/icon.png")
+            val synaraGeneratedIconsDir = project(":synara").layout.buildDirectory.dir("generated/icons")
 
             linux {
                 iconFile.set(commonIcon)
             }
             windows {
-                iconFile.set(commonIcon)
+                iconFile.set(synaraGeneratedIconsDir.map { it.file("icon.ico") })
             }
             macOS {
-                iconFile.set(commonIcon)
+                iconFile.set(synaraGeneratedIconsDir.map { it.file("icon.icns") })
+            }
+
+            tasks.matching { it.name.startsWith("package") || it.name.startsWith("createDistributable") }.configureEach {
+                dependsOn(":synara:generateIcons")
             }
 
             modules("jdk.unsupported", "java.sql", "jdk.security.auth", "java.naming")

@@ -1,5 +1,5 @@
 package dev.dertyp.synara.player
 
-interface IMprisPlayer {
+interface SystemMediaManager {
     fun start()
 }

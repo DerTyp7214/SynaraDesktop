@@ -15,6 +15,7 @@ import coil3.size.SizeResolver
 import coil3.size.pxOrElse
 import dev.dertyp.synara.Config
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.utils.OSUtils
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.delay
 import org.jetbrains.skia.Paint
@@ -51,6 +52,9 @@ fun ParticleView(
         }
     }
     val density = LocalDensity.current.density
+    val speedMultiplier = density.let { d ->
+        if (OSUtils.isMac) d / 2f else d
+    }
 
     val particleX = remember(particleCap) { FloatArray(particleCap) }
     val particleY = remember(particleCap) { FloatArray(particleCap) }
@@ -102,7 +106,7 @@ fun ParticleView(
                 if (emitParticles && particleMultiplier > 0) {
                     val intensity = audioIntensity
                     val baseSpeed = (2..5).random() * intensity
-                    val speed = baseSpeed * density * .6f
+                    val speed = baseSpeed * speedMultiplier * .6f
                     val velocity = (speed * speed * speed / 4f).coerceAtLeast(1f)
                     val decayRate = max(0.001f * baseSpeed, 0.0005f)
 

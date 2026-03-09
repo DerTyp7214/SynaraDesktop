@@ -1,3 +1,9 @@
+
+import java.awt.RenderingHints
+import java.awt.image.BufferedImage
+import javax.imageio.IIOImage
+import javax.imageio.ImageIO
+
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.jetbrains.compose)
@@ -119,6 +125,8 @@ kotlin {
                 implementation(libs.dbus.java.core)
                 implementation(libs.dbus.java.transport.native.unixsocket)
                 implementation(libs.zstd)
+                implementation(libs.mediasession.kt)
+                implementation(libs.jna)
 
                 // Add natives for all desktop platforms
                 val platforms = listOf("linux", "windows", "macos", "macos-arm64")
@@ -150,4 +158,57 @@ compose.resources {
 
 configurations.all {
     exclude(group = "org.jetbrains.compose.material", module = "material-desktop")
+}
+
+tasks.register("generateIcons") {
+    val inputIcon = file("src/commonMain/resources/icon.png")
+    val outputDir = layout.buildDirectory.dir("generated/icons")
+    inputs.file(inputIcon)
+    outputs.dir(outputDir)
+    
+    doLast {
+        if (!outputDir.get().asFile.exists()) outputDir.get().asFile.mkdirs()
+        
+        val originalImage = ImageIO.read(inputIcon)
+        val sizes = listOf(16, 32, 48, 64, 128, 256, 512, 1024)
+        
+        fun createResizedImage(size: Int): BufferedImage {
+            val resized = BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
+            val g = resized.createGraphics()
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC)
+            g.drawImage(originalImage, 0, 0, size, size, null)
+            g.dispose()
+            return resized
+        }
+
+        val icoFile = outputDir.get().file("icon.ico").asFile
+        try {
+            val icoWriter = ImageIO.getImageWritersByFormatName("ICO").next()
+            ImageIO.createImageOutputStream(icoFile).use { ios ->
+                icoWriter.output = ios
+                icoWriter.prepareWriteSequence(null)
+                sizes.filter { it <= 256 }.forEach { size ->
+                    icoWriter.writeToSequence(IIOImage(createResizedImage(size), null, null), null)
+                }
+                icoWriter.endWriteSequence()
+            }
+        } catch (e: Exception) {
+            logger.warn("Could not generate .ico file: ${e.message}")
+        }
+
+        val icnsFile = outputDir.get().file("icon.icns").asFile
+        try {
+            val icnsWriter = ImageIO.getImageWritersByFormatName("ICNS").next()
+            ImageIO.createImageOutputStream(icnsFile).use { ios ->
+                icnsWriter.output = ios
+                icnsWriter.prepareWriteSequence(null)
+                sizes.forEach { size ->
+                    icnsWriter.writeToSequence(IIOImage(createResizedImage(size), null, null), null)
+                }
+                icnsWriter.endWriteSequence()
+            }
+        } catch (e: Exception) {
+            logger.warn("Could not generate .icns file: ${e.message}")
+        }
+    }
 }

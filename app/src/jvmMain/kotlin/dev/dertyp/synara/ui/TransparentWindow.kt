@@ -36,6 +36,7 @@ import dev.dertyp.synara.theme.isAppDark
 import dev.dertyp.synara.ui.components.SynaraTextField
 import dev.dertyp.synara.ui.components.SynaraTray
 import dev.dertyp.synara.ui.components.WindowDraggableArea
+import dev.dertyp.synara.utils.OSUtils
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.skia.*
 import org.lwjgl.glfw.Callbacks.glfwFreeCallbacks
@@ -229,10 +230,7 @@ fun runTransparentWindow(
         println("GLFW Error [$error]: ${org.lwjgl.glfw.GLFWErrorCallback.getDescription(description)}")
     }
 
-    val osName = System.getProperty("os.name").lowercase()
-    val isLinux = osName.contains("linux")
-
-    if (isLinux) {
+    if (OSUtils.isLinux) {
         println("Linux detected. Forcing X11 platform via GLFW hint.")
         glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11)
     }
@@ -242,7 +240,7 @@ fun runTransparentWindow(
     }
 
     val showDragHandle =
-        System.getProperty("synara.drag.enabled", if (isLinux) "false" else "true").toBoolean()
+        System.getProperty("synara.drag.enabled", if (OSUtils.isLinux) "false" else "true").toBoolean()
 
     glfwDefaultWindowHints()
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE)

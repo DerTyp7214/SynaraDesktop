@@ -5,10 +5,8 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
 import dev.dertyp.synara.db.SynaraDatabase
-import dev.dertyp.synara.player.AudioPlayer
-import dev.dertyp.synara.player.IMprisPlayer
-import dev.dertyp.synara.player.JvmAudioPlayer
-import dev.dertyp.synara.player.MprisPlayer
+import dev.dertyp.synara.player.*
+import dev.dertyp.synara.utils.OSUtils
 import dev.dertyp.synara.utils.getAppDataDir
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.singleOf
@@ -19,7 +17,13 @@ import java.io.File
 
 actual fun platformModule(): Module = module {
     singleOf(::JvmAudioPlayer) bind AudioPlayer::class
-    singleOf(::MprisPlayer) bind IMprisPlayer::class
+    single<SystemMediaManager> {
+        when {
+            OSUtils.isWindows -> WindowsMediaManager(get())
+            OSUtils.isMac -> MacMediaManager(get())
+            else -> LinuxMediaManager(get())
+        }
+    }
     single<SqlDriver> {
         val databasePath = File(getAppDataDir(), "synara.db")
         val driver = JdbcSqliteDriver("jdbc:sqlite:${databasePath.absolutePath}")
@@ -38,8 +42,8 @@ actual fun platformInit() {
     logger.info(LogTag("platform"), "Application directory: ${getAppDataDir().absolutePath}")
 
     try {
-        val mprisPlayer = koin.get<IMprisPlayer>()
-        mprisPlayer.start()
+        val mediaManager = koin.get<SystemMediaManager>()
+        mediaManager.start()
     } catch (_: Exception) {
     }
 }

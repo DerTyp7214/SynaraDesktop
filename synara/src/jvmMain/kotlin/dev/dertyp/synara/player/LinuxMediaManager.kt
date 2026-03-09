@@ -6,6 +6,7 @@ import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.rpc.RpcServiceManager
+import dev.dertyp.synara.utils.OSUtils
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
 import org.freedesktop.dbus.DBusPath
@@ -292,13 +293,13 @@ open class MprisObjectImpl(private val playerModel: PlayerModel) : IMprisMediaPl
     override fun getCanControl() = true
 }
 
-class MprisPlayer(private val playerModel: PlayerModel) : IMprisPlayer {
+class LinuxMediaManager(private val playerModel: PlayerModel) : SystemMediaManager {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var connection: DBusConnection? = null
     private var isStarted = false
 
     override fun start() {
-        if (isStarted || !System.getProperty("os.name").lowercase().contains("linux")) return
+        if (isStarted || !OSUtils.isLinux) return
         isStarted = true
 
         scope.launch {

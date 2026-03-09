@@ -1,5 +1,6 @@
 package dev.dertyp.synara.rpc.services
 
+import dev.dertyp.data.ProxyInfo
 import dev.dertyp.data.ServerStats
 import dev.dertyp.services.IServerStatsService
 import dev.dertyp.synara.rpc.RpcServiceManager
@@ -11,5 +12,9 @@ class ServerStatsServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper
 
     override suspend fun health(): Boolean {
         return manager.getServerStatsService().health()
+    }
+
+    override suspend fun getProxyInfo(): ProxyInfo? {
+        return manager.getServerStatsService().getProxyInfo()
     }
 }

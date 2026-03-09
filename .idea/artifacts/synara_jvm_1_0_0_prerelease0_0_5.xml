@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="synara-jvm-1.0.0-prerelease0.0.5">
+    <output-path>$PROJECT_DIR$/synara/build/libs</output-path>
+    <root id="archive" name="synara-jvm-1.0.0-prerelease0.0.5.jar">
+      <element id="module-output" name="Synara.synara.jvmMain" />
+    </root>
+  </artifact>
+</component>
