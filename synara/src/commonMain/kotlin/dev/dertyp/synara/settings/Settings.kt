@@ -99,9 +99,9 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.TokenExpiration -> getLongOrNull(key.name) as T?
         is SettingKey.DarkTheme, is SettingKey.UseSongColor, is SettingKey.UsePywal,
         is SettingKey.IsListenBrainzEnabled, is SettingKey.IsLastFmEnabled,
-        is SettingKey.IsDiscordRpcEnabled, SettingKey.HideOnClose,
+        is SettingKey.IsDiscordRpcEnabled, is SettingKey.HideOnClose,
         is SettingKey.IsProxyEnabled, is SettingKey.ProxySsl,
-        SettingKey.NeedsUserIdMigration -> getBooleanOrNull(key.name) as T?
+        is SettingKey.NeedsUserIdMigration -> getBooleanOrNull(key.name) as T?
 
         is SettingKey.Volume, is SettingKey.ParticleMultiplier -> getFloatOrNull(key.name) as T?
     }

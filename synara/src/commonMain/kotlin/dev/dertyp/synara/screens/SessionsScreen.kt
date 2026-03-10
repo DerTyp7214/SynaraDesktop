@@ -8,8 +8,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,6 +22,7 @@ import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.Session
 import dev.dertyp.synara.formatDateTime
 import dev.dertyp.synara.formatHumanReadableDuration
+import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.SynaraAlertDialog
 import dev.dertyp.synara.viewmodels.SessionsScreenModel
 import kotlinx.coroutines.delay
@@ -280,7 +281,7 @@ class SessionsScreen : Screen {
                             IconButton(onClick = { expanded = true }) {
                                 Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(Res.string.more_options))
                             }
-                            DropdownMenu(
+                            SynaraMenu(
                                 expanded = expanded,
                                 onDismissRequest = { expanded = false },
                                 shape = RoundedCornerShape(12.dp)

@@ -21,6 +21,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.ui.components.SongItem
+import dev.dertyp.synara.ui.components.SynaraFab
 import dev.dertyp.synara.viewmodels.LikedSongsScreenModel
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.Res
@@ -56,7 +57,7 @@ class LikedSongsScreen : Screen {
             },
             floatingActionButton = {
                 if (state is LikedSongsScreenModel.LikedSongsState.Success) {
-                    FloatingActionButton(onClick = { screenModel.playAll() }) {
+                    SynaraFab(onClick = { screenModel.playAll() }) {
                         Icon(Icons.Default.PlayArrow, contentDescription = stringResource(Res.string.play_all))
                     }
                 }

@@ -466,7 +466,7 @@ fun PlayerBar(
                                                 )
                                             }
 
-                                            LargeFloatingActionButton(
+                                            SynaraLargeFab(
                                                 onClick = { playerModel.togglePlayPause() },
                                                 modifier = Modifier.size(56.dp),
                                                 shape = MaterialTheme.shapes.medium,

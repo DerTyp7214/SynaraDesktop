@@ -17,7 +17,6 @@ import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -224,7 +223,7 @@ fun QueueView(
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 64.dp)
         ) {
-            SmallFloatingActionButton(
+            SynaraSmallFab(
                 onClick = {
                     scope.launch {
                         val firstVisible = lazyListState.firstVisibleItemIndex

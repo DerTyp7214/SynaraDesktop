@@ -15,12 +15,15 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.transitions.SlideTransition
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
 import dev.dertyp.currentTimeMillis
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.screens.HomeScreen
 import dev.dertyp.synara.screens.LoginScreen
 import dev.dertyp.synara.screens.SetupScreen
 import dev.dertyp.synara.ui.LocalWindowActions
+import dev.dertyp.synara.ui.components.LocalHazeState
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
@@ -57,34 +60,39 @@ fun SynaraView() {
         customAppLocale = language
     }
 
+    val hazeState = remember { HazeState() }
+
     AppEnvironment {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .onPointerEvent(PointerEventType.Move) {
-                    if (windowActions.isFullscreen) {
-                        lastPointerMoveTime = currentTimeMillis()
+        CompositionLocalProvider(LocalHazeState provides hazeState) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .hazeSource(hazeState)
+                    .onPointerEvent(PointerEventType.Move) {
+                        if (windowActions.isFullscreen) {
+                            lastPointerMoveTime = currentTimeMillis()
+                        }
                     }
-                }
-        ) {
-            Navigator(CircularLoadingScreen()) { navigator ->
-                LaunchedEffect(connectionState) {
-                    val targetScreen = when (connectionState) {
-                        RpcServiceManager.ConnectionState.Loading -> return@LaunchedEffect
-                        RpcServiceManager.ConnectionState.SetupRequired -> SetupScreen()
-                        RpcServiceManager.ConnectionState.LoginRequired -> LoginScreen()
-                        RpcServiceManager.ConnectionState.Authenticated -> HomeScreen()
+            ) {
+                Navigator(CircularLoadingScreen()) { navigator ->
+                    LaunchedEffect(connectionState) {
+                        val targetScreen = when (connectionState) {
+                            RpcServiceManager.ConnectionState.Loading -> return@LaunchedEffect
+                            RpcServiceManager.ConnectionState.SetupRequired -> SetupScreen()
+                            RpcServiceManager.ConnectionState.LoginRequired -> LoginScreen()
+                            RpcServiceManager.ConnectionState.Authenticated -> HomeScreen()
+                        }
+
+                        if (navigator.lastItem::class != targetScreen::class) {
+                            navigator.replaceAll(targetScreen)
+                        }
                     }
 
-                    if (navigator.lastItem::class != targetScreen::class) {
-                        navigator.replaceAll(targetScreen)
-                    }
+                    SlideTransition(
+                        navigator = navigator,
+                        modifier = Modifier.blur(blur)
+                    )
                 }
-
-                SlideTransition(
-                    navigator = navigator,
-                    modifier = Modifier.blur(blur)
-                )
             }
         }
     }

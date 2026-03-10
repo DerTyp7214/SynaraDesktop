@@ -26,6 +26,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.ui.components.SongItem
+import dev.dertyp.synara.ui.components.SynaraFab
 import dev.dertyp.synara.viewmodels.AllSongsScreenModel
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
@@ -62,7 +63,7 @@ class AllSongsScreen : Screen {
             },
             floatingActionButton = {
                 if (state is AllSongsScreenModel.AllSongsState.Success) {
-                    FloatingActionButton(onClick = { screenModel.playAll() }) {
+                    SynaraFab(onClick = { screenModel.playAll() }) {
                         Icon(Icons.Default.PlayArrow, contentDescription = stringResource(Res.string.play_all))
                     }
                 }

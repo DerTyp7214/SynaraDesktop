@@ -27,6 +27,8 @@ sqldelight = "2.2.1"
 dbus-java = "5.2.0"
 zstd = "1.5.6-9"
 mediasession-kt = "0.1.1"
+haze = "1.7.2"
+
 [libraries]
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coilCompose" }
 coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coilCompose" }
@@ -79,6 +81,7 @@ dbus-java-core = { module = "com.github.hypfvieh:dbus-java-core", version.ref = 
 dbus-java-transport-native-unixsocket = { module = "com.github.hypfvieh:dbus-java-transport-native-unixsocket", version.ref = "dbus-java" }
 zstd = { group = "com.github.luben", name = "zstd-jni", version.ref = "zstd" }
 mediasession-kt = { module = "dev.toastbits:mediasession", version.ref = "mediasession-kt" }
+haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
 
 [plugins]
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
