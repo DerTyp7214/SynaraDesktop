@@ -1,77 +1,62 @@
 CREATE TABLE IF NOT EXISTS RecentlyPlayedSongEntity (
-    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
+    id TEXT NOT NULL,
     timestamp INTEGER NOT NULL,
-    payload TEXT NOT NULL
+    payload TEXT NOT NULL,
+    PRIMARY KEY (userId, id)
 );
 
 CREATE TABLE IF NOT EXISTS RecentlyPlayedAlbumEntity (
-    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
+    id TEXT NOT NULL,
     timestamp INTEGER NOT NULL,
-    payload TEXT NOT NULL
+    payload TEXT NOT NULL,
+    PRIMARY KEY (userId, id)
 );
 
 CREATE TABLE IF NOT EXISTS RecentlyPlayedArtistEntity (
-    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
+    id TEXT NOT NULL,
     timestamp INTEGER NOT NULL,
-    payload TEXT NOT NULL
+    payload TEXT NOT NULL,
+    PRIMARY KEY (userId, id)
 );
 
-CREATE TRIGGER IF NOT EXISTS prune_songs_trigger AFTER INSERT ON RecentlyPlayedSongEntity
-BEGIN
-    DELETE FROM RecentlyPlayedSongEntity
-    WHERE id NOT IN (
-        SELECT id FROM RecentlyPlayedSongEntity
-        ORDER BY timestamp DESC
-        LIMIT 100
-    );
-END;
-
-CREATE TRIGGER IF NOT EXISTS prune_albums_trigger AFTER INSERT ON RecentlyPlayedAlbumEntity
-BEGIN
-    DELETE FROM RecentlyPlayedAlbumEntity
-    WHERE id NOT IN (
-        SELECT id FROM RecentlyPlayedAlbumEntity
-        ORDER BY timestamp DESC
-        LIMIT 100
-    );
-END;
-
-CREATE TRIGGER IF NOT EXISTS prune_artists_trigger AFTER INSERT ON RecentlyPlayedArtistEntity
-BEGIN
-    DELETE FROM RecentlyPlayedArtistEntity
-    WHERE id NOT IN (
-        SELECT id FROM RecentlyPlayedArtistEntity
-        ORDER BY timestamp DESC
-        LIMIT 100
-    );
-END;
-
 insertSong:
-INSERT OR REPLACE INTO RecentlyPlayedSongEntity(id, timestamp, payload)
-VALUES (?, ?, ?);
+INSERT OR REPLACE INTO RecentlyPlayedSongEntity(userId, id, timestamp, payload)
+VALUES (?, ?, ?, ?);
 
 insertAlbum:
-INSERT OR REPLACE INTO RecentlyPlayedAlbumEntity(id, timestamp, payload)
-VALUES (?, ?, ?);
+INSERT OR REPLACE INTO RecentlyPlayedAlbumEntity(userId, id, timestamp, payload)
+VALUES (?, ?, ?, ?);
 
 insertArtist:
-INSERT OR REPLACE INTO RecentlyPlayedArtistEntity(id, timestamp, payload)
-VALUES (?, ?, ?);
+INSERT OR REPLACE INTO RecentlyPlayedArtistEntity(userId, id, timestamp, payload)
+VALUES (?, ?, ?, ?);
 
 getSongs:
-SELECT * FROM RecentlyPlayedSongEntity ORDER BY timestamp DESC LIMIT ?;
+SELECT * FROM RecentlyPlayedSongEntity WHERE userId = ? ORDER BY timestamp DESC LIMIT ?;
 
 getAlbums:
-SELECT * FROM RecentlyPlayedAlbumEntity ORDER BY timestamp DESC LIMIT ?;
+SELECT * FROM RecentlyPlayedAlbumEntity WHERE userId = ? ORDER BY timestamp DESC LIMIT ?;
 
 getArtists:
-SELECT * FROM RecentlyPlayedArtistEntity ORDER BY timestamp DESC LIMIT ?;
+SELECT * FROM RecentlyPlayedArtistEntity WHERE userId = ? ORDER BY timestamp DESC LIMIT ?;
 
 deleteAllSongs:
-DELETE FROM RecentlyPlayedSongEntity;
+DELETE FROM RecentlyPlayedSongEntity WHERE userId = ?;
 
 deleteAllAlbums:
-DELETE FROM RecentlyPlayedAlbumEntity;
+DELETE FROM RecentlyPlayedAlbumEntity WHERE userId = ?;
 
 deleteAllArtists:
-DELETE FROM RecentlyPlayedArtistEntity;
+DELETE FROM RecentlyPlayedArtistEntity WHERE userId = ?;
+
+migrateUserId:
+UPDATE RecentlyPlayedSongEntity SET userId = ? WHERE userId = '';
+
+migrateAlbumUserId:
+UPDATE RecentlyPlayedAlbumEntity SET userId = ? WHERE userId = '';
+
+migrateArtistUserId:
+UPDATE RecentlyPlayedArtistEntity SET userId = ? WHERE userId = '';

@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS ScrobbleQueueEntity (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userId TEXT NOT NULL,
     payload TEXT NOT NULL,
     timestamp INTEGER NOT NULL,
     target TEXT NOT NULL
@@ -7,30 +8,37 @@ CREATE TABLE IF NOT EXISTS ScrobbleQueueEntity (
 
 CREATE TABLE IF NOT EXISTS LocalHistoryEntity (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    userId TEXT NOT NULL,
     song_id TEXT NOT NULL,
     timestamp INTEGER NOT NULL,
     payload TEXT NOT NULL
 );
 
 insert:
-INSERT INTO ScrobbleQueueEntity(payload, timestamp, target)
-VALUES (?, ?, ?);
+INSERT INTO ScrobbleQueueEntity(userId, payload, timestamp, target)
+VALUES (?, ?, ?, ?);
 
 getAll:
-SELECT * FROM ScrobbleQueueEntity WHERE target = ? ORDER BY timestamp ASC;
+SELECT * FROM ScrobbleQueueEntity WHERE userId = ? AND target = ? ORDER BY timestamp ASC;
 
 peek:
-SELECT * FROM ScrobbleQueueEntity WHERE target = ? ORDER BY timestamp ASC LIMIT 1;
+SELECT * FROM ScrobbleQueueEntity WHERE userId = ? AND target = ? ORDER BY timestamp ASC LIMIT 1;
 
 delete:
 DELETE FROM ScrobbleQueueEntity WHERE id = ?;
 
 getCount:
-SELECT count(*) FROM ScrobbleQueueEntity WHERE target = ?;
+SELECT count(*) FROM ScrobbleQueueEntity WHERE userId = ? AND target = ?;
 
 insertHistory:
-INSERT INTO LocalHistoryEntity(song_id, timestamp, payload)
-VALUES (?, ?, ?);
+INSERT INTO LocalHistoryEntity(userId, song_id, timestamp, payload)
+VALUES (?, ?, ?, ?);
 
 getHistory:
-SELECT * FROM LocalHistoryEntity ORDER BY timestamp DESC LIMIT ?;
+SELECT * FROM LocalHistoryEntity WHERE userId = ? ORDER BY timestamp DESC LIMIT ?;
+
+migrateQueueUserId:
+UPDATE ScrobbleQueueEntity SET userId = ? WHERE userId = '';
+
+migrateHistoryUserId:
+UPDATE LocalHistoryEntity SET userId = ? WHERE userId = '';

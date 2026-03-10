@@ -1,18 +1,19 @@
 package dev.dertyp.synara.screens
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.VerticalScrollbar
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
@@ -25,9 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.isBackPressed
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -43,6 +42,7 @@ import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.theme.isAppDark
 import dev.dertyp.synara.ui.components.*
+import dev.dertyp.synara.ui.components.menus.PlaylistContextMenu
 import dev.dertyp.synara.ui.models.AnnotatedSnackbarVisuals
 import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.viewmodels.HomeScreenModel
@@ -316,12 +316,28 @@ class HomeScreen : Screen {
         selected: Boolean,
         onClick: () -> Unit
     ) {
+        val interactionSource = remember { MutableInteractionSource() }
+        val isHovered by interactionSource.collectIsHoveredAsState()
+
+        val backgroundColor by animateColorAsState(
+            when {
+                selected -> MaterialTheme.colorScheme.primaryContainer
+                isHovered -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                else -> Color.Transparent
+            }
+        )
+
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(8.dp))
-                .clickable(onClick = onClick),
-            color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = LocalIndication.current,
+                    onClick = onClick
+                )
+                .pointerHoverIcon(PointerIcon.Hand),
+            color = backgroundColor,
             contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
         ) {
             Row(
@@ -345,37 +361,69 @@ class HomeScreen : Screen {
         }
     }
 
+    @OptIn(ExperimentalFoundationApi::class)
     @Composable
     private fun PlaylistNavItem(
         playlist: UserPlaylist, 
         selected: Boolean,
         onClick: () -> Unit
     ) {
+        var showContextMenu by remember { mutableStateOf(false) }
+        val interactionSource = remember { MutableInteractionSource() }
+        val isHovered by interactionSource.collectIsHoveredAsState()
+
+        val backgroundColor by animateColorAsState(
+            when {
+                selected -> MaterialTheme.colorScheme.primaryContainer
+                isHovered -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                else -> Color.Transparent
+            }
+        )
+
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(8.dp))
-                .clickable(onClick = onClick),
-            color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                .hoverable(interactionSource)
+                .onClick(
+                    matcher = PointerMatcher.mouse(PointerButton.Secondary),
+                    onClick = { showContextMenu = true }
+                )
+                .pointerHoverIcon(PointerIcon.Hand)
+                .pointerInput(playlist.id) {
+                    detectTapGestures(
+                        onTap = { onClick() },
+                        onLongPress = { showContextMenu = true },
+                    )
+                },
+            color = backgroundColor,
             contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SynaraImage(
-                    imageId = playlist.imageId,
-                    size = 32.dp,
-                    shape = RoundedCornerShape(4.dp),
-                    fallbackIcon = Icons.AutoMirrored.Rounded.PlaylistPlay
-                )
-                Text(
-                    text = playlist.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+            Box {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SynaraImage(
+                        imageId = playlist.imageId,
+                        size = 32.dp,
+                        shape = RoundedCornerShape(4.dp),
+                        fallbackIcon = Icons.AutoMirrored.Rounded.PlaylistPlay
+                    )
+                    Text(
+                        text = playlist.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                PlaylistContextMenu(
+                    playlist = playlist,
+                    expanded = showContextMenu,
+                    onDismissRequest = { showContextMenu = false }
                 )
             }
         }
@@ -639,7 +687,6 @@ private class DashboardScreen : Screen {
 
     @Composable
     private fun DashboardStats(stats: ServerStats) {
-        val navigator = LocalNavigator.currentOrThrow
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp)

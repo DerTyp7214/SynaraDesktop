@@ -9,6 +9,7 @@ import dev.dertyp.logging.LogTag
 import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
+import dev.dertyp.synara.viewmodels.GlobalStateModel
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.header
@@ -28,6 +29,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import org.koin.core.component.inject
 import kotlin.time.Duration.Companion.milliseconds
 
 class ListenBrainzScrobbler(
@@ -55,6 +57,7 @@ class ListenBrainzScrobbler(
     private val target = "listenbrainz"
     private val queueUpdateFlow = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     private var isProcessing = false
+    private val globalState: GlobalStateModel by inject()
 
     @OptIn(FlowPreview::class)
     override fun onStart() {
@@ -65,6 +68,11 @@ class ListenBrainzScrobbler(
                 .collectLatest {
                     processQueue()
                 }
+        }
+        this += scope.launch {
+            globalState.user.collectLatest {
+                queueUpdateFlow.emit(Unit)
+            }
         }
     }
 

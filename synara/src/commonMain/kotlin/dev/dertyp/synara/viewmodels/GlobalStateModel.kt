@@ -3,6 +3,7 @@ package dev.dertyp.synara.viewmodels
 import dev.dertyp.data.User
 import dev.dertyp.data.UserPlaylist
 import dev.dertyp.synara.Config
+import dev.dertyp.synara.db.SynaraDatabase
 import dev.dertyp.synara.player.PlaylistUpdate
 import dev.dertyp.synara.player.SongCache
 import dev.dertyp.synara.rpc.RpcServiceManager
@@ -14,6 +15,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 class GlobalStateModel(
     private val rpcServiceManager: RpcServiceManager,
@@ -21,7 +24,8 @@ class GlobalStateModel(
     private val userPlaylistService: UserPlaylistServiceWrapper,
     private val scrobblerService: ScrobblerService,
     private val songCache: SongCache
-) {
+) : KoinComponent {
+    private val database: SynaraDatabase by inject()
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     private val _user = MutableStateFlow<User?>(null)
@@ -113,7 +117,18 @@ class GlobalStateModel(
     fun refreshUser() {
         scope.launch {
             try {
-                _user.value = userService.me()
+                val me = userService.me()
+                _user.value = me
+
+                if (Config.needsUserIdMigration.value) {
+                    val userIdStr = me.id.toString()
+                    database.recentlyPlayedQueries.migrateUserId(userIdStr)
+                    database.recentlyPlayedQueries.migrateAlbumUserId(userIdStr)
+                    database.recentlyPlayedQueries.migrateArtistUserId(userIdStr)
+                    database.scrobbleQueueQueries.migrateQueueUserId(userIdStr)
+                    database.scrobbleQueueQueries.migrateHistoryUserId(userIdStr)
+                    Config.setNeedsUserIdMigration(false)
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }

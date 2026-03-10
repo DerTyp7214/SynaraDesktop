@@ -4,7 +4,9 @@ import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
 import dev.dertyp.synara.db.SynaraDatabase
+import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.serialization.json.Json
+import org.koin.core.component.inject
 
 class RecentlyPlayedScrobbler(
     database: SynaraDatabase,
@@ -14,11 +16,14 @@ class RecentlyPlayedScrobbler(
     override val icon: String = ""
 
     private val queries = database.recentlyPlayedQueries
+    private val globalState: GlobalStateModel by inject()
 
     override suspend fun triggered(song: UserSong) {
+        val userId = globalState.user.value?.id?.toString() ?: return
         val timestamp = currentTimeMillis()
 
         queries.insertSong(
+            userId = userId,
             id = song.id.toString(),
             timestamp = timestamp,
             payload = json.encodeToString(song)
@@ -26,6 +31,7 @@ class RecentlyPlayedScrobbler(
 
         song.album?.let { album ->
             queries.insertAlbum(
+                userId = userId,
                 id = album.id.toString(),
                 timestamp = timestamp,
                 payload = json.encodeToString(album)
@@ -34,6 +40,7 @@ class RecentlyPlayedScrobbler(
 
         song.artists.forEach { artist ->
             queries.insertArtist(
+                userId = userId,
                 id = artist.id.toString(),
                 timestamp = timestamp,
                 payload = json.encodeToString(artist)

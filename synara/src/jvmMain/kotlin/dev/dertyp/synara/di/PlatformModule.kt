@@ -4,7 +4,7 @@ import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
-import dev.dertyp.synara.db.SynaraDatabase
+import dev.dertyp.synara.db.DatabaseMigrations
 import dev.dertyp.synara.player.*
 import dev.dertyp.synara.utils.OSUtils
 import dev.dertyp.synara.utils.getAppDataDir
@@ -28,7 +28,7 @@ actual fun platformModule(): Module = module {
         val databasePath = File(getAppDataDir(), "synara.db")
         val driver = JdbcSqliteDriver("jdbc:sqlite:${databasePath.absolutePath}")
 
-        SynaraDatabase.Schema.create(driver)
+        DatabaseMigrations.migrate(driver)
         
         driver
     }

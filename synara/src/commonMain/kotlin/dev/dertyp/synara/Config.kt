@@ -91,6 +91,9 @@ object Config : KoinComponent {
     private val _proxySsl = MutableStateFlow(settings.get(SettingKey.ProxySsl, false))
     val proxySsl: StateFlow<Boolean> = _proxySsl.asStateFlow()
 
+    private val _needsUserIdMigration = MutableStateFlow(settings.get(SettingKey.NeedsUserIdMigration, true))
+    val needsUserIdMigration: StateFlow<Boolean> = _needsUserIdMigration.asStateFlow()
+
     fun setDarkTheme(isDark: Boolean) {
         _darkTheme.value = isDark
         settings.putBoolean("dark_theme", isDark)
@@ -217,5 +220,10 @@ object Config : KoinComponent {
     fun setProxySsl(ssl: Boolean) {
         _proxySsl.value = ssl
         settings.put(SettingKey.ProxySsl, ssl)
+    }
+
+    fun setNeedsUserIdMigration(needs: Boolean) {
+        _needsUserIdMigration.value = needs
+        settings.put(SettingKey.NeedsUserIdMigration, needs)
     }
 }
