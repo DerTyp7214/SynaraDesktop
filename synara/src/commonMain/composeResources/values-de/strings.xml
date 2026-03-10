@@ -169,4 +169,17 @@
     <string name="recently_played_albums">Zuletzt gespielte Alben</string>
     <string name="recently_played_artists">Zuletzt gespielte Künstler</string>
     <string name="account">Konto</string>
+
+    <!-- Artist Merge/Split -->
+    <string name="menu_merge_artist">Interpret zusammenführen</string>
+    <string name="menu_split_artist">Interpret aufteilen</string>
+    <string name="merge_artist_title">Interpret zusammenführen</string>
+    <string name="merge_artist_name_label">Neuer Name des Interpreten</string>
+    <string name="merge_artist_search_placeholder">Nach Interpreten zum Zusammenführen suchen…</string>
+    <string name="merge_artist_image_label">Bild-ID (optional)</string>
+    <string name="merge_artist_button">Zusammenführen</string>
+    <string name="split_artist_title">Interpret aufteilen</string>
+    <string name="split_artist_names_label">Neuer Name des Interpreten</string>
+    <string name="split_artist_name_placeholder">z.B. Interpret A</string>
+    <string name="split_artist_button">Aufteilen</string>
 </resources>

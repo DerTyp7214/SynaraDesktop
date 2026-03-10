@@ -23,7 +23,9 @@ data class ArtistState(
     val topSongs: List<UserSong> = emptyList(),
     val topLikedSongs: List<UserSong> = emptyList(),
     val albums: List<Album> = emptyList(),
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val isMerging: Boolean = false,
+    val isSplitting: Boolean = false
 )
 
 class ArtistScreenModel(

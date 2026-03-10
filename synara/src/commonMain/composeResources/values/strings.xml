@@ -178,4 +178,17 @@
     <string name="recently_played_albums">Recently Played Albums</string>
     <string name="recently_played_artists">Recently Played Artists</string>
     <string name="account">Account</string>
+
+    <!-- Artist Merge/Split -->
+    <string name="menu_merge_artist">Merge Artist</string>
+    <string name="menu_split_artist">Split Artist</string>
+    <string name="merge_artist_title">Merge Artist</string>
+    <string name="merge_artist_name_label">New Artist Name</string>
+    <string name="merge_artist_search_placeholder">Search artists to merge with…</string>
+    <string name="merge_artist_image_label">Image ID (Optional)</string>
+    <string name="merge_artist_button">Merge</string>
+    <string name="split_artist_title">Split Artist</string>
+    <string name="split_artist_names_label">New Artist Name</string>
+    <string name="split_artist_name_placeholder">e.g. Artist A</string>
+    <string name="split_artist_button">Split</string>
 </resources>

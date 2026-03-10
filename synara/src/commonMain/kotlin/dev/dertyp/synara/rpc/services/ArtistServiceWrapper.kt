@@ -4,6 +4,7 @@ import dev.dertyp.PlatformUUID
 import dev.dertyp.data.Artist
 import dev.dertyp.data.MergeArtists
 import dev.dertyp.data.PaginatedResponse
+import dev.dertyp.data.SplitArtist
 import dev.dertyp.services.IArtistService
 import dev.dertyp.synara.rpc.RpcServiceManager
 
@@ -26,6 +27,10 @@ class ArtistServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(mana
 
     override suspend fun mergeArtists(mergeArtists: MergeArtists): Artist? {
         return manager.getService<IArtistService>().mergeArtists(mergeArtists)
+    }
+
+    override suspend fun splitArtist(splitArtist: SplitArtist): List<Artist> {
+        return manager.getService<IArtistService>().splitArtist(splitArtist)
     }
 
     override suspend fun allArtists(page: Int, pageSize: Int): PaginatedResponse<Artist> {
