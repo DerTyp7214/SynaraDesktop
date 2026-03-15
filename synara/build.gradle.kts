@@ -16,8 +16,8 @@ val major = 1
 val minor = 0
 val patch = 0
 val buildMajor = 0
-val buildMinor = 1
-val buildPatch = 1
+val buildMinor = 2
+val buildPatch = 0
 
 fun getVersionName(): String {
     return "$major.$minor.$patch${if (prerelease) "-prerelease$buildMajor.$buildMinor.$buildPatch" else ""}"
@@ -69,6 +69,7 @@ kotlin {
                 implementation(libs.material.symbols.sharp)
                 implementation(libs.material.symbols.sharp.filled)
                 implementation(libs.icons.lucide)
+                implementation(libs.phosphor.icons)
                 implementation(libs.components.resources)
                 implementation(libs.ui.tooling.preview)
 

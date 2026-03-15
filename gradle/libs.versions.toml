@@ -88,6 +88,7 @@ material-symbols-outlined-filled = { module = "com.composables:icons-material-sy
 material-symbols-sharp = { module = "com.composables:icons-material-symbols-sharp-cmp", version.ref = "composableIcons" }
 material-symbols-sharp-filled = { module = "com.composables:icons-material-symbols-sharp-filled-cmp", version.ref = "composableIcons" }
 icons-lucide = { module = "com.composables:icons-lucide-cmp", version.ref = "composableIcons" }
+phosphor-icons = { module = "io.github.dev778g-me:phosphoricon-compose", version = "1.0.2" }
 
 [plugins]
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

@@ -109,7 +109,7 @@ class SettingsScreen : Screen {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Column(
-                    modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
+                    modifier = Modifier.widthIn(max = 580.dp).fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     LanguageSetting(currentLanguage = language)

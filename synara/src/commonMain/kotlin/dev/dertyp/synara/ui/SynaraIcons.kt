@@ -8,12 +8,14 @@ import synara.synara.generated.resources.*
 
 enum class IconPackType(val label: StringResource) {
     MaterialSymbols(Res.string.icon_pack_material_symbols),
-    Lucide(Res.string.icon_pack_lucide);
+    Lucide(Res.string.icon_pack_lucide),
+    Phosphor(Res.string.icon_pack_phosphor);
 
     fun getPack(): SynaraIconPack {
         return when (this) {
             MaterialSymbols -> MaterialSymbolsIconPack
             Lucide -> LucideIconPack
+            Phosphor -> PhosphorIconPack
         }
     }
 }
@@ -27,6 +29,15 @@ enum class MaterialSymbolStyle(override val id: String, override val label: Stri
     Rounded("rounded", Res.string.icon_style_rounded),
     Outlined("outlined", Res.string.icon_style_outlined),
     Sharp("sharp", Res.string.icon_style_sharp)
+}
+
+enum class PhosphorIconStyle(override val id: String, override val label: StringResource) : SynaraIconStyle {
+    Thin("thin", Res.string.icon_style_thin),
+    Light("light", Res.string.icon_style_light),
+    Regular("regular", Res.string.icon_style_regular),
+    Bold("bold", Res.string.icon_style_bold),
+    Filled("filled", Res.string.icon_style_filled),
+    Duotone("duotone", Res.string.icon_style_duotone)
 }
 
 object LucideStyle : SynaraIconStyle {
@@ -93,7 +104,6 @@ object MaterialSymbolsIconPack : SynaraIconPack() {
     }
 }
 
-@Composable
 internal expect fun MaterialSymbolsIconPack.generatedGet(id: SynaraIcons, style: MaterialSymbolStyle, filled: Boolean): ImageVector
 
 object LucideIconPack : SynaraIconPack() {
@@ -109,3 +119,34 @@ object LucideIconPack : SynaraIconPack() {
 }
 
 internal expect fun LucideIconPack.generatedGet(id: SynaraIcons): ImageVector
+
+object PhosphorIconPack : SynaraIconPack() {
+    override val name: String = "Phosphor"
+    override val type: IconPackType = IconPackType.Phosphor
+    override val styles: List<SynaraIconStyle> = PhosphorIconStyle.entries
+    override val hasFilledOption: Boolean = false
+
+    @Composable
+    override fun get(id: SynaraIcons, style: SynaraIconStyle, filled: Boolean): ImageVector {
+        val s = style as? PhosphorIconStyle ?: PhosphorIconStyle.Regular
+        return generatedGet(id, s, filled)
+    }
+
+    internal fun resolve(
+        thin: ImageVector, light: ImageVector, regular: ImageVector,
+        bold: ImageVector, fill: ImageVector, duotone: ImageVector,
+        filled: Boolean, style: PhosphorIconStyle
+    ): ImageVector {
+        if (filled) return fill
+        return when (style) {
+            PhosphorIconStyle.Thin -> thin
+            PhosphorIconStyle.Light -> light
+            PhosphorIconStyle.Regular -> regular
+            PhosphorIconStyle.Bold -> bold
+            PhosphorIconStyle.Filled -> fill
+            PhosphorIconStyle.Duotone -> duotone
+        }
+    }
+}
+
+internal expect fun PhosphorIconPack.generatedGet(id: SynaraIcons, style: PhosphorIconStyle, filled: Boolean): ImageVector
