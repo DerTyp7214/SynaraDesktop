@@ -4,9 +4,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -17,6 +14,7 @@ import dev.dertyp.data.UserPlaylist
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.CreatePlaylistDialog
 import dev.dertyp.synara.ui.components.dialogs.PlaylistPickerDialog
@@ -64,7 +62,7 @@ fun PlaylistContextMenu(
                 playerModel.addToQueue(PlaybackQueue(source = PlaybackSource.Playlist(playlist.id)))
                 onDismissRequest()
             },
-            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null, modifier = Modifier.size(20.dp)) }
+            leadingIcon = { Icon(SynaraIcons.PlaylistAdd.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
 
         DropdownMenuItem(
@@ -73,7 +71,7 @@ fun PlaylistContextMenu(
                 playerModel.playNext(PlaybackQueue(source = PlaybackSource.Playlist(playlist.id)))
                 onDismissRequest()
             },
-            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistPlay, contentDescription = null, modifier = Modifier.size(20.dp)) }
+            leadingIcon = { Icon(SynaraIcons.PlaylistPlay.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
 
         DropdownMenuItem(
@@ -82,7 +80,7 @@ fun PlaylistContextMenu(
                 showPlaylistPickerDialog = true
                 onDismissRequest()
             },
-            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null, modifier = Modifier.size(20.dp)) }
+            leadingIcon = { Icon(SynaraIcons.PlaylistAdd.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
     }
 

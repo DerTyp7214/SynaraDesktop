@@ -331,8 +331,10 @@ fun runTransparentWindow(
             shapes = shapes(),
             typography = typography()
         ) {
+            val iconStyle by Config.iconStyle.collectAsState()
             @Suppress("DEPRECATION")
             CompositionLocalProvider(
+                LocalIconStyle provides iconStyle,
                 LocalClipboard provides clipboard,
                 LocalClipboardManager provides clipboardManager,
                 LocalWindowActions provides windowActions,

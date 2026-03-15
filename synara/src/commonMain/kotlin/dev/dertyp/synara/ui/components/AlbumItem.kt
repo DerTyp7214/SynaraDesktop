@@ -9,7 +9,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.onClick
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -26,8 +25,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.dertyp.data.Album
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.menus.AlbumContextMenu
-import androidx.compose.material.icons.rounded.Album as AlbumIcon
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -77,7 +76,7 @@ fun AlbumItem(
                     SynaraImage(
                         imageId = album.coverId,
                         size = 64.dp,
-                        fallbackIcon = Icons.Rounded.AlbumIcon
+                        fallbackIcon = SynaraIcons.Album
                     )
 
                     Spacer(modifier = Modifier.width(16.dp))
@@ -123,7 +122,7 @@ fun AlbumItem(
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(1f),
-                        fallbackIcon = Icons.Rounded.AlbumIcon
+                        fallbackIcon = SynaraIcons.Album
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))

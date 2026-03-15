@@ -9,6 +9,7 @@ import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.getOrNull
 import dev.dertyp.synara.settings.put
 import dev.dertyp.synara.theme.createColorSchemeFromSeeds
+import dev.dertyp.synara.ui.IconStyle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,6 +21,15 @@ object Config : KoinComponent {
 
     private val _darkTheme = MutableStateFlow(settings.getBoolean("dark_theme", true))
     val darkTheme: StateFlow<Boolean> = _darkTheme.asStateFlow()
+
+    private val _iconStyle = MutableStateFlow(
+        try {
+            IconStyle.valueOf(settings.getString("icon_style", IconStyle.Rounded.name))
+        } catch (_: Exception) {
+            IconStyle.Rounded
+        }
+    )
+    val iconStyle: StateFlow<IconStyle> = _iconStyle.asStateFlow()
 
     private val _language = MutableStateFlow(settings.getStringOrNull("language"))
     val language: StateFlow<String?> = _language.asStateFlow()
@@ -97,6 +107,11 @@ object Config : KoinComponent {
     fun setDarkTheme(isDark: Boolean) {
         _darkTheme.value = isDark
         settings.putBoolean("dark_theme", isDark)
+    }
+
+    fun setIconStyle(style: IconStyle) {
+        _iconStyle.value = style
+        settings.put(SettingKey.IconStyle, style.name)
     }
 
     fun setLanguage(lang: String?) {

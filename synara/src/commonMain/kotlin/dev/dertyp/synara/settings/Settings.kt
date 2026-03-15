@@ -35,6 +35,9 @@ sealed class SettingKey<T>(val name: String) {
     // Visualizer
     data object ParticleMultiplier : SettingKey<Float>("particle_multiplier")
 
+    // UI
+    data object IconStyle : SettingKey<String>("icon_style")
+
     // Database
     data object NeedsUserIdMigration : SettingKey<Boolean>("needs_user_id_migration")
 
@@ -89,7 +92,8 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.Host, is SettingKey.AuthToken, is SettingKey.RefreshToken,
         is SettingKey.ListenBrainzToken, is SettingKey.LastFmApiKey,
         is SettingKey.LastFmSharedSecret, is SettingKey.LastFmSessionKey,
-        is SettingKey.LastFmUsername, is SettingKey.ProxyHost, is SettingKey.ProxyId -> getStringOrNull(key.name) as T?
+        is SettingKey.LastFmUsername, is SettingKey.ProxyHost, is SettingKey.ProxyId,
+        is SettingKey.IconStyle -> getStringOrNull(key.name) as T?
 
         is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor,
         is SettingKey.ProxyPort -> getIntOrNull(

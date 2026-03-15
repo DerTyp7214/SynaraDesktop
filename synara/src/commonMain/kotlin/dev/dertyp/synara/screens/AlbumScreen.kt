@@ -9,12 +9,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.Layers
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,6 +23,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.Album
 import dev.dertyp.synara.formatHumanReadableDuration
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.ArtistsText
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraImage
@@ -67,7 +62,7 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
                     title = { Text(state.album?.name ?: "") },
                     navigationIcon = {
                         IconButton(onClick = { navigator?.pop() }) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
+                            Icon(SynaraIcons.ArrowBack.get(), contentDescription = null)
                         }
                     }
                 )
@@ -168,7 +163,7 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
                 size = 200.dp,
                 shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.clickable { onImageClick() },
-                fallbackIcon = Icons.Rounded.Album
+                fallbackIcon = SynaraIcons.Album
             )
 
             Spacer(modifier = Modifier.width(24.dp))
@@ -211,7 +206,7 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     ) {
-                        Icon(Icons.Rounded.Layers, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(SynaraIcons.Layers.get(), contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = stringResource(Res.string.other_versions, versions.size),
@@ -227,7 +222,7 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
                         onClick = { screenModel.playAlbum() },
                         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
                     ) {
-                        Icon(Icons.Rounded.PlayArrow, contentDescription = null)
+                        Icon(SynaraIcons.PlayArrow.get(), contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(stringResource(Res.string.play))
                     }
@@ -235,7 +230,7 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
                     OutlinedButton(
                         onClick = { screenModel.addToQueue() }
                     ) {
-                        Icon(Icons.Rounded.Add, contentDescription = null)
+                        Icon(SynaraIcons.Add.get(), contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(stringResource(Res.string.add_to_queue))
                     }

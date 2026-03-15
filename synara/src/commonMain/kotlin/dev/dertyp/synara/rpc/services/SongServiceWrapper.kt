@@ -3,6 +3,7 @@ package dev.dertyp.synara.rpc.services
 import dev.dertyp.PlatformInstant
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.PaginatedResponse
+import dev.dertyp.data.SongTag
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.metadata.IMetadataService
@@ -67,8 +68,14 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
         return manager.getService<ISongService>().likedSongs(page, pageSize, explicit)
     }
 
-    override suspend fun allSongs(page: Int, pageSize: Int, explicit: Boolean): PaginatedResponse<UserSong> {
-        return manager.getService<ISongService>().allSongs(page, pageSize, explicit)
+    override suspend fun allSongs(
+        page: Int,
+        pageSize: Int,
+        explicit: Boolean,
+        tags: List<SongTag>,
+        invertTags: Boolean
+    ): PaginatedResponse<UserSong> {
+        return manager.getService<ISongService>().allSongs(page, pageSize, explicit, tags, invertTags)
     }
 
     override suspend fun deleteSongs(ids: Collection<PlatformUUID>): Boolean {
@@ -93,8 +100,12 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
         return manager.getService<ISongService>().getStreamSize(id)
     }
 
-    override fun allSongIds(explicit: Boolean): Flow<PlatformUUID> {
-        return manager.getService<ISongService>().allSongIds(explicit)
+    override fun allSongIds(
+        explicit: Boolean,
+        tags: List<SongTag>,
+        invertTags: Boolean
+    ): Flow<PlatformUUID> {
+        return manager.getService<ISongService>().allSongIds(explicit, tags, invertTags)
     }
 
     override fun likedSongIds(explicit: Boolean): Flow<PlatformUUID> {

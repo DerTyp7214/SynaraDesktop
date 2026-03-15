@@ -4,11 +4,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.CallSplit
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
-import androidx.compose.material.icons.rounded.Merge
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -20,6 +15,7 @@ import dev.dertyp.services.IArtistService
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.MergeArtistDialog
 import dev.dertyp.synara.ui.components.dialogs.SplitArtistDialog
@@ -73,7 +69,7 @@ fun ArtistContextMenu(
                 playerModel.addToQueue(PlaybackQueue(source = PlaybackSource.Artist(artist.id)))
                 onDismissRequest()
             },
-            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null, modifier = Modifier.size(20.dp)) }
+            leadingIcon = { Icon(SynaraIcons.PlaylistAdd.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
 
         DropdownMenuItem(
@@ -82,7 +78,7 @@ fun ArtistContextMenu(
                 playerModel.playNext(PlaybackQueue(source = PlaybackSource.Artist(artist.id)))
                 onDismissRequest()
             },
-            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistPlay, contentDescription = null, modifier = Modifier.size(20.dp)) }
+            leadingIcon = { Icon(SynaraIcons.PlaylistPlay.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
 
         if (user?.isAdmin == true) {
@@ -94,7 +90,7 @@ fun ArtistContextMenu(
                     showMergeDialog = true
                     onDismissRequest()
                 },
-                leadingIcon = { Icon(Icons.Rounded.Merge, contentDescription = null, modifier = Modifier.size(20.dp)) }
+                leadingIcon = { Icon(SynaraIcons.Merge.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
             )
 
             DropdownMenuItem(
@@ -103,7 +99,7 @@ fun ArtistContextMenu(
                     showSplitDialog = true
                     onDismissRequest()
                 },
-                leadingIcon = { Icon(Icons.AutoMirrored.Rounded.CallSplit, contentDescription = null, modifier = Modifier.size(20.dp)) }
+                leadingIcon = { Icon(SynaraIcons.CallSplit.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
             )
         }
     }

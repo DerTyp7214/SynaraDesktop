@@ -4,11 +4,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -21,6 +16,7 @@ import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.screens.ArtistScreen
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.ArtistListDialog
 import dev.dertyp.synara.ui.components.dialogs.CreatePlaylistDialog
@@ -82,7 +78,7 @@ fun AlbumContextMenu(
                     }
                     onDismissRequest()
                 },
-                leadingIcon = { Icon(Icons.Rounded.Person, contentDescription = null, modifier = Modifier.size(20.dp)) }
+                leadingIcon = { Icon(SynaraIcons.Person.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
             )
         }
 
@@ -94,7 +90,7 @@ fun AlbumContextMenu(
                 playerModel.addToQueue(PlaybackQueue(source = PlaybackSource.Album(album.id)))
                 onDismissRequest()
             },
-            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null, modifier = Modifier.size(20.dp)) }
+            leadingIcon = { Icon(SynaraIcons.PlaylistAdd.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
 
         DropdownMenuItem(
@@ -103,7 +99,7 @@ fun AlbumContextMenu(
                 playerModel.playNext(PlaybackQueue(source = PlaybackSource.Album(album.id)))
                 onDismissRequest()
             },
-            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistPlay, contentDescription = null, modifier = Modifier.size(20.dp)) }
+            leadingIcon = { Icon(SynaraIcons.PlaylistPlay.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
         
         DropdownMenuItem(
@@ -112,7 +108,7 @@ fun AlbumContextMenu(
                 showPlaylistPickerDialog = true
                 onDismissRequest()
             },
-            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null, modifier = Modifier.size(20.dp)) }
+            leadingIcon = { Icon(SynaraIcons.PlaylistAdd.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
 
         HorizontalDivider()
@@ -120,7 +116,7 @@ fun AlbumContextMenu(
         DropdownMenuItem(
             text = { Text(stringResource(Res.string.delete)) },
             onClick = { onDismissRequest() },
-            leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null, modifier = Modifier.size(20.dp)) },
+            leadingIcon = { Icon(SynaraIcons.Delete.get(), contentDescription = null, modifier = Modifier.size(20.dp)) },
             colors = MenuDefaults.itemColors(
                 textColor = MaterialTheme.colorScheme.error,
                 leadingIconColor = MaterialTheme.colorScheme.error

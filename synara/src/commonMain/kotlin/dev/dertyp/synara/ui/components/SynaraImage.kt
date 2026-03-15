@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
@@ -15,13 +13,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import dev.dertyp.PlatformUUID
+import dev.dertyp.synara.ui.SynaraIcon
+import dev.dertyp.synara.ui.SynaraIcons
 
 @Composable
 fun SynaraImage(
@@ -30,7 +29,7 @@ fun SynaraImage(
     modifier: Modifier = Modifier,
     aspectRatio: Float? = null,
     contentScale: ContentScale = ContentScale.Crop,
-    fallbackIcon: ImageVector = Icons.Rounded.MusicNote,
+    fallbackIcon: SynaraIcon = SynaraIcons.MusicNote,
     shape: Shape = MaterialTheme.shapes.small,
     backgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant
 ) {
@@ -57,7 +56,7 @@ fun SynaraImage(
             )
         } else {
             Icon(
-                imageVector = fallbackIcon,
+                imageVector = fallbackIcon.get(),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 modifier = Modifier.size(if (size != null) size / 2 else 48.dp)

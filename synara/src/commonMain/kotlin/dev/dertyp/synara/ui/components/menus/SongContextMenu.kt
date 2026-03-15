@@ -1,10 +1,6 @@
 package dev.dertyp.synara.ui.components.menus
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
-import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -18,6 +14,7 @@ import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.QueueEntry
 import dev.dertyp.synara.screens.AlbumScreen
 import dev.dertyp.synara.screens.ArtistScreen
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.ArtistListDialog
 import dev.dertyp.synara.ui.components.dialogs.CreatePlaylistDialog
@@ -75,7 +72,7 @@ fun SongContextMenu(
             },
             leadingIcon = {
                 Icon(
-                    Icons.Rounded.Info,
+                    SynaraIcons.Info.get(),
                     contentDescription = null,
                     modifier = Modifier.size(20.dp)
                 )
@@ -102,7 +99,7 @@ fun SongContextMenu(
                 },
                 leadingIcon = {
                     Icon(
-                        Icons.Rounded.Person,
+                        SynaraIcons.Person.get(),
                         contentDescription = null,
                         modifier = Modifier.size(20.dp)
                     )
@@ -120,7 +117,7 @@ fun SongContextMenu(
                 },
                 leadingIcon = {
                     Icon(
-                        Icons.Rounded.Album,
+                        SynaraIcons.Album.get(),
                         contentDescription = null,
                         modifier = Modifier.size(20.dp)
                     )
@@ -138,7 +135,7 @@ fun SongContextMenu(
             },
             leadingIcon = {
                 Icon(
-                    Icons.AutoMirrored.Rounded.PlaylistAdd,
+                    SynaraIcons.PlaylistAdd.get(),
                     contentDescription = null,
                     modifier = Modifier.size(20.dp)
                 )
@@ -152,7 +149,7 @@ fun SongContextMenu(
             },
             leadingIcon = {
                 Icon(
-                    Icons.AutoMirrored.Rounded.PlaylistPlay,
+                    SynaraIcons.PlaylistPlay.get(),
                     contentDescription = null,
                     modifier = Modifier.size(20.dp)
                 )
@@ -166,7 +163,7 @@ fun SongContextMenu(
             },
             leadingIcon = {
                 Icon(
-                    Icons.AutoMirrored.Rounded.PlaylistAdd,
+                    SynaraIcons.PlaylistAdd.get(),
                     contentDescription = null,
                     modifier = Modifier.size(20.dp)
                 )
@@ -184,7 +181,7 @@ fun SongContextMenu(
                     },
                     leadingIcon = {
                         Icon(
-                            Icons.Rounded.PlaylistRemove,
+                            SynaraIcons.PlaylistRemove.get(),
                             contentDescription = null,
                             modifier = Modifier.size(20.dp)
                         )
@@ -200,7 +197,7 @@ fun SongContextMenu(
                     },
                     leadingIcon = {
                         Icon(
-                            Icons.Rounded.RemoveCircleOutline,
+                            SynaraIcons.RemoveCircleOutline.get(),
                             contentDescription = null,
                             modifier = Modifier.size(20.dp)
                         )
@@ -225,7 +222,7 @@ fun SongContextMenu(
             },
             leadingIcon = {
                 Icon(
-                    if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    if (isFavorite) SynaraIcons.Favorite.get() else SynaraIcons.FavoriteBorder.get(),
                     contentDescription = null,
                     modifier = Modifier.size(20.dp),
                     tint = if (isFavorite) MaterialTheme.colorScheme.primary else LocalContentColor.current
@@ -241,7 +238,7 @@ fun SongContextMenu(
             onClick = { onDismissRequest() },
             leadingIcon = {
                 Icon(
-                    Icons.Rounded.Delete,
+                    SynaraIcons.Delete.get(),
                     contentDescription = null,
                     modifier = Modifier.size(20.dp)
                 )

@@ -3,6 +3,7 @@ package dev.dertyp.synara.player
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.BaseSong
 import dev.dertyp.data.PaginatedResponse
+import dev.dertyp.data.SongTag
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.ISongService
 import kotlinx.coroutines.*
@@ -102,14 +103,16 @@ abstract class BasePagedQueueSource(override val id: String) : QueueSource {
 class AllSongsQueueSource(
     private val songService: ISongService,
     private val explicit: Boolean = true,
+    private val tags: List<SongTag> = emptyList(),
+    private val invertTags: Boolean = false,
     id: String = "all_songs"
 ) : BasePagedQueueSource(id) {
     override suspend fun fetchPage(page: Int, pageSize: Int): PaginatedResponse<UserSong> {
-        return songService.allSongs(page, pageSize, explicit)
+        return songService.allSongs(page, pageSize, explicit, tags, invertTags)
     }
 
     override fun fetchIdFlow(): Flow<PlatformUUID> {
-        return songService.allSongIds(explicit)
+        return songService.allSongIds(explicit, tags, invertTags)
     }
 }
 

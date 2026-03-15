@@ -2,6 +2,7 @@ package dev.dertyp.synara.viewmodels
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import dev.dertyp.data.SongTag
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.ISongService
 import dev.dertyp.synara.player.*
@@ -51,9 +52,12 @@ class AllSongsScreenModel(
 
     private fun loadInitialData() {
         screenModelScope.launch {
+            val tags = (_state.value as? AllSongsState.Success)?.tags ?: emptyList()
+            val invertTags = (_state.value as? AllSongsState.Success)?.invertTags ?: false
+            
             _state.value = AllSongsState.Loading
             try {
-                val response = songService.allSongs(0, pageSize, true)
+                val response = songService.allSongs(0, pageSize, true, tags, invertTags)
                 val total = response.total
                 val songs = arrayOfNulls<UserSong>(total).toMutableList()
 
@@ -63,7 +67,9 @@ class AllSongsScreenModel(
                 
                 _state.value = AllSongsState.Success(
                     songs = songs,
-                    total = total
+                    total = total,
+                    tags = tags,
+                    invertTags = invertTags
                 )
             } catch (e: Exception) {
                 _state.value = AllSongsState.Error(e.message ?: "Unknown error")
@@ -83,7 +89,7 @@ class AllSongsScreenModel(
         loadingPages.add(page)
         screenModelScope.launch {
             try {
-                val response = songService.allSongs(page, pageSize, true)
+                val response = songService.allSongs(page, pageSize, true, currentState.tags, currentState.invertTags)
                 val updatedSongs = currentState.songs.toMutableList()
                 
                 for (i in response.data.indices) {
@@ -101,25 +107,52 @@ class AllSongsScreenModel(
         }
     }
 
+    fun toggleTag(tag: SongTag) {
+        val currentState = _state.value as? AllSongsState.Success ?: return
+        val currentTags = currentState.tags.toMutableList()
+        if (currentTags.contains(tag)) {
+            currentTags.remove(tag)
+        } else {
+            currentTags.add(tag)
+        }
+        _state.value = currentState.copy(tags = currentTags)
+        refresh()
+    }
+
+    fun setInvertTags(invert: Boolean) {
+        val currentState = _state.value as? AllSongsState.Success ?: return
+        if (currentState.invertTags == invert) return
+        
+        _state.value = currentState.copy(invertTags = invert)
+        refresh()
+    }
+
     fun refresh() {
         loadingPages.clear()
         loadInitialData()
     }
 
     fun playAll() {
-        playerModel.playQueue(PlaybackQueue(source = PlaybackSource.AllSongs))
+        val currentState = _state.value as? AllSongsState.Success ?: return
+        playerModel.playQueue(PlaybackQueue(source = PlaybackSource.AllSongs(tags = currentState.tags, invertTags = currentState.invertTags)))
     }
 
     fun playSong(song: UserSong, index: Int) {
+        val currentState = _state.value as? AllSongsState.Success ?: return
         playerModel.playQueue(
-            PlaybackQueue(source = PlaybackSource.AllSongs),
+            PlaybackQueue(source = PlaybackSource.AllSongs(tags = currentState.tags, invertTags = currentState.invertTags)),
             startIndex = index
         )
     }
 
     sealed class AllSongsState {
         data object Loading : AllSongsState()
-        data class Success(val songs: List<UserSong?>, val total: Int) : AllSongsState()
+        data class Success(
+            val songs: List<UserSong?>,
+            val total: Int,
+            val tags: List<SongTag> = emptyList(),
+            val invertTags: Boolean = false
+        ) : AllSongsState()
         data class Error(val message: String) : AllSongsState()
     }
 }

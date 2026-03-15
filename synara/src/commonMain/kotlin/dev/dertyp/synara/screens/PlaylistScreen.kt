@@ -9,10 +9,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +23,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.PlatformUUID
 import dev.dertyp.synara.formatHumanReadableDuration
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.dialogs.FullscreenImageDialog
@@ -64,7 +61,7 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                     },
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.back))
+                            Icon(SynaraIcons.ArrowBack.get(), contentDescription = stringResource(Res.string.back))
                         }
                     }
                 )
@@ -191,7 +188,7 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                 size = 200.dp,
                 shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.clickable { onImageClick() },
-                fallbackIcon = Icons.AutoMirrored.Rounded.PlaylistPlay
+                fallbackIcon = SynaraIcons.PlaylistPlay
             )
 
             Spacer(modifier = Modifier.width(24.dp))
@@ -224,7 +221,7 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                         onClick = { screenModel.playPlaylist() },
                         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
                     ) {
-                        Icon(Icons.Rounded.PlayArrow, contentDescription = null)
+                        Icon(SynaraIcons.PlayArrow.get(), contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(stringResource(Res.string.play))
                     }

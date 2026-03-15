@@ -467,9 +467,9 @@ class PlayerModel(
             is PlaybackSource.Album -> albumService.byId(source.albumId)?.name
             is PlaybackSource.Artist -> artistService.byId(source.artistId)?.name
             is PlaybackSource.Playlist -> userPlaylistService.byId(source.playlistId)?.name
-            PlaybackSource.AllSongs -> getString(Res.string.songs)
-            PlaybackSource.LikedSongs -> getString(Res.string.favorite)
-            PlaybackSource.Manual -> null
+            is PlaybackSource.AllSongs -> getString(Res.string.songs)
+            is PlaybackSource.LikedSongs -> getString(Res.string.favorite)
+            is PlaybackSource.Manual -> null
         }
     }
 

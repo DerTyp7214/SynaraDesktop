@@ -11,9 +11,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
-import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,6 +34,7 @@ import dev.dertyp.data.UserPlaylist
 import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.theme.isAppDark
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.*
 import dev.dertyp.synara.ui.components.menus.PlaylistContextMenu
 import dev.dertyp.synara.ui.models.AnnotatedSnackbarVisuals
@@ -217,7 +215,7 @@ class HomeScreen : Screen {
 
             NavigationItem(
                 label = stringResource(Res.string.home),
-                icon = Icons.Rounded.Home,
+                icon = SynaraIcons.Home.get(),
                 selected = navigator.lastItem is DashboardScreen,
                 onClick = {
                     if (navigator.lastItem !is DashboardScreen) navigator.replaceAll(DashboardScreen())
@@ -229,7 +227,7 @@ class HomeScreen : Screen {
 
             NavigationItem(
                 label = stringResource(Res.string.favorite),
-                icon = Icons.Rounded.Favorite,
+                icon = SynaraIcons.Favorite.get(),
                 selected = navigator.lastItem is LikedSongsScreen,
                 onClick = {
                     if (navigator.lastItem !is LikedSongsScreen) navigator.push(LikedSongsScreen())
@@ -241,7 +239,7 @@ class HomeScreen : Screen {
 
             NavigationItem(
                 label = stringResource(Res.string.songs),
-                icon = Icons.Rounded.MusicNote,
+                icon = SynaraIcons.MusicNote.get(),
                 selected = navigator.lastItem is AllSongsScreen,
                 onClick = {
                     if (navigator.lastItem !is AllSongsScreen) navigator.push(AllSongsScreen())
@@ -276,7 +274,7 @@ class HomeScreen : Screen {
                         modifier = Modifier.size(24.dp)
                     ) {
                         Icon(
-                            Icons.Rounded.Refresh,
+                            SynaraIcons.Refresh.get(),
                             contentDescription = stringResource(Res.string.refresh_playlists),
                             modifier = Modifier.size(16.dp),
                             tint = MaterialTheme.colorScheme.primary
@@ -405,7 +403,7 @@ class HomeScreen : Screen {
                         imageId = playlist.imageId,
                         size = 32.dp,
                         shape = RoundedCornerShape(4.dp),
-                        fallbackIcon = Icons.AutoMirrored.Rounded.PlaylistPlay
+                        fallbackIcon = SynaraIcons.PlaylistPlay
                     )
                     Text(
                         text = playlist.name,
@@ -452,7 +450,7 @@ class HomeScreen : Screen {
             ) {
                 if (showMenu) {
                     IconButton(onClick = { onMenuClick?.invoke() }) {
-                        Icon(Icons.Rounded.Menu, contentDescription = null)
+                        Icon(SynaraIcons.Menu.get(), contentDescription = null)
                     }
                 }
 
@@ -476,7 +474,7 @@ class HomeScreen : Screen {
                         .height(52.dp),
                     leadingIcon = { 
                         Icon(
-                            Icons.Rounded.Search, 
+                            SynaraIcons.Search.get(), 
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         ) 
@@ -485,7 +483,7 @@ class HomeScreen : Screen {
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = { screenModel.globalState.setSearchQuery("") }) {
                                 Icon(
-                                    Icons.Rounded.Clear,
+                                    SynaraIcons.Clear.get(),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -498,7 +496,7 @@ class HomeScreen : Screen {
 
                 IconButton(onClick = { screenModel.toggleDarkMode() }) {
                     Icon(
-                        imageVector = if (isDark) Icons.Rounded.LightMode else Icons.Rounded.DarkMode,
+                        imageVector = if (isDark) SynaraIcons.LightMode.get() else SynaraIcons.DarkMode.get(),
                         contentDescription = stringResource(Res.string.dark_mode)
                     )
                 }
@@ -506,13 +504,13 @@ class HomeScreen : Screen {
                 IconButton(onClick = { 
                     if (navigator.lastItem !is SessionsScreen) navigator.push(SessionsScreen())
                 }) {
-                    Icon(Icons.Rounded.Devices, contentDescription = stringResource(Res.string.sessions))
+                    Icon(SynaraIcons.Devices.get(), contentDescription = stringResource(Res.string.sessions))
                 }
 
                 IconButton(onClick = { 
                     if (navigator.lastItem !is SettingsScreen) navigator.push(SettingsScreen())
                 }) {
-                    Icon(Icons.Rounded.Settings, contentDescription = stringResource(Res.string.settings))
+                    Icon(SynaraIcons.Settings.get(), contentDescription = stringResource(Res.string.settings))
                 }
             }
         }

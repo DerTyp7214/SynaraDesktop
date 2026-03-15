@@ -6,10 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.*
-import androidx.compose.material.icons.rounded.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,6 +19,7 @@ import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.Session
 import dev.dertyp.synara.formatDateTime
 import dev.dertyp.synara.formatHumanReadableDuration
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.SynaraAlertDialog
 import dev.dertyp.synara.viewmodels.SessionsScreenModel
@@ -49,7 +47,7 @@ class SessionsScreen : Screen {
                     title = { Text(stringResource(Res.string.sessions)) },
                     navigationIcon = {
                         IconButton(onClick = { navigator?.pop() }) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
+                            Icon(SynaraIcons.ArrowBack.get(), contentDescription = null)
                         }
                     }
                 )
@@ -171,7 +169,7 @@ class SessionsScreen : Screen {
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(
-                        Icons.Rounded.Timer,
+                        SynaraIcons.Timer.get(),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary
                     )
@@ -252,9 +250,9 @@ class SessionsScreen : Screen {
             leadingContent = {
                 Icon(
                     imageVector = when {
-                        isDesktop -> Icons.Rounded.DesktopWindows
-                        isMobile -> Icons.Rounded.Smartphone
-                        else -> Icons.Rounded.Devices
+                        isDesktop -> SynaraIcons.DesktopWindows.get()
+                        isMobile -> SynaraIcons.Smartphone.get()
+                        else -> SynaraIcons.Devices.get()
                     },
                     contentDescription = null,
                     tint = if (session.isActive) MaterialTheme.colorScheme.primary 
@@ -279,7 +277,7 @@ class SessionsScreen : Screen {
                         var expanded by remember { mutableStateOf(false) }
                         Box {
                             IconButton(onClick = { expanded = true }) {
-                                Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(Res.string.more_options))
+                                Icon(SynaraIcons.MoreVert.get(), contentDescription = stringResource(Res.string.more_options))
                             }
                             SynaraMenu(
                                 expanded = expanded,
@@ -292,7 +290,7 @@ class SessionsScreen : Screen {
                                         expanded = false
                                         onTransfer()
                                     },
-                                    leadingIcon = { Icon(Icons.Rounded.CloudUpload, contentDescription = null) }
+                                    leadingIcon = { Icon(SynaraIcons.CloudUpload.get(), contentDescription = null) }
                                 )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(Res.string.deactivate_session)) },
@@ -300,13 +298,13 @@ class SessionsScreen : Screen {
                                         expanded = false
                                         onDelete()
                                     },
-                                    leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) }
+                                    leadingIcon = { Icon(SynaraIcons.Delete.get(), contentDescription = null) }
                                 )
                             }
                         }
                     } else {
                         IconButton(onClick = onDelete) {
-                            Icon(Icons.Rounded.Delete, contentDescription = stringResource(Res.string.deactivate_session))
+                            Icon(SynaraIcons.Delete.get(), contentDescription = stringResource(Res.string.deactivate_session))
                         }
                     }
                 }

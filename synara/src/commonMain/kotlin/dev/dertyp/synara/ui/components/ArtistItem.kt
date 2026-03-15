@@ -10,8 +10,6 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.onClick
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -29,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.dertyp.data.Artist
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.menus.ArtistContextMenu
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -77,7 +76,7 @@ fun ArtistItem(
                     imageId = artist.imageId,
                     size = 120.dp,
                     shape = CircleShape,
-                    fallbackIcon = Icons.Rounded.Person
+                    fallbackIcon = SynaraIcons.Person
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))

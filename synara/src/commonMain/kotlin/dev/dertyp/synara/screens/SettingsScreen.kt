@@ -6,9 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +25,8 @@ import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.scrobble.LastFmScrobbler
 import dev.dertyp.synara.theme.PywalLoader
+import dev.dertyp.synara.ui.IconStyle
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.ColorPicker
 import dev.dertyp.synara.ui.components.SettingsCard
 import dev.dertyp.synara.ui.components.SynaraMenu
@@ -49,6 +48,7 @@ class SettingsScreen : Screen {
         val language by Config.language.collectAsState()
         val lightThemeColor by Config.lightThemeColor.collectAsState()
         val darkThemeColor by Config.darkThemeColor.collectAsState()
+        val iconStyle by Config.iconStyle.collectAsState()
         val useSongColor by Config.useSongColor.collectAsState()
         val usePywal by Config.usePywal.collectAsState()
         val particleMultiplier by Config.particleMultiplier.collectAsState()
@@ -84,7 +84,7 @@ class SettingsScreen : Screen {
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                                imageVector = SynaraIcons.ArrowBack.get(),
                                 contentDescription = stringResource(Res.string.back)
                             )
                         }
@@ -136,6 +136,11 @@ class SettingsScreen : Screen {
                             onColorSelected = { Config.setDarkThemeColor(it) }
                         )
                     }
+
+                    IconStyleSetting(
+                        currentStyle = iconStyle,
+                        onStyleSelected = { Config.setIconStyle(it) }
+                    )
 
                     ParticleMultiplierSetting(
                         multiplier = particleMultiplier,
@@ -507,7 +512,7 @@ class SettingsScreen : Screen {
                     }
 
                     Icon(
-                        imageVector = Icons.Default.ArrowDropDown,
+                        imageVector = SynaraIcons.ArrowDropDown.get(),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -565,6 +570,40 @@ class SettingsScreen : Screen {
             onColorSelected = onColorSelected,
             onDismissRequest = { showPicker = false }
         )
+    }
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    private fun IconStyleSetting(currentStyle: IconStyle, onStyleSelected: (IconStyle) -> Unit) {
+        SettingsCard {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(Res.string.icon_style),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    IconStyle.entries.forEachIndexed { index, style ->
+                        SegmentedButton(
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = IconStyle.entries.size),
+                            onClick = { onStyleSelected(style) },
+                            selected = style == currentStyle,
+                            label = {
+                                Text(
+                                    when (style) {
+                                        IconStyle.Rounded -> stringResource(Res.string.icon_style_rounded)
+                                        IconStyle.Filled -> stringResource(Res.string.icon_style_filled)
+                                        IconStyle.Outlined -> stringResource(Res.string.icon_style_outlined)
+                                        IconStyle.TwoTone -> stringResource(Res.string.icon_style_twotone)
+                                    }
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+        }
     }
 
     @Composable

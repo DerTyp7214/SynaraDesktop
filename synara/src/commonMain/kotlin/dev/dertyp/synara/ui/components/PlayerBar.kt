@@ -9,9 +9,6 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.*
-import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -50,6 +47,7 @@ import dev.dertyp.synara.scrobble.ScrobblerService
 import dev.dertyp.synara.theme.isAppDark
 import dev.dertyp.synara.theme.rememberCoverScheme
 import dev.dertyp.synara.ui.LocalWindowActions
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.menus.SongContextMenu
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.delay
@@ -338,7 +336,7 @@ fun PlayerBar(
                                                 imageId = coverId,
                                                 size = 56.dp,
                                                 modifier = Modifier.clickable { globalState.togglePlayerExpanded() },
-                                                fallbackIcon = Icons.Rounded.MusicNote
+                                                fallbackIcon = SynaraIcons.MusicNote
                                             )
                                         }
 
@@ -439,7 +437,7 @@ fun PlayerBar(
                                                 modifier = Modifier.offset(y = (-8).dp)
                                             ) {
                                                 Icon(
-                                                    if (currentSong?.isFavourite == true) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                                                    if (currentSong?.isFavourite == true) SynaraIcons.Favorite.get() else SynaraIcons.FavoriteBorder.get(),
                                                     contentDescription = stringResource(Res.string.favorite),
                                                     tint = if (currentSong?.isFavourite == true) MaterialTheme.colorScheme.primary else LocalContentColor.current
                                                 )
@@ -461,7 +459,7 @@ fun PlayerBar(
                                                 enabled = currentSong != null
                                             ) {
                                                 Icon(
-                                                    Icons.Rounded.SkipPrevious,
+                                                    SynaraIcons.SkipPrevious.get(),
                                                     contentDescription = stringResource(Res.string.previous)
                                                 )
                                             }
@@ -491,7 +489,7 @@ fun PlayerBar(
                                                 enabled = currentSong != null
                                             ) {
                                                 Icon(
-                                                    Icons.Rounded.SkipNext,
+                                                    SynaraIcons.SkipNext.get(),
                                                     contentDescription = stringResource(Res.string.next_song)
                                                 )
                                             }
@@ -509,7 +507,7 @@ fun PlayerBar(
                                             enabled = currentSong != null
                                         ) {
                                             Icon(
-                                                Icons.Rounded.Shuffle,
+                                                SynaraIcons.Shuffle.get(),
                                                 contentDescription = stringResource(Res.string.shuffle),
                                                 tint = if (shuffleMode) MaterialTheme.colorScheme.onSurfaceVariantDistinct() else LocalContentColor.current
                                             )
@@ -520,8 +518,8 @@ fun PlayerBar(
                                         ) {
                                             Icon(
                                                 when (repeatMode) {
-                                                    RepeatMode.ONE -> Icons.Rounded.RepeatOne
-                                                    else -> Icons.Rounded.Repeat
+                                                    RepeatMode.ONE -> SynaraIcons.RepeatOne.get()
+                                                    else -> SynaraIcons.Repeat.get()
                                                 },
                                                 contentDescription = stringResource(Res.string.repeat),
                                                 tint = if (repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.onSurfaceVariantDistinct() else LocalContentColor.current
@@ -604,7 +602,7 @@ fun PlayerBar(
                                     ) { isScrobbled ->
                                         if (isScrobbled) {
                                             Icon(
-                                                Icons.Rounded.CheckCircle,
+                                                SynaraIcons.CheckCircle.get(),
                                                 contentDescription = stringResource(Res.string.song_scrobbled),
                                                 modifier = Modifier.size(16.dp),
                                                 tint = MaterialTheme.colorScheme.primary
@@ -623,7 +621,7 @@ fun PlayerBar(
                                                 )
                                                 Spacer(modifier = Modifier.width(4.dp))
                                                 Icon(
-                                                    Icons.Rounded.Schedule,
+                                                    SynaraIcons.Schedule.get(),
                                                     contentDescription = stringResource(
                                                         Res.string.pending_scrobble
                                                     ),
@@ -696,7 +694,7 @@ private fun ExpandedPlayerContent(
             ) {
                 IconButton(onClick = onCollapse) {
                     Icon(
-                        Icons.Rounded.KeyboardArrowDown,
+                        SynaraIcons.KeyboardArrowDown.get(),
                         contentDescription = null,
                         modifier = Modifier.size(32.dp)
                     )
@@ -709,7 +707,7 @@ private fun ExpandedPlayerContent(
                     if (currentSong?.lyrics?.isNotBlank() == true) {
                         IconButton(onClick = { globalState.toggleLyricsExpanded() }) {
                             Icon(
-                                Icons.Rounded.Lyrics,
+                                SynaraIcons.Lyrics.get(),
                                 contentDescription = "Lyrics",
                                 modifier = Modifier.size(28.dp),
                                 tint = if (isLyricsShowing) MaterialTheme.colorScheme.primary else LocalContentColor.current
@@ -719,7 +717,7 @@ private fun ExpandedPlayerContent(
 
                     IconButton(onClick = { globalState.toggleQueueExpanded() }) {
                         Icon(
-                            Icons.AutoMirrored.Rounded.QueueMusic,
+                            SynaraIcons.QueueMusic.get(),
                             contentDescription = "Queue",
                             modifier = Modifier.size(28.dp),
                             tint = if (isQueueShowing) MaterialTheme.colorScheme.primary else LocalContentColor.current
@@ -729,7 +727,7 @@ private fun ExpandedPlayerContent(
 
                 IconButton(onClick = { windowActions.toggleFullscreen() }) {
                     Icon(
-                        if (windowActions.isFullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                        if (windowActions.isFullscreen) SynaraIcons.FullscreenExit.get() else SynaraIcons.Fullscreen.get(),
                         contentDescription = null,
                         modifier = Modifier.size(32.dp)
                     )
@@ -912,7 +910,7 @@ private fun LargeCover(
             imageId = coverId,
             modifier = Modifier.fillMaxSize().then(sizeResolver),
             shape = RoundedCornerShape(16.dp),
-            fallbackIcon = Icons.Rounded.MusicNote
+            fallbackIcon = SynaraIcons.MusicNote
         )
     }
 }
@@ -947,10 +945,10 @@ private fun VolumeControl(
     }
 
     val volumeIcon = when {
-        volume == 0f -> Icons.AutoMirrored.Rounded.VolumeOff
-        volume < 0.33f -> Icons.AutoMirrored.Rounded.VolumeMute
-        volume < 0.67f -> Icons.AutoMirrored.Rounded.VolumeDown
-        else -> Icons.AutoMirrored.Rounded.VolumeUp
+        volume == 0f -> SynaraIcons.VolumeOff.get()
+        volume < 0.33f -> SynaraIcons.VolumeMute.get()
+        volume < 0.67f -> SynaraIcons.VolumeDown.get()
+        else -> SynaraIcons.VolumeUp.get()
     }
 
     Box(

@@ -6,9 +6,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +17,7 @@ import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.data.UserSong
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraFab
 import dev.dertyp.synara.viewmodels.LikedSongsScreenModel
@@ -50,7 +48,7 @@ class LikedSongsScreen : Screen {
                     },
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.back))
+                            Icon(SynaraIcons.ArrowBack.get(), contentDescription = stringResource(Res.string.back))
                         }
                     }
                 )
@@ -58,7 +56,7 @@ class LikedSongsScreen : Screen {
             floatingActionButton = {
                 if (state is LikedSongsScreenModel.LikedSongsState.Success) {
                     SynaraFab(onClick = { screenModel.playAll() }) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = stringResource(Res.string.play_all))
+                        Icon(SynaraIcons.PlayArrow.get(), contentDescription = stringResource(Res.string.play_all))
                     }
                 }
             }

@@ -9,8 +9,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.onClick
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -27,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.dertyp.data.UserPlaylist
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.menus.PlaylistContextMenu
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -76,7 +75,7 @@ fun PlaylistItem(
                     SynaraImage(
                         imageId = playlist.imageId,
                         size = 64.dp,
-                        fallbackIcon = Icons.AutoMirrored.Rounded.PlaylistPlay
+                        fallbackIcon = SynaraIcons.PlaylistPlay
                     )
 
                     Spacer(modifier = Modifier.width(16.dp))
@@ -99,7 +98,7 @@ fun PlaylistItem(
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(1f),
-                        fallbackIcon = Icons.AutoMirrored.Rounded.PlaylistPlay
+                        fallbackIcon = SynaraIcons.PlaylistPlay
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))

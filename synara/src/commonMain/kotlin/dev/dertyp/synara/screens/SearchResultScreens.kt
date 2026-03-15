@@ -10,8 +10,6 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,6 +20,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.AlbumItem
 import dev.dertyp.synara.ui.components.ArtistItem
 import dev.dertyp.synara.ui.components.PlaylistItem
@@ -53,7 +52,7 @@ abstract class BaseSearchResultScreen<T, VM : BaseSearchViewModel<T>>(
                     title = { Text(stringResource(titleRes)) },
                     navigationIcon = {
                         IconButton(onClick = { navigator?.pop() }) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
+                            Icon(SynaraIcons.ArrowBack.get(), contentDescription = null)
                         }
                     }
                 )

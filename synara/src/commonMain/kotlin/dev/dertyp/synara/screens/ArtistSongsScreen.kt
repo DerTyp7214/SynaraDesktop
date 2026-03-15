@@ -6,8 +6,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +17,7 @@ import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.UserSong
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.viewmodels.ArtistSongsScreenModel
 import org.koin.core.parameter.parametersOf
@@ -50,7 +49,7 @@ class ArtistSongsScreen(private val artistId: PlatformUUID) : Screen {
                     },
                     navigationIcon = {
                         IconButton(onClick = { navigator?.pop() }) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
+                            Icon(SynaraIcons.ArrowBack.get(), contentDescription = null)
                         }
                     }
                 )

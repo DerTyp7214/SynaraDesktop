@@ -7,11 +7,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -23,6 +18,7 @@ import dev.dertyp.data.MergeArtists
 import dev.dertyp.data.SplitArtist
 import dev.dertyp.services.IArtistService
 import dev.dertyp.synara.InternalTextField
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraImage
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
@@ -121,7 +117,7 @@ fun MergeArtistDialog(
                             trailingIcon = {
                                 if (selected.id != artist.id) {
                                     Icon(
-                                        Icons.Rounded.Close,
+                                        SynaraIcons.Close.get(),
                                         contentDescription = null,
                                         modifier = Modifier.size(18.dp)
                                     )
@@ -132,7 +128,7 @@ fun MergeArtistDialog(
                                     imageId = selected.imageId,
                                     size = 24.dp,
                                     shape = CircleShape,
-                                    fallbackIcon = Icons.Rounded.Person
+                                    fallbackIcon = SynaraIcons.Person
                                 )
                             }
                         )
@@ -144,13 +140,13 @@ fun MergeArtistDialog(
                     onValueChange = { searchQuery = it },
                     placeholder = { Text(stringResource(Res.string.merge_artist_search_placeholder)) },
                     modifier = Modifier.fillMaxWidth(),
-                    leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                    leadingIcon = { Icon(SynaraIcons.Search.get(), contentDescription = null) },
                     trailingIcon = {
                         if (isSearching) {
                             CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                         } else if (searchResults.isNotEmpty()) {
                             IconButton(onClick = { addTopSearchResult() }) {
-                                Icon(Icons.Rounded.Add, contentDescription = null)
+                                Icon(SynaraIcons.Add.get(), contentDescription = null)
                             }
                         }
                     },
@@ -172,7 +168,7 @@ fun MergeArtistDialog(
                                         imageId = result.imageId,
                                         size = 40.dp,
                                         shape = CircleShape,
-                                        fallbackIcon = Icons.Rounded.Person
+                                        fallbackIcon = SynaraIcons.Person
                                     )
                                 },
                                 modifier = Modifier.clickable {
@@ -261,7 +257,7 @@ fun SplitArtistDialog(
                     keyboardActions = KeyboardActions(onDone = { addName() }),
                     trailingIcon = {
                         IconButton(onClick = { addName() }, enabled = currentName.isNotBlank()) {
-                            Icon(Icons.Rounded.Add, contentDescription = null)
+                            Icon(SynaraIcons.Add.get(), contentDescription = null)
                         }
                     }
                 )
@@ -279,7 +275,7 @@ fun SplitArtistDialog(
                                 label = { Text(name) },
                                 trailingIcon = {
                                     Icon(
-                                        Icons.Rounded.Close,
+                                        SynaraIcons.Close.get(),
                                         contentDescription = null,
                                         modifier = Modifier.size(18.dp)
                                     )

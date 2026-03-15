@@ -7,8 +7,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollbarAdapter
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -22,6 +20,7 @@ import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.PlatformUUID
 import dev.dertyp.core.parseVersions
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.AlbumItem
 import dev.dertyp.synara.viewmodels.ArtistAlbumsScreenModel
 import org.jetbrains.compose.resources.stringResource
@@ -56,7 +55,7 @@ class ArtistAlbumsScreen(private val artistId: PlatformUUID) : Screen {
                     },
                     navigationIcon = {
                         IconButton(onClick = { navigator?.pop() }) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
+                            Icon(SynaraIcons.ArrowBack.get(), contentDescription = null)
                         }
                     }
                 )

@@ -4,9 +4,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -14,6 +15,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.dertyp.data.Artist
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraImage
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.Res
@@ -61,7 +63,7 @@ fun ArtistListDialog(
                                 SynaraImage(
                                     imageId = artist.imageId,
                                     size = 48.dp,
-                                    fallbackIcon = Icons.Rounded.Person
+                                    fallbackIcon = SynaraIcons.Person
                                 )
                                 
                                 Spacer(modifier = Modifier.width(16.dp))

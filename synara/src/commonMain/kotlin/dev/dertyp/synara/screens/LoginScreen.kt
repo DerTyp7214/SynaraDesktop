@@ -5,8 +5,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,6 +20,7 @@ import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.synara.InternalTextField
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.viewmodels.LoginResult
 import dev.dertyp.synara.viewmodels.LoginScreenModel
 import org.jetbrains.compose.resources.stringResource
@@ -72,7 +71,7 @@ class LoginScreen : Screen {
                                 modifier = Modifier.align(Alignment.TopStart)
                             ) {
                                 Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                                    imageVector = SynaraIcons.ArrowBack.get(),
                                     contentDescription = stringResource(Res.string.back)
                                 )
                             }

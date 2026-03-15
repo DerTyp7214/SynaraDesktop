@@ -9,11 +9,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.onClick
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,6 +27,7 @@ import dev.dertyp.synara.onSurfaceVariantDistinct
 import dev.dertyp.synara.player.CacheUpdate
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.SongCache
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.menus.SongContextMenu
 import kotlinx.coroutines.flow.filterIsInstance
 import org.jetbrains.compose.resources.stringResource
@@ -126,7 +122,7 @@ fun SongItem(
                         imageId = currentSongState.coverId,
                         size = 40.dp,
                         shape = MaterialTheme.shapes.extraSmall,
-                        fallbackIcon = Icons.Rounded.MusicNote
+                        fallbackIcon = SynaraIcons.MusicNote
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                 }
@@ -164,7 +160,7 @@ fun SongItem(
                     if (showLike) {
                         IconButton(onClick = onToggleLike) {
                             Icon(
-                                if (currentSongState.isFavourite == true) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                                if (currentSongState.isFavourite == true) SynaraIcons.Favorite.get() else SynaraIcons.FavoriteBorder.get(),
                                 contentDescription = stringResource(Res.string.favorite),
                                 modifier = Modifier.size(20.dp),
                                 tint = if (currentSongState.isFavourite == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -175,7 +171,7 @@ fun SongItem(
                     if (onPlayNext != null) {
                         IconButton(onClick = onPlayNext) {
                             Icon(
-                                Icons.AutoMirrored.Rounded.PlaylistPlay,
+                                SynaraIcons.PlaylistPlay.get(),
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,

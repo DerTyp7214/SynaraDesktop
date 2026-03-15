@@ -4,9 +4,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.dertyp.data.UserPlaylist
 import dev.dertyp.synara.InternalTextField
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import org.jetbrains.compose.resources.stringResource
@@ -63,7 +61,7 @@ fun PlaylistPickerDialog(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    Icons.Rounded.Add,
+                                    SynaraIcons.Add.get(),
                                     contentDescription = null,
                                     modifier = Modifier.size(24.dp),
                                     tint = MaterialTheme.colorScheme.primary
@@ -99,7 +97,7 @@ fun PlaylistPickerDialog(
                                 SynaraImage(
                                     imageId = playlist.imageId,
                                     size = 48.dp,
-                                    fallbackIcon = Icons.AutoMirrored.Rounded.PlaylistPlay
+                                    fallbackIcon = SynaraIcons.PlaylistPlay
                                 )
                                 
                                 Spacer(modifier = Modifier.width(16.dp))

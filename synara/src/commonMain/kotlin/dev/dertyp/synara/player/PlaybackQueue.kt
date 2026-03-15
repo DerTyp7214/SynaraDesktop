@@ -2,6 +2,7 @@
 package dev.dertyp.synara.player
 
 import dev.dertyp.PlatformUUID
+import dev.dertyp.data.SongTag
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.ISongService
 import kotlinx.serialization.Serializable
@@ -40,8 +41,11 @@ sealed class PlaybackSource {
     }
 
     @Serializable
-    data object AllSongs : PlaybackSource() {
-        override val id: String = "all_songs"
+    data class AllSongs(
+        val tags: List<SongTag> = emptyList(),
+        val invertTags: Boolean = false
+    ) : PlaybackSource() {
+        override val id: String = "all_songs${if (tags.isNotEmpty()) "_${tags.joinToString("_")}_$invertTags" else ""}"
     }
 
     @Serializable
@@ -52,7 +56,7 @@ sealed class PlaybackSource {
 
 fun PlaybackSource.toQueueSource(songService: ISongService): QueueSource? {
     return when (this) {
-        PlaybackSource.AllSongs -> AllSongsQueueSource(songService)
+        is PlaybackSource.AllSongs -> AllSongsQueueSource(songService, tags = tags, invertTags = invertTags)
         PlaybackSource.LikedSongs -> LikedSongsQueueSource(songService)
         is PlaybackSource.Album -> AlbumQueueSource(songService, albumId)
         is PlaybackSource.Artist -> ArtistQueueSource(songService, artistId)

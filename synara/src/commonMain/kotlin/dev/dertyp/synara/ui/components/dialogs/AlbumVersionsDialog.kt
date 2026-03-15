@@ -4,8 +4,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -19,6 +17,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.dertyp.core.joinArtists
 import dev.dertyp.data.Album
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraImage
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.Res
@@ -67,7 +66,7 @@ fun AlbumVersionsDialog(
                                 SynaraImage(
                                     imageId = version.coverId,
                                     size = 48.dp,
-                                    fallbackIcon = Icons.Rounded.Album
+                                    fallbackIcon = SynaraIcons.Album
                                 )
 
                                 Spacer(modifier = Modifier.width(16.dp))

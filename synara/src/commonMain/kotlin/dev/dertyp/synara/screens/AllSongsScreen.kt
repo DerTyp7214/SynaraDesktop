@@ -3,14 +3,8 @@ package dev.dertyp.synara.screens
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.rememberScrollbarAdapter
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,16 +18,15 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import dev.dertyp.data.SongTag
 import dev.dertyp.data.UserSong
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraFab
 import dev.dertyp.synara.viewmodels.AllSongsScreenModel
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
-import synara.synara.generated.resources.Res
-import synara.synara.generated.resources.back
-import synara.synara.generated.resources.play_all
-import synara.synara.generated.resources.songs
+import synara.synara.generated.resources.*
 
 class AllSongsScreen : Screen {
 
@@ -47,24 +40,84 @@ class AllSongsScreen : Screen {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                TopAppBar(
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                    ),
-                    title = {
-                        Text(stringResource(Res.string.songs))
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = { navigator.pop() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(Res.string.back))
+                Column {
+                    TopAppBar(
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent,
+                        ),
+                        title = {
+                            Text(stringResource(Res.string.songs))
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = { navigator.pop() }) {
+                                Icon(SynaraIcons.ArrowBack.get(), contentDescription = stringResource(Res.string.back))
+                            }
+                        }
+                    )
+                    
+                    if (state is AllSongsScreenModel.AllSongsState.Success) {
+                        val successState = state as AllSongsScreenModel.AllSongsState.Success
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .padding(bottom = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            LazyRow(
+                                modifier = Modifier.weight(1f),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(SongTag.entries) { tag ->
+                                    FilterChip(
+                                        selected = successState.tags.contains(tag),
+                                        onClick = { screenModel.toggleTag(tag) },
+                                        elevation = FilterChipDefaults.filterChipElevation(elevation = 0.dp, hoveredElevation = 0.dp, pressedElevation = 0.dp),
+                                        label = {
+                                            Text(
+                                                stringResource(
+                                                    when (tag) {
+                                                        SongTag.Q_44_48 -> Res.string.tag_q_44_48
+                                                        SongTag.Q_96 -> Res.string.tag_q_96
+                                                        SongTag.Q_192 -> Res.string.tag_q_192
+                                                        SongTag.B_16 -> Res.string.tag_b_16
+                                                        SongTag.B_24 -> Res.string.tag_b_24
+                                                        SongTag.HAS_LYRICS -> Res.string.tag_has_lyrics
+                                                        SongTag.CUSTOM_UPLOAD -> Res.string.tag_custom_upload
+                                                    }
+                                                )
+                                            )
+                                        }
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.width(8.dp))
+                            
+                            IconButton(
+                                onClick = { screenModel.setInvertTags(!successState.invertTags) },
+                                colors = if (successState.invertTags) {
+                                    IconButtonDefaults.iconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                } else {
+                                    IconButtonDefaults.iconButtonColors()
+                                }
+                            ) {
+                                Icon(
+                                    if (successState.invertTags) SynaraIcons.FilterListOff.get() else SynaraIcons.FilterList.get(),
+                                    contentDescription = "Invert Tags"
+                                )
+                            }
                         }
                     }
-                )
+                }
             },
             floatingActionButton = {
                 if (state is AllSongsScreenModel.AllSongsState.Success) {
                     SynaraFab(onClick = { screenModel.playAll() }) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = stringResource(Res.string.play_all))
+                        Icon(SynaraIcons.PlayArrow.get(), contentDescription = stringResource(Res.string.play_all))
                     }
                 }
             }
@@ -149,7 +202,7 @@ class AllSongsScreen : Screen {
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        Icons.Rounded.MusicNote,
+                        SynaraIcons.MusicNote.get(),
                         contentDescription = null,
                         modifier = Modifier.size(24.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)

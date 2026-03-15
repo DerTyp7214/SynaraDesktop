@@ -182,4 +182,17 @@
     <string name="split_artist_names_label">Neuer Name des Interpreten</string>
     <string name="split_artist_name_placeholder">z.B. Interpret A</string>
     <string name="split_artist_button">Aufteilen</string>
+    <string name="icon_style">Icon-Stil</string>
+    <string name="icon_style_rounded">Abgerundet</string>
+    <string name="icon_style_filled">Gefüllt</string>
+    <string name="icon_style_outlined">Umrandet</string>
+    <string name="icon_style_twotone">Zweifarbig</string>
+
+    <string name="tag_q_44_48">44/48 kHz</string>
+    <string name="tag_q_96">96 kHz</string>
+    <string name="tag_q_192">192 kHz</string>
+    <string name="tag_b_16">16 bit</string>
+    <string name="tag_b_24">24 bit</string>
+    <string name="tag_has_lyrics">Lyrics</string>
+    <string name="tag_custom_upload">Eigener Upload</string>
 </resources>

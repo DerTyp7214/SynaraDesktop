@@ -11,9 +11,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.DragHandle
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +24,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -141,7 +139,7 @@ fun QueueView(
                         ) {
                             if (!isCurrent) {
                                 Icon(
-                                    imageVector = Icons.Rounded.DragHandle,
+                                    imageVector = SynaraIcons.DragHandle.get(),
                                     contentDescription = "Reorder",
                                     modifier = Modifier
                                         .padding(start = 12.dp)
@@ -240,7 +238,7 @@ fun QueueView(
                 shape = MaterialTheme.shapes.medium
             ) {
                 Icon(
-                    Icons.Rounded.MusicNote,
+                    SynaraIcons.MusicNote.get(),
                     contentDescription = "Scroll to current song",
                     modifier = Modifier.size(20.dp)
                 )

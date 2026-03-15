@@ -10,10 +10,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +24,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.PlatformUUID
 import dev.dertyp.core.parseVersions
 import dev.dertyp.data.Artist
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.AlbumItem
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraImage
@@ -60,7 +57,7 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
                     title = { Text(state.artist?.name ?: "") },
                     navigationIcon = {
                         IconButton(onClick = { navigator?.pop() }) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
+                            Icon(SynaraIcons.ArrowBack.get(), contentDescription = null)
                         }
                     }
                 )
@@ -204,7 +201,7 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
                 size = 200.dp,
                 shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.clickable { onImageClick() },
-                fallbackIcon = Icons.Rounded.Person
+                fallbackIcon = SynaraIcons.Person
             )
 
             Spacer(modifier = Modifier.width(24.dp))
@@ -222,7 +219,7 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
                     onClick = { screenModel.playArtist() },
                     contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
                 ) {
-                    Icon(Icons.Rounded.PlayArrow, contentDescription = null)
+                    Icon(SynaraIcons.PlayArrow.get(), contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(stringResource(Res.string.play))
                 }
