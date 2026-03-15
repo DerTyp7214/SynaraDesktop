@@ -9,7 +9,7 @@ import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.getOrNull
 import dev.dertyp.synara.settings.put
 import dev.dertyp.synara.theme.createColorSchemeFromSeeds
-import dev.dertyp.synara.ui.IconStyle
+import dev.dertyp.synara.ui.IconPackType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,14 +22,20 @@ object Config : KoinComponent {
     private val _darkTheme = MutableStateFlow(settings.getBoolean("dark_theme", true))
     val darkTheme: StateFlow<Boolean> = _darkTheme.asStateFlow()
 
-    private val _iconStyle = MutableStateFlow(
+    private val _iconStyle = MutableStateFlow(settings.getString("icon_style", "rounded"))
+    val iconStyle: StateFlow<String> = _iconStyle.asStateFlow()
+
+    private val _iconFilled = MutableStateFlow(settings.get(SettingKey.IconFilled, false))
+    val iconFilled: StateFlow<Boolean> = _iconFilled.asStateFlow()
+
+    private val _iconPack = MutableStateFlow(
         try {
-            IconStyle.valueOf(settings.getString("icon_style", IconStyle.Rounded.name))
+            IconPackType.valueOf(settings.getString("icon_pack", IconPackType.MaterialSymbols.name))
         } catch (_: Exception) {
-            IconStyle.Rounded
+            IconPackType.MaterialSymbols
         }
     )
-    val iconStyle: StateFlow<IconStyle> = _iconStyle.asStateFlow()
+    val iconPack: StateFlow<IconPackType> = _iconPack.asStateFlow()
 
     private val _language = MutableStateFlow(settings.getStringOrNull("language"))
     val language: StateFlow<String?> = _language.asStateFlow()
@@ -109,9 +115,19 @@ object Config : KoinComponent {
         settings.putBoolean("dark_theme", isDark)
     }
 
-    fun setIconStyle(style: IconStyle) {
-        _iconStyle.value = style
-        settings.put(SettingKey.IconStyle, style.name)
+    fun setIconStyle(styleId: String) {
+        _iconStyle.value = styleId
+        settings.put(SettingKey.IconStyle, styleId)
+    }
+
+    fun setIconFilled(filled: Boolean) {
+        _iconFilled.value = filled
+        settings.put(SettingKey.IconFilled, filled)
+    }
+
+    fun setIconPack(pack: IconPackType) {
+        _iconPack.value = pack
+        settings.put(SettingKey.IconPack, pack.name)
     }
 
     fun setLanguage(lang: String?) {

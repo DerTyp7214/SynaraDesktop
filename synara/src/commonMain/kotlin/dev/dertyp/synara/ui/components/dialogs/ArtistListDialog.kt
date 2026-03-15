@@ -63,7 +63,7 @@ fun ArtistListDialog(
                                 SynaraImage(
                                     imageId = artist.imageId,
                                     size = 48.dp,
-                                    fallbackIcon = SynaraIcons.Person
+                                    fallbackIcon = SynaraIcons.Artists
                                 )
                                 
                                 Spacer(modifier = Modifier.width(16.dp))

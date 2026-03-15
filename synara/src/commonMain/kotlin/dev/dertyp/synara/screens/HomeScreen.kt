@@ -215,7 +215,7 @@ class HomeScreen : Screen {
 
             NavigationItem(
                 label = stringResource(Res.string.home),
-                icon = SynaraIcons.Home.get(),
+                icon = SynaraIcons.Dashboard.get(),
                 selected = navigator.lastItem is DashboardScreen,
                 onClick = {
                     if (navigator.lastItem !is DashboardScreen) navigator.replaceAll(DashboardScreen())
@@ -227,7 +227,7 @@ class HomeScreen : Screen {
 
             NavigationItem(
                 label = stringResource(Res.string.favorite),
-                icon = SynaraIcons.Favorite.get(),
+                icon = SynaraIcons.IsFavorite.get(),
                 selected = navigator.lastItem is LikedSongsScreen,
                 onClick = {
                     if (navigator.lastItem !is LikedSongsScreen) navigator.push(LikedSongsScreen())
@@ -239,7 +239,7 @@ class HomeScreen : Screen {
 
             NavigationItem(
                 label = stringResource(Res.string.songs),
-                icon = SynaraIcons.MusicNote.get(),
+                icon = SynaraIcons.Songs.get(),
                 selected = navigator.lastItem is AllSongsScreen,
                 onClick = {
                     if (navigator.lastItem !is AllSongsScreen) navigator.push(AllSongsScreen())
@@ -403,7 +403,7 @@ class HomeScreen : Screen {
                         imageId = playlist.imageId,
                         size = 32.dp,
                         shape = RoundedCornerShape(4.dp),
-                        fallbackIcon = SynaraIcons.PlaylistPlay
+                        fallbackIcon = SynaraIcons.PlayNext
                     )
                     Text(
                         text = playlist.name,
@@ -450,7 +450,7 @@ class HomeScreen : Screen {
             ) {
                 if (showMenu) {
                     IconButton(onClick = { onMenuClick?.invoke() }) {
-                        Icon(SynaraIcons.Menu.get(), contentDescription = null)
+                        Icon(SynaraIcons.SideMenu.get(), contentDescription = null)
                     }
                 }
 
@@ -496,7 +496,7 @@ class HomeScreen : Screen {
 
                 IconButton(onClick = { screenModel.toggleDarkMode() }) {
                     Icon(
-                        imageVector = if (isDark) SynaraIcons.LightMode.get() else SynaraIcons.DarkMode.get(),
+                        imageVector = if (isDark) SynaraIcons.ThemeLight.get() else SynaraIcons.ThemeDark.get(),
                         contentDescription = stringResource(Res.string.dark_mode)
                     )
                 }
@@ -504,7 +504,7 @@ class HomeScreen : Screen {
                 IconButton(onClick = { 
                     if (navigator.lastItem !is SessionsScreen) navigator.push(SessionsScreen())
                 }) {
-                    Icon(SynaraIcons.Devices.get(), contentDescription = stringResource(Res.string.sessions))
+                    Icon(SynaraIcons.DeviceGeneric.get(), contentDescription = stringResource(Res.string.sessions))
                 }
 
                 IconButton(onClick = { 

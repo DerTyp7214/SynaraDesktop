@@ -99,7 +99,7 @@ fun SongContextMenu(
                 },
                 leadingIcon = {
                     Icon(
-                        SynaraIcons.Person.get(),
+                        SynaraIcons.Artists.get(),
                         contentDescription = null,
                         modifier = Modifier.size(20.dp)
                     )
@@ -117,7 +117,7 @@ fun SongContextMenu(
                 },
                 leadingIcon = {
                     Icon(
-                        SynaraIcons.Album.get(),
+                        SynaraIcons.Albums.get(),
                         contentDescription = null,
                         modifier = Modifier.size(20.dp)
                     )
@@ -135,7 +135,7 @@ fun SongContextMenu(
             },
             leadingIcon = {
                 Icon(
-                    SynaraIcons.PlaylistAdd.get(),
+                    SynaraIcons.AddToPlaylist.get(),
                     contentDescription = null,
                     modifier = Modifier.size(20.dp)
                 )
@@ -149,7 +149,7 @@ fun SongContextMenu(
             },
             leadingIcon = {
                 Icon(
-                    SynaraIcons.PlaylistPlay.get(),
+                    SynaraIcons.PlayNext.get(),
                     contentDescription = null,
                     modifier = Modifier.size(20.dp)
                 )
@@ -163,7 +163,7 @@ fun SongContextMenu(
             },
             leadingIcon = {
                 Icon(
-                    SynaraIcons.PlaylistAdd.get(),
+                    SynaraIcons.AddToPlaylist.get(),
                     contentDescription = null,
                     modifier = Modifier.size(20.dp)
                 )
@@ -181,7 +181,7 @@ fun SongContextMenu(
                     },
                     leadingIcon = {
                         Icon(
-                            SynaraIcons.PlaylistRemove.get(),
+                            SynaraIcons.RemoveFromPlaylist.get(),
                             contentDescription = null,
                             modifier = Modifier.size(20.dp)
                         )
@@ -197,7 +197,7 @@ fun SongContextMenu(
                     },
                     leadingIcon = {
                         Icon(
-                            SynaraIcons.RemoveCircleOutline.get(),
+                            SynaraIcons.RemoveFromQueue.get(),
                             contentDescription = null,
                             modifier = Modifier.size(20.dp)
                         )
@@ -222,7 +222,7 @@ fun SongContextMenu(
             },
             leadingIcon = {
                 Icon(
-                    if (isFavorite) SynaraIcons.Favorite.get() else SynaraIcons.FavoriteBorder.get(),
+                    if (isFavorite) SynaraIcons.IsFavorite.get() else SynaraIcons.IsNotFavorite.get(),
                     contentDescription = null,
                     modifier = Modifier.size(20.dp),
                     tint = if (isFavorite) MaterialTheme.colorScheme.primary else LocalContentColor.current

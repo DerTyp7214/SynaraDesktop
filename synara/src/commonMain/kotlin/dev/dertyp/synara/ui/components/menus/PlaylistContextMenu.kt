@@ -62,7 +62,7 @@ fun PlaylistContextMenu(
                 playerModel.addToQueue(PlaybackQueue(source = PlaybackSource.Playlist(playlist.id)))
                 onDismissRequest()
             },
-            leadingIcon = { Icon(SynaraIcons.PlaylistAdd.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+            leadingIcon = { Icon(SynaraIcons.AddToPlaylist.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
 
         DropdownMenuItem(
@@ -71,7 +71,7 @@ fun PlaylistContextMenu(
                 playerModel.playNext(PlaybackQueue(source = PlaybackSource.Playlist(playlist.id)))
                 onDismissRequest()
             },
-            leadingIcon = { Icon(SynaraIcons.PlaylistPlay.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+            leadingIcon = { Icon(SynaraIcons.PlayNext.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
 
         DropdownMenuItem(
@@ -80,7 +80,7 @@ fun PlaylistContextMenu(
                 showPlaylistPickerDialog = true
                 onDismissRequest()
             },
-            leadingIcon = { Icon(SynaraIcons.PlaylistAdd.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+            leadingIcon = { Icon(SynaraIcons.AddToPlaylist.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
     }
 

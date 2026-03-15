@@ -75,7 +75,7 @@ fun PlaylistItem(
                     SynaraImage(
                         imageId = playlist.imageId,
                         size = 64.dp,
-                        fallbackIcon = SynaraIcons.PlaylistPlay
+                        fallbackIcon = SynaraIcons.PlayNext
                     )
 
                     Spacer(modifier = Modifier.width(16.dp))
@@ -98,7 +98,7 @@ fun PlaylistItem(
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(1f),
-                        fallbackIcon = SynaraIcons.PlaylistPlay
+                        fallbackIcon = SynaraIcons.PlayNext
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))

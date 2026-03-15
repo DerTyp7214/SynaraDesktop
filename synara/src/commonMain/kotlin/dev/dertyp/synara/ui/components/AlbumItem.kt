@@ -76,7 +76,7 @@ fun AlbumItem(
                     SynaraImage(
                         imageId = album.coverId,
                         size = 64.dp,
-                        fallbackIcon = SynaraIcons.Album
+                        fallbackIcon = SynaraIcons.Albums
                     )
 
                     Spacer(modifier = Modifier.width(16.dp))
@@ -122,7 +122,7 @@ fun AlbumItem(
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(1f),
-                        fallbackIcon = SynaraIcons.Album
+                        fallbackIcon = SynaraIcons.Albums
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))

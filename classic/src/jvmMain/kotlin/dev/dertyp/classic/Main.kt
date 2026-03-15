@@ -16,9 +16,7 @@ import dev.dertyp.synara.SynaraView
 import dev.dertyp.synara.di.initializeSynara
 import dev.dertyp.synara.theme.SynaraAppTheme
 import dev.dertyp.synara.theme.isAppDark
-import dev.dertyp.synara.ui.LocalIconStyle
-import dev.dertyp.synara.ui.LocalWindowActions
-import dev.dertyp.synara.ui.WindowActions
+import dev.dertyp.synara.ui.*
 import dev.dertyp.synara.ui.components.SynaraTray
 import org.jetbrains.compose.resources.painterResource
 import synara.synara.generated.resources.Res
@@ -118,10 +116,20 @@ fun main() {
                 }
 
                 val theme = SynaraAppTheme(isAppDark())
-                val iconStyle by Config.iconStyle.collectAsState()
+                val iconPackType by Config.iconPack.collectAsState()
+                val iconStyleId by Config.iconStyle.collectAsState()
+                val iconFilled by Config.iconFilled.collectAsState()
+
+                val iconPack = iconPackType.getPack()
+                val iconStyle = remember(iconPack, iconStyleId) {
+                    iconPack.getStyle(iconStyleId)
+                }
+
                 CompositionLocalProvider(
                     LocalWindowActions provides windowActions,
-                    LocalIconStyle provides iconStyle
+                    LocalIconPack provides iconPack,
+                    LocalIconStyle provides iconStyle,
+                    LocalIconFilled provides iconFilled
                 ) {
                     MaterialTheme(
                         colorScheme = theme.colorScheme,

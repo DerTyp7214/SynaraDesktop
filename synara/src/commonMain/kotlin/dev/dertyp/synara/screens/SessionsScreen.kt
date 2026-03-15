@@ -47,7 +47,7 @@ class SessionsScreen : Screen {
                     title = { Text(stringResource(Res.string.sessions)) },
                     navigationIcon = {
                         IconButton(onClick = { navigator?.pop() }) {
-                            Icon(SynaraIcons.ArrowBack.get(), contentDescription = null)
+                            Icon(SynaraIcons.Back.get(), contentDescription = null)
                         }
                     }
                 )
@@ -169,7 +169,7 @@ class SessionsScreen : Screen {
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(
-                        SynaraIcons.Timer.get(),
+                        SynaraIcons.Expiration.get(),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary
                     )
@@ -250,9 +250,9 @@ class SessionsScreen : Screen {
             leadingContent = {
                 Icon(
                     imageVector = when {
-                        isDesktop -> SynaraIcons.DesktopWindows.get()
-                        isMobile -> SynaraIcons.Smartphone.get()
-                        else -> SynaraIcons.Devices.get()
+                        isDesktop -> SynaraIcons.DeviceDesktop.get()
+                        isMobile -> SynaraIcons.DeviceMobile.get()
+                        else -> SynaraIcons.DeviceGeneric.get()
                     },
                     contentDescription = null,
                     tint = if (session.isActive) MaterialTheme.colorScheme.primary 
@@ -277,7 +277,7 @@ class SessionsScreen : Screen {
                         var expanded by remember { mutableStateOf(false) }
                         Box {
                             IconButton(onClick = { expanded = true }) {
-                                Icon(SynaraIcons.MoreVert.get(), contentDescription = stringResource(Res.string.more_options))
+                                Icon(SynaraIcons.MoreOptions.get(), contentDescription = stringResource(Res.string.more_options))
                             }
                             SynaraMenu(
                                 expanded = expanded,
@@ -290,7 +290,7 @@ class SessionsScreen : Screen {
                                         expanded = false
                                         onTransfer()
                                     },
-                                    leadingIcon = { Icon(SynaraIcons.CloudUpload.get(), contentDescription = null) }
+                                    leadingIcon = { Icon(SynaraIcons.Upload.get(), contentDescription = null) }
                                 )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(Res.string.deactivate_session)) },

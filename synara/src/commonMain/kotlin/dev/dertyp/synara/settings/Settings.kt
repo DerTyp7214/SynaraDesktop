@@ -37,6 +37,8 @@ sealed class SettingKey<T>(val name: String) {
 
     // UI
     data object IconStyle : SettingKey<String>("icon_style")
+    data object IconFilled : SettingKey<Boolean>("icon_filled")
+    data object IconPack : SettingKey<String>("icon_pack")
 
     // Database
     data object NeedsUserIdMigration : SettingKey<Boolean>("needs_user_id_migration")
@@ -93,7 +95,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.ListenBrainzToken, is SettingKey.LastFmApiKey,
         is SettingKey.LastFmSharedSecret, is SettingKey.LastFmSessionKey,
         is SettingKey.LastFmUsername, is SettingKey.ProxyHost, is SettingKey.ProxyId,
-        is SettingKey.IconStyle -> getStringOrNull(key.name) as T?
+        is SettingKey.IconStyle, is SettingKey.IconPack -> getStringOrNull(key.name) as T?
 
         is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor,
         is SettingKey.ProxyPort -> getIntOrNull(
@@ -105,7 +107,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.IsListenBrainzEnabled, is SettingKey.IsLastFmEnabled,
         is SettingKey.IsDiscordRpcEnabled, is SettingKey.HideOnClose,
         is SettingKey.IsProxyEnabled, is SettingKey.ProxySsl,
-        is SettingKey.NeedsUserIdMigration -> getBooleanOrNull(key.name) as T?
+        is SettingKey.NeedsUserIdMigration, is SettingKey.IconFilled -> getBooleanOrNull(key.name) as T?
 
         is SettingKey.Volume, is SettingKey.ParticleMultiplier -> getFloatOrNull(key.name) as T?
     }

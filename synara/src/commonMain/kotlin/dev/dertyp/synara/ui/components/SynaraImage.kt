@@ -29,7 +29,7 @@ fun SynaraImage(
     modifier: Modifier = Modifier,
     aspectRatio: Float? = null,
     contentScale: ContentScale = ContentScale.Crop,
-    fallbackIcon: SynaraIcon = SynaraIcons.MusicNote,
+    fallbackIcon: SynaraIcon = SynaraIcons.Songs,
     shape: Shape = MaterialTheme.shapes.small,
     backgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant
 ) {

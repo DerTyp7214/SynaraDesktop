@@ -182,11 +182,16 @@
     <string name="split_artist_names_label">Neuer Name des Interpreten</string>
     <string name="split_artist_name_placeholder">z.B. Interpret A</string>
     <string name="split_artist_button">Aufteilen</string>
+    <string name="icon_pack">Icon-Paket</string>
+    <string name="icon_pack_material_symbols">Material Symbols</string>
+    <string name="icon_pack_lucide">Lucide</string>
     <string name="icon_style">Icon-Stil</string>
     <string name="icon_style_rounded">Abgerundet</string>
     <string name="icon_style_filled">Gefüllt</string>
     <string name="icon_style_outlined">Umrandet</string>
-    <string name="icon_style_twotone">Zweifarbig</string>
+    <string name="icon_style_sharp">Scharfkantig</string>
+    <string name="icon_style_default">Standard</string>
+    <string name="icon_filled">Gefüllte Icons</string>
 
     <string name="tag_q_44_48">44/48 kHz</string>
     <string name="tag_q_96">96 kHz</string>

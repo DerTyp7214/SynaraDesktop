@@ -66,7 +66,7 @@ fun AlbumVersionsDialog(
                                 SynaraImage(
                                     imageId = version.coverId,
                                     size = 48.dp,
-                                    fallbackIcon = SynaraIcons.Album
+                                    fallbackIcon = SynaraIcons.Albums
                                 )
 
                                 Spacer(modifier = Modifier.width(16.dp))

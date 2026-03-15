@@ -25,7 +25,9 @@ import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.scrobble.LastFmScrobbler
 import dev.dertyp.synara.theme.PywalLoader
-import dev.dertyp.synara.ui.IconStyle
+import dev.dertyp.synara.ui.IconPackType
+import dev.dertyp.synara.ui.LocalIconPack
+import dev.dertyp.synara.ui.SynaraIconStyle
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.ColorPicker
 import dev.dertyp.synara.ui.components.SettingsCard
@@ -48,7 +50,9 @@ class SettingsScreen : Screen {
         val language by Config.language.collectAsState()
         val lightThemeColor by Config.lightThemeColor.collectAsState()
         val darkThemeColor by Config.darkThemeColor.collectAsState()
-        val iconStyle by Config.iconStyle.collectAsState()
+        val iconPackType by Config.iconPack.collectAsState()
+        val iconStyleId by Config.iconStyle.collectAsState()
+        val iconFilled by Config.iconFilled.collectAsState()
         val useSongColor by Config.useSongColor.collectAsState()
         val usePywal by Config.usePywal.collectAsState()
         val particleMultiplier by Config.particleMultiplier.collectAsState()
@@ -84,7 +88,7 @@ class SettingsScreen : Screen {
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
                             Icon(
-                                imageVector = SynaraIcons.ArrowBack.get(),
+                                imageVector = SynaraIcons.Back.get(),
                                 contentDescription = stringResource(Res.string.back)
                             )
                         }
@@ -137,9 +141,10 @@ class SettingsScreen : Screen {
                         )
                     }
 
-                    IconStyleSetting(
-                        currentStyle = iconStyle,
-                        onStyleSelected = { Config.setIconStyle(it) }
+                    IconSettings(
+                        currentPackType = iconPackType,
+                        currentStyleId = iconStyleId,
+                        iconFilled = iconFilled
                     )
 
                     ParticleMultiplierSetting(
@@ -270,6 +275,105 @@ class SettingsScreen : Screen {
     }
 
     @Composable
+    private fun IconSettings(
+        currentPackType: IconPackType,
+        currentStyleId: String,
+        iconFilled: Boolean
+    ) {
+        val currentPack = currentPackType.getPack()
+        
+        SettingsCard {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                IconPackPicker(
+                    currentPackType = currentPackType,
+                    onPackSelected = { Config.setIconPack(it) }
+                )
+
+                if (currentPack.styles.size > 1) {
+                    IconStylePicker(
+                        currentStyleId = currentStyleId,
+                        styles = currentPack.styles,
+                        onStyleSelected = { Config.setIconStyle(it) }
+                    )
+                }
+
+                if (currentPack.hasFilledOption) {
+                    SettingSwitch(
+                        title = stringResource(Res.string.icon_filled),
+                        checked = iconFilled,
+                        onCheckedChange = { Config.setIconFilled(it) },
+                        useElevatedCard = false
+                    )
+                }
+            }
+        }
+    }
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    private fun IconPackPicker(currentPackType: IconPackType, onPackSelected: (IconPackType) -> Unit) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = stringResource(Res.string.icon_pack),
+                style = MaterialTheme.typography.titleMedium
+            )
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                IconPackType.entries.forEachIndexed { index, packType ->
+                    SegmentedButton(
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = IconPackType.entries.size),
+                        onClick = { onPackSelected(packType) },
+                        selected = packType == currentPackType,
+                        label = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                CompositionLocalProvider(LocalIconPack provides packType.getPack()) {
+                                    Icon(
+                                        imageVector = SynaraIcons.Library.get(),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Text(stringResource(packType.label))
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    private fun IconStylePicker(
+        currentStyleId: String,
+        styles: List<SynaraIconStyle>,
+        onStyleSelected: (String) -> Unit
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = stringResource(Res.string.icon_style),
+                style = MaterialTheme.typography.titleMedium
+            )
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                styles.forEachIndexed { index, style ->
+                    SegmentedButton(
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = styles.size),
+                        onClick = { onStyleSelected(style.id) },
+                        selected = style.id == currentStyleId,
+                        label = { Text(stringResource(style.label)) }
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
     private fun LastFmSettings(
         isEnabled: Boolean,
         apiKey: String,
@@ -333,23 +437,7 @@ class SettingsScreen : Screen {
                                 },
                                 colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                             ) {
-                                Text(
-                                    text = stringResource(
-                                        Res.string.lastfm_authenticated,
-                                        username
-                                    ),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                TextButton(
-                                    onClick = {
-                                        Config.setLastFmSessionKey("")
-                                        Config.setLastFmUsername("")
-                                    },
-                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                                ) {
-                                    Text(stringResource(Res.string.logout))
-                                }
+                                Text(stringResource(Res.string.logout))
                             }
                         }
                     }
@@ -512,7 +600,7 @@ class SettingsScreen : Screen {
                     }
 
                     Icon(
-                        imageVector = SynaraIcons.ArrowDropDown.get(),
+                        imageVector = SynaraIcons.ChevronDown.get(),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -570,40 +658,6 @@ class SettingsScreen : Screen {
             onColorSelected = onColorSelected,
             onDismissRequest = { showPicker = false }
         )
-    }
-
-    @OptIn(ExperimentalMaterial3Api::class)
-    @Composable
-    private fun IconStyleSetting(currentStyle: IconStyle, onStyleSelected: (IconStyle) -> Unit) {
-        SettingsCard {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = stringResource(Res.string.icon_style),
-                    style = MaterialTheme.typography.titleMedium
-                )
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    IconStyle.entries.forEachIndexed { index, style ->
-                        SegmentedButton(
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = IconStyle.entries.size),
-                            onClick = { onStyleSelected(style) },
-                            selected = style == currentStyle,
-                            label = {
-                                Text(
-                                    when (style) {
-                                        IconStyle.Rounded -> stringResource(Res.string.icon_style_rounded)
-                                        IconStyle.Filled -> stringResource(Res.string.icon_style_filled)
-                                        IconStyle.Outlined -> stringResource(Res.string.icon_style_outlined)
-                                        IconStyle.TwoTone -> stringResource(Res.string.icon_style_twotone)
-                                    }
-                                )
-                            }
-                        )
-                    }
-                }
-            }
-        }
     }
 
     @Composable

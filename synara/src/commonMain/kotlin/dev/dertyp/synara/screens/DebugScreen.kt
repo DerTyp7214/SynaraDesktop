@@ -69,7 +69,7 @@ class DebugScreen : Screen {
                     title = { Text("Debug - Color Scheme") },
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
-                            Icon(SynaraIcons.ArrowBack.get(), contentDescription = stringResource(Res.string.back))
+                            Icon(SynaraIcons.Back.get(), contentDescription = stringResource(Res.string.back))
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)

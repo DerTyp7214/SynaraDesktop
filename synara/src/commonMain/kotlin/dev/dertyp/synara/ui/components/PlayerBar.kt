@@ -336,7 +336,7 @@ fun PlayerBar(
                                                 imageId = coverId,
                                                 size = 56.dp,
                                                 modifier = Modifier.clickable { globalState.togglePlayerExpanded() },
-                                                fallbackIcon = SynaraIcons.MusicNote
+                                                fallbackIcon = SynaraIcons.Songs
                                             )
                                         }
 
@@ -437,7 +437,7 @@ fun PlayerBar(
                                                 modifier = Modifier.offset(y = (-8).dp)
                                             ) {
                                                 Icon(
-                                                    if (currentSong?.isFavourite == true) SynaraIcons.Favorite.get() else SynaraIcons.FavoriteBorder.get(),
+                                                    if (currentSong?.isFavourite == true) SynaraIcons.IsFavorite.get() else SynaraIcons.IsNotFavorite.get(),
                                                     contentDescription = stringResource(Res.string.favorite),
                                                     tint = if (currentSong?.isFavourite == true) MaterialTheme.colorScheme.primary else LocalContentColor.current
                                                 )
@@ -602,7 +602,7 @@ fun PlayerBar(
                                     ) { isScrobbled ->
                                         if (isScrobbled) {
                                             Icon(
-                                                SynaraIcons.CheckCircle.get(),
+                                                SynaraIcons.Success.get(),
                                                 contentDescription = stringResource(Res.string.song_scrobbled),
                                                 modifier = Modifier.size(16.dp),
                                                 tint = MaterialTheme.colorScheme.primary
@@ -621,7 +621,7 @@ fun PlayerBar(
                                                 )
                                                 Spacer(modifier = Modifier.width(4.dp))
                                                 Icon(
-                                                    SynaraIcons.Schedule.get(),
+                                                    SynaraIcons.Pending.get(),
                                                     contentDescription = stringResource(
                                                         Res.string.pending_scrobble
                                                     ),
@@ -694,7 +694,7 @@ private fun ExpandedPlayerContent(
             ) {
                 IconButton(onClick = onCollapse) {
                     Icon(
-                        SynaraIcons.KeyboardArrowDown.get(),
+                        SynaraIcons.ExpandDown.get(),
                         contentDescription = null,
                         modifier = Modifier.size(32.dp)
                     )
@@ -717,7 +717,7 @@ private fun ExpandedPlayerContent(
 
                     IconButton(onClick = { globalState.toggleQueueExpanded() }) {
                         Icon(
-                            SynaraIcons.QueueMusic.get(),
+                            SynaraIcons.Queue.get(),
                             contentDescription = "Queue",
                             modifier = Modifier.size(28.dp),
                             tint = if (isQueueShowing) MaterialTheme.colorScheme.primary else LocalContentColor.current
@@ -727,7 +727,7 @@ private fun ExpandedPlayerContent(
 
                 IconButton(onClick = { windowActions.toggleFullscreen() }) {
                     Icon(
-                        if (windowActions.isFullscreen) SynaraIcons.FullscreenExit.get() else SynaraIcons.Fullscreen.get(),
+                        if (windowActions.isFullscreen) SynaraIcons.FullscreenExit.get() else SynaraIcons.FullscreenEnter.get(),
                         contentDescription = null,
                         modifier = Modifier.size(32.dp)
                     )
@@ -910,7 +910,7 @@ private fun LargeCover(
             imageId = coverId,
             modifier = Modifier.fillMaxSize().then(sizeResolver),
             shape = RoundedCornerShape(16.dp),
-            fallbackIcon = SynaraIcons.MusicNote
+            fallbackIcon = SynaraIcons.Songs
         )
     }
 }
@@ -947,8 +947,8 @@ private fun VolumeControl(
     val volumeIcon = when {
         volume == 0f -> SynaraIcons.VolumeOff.get()
         volume < 0.33f -> SynaraIcons.VolumeMute.get()
-        volume < 0.67f -> SynaraIcons.VolumeDown.get()
-        else -> SynaraIcons.VolumeUp.get()
+        volume < 0.67f -> SynaraIcons.VolumeLow.get()
+        else -> SynaraIcons.VolumeHigh.get()
     }
 
     Box(

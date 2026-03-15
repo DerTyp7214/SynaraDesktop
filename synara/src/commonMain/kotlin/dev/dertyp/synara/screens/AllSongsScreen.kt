@@ -50,7 +50,7 @@ class AllSongsScreen : Screen {
                         },
                         navigationIcon = {
                             IconButton(onClick = { navigator.pop() }) {
-                                Icon(SynaraIcons.ArrowBack.get(), contentDescription = stringResource(Res.string.back))
+                                Icon(SynaraIcons.Back.get(), contentDescription = stringResource(Res.string.back))
                             }
                         }
                     )
@@ -106,7 +106,7 @@ class AllSongsScreen : Screen {
                                 }
                             ) {
                                 Icon(
-                                    if (successState.invertTags) SynaraIcons.FilterListOff.get() else SynaraIcons.FilterList.get(),
+                                    if (successState.invertTags) SynaraIcons.FilterOff.get() else SynaraIcons.Filter.get(),
                                     contentDescription = "Invert Tags"
                                 )
                             }
@@ -117,7 +117,7 @@ class AllSongsScreen : Screen {
             floatingActionButton = {
                 if (state is AllSongsScreenModel.AllSongsState.Success) {
                     SynaraFab(onClick = { screenModel.playAll() }) {
-                        Icon(SynaraIcons.PlayArrow.get(), contentDescription = stringResource(Res.string.play_all))
+                        Icon(SynaraIcons.Play.get(), contentDescription = stringResource(Res.string.play_all))
                     }
                 }
             }
@@ -202,7 +202,7 @@ class AllSongsScreen : Screen {
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        SynaraIcons.MusicNote.get(),
+                        SynaraIcons.Songs.get(),
                         contentDescription = null,
                         modifier = Modifier.size(24.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)

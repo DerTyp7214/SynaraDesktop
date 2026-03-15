@@ -55,7 +55,7 @@ class ArtistAlbumsScreen(private val artistId: PlatformUUID) : Screen {
                     },
                     navigationIcon = {
                         IconButton(onClick = { navigator?.pop() }) {
-                            Icon(SynaraIcons.ArrowBack.get(), contentDescription = null)
+                            Icon(SynaraIcons.Back.get(), contentDescription = null)
                         }
                     }
                 )

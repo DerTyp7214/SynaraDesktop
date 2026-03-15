@@ -52,7 +52,7 @@ abstract class BaseSearchResultScreen<T, VM : BaseSearchViewModel<T>>(
                     title = { Text(stringResource(titleRes)) },
                     navigationIcon = {
                         IconButton(onClick = { navigator?.pop() }) {
-                            Icon(SynaraIcons.ArrowBack.get(), contentDescription = null)
+                            Icon(SynaraIcons.Back.get(), contentDescription = null)
                         }
                     }
                 )

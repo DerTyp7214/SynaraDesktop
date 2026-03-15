@@ -69,7 +69,7 @@ fun ArtistContextMenu(
                 playerModel.addToQueue(PlaybackQueue(source = PlaybackSource.Artist(artist.id)))
                 onDismissRequest()
             },
-            leadingIcon = { Icon(SynaraIcons.PlaylistAdd.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+            leadingIcon = { Icon(SynaraIcons.AddToPlaylist.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
 
         DropdownMenuItem(
@@ -78,7 +78,7 @@ fun ArtistContextMenu(
                 playerModel.playNext(PlaybackQueue(source = PlaybackSource.Artist(artist.id)))
                 onDismissRequest()
             },
-            leadingIcon = { Icon(SynaraIcons.PlaylistPlay.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+            leadingIcon = { Icon(SynaraIcons.PlayNext.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
 
         if (user?.isAdmin == true) {
@@ -90,7 +90,7 @@ fun ArtistContextMenu(
                     showMergeDialog = true
                     onDismissRequest()
                 },
-                leadingIcon = { Icon(SynaraIcons.Merge.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+                leadingIcon = { Icon(SynaraIcons.ArtistMerge.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
             )
 
             DropdownMenuItem(
@@ -99,7 +99,7 @@ fun ArtistContextMenu(
                     showSplitDialog = true
                     onDismissRequest()
                 },
-                leadingIcon = { Icon(SynaraIcons.CallSplit.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+                leadingIcon = { Icon(SynaraIcons.ArtistSplit.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
             )
         }
     }

@@ -62,7 +62,7 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
                     title = { Text(state.album?.name ?: "") },
                     navigationIcon = {
                         IconButton(onClick = { navigator?.pop() }) {
-                            Icon(SynaraIcons.ArrowBack.get(), contentDescription = null)
+                            Icon(SynaraIcons.Back.get(), contentDescription = null)
                         }
                     }
                 )
@@ -163,7 +163,7 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
                 size = 200.dp,
                 shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.clickable { onImageClick() },
-                fallbackIcon = SynaraIcons.Album
+                fallbackIcon = SynaraIcons.Albums
             )
 
             Spacer(modifier = Modifier.width(24.dp))
@@ -206,7 +206,7 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     ) {
-                        Icon(SynaraIcons.Layers.get(), contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(SynaraIcons.AlbumVersions.get(), contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = stringResource(Res.string.other_versions, versions.size),
@@ -222,7 +222,7 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
                         onClick = { screenModel.playAlbum() },
                         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
                     ) {
-                        Icon(SynaraIcons.PlayArrow.get(), contentDescription = null)
+                        Icon(SynaraIcons.Play.get(), contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(stringResource(Res.string.play))
                     }

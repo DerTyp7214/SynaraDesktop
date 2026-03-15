@@ -48,7 +48,7 @@ class LikedSongsScreen : Screen {
                     },
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
-                            Icon(SynaraIcons.ArrowBack.get(), contentDescription = stringResource(Res.string.back))
+                            Icon(SynaraIcons.Back.get(), contentDescription = stringResource(Res.string.back))
                         }
                     }
                 )
@@ -56,7 +56,7 @@ class LikedSongsScreen : Screen {
             floatingActionButton = {
                 if (state is LikedSongsScreenModel.LikedSongsState.Success) {
                     SynaraFab(onClick = { screenModel.playAll() }) {
-                        Icon(SynaraIcons.PlayArrow.get(), contentDescription = stringResource(Res.string.play_all))
+                        Icon(SynaraIcons.Play.get(), contentDescription = stringResource(Res.string.play_all))
                     }
                 }
             }

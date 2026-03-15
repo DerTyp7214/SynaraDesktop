@@ -114,6 +114,7 @@ fun MergeArtistDialog(
                                 }
                             },
                             label = { Text(selected.name) },
+                            elevation = InputChipDefaults.inputChipElevation(elevation = 0.dp, hoveredElevation = 0.dp, pressedElevation = 0.dp),
                             trailingIcon = {
                                 if (selected.id != artist.id) {
                                     Icon(
@@ -128,7 +129,7 @@ fun MergeArtistDialog(
                                     imageId = selected.imageId,
                                     size = 24.dp,
                                     shape = CircleShape,
-                                    fallbackIcon = SynaraIcons.Person
+                                    fallbackIcon = SynaraIcons.Artists
                                 )
                             }
                         )
@@ -168,7 +169,7 @@ fun MergeArtistDialog(
                                         imageId = result.imageId,
                                         size = 40.dp,
                                         shape = CircleShape,
-                                        fallbackIcon = SynaraIcons.Person
+                                        fallbackIcon = SynaraIcons.Artists
                                     )
                                 },
                                 modifier = Modifier.clickable {
@@ -273,6 +274,7 @@ fun SplitArtistDialog(
                                 selected = true,
                                 onClick = { newNames = newNames.filter { it != name } },
                                 label = { Text(name) },
+                                elevation = InputChipDefaults.inputChipElevation(elevation = 0.dp, hoveredElevation = 0.dp, pressedElevation = 0.dp),
                                 trailingIcon = {
                                     Icon(
                                         SynaraIcons.Close.get(),

@@ -78,7 +78,7 @@ fun AlbumContextMenu(
                     }
                     onDismissRequest()
                 },
-                leadingIcon = { Icon(SynaraIcons.Person.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+                leadingIcon = { Icon(SynaraIcons.Artists.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
             )
         }
 
@@ -90,7 +90,7 @@ fun AlbumContextMenu(
                 playerModel.addToQueue(PlaybackQueue(source = PlaybackSource.Album(album.id)))
                 onDismissRequest()
             },
-            leadingIcon = { Icon(SynaraIcons.PlaylistAdd.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+            leadingIcon = { Icon(SynaraIcons.AddToPlaylist.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
 
         DropdownMenuItem(
@@ -99,7 +99,7 @@ fun AlbumContextMenu(
                 playerModel.playNext(PlaybackQueue(source = PlaybackSource.Album(album.id)))
                 onDismissRequest()
             },
-            leadingIcon = { Icon(SynaraIcons.PlaylistPlay.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+            leadingIcon = { Icon(SynaraIcons.PlayNext.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
         
         DropdownMenuItem(
@@ -108,7 +108,7 @@ fun AlbumContextMenu(
                 showPlaylistPickerDialog = true
                 onDismissRequest()
             },
-            leadingIcon = { Icon(SynaraIcons.PlaylistAdd.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+            leadingIcon = { Icon(SynaraIcons.AddToPlaylist.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
 
         HorizontalDivider()

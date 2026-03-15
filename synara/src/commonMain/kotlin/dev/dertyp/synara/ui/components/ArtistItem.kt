@@ -76,7 +76,7 @@ fun ArtistItem(
                     imageId = artist.imageId,
                     size = 120.dp,
                     shape = CircleShape,
-                    fallbackIcon = SynaraIcons.Person
+                    fallbackIcon = SynaraIcons.Artists
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))

@@ -97,7 +97,7 @@ fun PlaylistPickerDialog(
                                 SynaraImage(
                                     imageId = playlist.imageId,
                                     size = 48.dp,
-                                    fallbackIcon = SynaraIcons.PlaylistPlay
+                                    fallbackIcon = SynaraIcons.PlayNext
                                 )
                                 
                                 Spacer(modifier = Modifier.width(16.dp))

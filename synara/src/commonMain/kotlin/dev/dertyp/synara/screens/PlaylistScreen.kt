@@ -61,7 +61,7 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                     },
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
-                            Icon(SynaraIcons.ArrowBack.get(), contentDescription = stringResource(Res.string.back))
+                            Icon(SynaraIcons.Back.get(), contentDescription = stringResource(Res.string.back))
                         }
                     }
                 )
@@ -188,7 +188,7 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                 size = 200.dp,
                 shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.clickable { onImageClick() },
-                fallbackIcon = SynaraIcons.PlaylistPlay
+                fallbackIcon = SynaraIcons.PlayNext
             )
 
             Spacer(modifier = Modifier.width(24.dp))
@@ -221,7 +221,7 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                         onClick = { screenModel.playPlaylist() },
                         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
                     ) {
-                        Icon(SynaraIcons.PlayArrow.get(), contentDescription = null)
+                        Icon(SynaraIcons.Play.get(), contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(stringResource(Res.string.play))
                     }

@@ -331,10 +331,20 @@ fun runTransparentWindow(
             shapes = shapes(),
             typography = typography()
         ) {
-            val iconStyle by Config.iconStyle.collectAsState()
+            val iconPackType by Config.iconPack.collectAsState()
+            val iconStyleId by Config.iconStyle.collectAsState()
+            val iconFilled by Config.iconFilled.collectAsState()
+
+            val iconPack = iconPackType.getPack()
+            val iconStyle = remember(iconPack, iconStyleId) {
+                iconPack.getStyle(iconStyleId)
+            }
+
             @Suppress("DEPRECATION")
             CompositionLocalProvider(
+                LocalIconPack provides iconPack,
                 LocalIconStyle provides iconStyle,
+                LocalIconFilled provides iconFilled,
                 LocalClipboard provides clipboard,
                 LocalClipboardManager provides clipboardManager,
                 LocalWindowActions provides windowActions,

@@ -191,11 +191,16 @@
     <string name="split_artist_names_label">New Artist Name</string>
     <string name="split_artist_name_placeholder">e.g. Artist A</string>
     <string name="split_artist_button">Split</string>
+    <string name="icon_pack">Icon Pack</string>
+    <string name="icon_pack_material_symbols">Material Symbols</string>
+    <string name="icon_pack_lucide">Lucide</string>
     <string name="icon_style">Icon Style</string>
     <string name="icon_style_rounded">Rounded</string>
     <string name="icon_style_filled">Filled</string>
     <string name="icon_style_outlined">Outlined</string>
-    <string name="icon_style_twotone">TwoTone</string>
+    <string name="icon_style_sharp">Sharp</string>
+    <string name="icon_style_default">Default</string>
+    <string name="icon_filled">Filled Icons</string>
 
     <string name="tag_q_44_48">44/48 kHz</string>
     <string name="tag_q_96">96 kHz</string>

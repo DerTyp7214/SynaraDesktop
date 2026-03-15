@@ -71,7 +71,7 @@ class LoginScreen : Screen {
                                 modifier = Modifier.align(Alignment.TopStart)
                             ) {
                                 Icon(
-                                    imageVector = SynaraIcons.ArrowBack.get(),
+                                    imageVector = SynaraIcons.Back.get(),
                                     contentDescription = stringResource(Res.string.back)
                                 )
                             }

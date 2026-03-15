@@ -238,7 +238,7 @@ fun QueueView(
                 shape = MaterialTheme.shapes.medium
             ) {
                 Icon(
-                    SynaraIcons.MusicNote.get(),
+                    SynaraIcons.Songs.get(),
                     contentDescription = "Scroll to current song",
                     modifier = Modifier.size(20.dp)
                 )

@@ -122,7 +122,7 @@ fun SongItem(
                         imageId = currentSongState.coverId,
                         size = 40.dp,
                         shape = MaterialTheme.shapes.extraSmall,
-                        fallbackIcon = SynaraIcons.MusicNote
+                        fallbackIcon = SynaraIcons.Songs
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                 }
@@ -160,7 +160,7 @@ fun SongItem(
                     if (showLike) {
                         IconButton(onClick = onToggleLike) {
                             Icon(
-                                if (currentSongState.isFavourite == true) SynaraIcons.Favorite.get() else SynaraIcons.FavoriteBorder.get(),
+                                if (currentSongState.isFavourite == true) SynaraIcons.IsFavorite.get() else SynaraIcons.IsNotFavorite.get(),
                                 contentDescription = stringResource(Res.string.favorite),
                                 modifier = Modifier.size(20.dp),
                                 tint = if (currentSongState.isFavourite == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -171,7 +171,7 @@ fun SongItem(
                     if (onPlayNext != null) {
                         IconButton(onClick = onPlayNext) {
                             Icon(
-                                SynaraIcons.PlaylistPlay.get(),
+                                SynaraIcons.PlayNext.get(),
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,

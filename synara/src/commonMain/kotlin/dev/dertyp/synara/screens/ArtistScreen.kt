@@ -57,7 +57,7 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
                     title = { Text(state.artist?.name ?: "") },
                     navigationIcon = {
                         IconButton(onClick = { navigator?.pop() }) {
-                            Icon(SynaraIcons.ArrowBack.get(), contentDescription = null)
+                            Icon(SynaraIcons.Back.get(), contentDescription = null)
                         }
                     }
                 )
@@ -201,7 +201,7 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
                 size = 200.dp,
                 shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.clickable { onImageClick() },
-                fallbackIcon = SynaraIcons.Person
+                fallbackIcon = SynaraIcons.Artists
             )
 
             Spacer(modifier = Modifier.width(24.dp))
@@ -219,7 +219,7 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
                     onClick = { screenModel.playArtist() },
                     contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
                 ) {
-                    Icon(SynaraIcons.PlayArrow.get(), contentDescription = null)
+                    Icon(SynaraIcons.Play.get(), contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(stringResource(Res.string.play))
                 }
