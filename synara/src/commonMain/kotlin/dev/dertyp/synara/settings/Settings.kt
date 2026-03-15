@@ -46,6 +46,9 @@ sealed class SettingKey<T>(val name: String) {
     // Window
     data object HideOnClose : SettingKey<Boolean>("hide_on_close")
 
+    // Updates
+    data object LastSeenVersion : SettingKey<String>("last_seen_version")
+
     companion object {
         val authKeys = setOf(
             AuthToken.name,
@@ -95,7 +98,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.ListenBrainzToken, is SettingKey.LastFmApiKey,
         is SettingKey.LastFmSharedSecret, is SettingKey.LastFmSessionKey,
         is SettingKey.LastFmUsername, is SettingKey.ProxyHost, is SettingKey.ProxyId,
-        is SettingKey.IconStyle, is SettingKey.IconPack -> getStringOrNull(key.name) as T?
+        is SettingKey.IconStyle, is SettingKey.IconPack, is SettingKey.LastSeenVersion -> getStringOrNull(key.name) as T?
 
         is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor,
         is SettingKey.ProxyPort -> getIntOrNull(

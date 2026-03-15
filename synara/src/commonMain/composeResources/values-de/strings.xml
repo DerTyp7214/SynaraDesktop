@@ -16,6 +16,8 @@
     <string name="no_results">Keine Ergebnisse gefunden</string>
     <string name="home">Start</string>
     <string name="settings">Einstellungen</string>
+    <string name="changelog">Changelog</string>
+    <string name="current">Aktuell</string>
     <string name="sessions">Sitzungen</string>
     <string name="dashboard">Dashboard</string>
     <string name="songs">Songs</string>

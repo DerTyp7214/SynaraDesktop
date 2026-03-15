@@ -110,6 +110,9 @@ object Config : KoinComponent {
     private val _needsUserIdMigration = MutableStateFlow(settings.get(SettingKey.NeedsUserIdMigration, true))
     val needsUserIdMigration: StateFlow<Boolean> = _needsUserIdMigration.asStateFlow()
 
+    private val _lastSeenVersion = MutableStateFlow(settings.getOrNull(SettingKey.LastSeenVersion) ?: "")
+    val lastSeenVersion: StateFlow<String> = _lastSeenVersion.asStateFlow()
+
     fun setDarkTheme(isDark: Boolean) {
         _darkTheme.value = isDark
         settings.putBoolean("dark_theme", isDark)
@@ -256,5 +259,10 @@ object Config : KoinComponent {
     fun setNeedsUserIdMigration(needs: Boolean) {
         _needsUserIdMigration.value = needs
         settings.put(SettingKey.NeedsUserIdMigration, needs)
+    }
+
+    fun setLastSeenVersion(version: String) {
+        _lastSeenVersion.value = version
+        settings.put(SettingKey.LastSeenVersion, version)
     }
 }

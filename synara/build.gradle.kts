@@ -17,7 +17,7 @@ val minor = 0
 val patch = 0
 val buildMajor = 0
 val buildMinor = 2
-val buildPatch = 0
+val buildPatch = 1
 
 fun getVersionName(): String {
     return "$major.$minor.$patch${if (prerelease) "-prerelease$buildMajor.$buildMinor.$buildPatch" else ""}"
@@ -106,6 +106,7 @@ kotlin {
                                     it.contains("createDistributable", ignoreCase = true)
                                 }}
                                 const val VERSION = "${getVersionName()}"
+                                const val PRERELEASE = $prerelease
                             }
                             """.trimIndent()
                         )

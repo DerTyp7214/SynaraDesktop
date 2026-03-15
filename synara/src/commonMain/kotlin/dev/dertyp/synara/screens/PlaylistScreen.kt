@@ -3,7 +3,6 @@
 package dev.dertyp.synara.screens
 
 import androidx.compose.foundation.VerticalScrollbar
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -187,7 +186,7 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                 imageId = state.imageId,
                 size = 200.dp,
                 shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.clickable { onImageClick() },
+                onClick = { onImageClick() },
                 fallbackIcon = SynaraIcons.PlayNext
             )
 

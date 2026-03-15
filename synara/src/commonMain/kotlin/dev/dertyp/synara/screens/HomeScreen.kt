@@ -31,6 +31,8 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.transitions.SlideTransition
 import dev.dertyp.data.ServerStats
 import dev.dertyp.data.UserPlaylist
+import dev.dertyp.synara.BuildConfig
+import dev.dertyp.synara.Config
 import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.theme.isAppDark
@@ -56,6 +58,15 @@ class HomeScreen : Screen {
         val isPlayerExpanded by screenModel.globalState.isPlayerExpanded.collectAsState()
 
         Navigator(DashboardScreen()) { navigator ->
+            LaunchedEffect(Unit) {
+                val lastSeenVersion = Config.lastSeenVersion.value
+                val currentVersion = BuildConfig.VERSION
+                if (lastSeenVersion.isNotEmpty() && lastSeenVersion != currentVersion) {
+                    navigator.push(ChangelogScreen())
+                }
+                Config.setLastSeenVersion(currentVersion)
+            }
+
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                 val isCompact = maxWidth < 900.dp
                 val playerHeight = 110.dp

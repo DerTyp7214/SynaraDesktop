@@ -247,6 +247,19 @@ class SettingsScreen : Screen {
                         modifier = Modifier.padding(top = 8.dp)
                     )
 
+                    SettingsCard(onClick = { navigator.push(ChangelogScreen()) }) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.changelog),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
+                    }
+
                     SettingsCard(onClick = { rpcServiceManager.logout() }) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(16.dp),

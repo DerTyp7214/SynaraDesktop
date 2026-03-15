@@ -1,6 +1,7 @@
 package dev.dertyp.synara.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,7 +31,8 @@ fun SynaraImage(
     contentScale: ContentScale = ContentScale.Crop,
     fallbackIcon: SynaraIcons = SynaraIcons.Songs,
     shape: Shape = MaterialTheme.shapes.small,
-    backgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant
+    backgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant,
+    onClick: (() -> Unit)? = null
 ) {
     var isError by remember(imageId) { mutableStateOf(false) }
     val imageRequest = rememberImageRequest(imageId, size = size ?: 0.dp)
@@ -40,7 +42,8 @@ fun SynaraImage(
             .then(if (size != null) Modifier.size(size) else Modifier)
             .then(if (aspectRatio != null) Modifier.aspectRatio(aspectRatio) else Modifier)
             .clip(shape)
-            .background(backgroundColor),
+            .background(backgroundColor)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         contentAlignment = Alignment.Center
     ) {
         if (imageId != null && !isError) {

@@ -10,5 +10,14 @@
         </BuiltInPromptOverride>
       </list>
     </option>
+    <option name="prompts">
+      <list>
+        <PromptTemplate>
+          <option name="enabled" value="true" />
+          <option name="name" value="Create Changelog" />
+          <option name="text" value="create a new changelog entry (on the existing changelogscreen) with the current uncommitted changes. (dont include stupid things like version bump in the changelog) use the current date (you can use `date` for it)." />
+        </PromptTemplate>
+      </list>
+    </option>
   </component>
 </project>

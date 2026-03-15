@@ -8,14 +8,12 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 
 class SnackbarManager {
     val snackbarHostState = SnackbarHostState()
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var snackbarJob: Job? = null
 
     fun showSnackbar(
         message: String,
@@ -23,7 +21,9 @@ class SnackbarManager {
         withDismissAction: Boolean = false,
         duration: SnackbarDuration = SnackbarDuration.Short
     ) {
-        scope.launch {
+        snackbarJob?.cancel()
+        snackbarJob = scope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
             val annotatedMessage = parseMarkdown(message)
             snackbarHostState.showSnackbar(
                 visuals = AnnotatedSnackbarVisuals(
@@ -37,7 +37,9 @@ class SnackbarManager {
     }
 
     fun showSnackbar(visuals: SnackbarVisuals) {
-        scope.launch {
+        snackbarJob?.cancel()
+        snackbarJob = scope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
             snackbarHostState.showSnackbar(visuals)
         }
     }
