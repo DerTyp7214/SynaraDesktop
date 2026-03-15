@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.kotlinx.rpc)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.sqldelight)
+    alias(libs.plugins.ksp)
 }
 
 val prerelease = true
@@ -147,6 +148,11 @@ kotlin {
     compilerOptions {
         freeCompilerArgs.add("-Xexpect-actual-classes")
     }
+}
+
+dependencies {
+    add("kspCommonMainMetadata", project(":icon-processor"))
+    add("kspJvm", project(":icon-processor"))
 }
 
 sqldelight {

@@ -19,7 +19,6 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import dev.dertyp.PlatformUUID
-import dev.dertyp.synara.ui.SynaraIcon
 import dev.dertyp.synara.ui.SynaraIcons
 
 @Composable
@@ -29,7 +28,7 @@ fun SynaraImage(
     modifier: Modifier = Modifier,
     aspectRatio: Float? = null,
     contentScale: ContentScale = ContentScale.Crop,
-    fallbackIcon: SynaraIcon = SynaraIcons.Songs,
+    fallbackIcon: SynaraIcons = SynaraIcons.Songs,
     shape: Shape = MaterialTheme.shapes.small,
     backgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant
 ) {
