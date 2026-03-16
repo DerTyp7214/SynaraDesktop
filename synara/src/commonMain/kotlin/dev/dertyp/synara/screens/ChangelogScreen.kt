@@ -48,6 +48,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "0.3.2",
+                        date = "2026-03-17",
+                        isPrerelease = true,
+                        changes = listOf(
+                            "Enhanced `SongServiceWrapper` with `downloadSong` and `getDownloadSize` to support music downloads with quality selection."
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "0.3.1",
                         date = "2026-03-16",
                         isPrerelease = true,
