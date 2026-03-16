@@ -53,7 +53,7 @@ compose.desktop {
                 dependsOn(":synara:generateIcons")
             }
 
-            modules("jdk.unsupported", "java.sql", "jdk.security.auth", "java.naming")
+            modules("jdk.unsupported", "java.sql", "jdk.security.auth", "java.naming", "java.management", "jdk.management", "jdk.crypto.ec")
         }
     }
 }

@@ -85,18 +85,7 @@ compose.desktop {
                 dependsOn(":synara:generateIcons")
             }
 
-            modules("jdk.unsupported", "java.sql", "jdk.security.auth", "java.naming")
+            modules("jdk.unsupported", "java.sql", "jdk.security.auth", "java.naming", "java.management", "jdk.management", "jdk.crypto.ec")
         }
-    }
-}
-
-allprojects {
-    tasks.withType<Jar> {
-        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-        exclude("META-INF/MANIFEST.MF")
-        exclude("META-INF/INDEX.LIST")
-        exclude("META-INF/*.SF")
-        exclude("META-INF/*.DSA")
-        exclude("META-INF/*.RSA")
     }
 }

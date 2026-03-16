@@ -48,6 +48,18 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "0.3.1",
+                        date = "2026-03-16",
+                        isPrerelease = true,
+                        changes = listOf(
+                            "Automatically persist resolved MusicBrainz IDs to the database during scrobbling for better metadata consistency.",
+                            "Updated JVM distribution modules to include `java.management` and related components for the Task Manager.",
+                            "Refined GitHub Actions release workflows to use standard authentication tokens and secrets.",
+                            "Improved `TaskManagerScreen` resource monitoring stability and internal UI refinements.",
+                            "Enhanced `SongServiceWrapper` with methods for MusicBrainz ID retrieval and persistence."
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "0.3.0",
                         date = "2026-03-16",
                         isPrerelease = true,
