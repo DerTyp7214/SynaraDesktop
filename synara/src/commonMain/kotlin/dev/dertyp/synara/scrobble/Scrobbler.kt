@@ -4,10 +4,12 @@ import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.utils.SynaraDispatchers
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import kotlin.coroutines.ContinuationInterceptor
 import kotlin.reflect.KClass
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -52,9 +54,11 @@ class ScrobbleTimer(private val scope: CoroutineScope) {
 
 class ScrobblerService(
     private val playerModel: PlayerModel,
-    private val logger: Logger
+    private val logger: Logger,
+    private val dispatchers: SynaraDispatchers
 ) : KoinComponent {
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val modelDispatcher = dispatchers.createNamed("ScrobblerService")
+    private val scope: CoroutineScope = CoroutineScope(modelDispatcher + SupervisorJob())
     private val jobs = mutableListOf<Job>()
 
     private var isRunning = false
@@ -140,6 +144,7 @@ class ScrobblerService(
 
     fun stop() {
         while (jobs.isNotEmpty()) jobs.removeAt(0).cancel()
+        (scope.coroutineContext[ContinuationInterceptor] as? AutoCloseable)?.close()
 
         scrobblers.forEach { it.stopScrobbler() }
         isRunning = false
@@ -168,8 +173,11 @@ abstract class BaseScrobbler : KoinComponent {
     open val sortOrder: Int = 0
 
     private val scrobblerService: ScrobblerService by inject()
+    private val dispatchers: SynaraDispatchers by inject()
     internal val logger: Logger by inject()
-    internal val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    internal val scope: CoroutineScope by lazy {
+        CoroutineScope(SupervisorJob() + dispatchers.createNamed(this::class.simpleName ?: "Scrobbler"))
+    }
     private val jobs = mutableListOf<Job>()
 
     var isRunning = false
@@ -227,6 +235,7 @@ abstract class BaseScrobbler : KoinComponent {
 
     fun stopScrobbler() {
         while (jobs.isNotEmpty()) jobs.removeAt(0).cancel()
+        (scope.coroutineContext[ContinuationInterceptor] as? AutoCloseable)?.close()
         isRunning = false
         try {
             onStop()

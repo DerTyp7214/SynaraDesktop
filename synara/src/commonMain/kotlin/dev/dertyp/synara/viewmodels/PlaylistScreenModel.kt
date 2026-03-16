@@ -9,6 +9,7 @@ import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
 import dev.dertyp.synara.player.*
 import dev.dertyp.synara.rpc.RpcServiceManager
+import dev.dertyp.synara.utils.SynaraDispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,8 +24,16 @@ class PlaylistScreenModel(
     private val userPlaylistService: IUserPlaylistService,
     private val songService: ISongService,
     private val songCache: SongCache,
-    val playerModel: PlayerModel
+    val playerModel: PlayerModel,
+    dispatchers: SynaraDispatchers
 ) : ScreenModel {
+
+    private val modelDispatcher = dispatchers.createNamed("PlaylistScreenModel")
+
+    override fun onDispose() {
+        (modelDispatcher as? AutoCloseable)?.close()
+        super.onDispose()
+    }
 
     private val _state = MutableStateFlow<PlaylistState>(PlaylistState.Loading)
     val state = _state.asStateFlow()
@@ -35,12 +44,12 @@ class PlaylistScreenModel(
     private var isFetching = false
 
     init {
-        screenModelScope.launch {
+        screenModelScope.launch(modelDispatcher) {
             rpcServiceManager.awaitAuthentication()
             loadPlaylist()
         }
         
-        screenModelScope.launch {
+        screenModelScope.launch(modelDispatcher) {
             songCache.playlistUpdates.collect { update ->
                 when (update) {
                     is PlaylistUpdate.PlaylistContentChanged -> {
@@ -53,7 +62,7 @@ class PlaylistScreenModel(
             }
         }
 
-        screenModelScope.launch {
+        screenModelScope.launch(modelDispatcher) {
             songCache.updates.collect { update ->
                 when (update) {
                     is CacheUpdate.SongUpdated -> {
@@ -84,7 +93,7 @@ class PlaylistScreenModel(
         if (isFetching) return
         isFetching = true
 
-        screenModelScope.launch {
+        screenModelScope.launch(modelDispatcher) {
             if (currentPage == 0) {
                 _state.value = PlaylistState.Loading
             }

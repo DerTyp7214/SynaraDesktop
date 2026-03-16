@@ -11,6 +11,7 @@ import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
+import dev.dertyp.synara.utils.SynaraDispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,8 +23,16 @@ class SearchScreenModel(
     private val albumService: IAlbumService,
     private val artistService: IArtistService,
     private val userPlaylistService: IUserPlaylistService,
-    private val globalStateModel: GlobalStateModel
+    private val globalStateModel: GlobalStateModel,
+    dispatchers: SynaraDispatchers
 ) : ScreenModel {
+
+    private val modelDispatcher = dispatchers.createNamed("SearchScreenModel")
+
+    override fun onDispose() {
+        (modelDispatcher as? AutoCloseable)?.close()
+        super.onDispose()
+    }
 
     val lazyListState = LazyListState()
 
@@ -55,7 +64,7 @@ class SearchScreenModel(
             return
         }
 
-        searchJob = screenModelScope.launch {
+        searchJob = screenModelScope.launch(modelDispatcher) {
             delay(400)
             _isSearching.value = true
             try {

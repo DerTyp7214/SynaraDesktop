@@ -6,6 +6,7 @@ import dev.dertyp.core.nullIfEmpty
 import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
+import dev.dertyp.services.ISongService
 import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
@@ -36,6 +37,7 @@ class ListenBrainzScrobbler(
     private val settings: Settings,
     private val musicBrainzService: MusicBrainzService,
     private val scrobbleQueue: ScrobbleQueue,
+    private val songService: ISongService,
     globalJson: Json
 ) : BaseScrobbler() {
     override val name: String = "ListenBrainz"
@@ -123,7 +125,26 @@ class ListenBrainzScrobbler(
             return true
         }
 
-        val recording = musicBrainzService.searchMb(song)
+        var musicBrainzId = song.musicBrainzId
+        if (musicBrainzId == null) {
+            musicBrainzId = try {
+                songService.fetchMusicBrainzId(song.id)?.musicBrainzId
+            } catch (e: Exception) {
+                logger.error(LogTag.LISTENBRAINZ, "Error fetching MusicBrainz ID from server", e)
+                null
+            }
+        }
+
+        val recording = musicBrainzId?.let { musicBrainzService.getRecording(it) }
+            ?: run {
+                val result = musicBrainzService.searchMb(song)
+                if (result != null) {
+                    songService.setMusicBrainzId(song.id, result.id)
+                    result
+                } else {
+                    null
+                }
+            }
 
         delay(50)
 
@@ -141,14 +162,16 @@ class ListenBrainzScrobbler(
                             (it.name ?: it.artist?.name) + (it.joinphrase ?: "")
                         } ?: song.artists.joinToString(" & ") { it.name },
                         trackName = recording?.title ?: song.title.cleanTitle(),
-                        releaseName = release?.title ?: song.album?.name?.cleanTitle() ?: song.title.cleanTitle(),
+                        releaseName = release?.title ?: song.album?.name?.cleanTitle()
+                        ?: song.title.cleanTitle(),
                         additionalInfo = AdditionalInfo(
                             mediaPlayer = "Synara",
                             submissionClient = "Synara Desktop",
                             submissionClientVersion = BuildConfig.VERSION,
                             durationMs = recording?.length ?: song.duration,
                             recordingId = recording?.id,
-                            artistIds = recording?.artistCredit?.mapNotNull { it.artist?.id }?.nullIfEmpty(),
+                            artistIds = recording?.artistCredit?.mapNotNull { it.artist?.id }
+                                ?.nullIfEmpty(),
                             releaseId = release?.id
                         )
                     )
@@ -164,9 +187,16 @@ class ListenBrainzScrobbler(
             }
             val isSuccess = response.status.value in 200..299
             if (isSuccess) {
-                logger.info(LogTag.LISTENBRAINZ, "Successfully submitted listen to ListenBrainz: ${song.title}")
+                logger.info(
+                    LogTag.LISTENBRAINZ,
+                    "Successfully submitted listen to ListenBrainz: ${song.title}"
+                )
             } else {
-                logger.warning(LogTag.LISTENBRAINZ, "Failed to submit listen to ListenBrainz: ${response.status.value}", response.bodyAsText())
+                logger.warning(
+                    LogTag.LISTENBRAINZ,
+                    "Failed to submit listen to ListenBrainz: ${response.status.value}",
+                    response.bodyAsText()
+                )
             }
             isSuccess
         } catch (e: Exception) {
@@ -185,8 +215,10 @@ class ListenBrainzScrobbler(
 
     @Serializable
     enum class ListenType {
-        @SerialName("single") SINGLE,
-        @SerialName("playing_now") PLAYING_NOW
+        @SerialName("single")
+        SINGLE,
+        @SerialName("playing_now")
+        PLAYING_NOW
     }
 
     @Serializable

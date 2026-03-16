@@ -48,6 +48,20 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "0.3.0",
+                        date = "2026-03-16",
+                        isPrerelease = true,
+                        changes = listOf(
+                            "Added `HAS_MUSICBRAINZ_ID` tag support and automated MusicBrainz ID resolution for better metadata enrichment.",
+                            "Implemented a new Task Manager and Performance Monitor for real-time tracking of application resource usage.",
+                            "Optimized `ListenBrainzScrobbler` with caching and automatic metadata resolution via MusicBrainz.",
+                            "Improved `DetachedWindow` and `SynaraView` for more robust and stable multi-window operations.",
+                            "Enhanced theme management and applied UI polish across several core screens for a better visual experience.",
+                            "Refactored multiple screen models to provide a more stable and consistent state management.",
+                            "Expanded support for Lucide, Material, and Phosphor icon packs with improved icon mapping generation."
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "0.2.1",
                         date = "2026-03-15",
                         isPrerelease = true,

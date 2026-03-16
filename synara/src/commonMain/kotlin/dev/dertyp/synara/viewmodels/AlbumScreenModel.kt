@@ -11,6 +11,7 @@ import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.rpc.RpcServiceManager
+import dev.dertyp.synara.utils.SynaraDispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.update
@@ -29,18 +30,26 @@ class AlbumScreenModel(
     private val rpcServiceManager: RpcServiceManager,
     private val albumService: IAlbumService,
     private val songService: ISongService,
-    val playerModel: PlayerModel
+    val playerModel: PlayerModel,
+    dispatchers: SynaraDispatchers
 ) : StateScreenModel<AlbumState>(AlbumState()) {
 
+    private val modelDispatcher = dispatchers.createNamed("AlbumScreenModel")
+
+    override fun onDispose() {
+        (modelDispatcher as? AutoCloseable)?.close()
+        super.onDispose()
+    }
+
     init {
-        screenModelScope.launch {
+        screenModelScope.launch(modelDispatcher) {
             rpcServiceManager.awaitAuthentication()
             loadAlbum()
         }
     }
 
     private fun loadAlbum() {
-        screenModelScope.launch {
+        screenModelScope.launch(modelDispatcher) {
             mutableState.update { it.copy(isLoading = true) }
             try {
                 coroutineScope {

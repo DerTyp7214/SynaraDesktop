@@ -128,6 +128,38 @@
     <string name="window">Window</string>
     <string name="hide_on_close">Minimize to tray on close</string>
 
+    <!-- Performance -->
+    <string name="performance">Performance</string>
+    <string name="show_performance_overlay">Show performance overlay</string>
+    <string name="task_manager">Task Manager</string>
+    <string name="detach">Detach</string>
+    <string name="memory">Memory</string>
+    <string name="physical_memory">Physical (RSS)</string>
+    <string name="jvm_total">JVM Total</string>
+    <string name="jvm_direct">JVM Direct (NIO)</string>
+    <string name="native_other">Native (Other)</string>
+    <string name="memory_pools">Memory Pools</string>
+    <string name="cpu">CPU</string>
+    <string name="caches">Caches</string>
+    <string name="threads">Threads</string>
+    <string name="total_used">Total Used</string>
+    <string name="heap_used">Heap Used</string>
+    <string name="heap_max">Heap Max</string>
+    <string name="non_heap_used">Non-Heap Used</string>
+    <string name="process_load">Process Load</string>
+    <string name="system_load">System Load</string>
+    <string name="app">App</string>
+    <string name="system">System</string>
+    <string name="total">Total</string>
+    <string name="per_core">Per Core</string>
+    <string name="available_processors">Available Processors</string>
+    <string name="image_cache">Image Cache (Memory)</string>
+    <string name="song_cache">Song Cache (Items)</string>
+    <string name="song_cache_memory">Song Cache (Memory)</string>
+    <string name="items_count">%1$d items</string>
+    <string name="thread_id">ID</string>
+    <string name="ram">RAM</string>
+
     <!-- Proxy -->
     <string name="proxy">Proxy</string>
     <string name="enable_proxy">Use Proxy</string>
@@ -217,4 +249,5 @@
     <string name="tag_b_24">24 bit</string>
     <string name="tag_has_lyrics">Lyrics</string>
     <string name="tag_custom_upload">Custom Upload</string>
+    <string name="tag_has_musicbrainz_id">MusicBrainz</string>
 </resources>

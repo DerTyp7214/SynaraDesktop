@@ -33,6 +33,7 @@ import dev.dertyp.synara.ui.components.ColorPicker
 import dev.dertyp.synara.ui.components.SettingsCard
 import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.SynaraAlertDialog
+import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
@@ -163,6 +164,39 @@ class SettingsScreen : Screen {
                         checked = hideOnClose,
                         onCheckedChange = { Config.setHideOnClose(it) }
                     )
+
+                    Text(
+                        text = stringResource(Res.string.performance),
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+
+                    val showPerformanceOverlay by Config.showPerformanceOverlay.collectAsState()
+                    SettingSwitch(
+                        title = stringResource(Res.string.show_performance_overlay),
+                        checked = showPerformanceOverlay,
+                        onCheckedChange = { Config.setShowPerformanceOverlay(it) }
+                    )
+
+                    val globalState = koinInject<GlobalStateModel>()
+                    SettingsCard(onClick = { navigator.push(TaskManagerScreen()) }) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.task_manager),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            IconButton(onClick = { globalState.setShowTaskManagerWindow(true) }) {
+                                Icon(
+                                    imageVector = SynaraIcons.OpenInNew.get(),
+                                    contentDescription = stringResource(Res.string.detach)
+                                )
+                            }
+                        }
+                    }
 
                     Text(
                         text = stringResource(Res.string.proxy),

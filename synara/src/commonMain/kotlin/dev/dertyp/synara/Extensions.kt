@@ -14,7 +14,9 @@ import dev.dertyp.synara.material.Hct
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.*
+import kotlin.math.log
 import kotlin.math.min
+import kotlin.math.pow
 
 @Composable
 fun animateColorSchemeAsState(
@@ -155,4 +157,12 @@ fun Long.formatHumanReadableDuration(): String {
 fun Long.formatDateTime(): String {
     val instant = platformInstantFromEpochMilliseconds(this)
     return instant.formatDateTime()
+}
+
+fun Long.formatBytes(): String {
+    if (this < 1024) return "$this B"
+    val exp = (log(this.toDouble(), 1024.0)).toInt()
+    val pre = "KMGTPE"[exp - 1]
+    val value = this / 1024.0.pow(exp.toDouble())
+    return "${(value * 10).toInt() / 10.0} ${pre}B"
 }

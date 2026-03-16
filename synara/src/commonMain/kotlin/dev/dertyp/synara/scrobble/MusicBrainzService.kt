@@ -35,6 +35,22 @@ class MusicBrainzService(
 
     private val mbBaseUrl = "https://musicbrainz.org/ws/2"
 
+    suspend fun getRecording(id: String): MbRecording? {
+        return try {
+            val response: MbRecording = httpClient.get("$mbBaseUrl/recording/$id") {
+                parameter("inc", "artist-credits+releases")
+                parameter("fmt", "json")
+                header("User-Agent", "Synara/${BuildConfig.VERSION} ( https://github.com/dertyp7214/synara )")
+            }.body()
+
+            logger.info(LogTag.MUSICBRAINZ, "Found recording for $id: ${response.title}")
+            response
+        } catch (e: Exception) {
+            logger.error(LogTag.MUSICBRAINZ, "Error getting MusicBrainz recording for $id", e)
+            null
+        }
+    }
+
     suspend fun searchMb(song: UserSong): MbRecording? {
         val queryParts = mutableListOf<String>()
         queryParts.add("recording:\"${song.title.cleanTitle()}\"")

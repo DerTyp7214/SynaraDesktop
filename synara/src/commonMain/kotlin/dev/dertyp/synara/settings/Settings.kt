@@ -46,6 +46,9 @@ sealed class SettingKey<T>(val name: String) {
     // Window
     data object HideOnClose : SettingKey<Boolean>("hide_on_close")
 
+    // Performance
+    data object ShowPerformanceOverlay : SettingKey<Boolean>("show_performance_overlay")
+
     // Updates
     data object LastSeenVersion : SettingKey<String>("last_seen_version")
 
@@ -110,7 +113,8 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.IsListenBrainzEnabled, is SettingKey.IsLastFmEnabled,
         is SettingKey.IsDiscordRpcEnabled, is SettingKey.HideOnClose,
         is SettingKey.IsProxyEnabled, is SettingKey.ProxySsl,
-        is SettingKey.NeedsUserIdMigration, is SettingKey.IconFilled -> getBooleanOrNull(key.name) as T?
+        is SettingKey.NeedsUserIdMigration, is SettingKey.IconFilled,
+        is SettingKey.ShowPerformanceOverlay -> getBooleanOrNull(key.name) as T?
 
         is SettingKey.Volume, is SettingKey.ParticleMultiplier -> getFloatOrNull(key.name) as T?
     }

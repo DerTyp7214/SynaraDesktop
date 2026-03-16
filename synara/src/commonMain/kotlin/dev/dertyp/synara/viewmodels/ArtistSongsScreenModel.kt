@@ -11,6 +11,7 @@ import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.rpc.RpcServiceManager
+import dev.dertyp.synara.utils.SynaraDispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -20,8 +21,16 @@ class ArtistSongsScreenModel(
     private val rpcServiceManager: RpcServiceManager,
     private val artistService: IArtistService,
     private val songService: ISongService,
-    val playerModel: PlayerModel
+    val playerModel: PlayerModel,
+    dispatchers: SynaraDispatchers
 ) : ScreenModel {
+
+    private val modelDispatcher = dispatchers.createNamed("ArtistSongsScreenModel")
+
+    override fun onDispose() {
+        (modelDispatcher as? AutoCloseable)?.close()
+        super.onDispose()
+    }
 
     private val _state = MutableStateFlow<ArtistSongsState>(ArtistSongsState.Loading())
     val state = _state.asStateFlow()
@@ -32,7 +41,7 @@ class ArtistSongsScreenModel(
     private var isFetching = false
 
     init {
-        screenModelScope.launch {
+        screenModelScope.launch(modelDispatcher) {
             rpcServiceManager.awaitAuthentication()
             loadArtist()
             loadSongs()
@@ -57,7 +66,7 @@ class ArtistSongsScreenModel(
         if (isFetching || !hasNextPage) return
         isFetching = true
 
-        screenModelScope.launch {
+        screenModelScope.launch(modelDispatcher) {
             try {
                 val response = songService.byArtist(currentPage, pageSize, artistId)
                 val currentSongs = (_state.value as? ArtistSongsState.Success)?.songs ?: emptyList()

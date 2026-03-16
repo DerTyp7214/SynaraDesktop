@@ -55,7 +55,7 @@ enum class SynaraIcons {
     AlbumVersions, Expiration, DeviceGeneric, DeviceMobile, DeviceDesktop, Upload, Add, Delete, DragHandle, Info, ThemeLight, 
     ThemeDark, ChevronDown, Filter, FilterOff, VolumeHigh, VolumeOff, VolumeMute, VolumeLow, Success, 
     Pending, ExpandDown, Lyrics, Queue, FullscreenEnter, FullscreenExit, RemoveFromPlaylist, RemoveFromQueue, 
-    ArtistMerge, ArtistSplit, Close, Confirm;
+    ArtistMerge, ArtistSplit, Close, Confirm, OpenInNew;
 
     @Composable
     fun get(filled: Boolean = LocalIconFilled.current): ImageVector {

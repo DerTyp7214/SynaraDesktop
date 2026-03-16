@@ -84,6 +84,7 @@ class AllSongsScreen : Screen {
                                                         SongTag.B_24 -> Res.string.tag_b_24
                                                         SongTag.HAS_LYRICS -> Res.string.tag_has_lyrics
                                                         SongTag.CUSTOM_UPLOAD -> Res.string.tag_custom_upload
+                                                        SongTag.HAS_MUSICBRAINZ_ID -> Res.string.tag_has_musicbrainz_id
                                                     }
                                                 )
                                             )

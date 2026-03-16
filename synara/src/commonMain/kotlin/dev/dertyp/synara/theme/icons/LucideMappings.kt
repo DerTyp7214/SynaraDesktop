@@ -64,4 +64,5 @@ object LucideMappings {
     @MapTo(SynaraIcons.ArtistMerge) val GitMerge = Lucide.GitMerge
     @MapTo(SynaraIcons.ArtistSplit) val Split = Lucide.Split
     @MapTo(SynaraIcons.Confirm) val Check = Lucide.Check
+    @MapTo(SynaraIcons.OpenInNew) val ExternalLink = Lucide.ExternalLink
 }

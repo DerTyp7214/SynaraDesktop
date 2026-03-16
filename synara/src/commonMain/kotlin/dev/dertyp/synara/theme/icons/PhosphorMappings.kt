@@ -66,4 +66,5 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.ArtistMerge) val GitMerge = PhIcons.Regular.GitMerge
     @MapTo(SynaraIcons.ArtistSplit) val ArrowsSplit = PhIcons.Regular.ArrowsSplit
     @MapTo(SynaraIcons.Confirm) val Check = PhIcons.Regular.Check
+    @MapTo(SynaraIcons.OpenInNew) val ArrowSquareOut = PhIcons.Regular.ArrowSquareOut
 }

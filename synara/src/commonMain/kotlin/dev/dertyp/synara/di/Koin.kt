@@ -1,7 +1,6 @@
 package dev.dertyp.synara.di
 
 import com.russhwolf.settings.Settings
-import dev.dertyp.PlatformUUID
 import dev.dertyp.getPlatformName
 import dev.dertyp.logging.BaseLogger
 import dev.dertyp.logging.Logger
@@ -18,8 +17,10 @@ import dev.dertyp.synara.rpc.services.*
 import dev.dertyp.synara.scrobble.*
 import dev.dertyp.synara.settings.SettingsFactory
 import dev.dertyp.synara.ui.components.setupCoil
+import dev.dertyp.synara.ui.models.PerformanceMonitor
 import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.ui.models.TrayState
+import dev.dertyp.synara.utils.AppDispatchers
 import dev.dertyp.synara.viewmodels.*
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
@@ -79,6 +80,7 @@ val appModule = module {
     singleOf(::SettingsFactory)
     single<Settings> { get<SettingsFactory>().create() }
     
+    single { AppDispatchers }
     single { SynaraDatabase(get()) }
 
     single<Logger> { BaseLogger(StdoutLogPersistence(), get()) }
@@ -88,10 +90,11 @@ val appModule = module {
     singleOf(::ScrobblerService)
     singleOf(::MusicBrainzService)
     singleOf(::ScrobbleQueue)
-    single { SongCache() }
+    singleOf(::SongCache)
     singleOf(::PlayerModel)
     singleOf(::TrayState)
     singleOf(::SnackbarManager)
+    singleOf(::PerformanceMonitor)
 
     factoryOf(::SetupScreenModel)
     factoryOf(::LoginScreenModel)
@@ -101,28 +104,17 @@ val appModule = module {
     factoryOf(::AllSongsScreenModel)
     factoryOf(::SessionsScreenModel)
 
-    factory { (artistId: PlatformUUID) -> ArtistScreenModel(artistId, get(), get(), get(), get(), get()) }
-    factory { (artistId: PlatformUUID) -> ArtistSongsScreenModel(artistId, get(), get(), get(), get()) }
-    factory { (artistId: PlatformUUID) -> ArtistAlbumsScreenModel(artistId, get(), get(), get()) }
-    factory { (artistId: PlatformUUID) -> ArtistLikedSongsScreenModel(artistId, get(), get(), get(), get()) }
-    factory { (albumId: PlatformUUID) -> AlbumScreenModel(albumId, get(), get(), get(), get()) }
-    factory { (playlistId: PlatformUUID, isUserPlaylist: Boolean) ->
-        PlaylistScreenModel(
-            playlistId,
-            isUserPlaylist,
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            get()
-        )
-    }
+    factoryOf(::ArtistScreenModel)
+    factoryOf(::ArtistSongsScreenModel)
+    factoryOf(::ArtistAlbumsScreenModel)
+    factoryOf(::ArtistLikedSongsScreenModel)
+    factoryOf(::AlbumScreenModel)
+    factoryOf(::PlaylistScreenModel)
 
-    factory { (query: String) -> SearchSongsViewModel(get(), query) }
-    factory { (query: String) -> SearchArtistsViewModel(get(), query) }
-    factory { (query: String) -> SearchAlbumsViewModel(get(), query) }
-    factory { (query: String) -> SearchPlaylistsViewModel(get(), query) }
+    factoryOf(::SearchSongsViewModel)
+    factoryOf(::SearchArtistsViewModel)
+    factoryOf(::SearchAlbumsViewModel)
+    factoryOf(::SearchPlaylistsViewModel)
 
     singleOf(::AlbumServiceWrapper) bind IAlbumService::class
     singleOf(::ArtistServiceWrapper) bind IArtistService::class

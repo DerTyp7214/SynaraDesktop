@@ -15,6 +15,7 @@ import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.put
 import dev.dertyp.synara.takeAverage
 import dev.dertyp.synara.ui.models.SnackbarManager
+import dev.dertyp.synara.utils.SynaraDispatchers
 import dev.dertyp.synara.utils.compress
 import dev.dertyp.synara.utils.decompress
 import kotlinx.coroutines.*
@@ -45,8 +46,10 @@ class PlayerModel(
     private val settings: Settings,
     private val snackbarManager: SnackbarManager,
     private val cbor: Cbor,
+    private val dispatchers: SynaraDispatchers,
     settingsFactory: SettingsFactory,
 ) {
+    private val modelDispatcher = dispatchers.createNamed("PlayerModel", 2)
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val fileSystem = FileSystem.SYSTEM
     private val path: Path = settingsFactory.getStatePath("player_state.cbor.zstd").toPath()
@@ -208,7 +211,7 @@ class PlayerModel(
     }
 
     private fun saveState(state: PlayerState) {
-        scope.launch(Dispatchers.Default) {
+        scope.launch(modelDispatcher) {
             try {
                 val bytes = cbor.encodeToByteArray(state)
                 val compressed = compress(bytes)
@@ -273,7 +276,7 @@ class PlayerModel(
         }.map { q[it] as QueueEntry.FromSource }
 
         if (toFetchFromSource.isNotEmpty()) {
-            scope.launch(Dispatchers.Default) {
+            scope.launch(modelDispatcher) {
                 try {
                     val neededIds = toFetchFromSource.map { it.songId }
                         .distinct()
@@ -404,7 +407,7 @@ class PlayerModel(
                     audioPlayer.play()
                 }
 
-                launch(Dispatchers.Default) {
+                launch(modelDispatcher) {
                     val collectedEntries = resolvePlaybackQueueItems(playbackQueue)
                     withContext(Dispatchers.Main) {
                         originalQueue = collectedEntries

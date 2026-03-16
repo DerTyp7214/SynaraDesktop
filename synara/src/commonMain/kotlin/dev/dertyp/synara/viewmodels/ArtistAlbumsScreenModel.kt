@@ -8,6 +8,7 @@ import dev.dertyp.data.Artist
 import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
 import dev.dertyp.synara.rpc.RpcServiceManager
+import dev.dertyp.synara.utils.SynaraDispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,21 +19,29 @@ class ArtistAlbumsScreenModel(
     private val artistId: PlatformUUID,
     private val rpcServiceManager: RpcServiceManager,
     private val artistService: IArtistService,
-    private val albumService: IAlbumService
+    private val albumService: IAlbumService,
+    dispatchers: SynaraDispatchers
 ) : ScreenModel {
+
+    private val modelDispatcher = dispatchers.createNamed("ArtistAlbumsScreenModel")
+
+    override fun onDispose() {
+        (modelDispatcher as? AutoCloseable)?.close()
+        super.onDispose()
+    }
 
     private val _state = MutableStateFlow<ArtistAlbumsState>(ArtistAlbumsState.Loading())
     val state = _state.asStateFlow()
 
     init {
-        screenModelScope.launch {
+        screenModelScope.launch(modelDispatcher) {
             rpcServiceManager.awaitAuthentication()
             loadData()
         }
     }
 
     private fun loadData() {
-        screenModelScope.launch {
+        screenModelScope.launch(modelDispatcher) {
             try {
                 coroutineScope {
                     val artistDeferred = async { artistService.byId(artistId) }

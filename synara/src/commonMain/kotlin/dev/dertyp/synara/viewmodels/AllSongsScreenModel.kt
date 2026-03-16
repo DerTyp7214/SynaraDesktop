@@ -7,6 +7,7 @@ import dev.dertyp.data.UserSong
 import dev.dertyp.services.ISongService
 import dev.dertyp.synara.player.*
 import dev.dertyp.synara.rpc.RpcServiceManager
+import dev.dertyp.synara.utils.SynaraDispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -15,8 +16,16 @@ class AllSongsScreenModel(
     private val rpcServiceManager: RpcServiceManager,
     private val songService: ISongService,
     private val songCache: SongCache,
-    val playerModel: PlayerModel
+    val playerModel: PlayerModel,
+    dispatchers: SynaraDispatchers
 ) : ScreenModel {
+
+    private val modelDispatcher = dispatchers.createNamed("AllSongsScreenModel")
+
+    override fun onDispose() {
+        super.onDispose()
+        (modelDispatcher as? AutoCloseable)?.close()
+    }
 
     private val _state = MutableStateFlow<AllSongsState>(AllSongsState.Loading)
     val state = _state.asStateFlow()
@@ -25,12 +34,12 @@ class AllSongsScreenModel(
     private val loadingPages = mutableSetOf<Int>()
 
     init {
-        screenModelScope.launch {
+        screenModelScope.launch(modelDispatcher) {
             rpcServiceManager.awaitAuthentication()
             loadInitialData()
         }
 
-        screenModelScope.launch {
+        screenModelScope.launch(modelDispatcher) {
             songCache.updates.collect { update ->
                 when (update) {
                     is CacheUpdate.SongUpdated -> {
@@ -51,7 +60,7 @@ class AllSongsScreenModel(
     }
 
     private fun loadInitialData() {
-        screenModelScope.launch {
+        screenModelScope.launch(modelDispatcher) {
             val tags = (_state.value as? AllSongsState.Success)?.tags ?: emptyList()
             val invertTags = (_state.value as? AllSongsState.Success)?.invertTags ?: false
             
@@ -87,7 +96,7 @@ class AllSongsScreenModel(
         if (currentState.songs.getOrNull(offset) != null) return
 
         loadingPages.add(page)
-        screenModelScope.launch {
+        screenModelScope.launch(modelDispatcher) {
             try {
                 val response = songService.allSongs(page, pageSize, true, currentState.tags, currentState.invertTags)
                 val updatedSongs = currentState.songs.toMutableList()

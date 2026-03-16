@@ -4,6 +4,7 @@ import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import dev.dertyp.services.IAuthService
 import dev.dertyp.synara.rpc.RpcServiceManager
+import dev.dertyp.synara.utils.SynaraDispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -17,13 +18,20 @@ sealed class LoginResult {
 
 class LoginScreenModel(
     private val authService: IAuthService,
-    private val rpcServiceManager: RpcServiceManager
+    private val rpcServiceManager: RpcServiceManager,
+    dispatchers: SynaraDispatchers
 ) : ScreenModel {
+    private val modelDispatcher = dispatchers.createNamed("LoginScreenModel")
+
+    override fun onDispose() {
+        (modelDispatcher as? AutoCloseable)?.close()
+        super.onDispose()
+    }
     private val _loginResult = MutableStateFlow<LoginResult>(LoginResult.Idle)
     val loginResult = _loginResult.asStateFlow()
 
     fun login(username: String, password: String) {
-        screenModelScope.launch {
+        screenModelScope.launch(modelDispatcher) {
             _loginResult.value = LoginResult.Loading
             try {
                 val response = authService.authenticate(username, password)

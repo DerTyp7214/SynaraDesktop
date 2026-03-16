@@ -12,7 +12,9 @@ sealed class TestConnectionResult {
     data class Error(val message: String) : TestConnectionResult()
 }
 
-class SetupScreenModel(private val rpcServiceManager: RpcServiceManager) : ScreenModel {
+class SetupScreenModel(
+    private val rpcServiceManager: RpcServiceManager
+) : ScreenModel {
     private val _testConnectionResult = MutableStateFlow<TestConnectionResult>(TestConnectionResult.Idle)
     val testConnectionResult = _testConnectionResult.asStateFlow()
 

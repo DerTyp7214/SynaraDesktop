@@ -66,4 +66,5 @@ object MaterialMappings {
     @MapTo(SynaraIcons.ArtistMerge) val Merge = MaterialSymbols.Rounded.Merge
     @MapTo(SynaraIcons.ArtistSplit) val Call_split = MaterialSymbols.Rounded.Call_split
     @MapTo(SynaraIcons.Confirm) val Check = MaterialSymbols.Rounded.Check
+    @MapTo(SynaraIcons.OpenInNew) val Open_in_new = MaterialSymbols.Rounded.Open_in_new
 }

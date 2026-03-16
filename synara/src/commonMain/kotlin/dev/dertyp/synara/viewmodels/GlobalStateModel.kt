@@ -10,8 +10,8 @@ import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.services.UserPlaylistServiceWrapper
 import dev.dertyp.synara.rpc.services.UserServiceWrapper
 import dev.dertyp.synara.scrobble.*
+import dev.dertyp.synara.utils.SynaraDispatchers
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -23,10 +23,13 @@ class GlobalStateModel(
     private val userService: UserServiceWrapper,
     private val userPlaylistService: UserPlaylistServiceWrapper,
     private val scrobblerService: ScrobblerService,
-    private val songCache: SongCache
+    private val songCache: SongCache,
+    private val dispatchers: SynaraDispatchers
 ) : KoinComponent {
+    private val modelDispatcher = dispatchers.createNamed("GlobalStateModel")
+
     private val database: SynaraDatabase by inject()
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val scope = CoroutineScope(dispatchers.main + SupervisorJob())
 
     private val _user = MutableStateFlow<User?>(null)
     val user = _user.asStateFlow()
@@ -60,8 +63,11 @@ class GlobalStateModel(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
 
+    private val _showTaskManagerWindow = MutableStateFlow(false)
+    val showTaskManagerWindow = _showTaskManagerWindow.asStateFlow()
+
     init {
-        scope.launch {
+        scope.launch(modelDispatcher) {
             rpcServiceManager.connectionState.collectLatest { state ->
                 if (state == RpcServiceManager.ConnectionState.Authenticated) {
                     refreshUser()
@@ -73,7 +79,7 @@ class GlobalStateModel(
         scrobblerService.registerScrobbler(LocalSongScrobbler::class)
         scrobblerService.registerScrobbler(RecentlyPlayedScrobbler::class)
         
-        scope.launch {
+        scope.launch(modelDispatcher) {
             Config.isListenBrainzEnabled.collectLatest { enabled ->
                 if (enabled) {
                     scrobblerService.registerScrobbler(ListenBrainzScrobbler::class)
@@ -83,7 +89,7 @@ class GlobalStateModel(
             }
         }
         
-        scope.launch {
+        scope.launch(modelDispatcher) {
             Config.isLastFmEnabled.collectLatest { enabled ->
                 if (enabled) {
                     scrobblerService.registerScrobbler(LastFmScrobbler::class)
@@ -93,7 +99,7 @@ class GlobalStateModel(
             }
         }
 
-        scope.launch {
+        scope.launch(modelDispatcher) {
             Config.isDiscordRpcEnabled.collectLatest { enabled ->
                 if (enabled) {
                     scrobblerService.registerScrobbler(DiscordScrobbler::class)
@@ -103,7 +109,7 @@ class GlobalStateModel(
             }
         }
 
-        scope.launch {
+        scope.launch(modelDispatcher) {
             songCache.playlistUpdates
                 .filterIsInstance<PlaylistUpdate.PlaylistsReloadRequired>()
                 .collect {
@@ -115,7 +121,7 @@ class GlobalStateModel(
     }
 
     fun refreshUser() {
-        scope.launch {
+        scope.launch(modelDispatcher) {
             try {
                 val me = userService.me()
                 _user.value = me
@@ -136,7 +142,7 @@ class GlobalStateModel(
     }
 
     fun refreshPlaylists() {
-        scope.launch {
+        scope.launch(modelDispatcher) {
             _isRefreshingPlaylists.value = true
             try {
                 val currentUser = _user.value ?: userService.me().also { _user.value = it }
@@ -204,5 +210,9 @@ class GlobalStateModel(
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
+    }
+
+    fun setShowTaskManagerWindow(show: Boolean) {
+        _showTaskManagerWindow.value = show
     }
 }

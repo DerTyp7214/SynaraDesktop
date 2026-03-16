@@ -91,6 +91,9 @@ object Config : KoinComponent {
     private val _hideOnClose = MutableStateFlow(settings.get(SettingKey.HideOnClose, true))
     val hideOnClose: StateFlow<Boolean> = _hideOnClose.asStateFlow()
 
+    private val _showPerformanceOverlay = MutableStateFlow(settings.get(SettingKey.ShowPerformanceOverlay, false))
+    val showPerformanceOverlay: StateFlow<Boolean> = _showPerformanceOverlay.asStateFlow()
+
     // Proxy
     private val _isProxyEnabled = MutableStateFlow(settings.get(SettingKey.IsProxyEnabled, false))
     val isProxyEnabled: StateFlow<Boolean> = _isProxyEnabled.asStateFlow()
@@ -229,6 +232,11 @@ object Config : KoinComponent {
     fun setHideOnClose(hide: Boolean) {
         _hideOnClose.value = hide
         settings.put(SettingKey.HideOnClose, hide)
+    }
+
+    fun setShowPerformanceOverlay(show: Boolean) {
+        _showPerformanceOverlay.value = show
+        settings.put(SettingKey.ShowPerformanceOverlay, show)
     }
 
     fun setIsProxyEnabled(enabled: Boolean) {

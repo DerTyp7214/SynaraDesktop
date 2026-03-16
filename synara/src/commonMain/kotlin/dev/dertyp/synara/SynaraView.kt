@@ -4,6 +4,8 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -22,8 +24,12 @@ import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.screens.HomeScreen
 import dev.dertyp.synara.screens.LoginScreen
 import dev.dertyp.synara.screens.SetupScreen
+import dev.dertyp.synara.screens.TaskManagerScreen
+import dev.dertyp.synara.theme.SynaraTheme
+import dev.dertyp.synara.ui.DetachedWindow
 import dev.dertyp.synara.ui.LocalWindowActions
 import dev.dertyp.synara.ui.components.LocalHazeState
+import dev.dertyp.synara.ui.components.PerformanceOverlay
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
@@ -61,6 +67,25 @@ fun SynaraView() {
     }
 
     val hazeState = remember { HazeState() }
+    val showPerformanceOverlay by Config.showPerformanceOverlay.collectAsState()
+    val showTaskManagerWindow by globalState.showTaskManagerWindow.collectAsState()
+
+    DetachedWindow(
+        isOpen = showTaskManagerWindow,
+        onCloseRequest = { globalState.setShowTaskManagerWindow(false) },
+        title = "Synara Task Manager"
+    ) {
+        AppEnvironment {
+            SynaraTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    Navigator(TaskManagerScreen())
+                }
+            }
+        }
+    }
 
     AppEnvironment {
         CompositionLocalProvider(LocalHazeState provides hazeState) {
@@ -92,6 +117,12 @@ fun SynaraView() {
                         navigator = navigator,
                         modifier = Modifier.blur(blur)
                     )
+                }
+
+                if (showPerformanceOverlay) {
+                    Box(modifier = Modifier.align(Alignment.TopEnd)) {
+                        PerformanceOverlay()
+                    }
                 }
             }
         }

@@ -128,6 +128,38 @@
     <string name="window">Fenster</string>
     <string name="hide_on_close">Beim Schließen in den Infobereich minimieren</string>
 
+    <!-- Performance -->
+    <string name="performance">Leistung</string>
+    <string name="show_performance_overlay">Leistungs-Overlay anzeigen</string>
+    <string name="task_manager">Task-Manager</string>
+    <string name="detach">Abkoppeln</string>
+    <string name="memory">Speicher</string>
+    <string name="physical_memory">Physisch (RSS)</string>
+    <string name="jvm_total">JVM Gesamt</string>
+    <string name="jvm_direct">JVM Direkt (NIO)</string>
+    <string name="native_other">Nativ (Andere)</string>
+    <string name="memory_pools">Speicher-Pools</string>
+    <string name="cpu">CPU</string>
+    <string name="caches">Caches</string>
+    <string name="threads">Threads</string>
+    <string name="total_used">Gesamt verwendet</string>
+    <string name="heap_used">Heap verwendet</string>
+    <string name="heap_max">Heap Max</string>
+    <string name="non_heap_used">Non-Heap verwendet</string>
+    <string name="process_load">Prozess-Auslastung</string>
+    <string name="system_load">System-Auslastung</string>
+    <string name="app">App</string>
+    <string name="system">System</string>
+    <string name="total">Gesamt</string>
+    <string name="per_core">Pro Kern</string>
+    <string name="available_processors">Verfügbare Prozessoren</string>
+    <string name="image_cache">Bild-Cache (Speicher)</string>
+    <string name="song_cache">Song-Cache (Einträge)</string>
+    <string name="song_cache_memory">Song-Cache (Speicher)</string>
+    <string name="items_count">%1$d Einträge</string>
+    <string name="thread_id">ID</string>
+    <string name="ram">RAM</string>
+
     <!-- Album Versions -->
     <string name="album_versions">Albumversionen</string>
     <string name="other_versions">Andere Versionen (%1$d)</string>
@@ -208,4 +240,5 @@
     <string name="tag_b_24">24 bit</string>
     <string name="tag_has_lyrics">Lyrics</string>
     <string name="tag_custom_upload">Eigener Upload</string>
+    <string name="tag_has_musicbrainz_id">MusicBrainz</string>
 </resources>
