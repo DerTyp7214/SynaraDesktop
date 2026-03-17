@@ -48,6 +48,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "0.3.3",
+                        date = "2026-03-17",
+                        isPrerelease = true,
+                        changes = listOf(
+                            "Fix lastFm request encoding."
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "0.3.2",
                         date = "2026-03-17",
                         isPrerelease = true,

@@ -12,10 +12,6 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.forms.submitForm
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
 import io.ktor.http.parameters
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.FlowPreview
@@ -115,11 +111,10 @@ class LastFmScrobbler(
 
         return try {
             val response: LastFmSessionResponse = httpClient.submitForm(
-                url = baseUrl,
+                url = "$baseUrl?format=json",
                 formParameters = parameters {
                     params.forEach { (key, value) -> append(key, value) }
                     append("api_sig", apiSig)
-                    append("format", "json")
                 }
             ).body()
 
@@ -152,8 +147,7 @@ class LastFmScrobbler(
             "api_key" to apiKey,
             "sk" to sessionKey,
             "artist" to song.artists.joinToString(", ") { it.name },
-            "track" to song.title,
-            "format" to "json"
+            "track" to song.title
         )
         song.album?.name?.let { params["album"] = it }
         if (!isNowPlaying) {
@@ -164,10 +158,13 @@ class LastFmScrobbler(
         params["api_sig"] = apiSig
 
         val success = try {
-            val response = httpClient.post(baseUrl) {
-                contentType(ContentType.Application.FormUrlEncoded)
-                setBody(params.entries.joinToString("&") { "${it.key}=${it.value}" })
-            }
+            val response = httpClient.submitForm(
+                url = "$baseUrl?format=json",
+                formParameters = parameters {
+                    params.forEach { (key, value) -> append(key, value) }
+                    append("api_sig", apiSig)
+                }
+            )
             val isSuccess = response.status.value in 200..299
             if (isSuccess) {
                 logger.info(LogTag.LASTFM, "Successfully submitted to Last.fm: ${song.title}")
