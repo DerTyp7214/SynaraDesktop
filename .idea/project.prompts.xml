@@ -15,7 +15,7 @@
         <PromptTemplate>
           <option name="enabled" value="true" />
           <option name="name" value="Create Changelog" />
-          <option name="text" value="create a new changelog entry (on the existing changelogscreen) with the current uncommitted changes. (dont include stupid things like version bump in the changelog) use the current date (you can use `date` for it)." />
+          <option name="text" value="Create a new changelog entry (on the existing changelogscreen) based strictly and only on the current git diff (staged and unstaged changes). Ignore the 'recently made changes' list or commit history (dont include stupid things like version bump in the changelog) use the current date (you can use `date` for it)." />
         </PromptTemplate>
       </list>
     </option>

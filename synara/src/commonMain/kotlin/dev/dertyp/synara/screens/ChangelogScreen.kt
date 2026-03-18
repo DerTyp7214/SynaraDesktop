@@ -48,6 +48,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "0.3.4",
+                        date = "2026-03-18",
+                        isPrerelease = true,
+                        changes = listOf(
+                            "Updated `SongServiceWrapper` to support configurable `chunkSize` for song streaming and downloads.",
+                            "Updated `common-rpc` submodule to the latest version."
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "0.3.3",
                         date = "2026-03-17",
                         isPrerelease = true,
