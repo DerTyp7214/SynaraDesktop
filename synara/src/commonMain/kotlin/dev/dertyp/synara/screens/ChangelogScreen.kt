@@ -48,6 +48,18 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "0.3.5",
+                        date = "2026-03-19",
+                        isPrerelease = true,
+                        changes = listOf(
+                            "Implemented native system tray support for Windows and macOS.",
+                            "Refactored Linux system tray implementation into its own class.",
+                            "Introduced a factory for platform-specific system tray creation.",
+                            "Moved `OSUtils` to the `tray` module for better architectural separation.",
+                            "Updated `common-rpc` submodule to the latest version."
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "0.3.4",
                         date = "2026-03-18",
                         isPrerelease = true,

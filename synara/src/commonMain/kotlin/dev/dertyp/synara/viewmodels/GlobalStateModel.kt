@@ -141,6 +141,28 @@ class GlobalStateModel(
         }
     }
 
+    fun setDisplayName(name: String?) {
+        scope.launch(modelDispatcher) {
+            try {
+                userService.setDisplayName(name)
+                refreshUser()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun setProfileImage(bytes: ByteArray) {
+        scope.launch(modelDispatcher) {
+            try {
+                userService.setProfileImage(bytes)
+                refreshUser()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     fun refreshPlaylists() {
         scope.launch(modelDispatcher) {
             _isRefreshingPlaylists.value = true

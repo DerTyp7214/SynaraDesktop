@@ -17,4 +17,12 @@ class UserServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
     override suspend fun me(): User {
         return manager.getService<IUserService>().me()
     }
+
+    override suspend fun setProfileImage(bytes: ByteArray) {
+        manager.getService<IUserService>().setProfileImage(bytes)
+    }
+
+    override suspend fun setDisplayName(name: String?) {
+        manager.getService<IUserService>().setDisplayName(name)
+    }
 }
