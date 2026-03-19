@@ -12,10 +12,12 @@ kotlin {
     sourceSets {
         commonMain {
             dependencies {
-                implementation(project(":synara"))
                 implementation(libs.material3)
                 implementation(libs.components.resources)
                 implementation(libs.koin.core)
+
+                implementation(project(":synara"))
+                implementation(project(":tray"))
             }
         }
 

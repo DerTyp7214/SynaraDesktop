@@ -39,6 +39,7 @@ kotlin {
                 runtimeOnly("org.lwjgl:lwjgl-opengl::$targetNatives")
                 runtimeOnly("org.lwjgl:lwjgl-stb::$targetNatives")
 
+                implementation(project(":tray"))
                 implementation(project(":synara"))
             }
         }
