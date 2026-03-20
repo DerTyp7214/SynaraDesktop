@@ -18,6 +18,10 @@ class UserServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
         return manager.getService<IUserService>().me()
     }
 
+    override suspend fun getAllUsers(): List<User> {
+        return manager.getService<IUserService>().getAllUsers()
+    }
+
     override suspend fun setProfileImage(bytes: ByteArray) {
         manager.getService<IUserService>().setProfileImage(bytes)
     }

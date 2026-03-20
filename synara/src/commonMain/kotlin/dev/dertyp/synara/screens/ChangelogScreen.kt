@@ -48,6 +48,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "0.3.6",
+                        date = "2026-03-21",
+                        isPrerelease = true,
+                        changes = listOf(
+                            "Implemented `getAllUsers` endpoint in `UserServiceWrapper`.",
+                            "Updated `common-rpc` submodule to include latest service definitions."
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "0.3.5",
                         date = "2026-03-19",
                         isPrerelease = true,
