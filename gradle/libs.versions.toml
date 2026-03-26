@@ -28,6 +28,12 @@ zstd = "1.5.6-9"
 mediasession-kt = "0.1.1"
 haze = "1.7.2"
 composableIcons = "2.2.1"
+kover = "0.9.8"
+junitJupiter = "6.0.3"
+junitPlatform = "6.0.3"
+junit = "4.13.2"
+mockk = "1.14.9"
+turbine = "1.2.1"
 
 [libraries]
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coilCompose" }
@@ -89,6 +95,15 @@ material-symbols-sharp = { module = "com.composables:icons-material-symbols-shar
 material-symbols-sharp-filled = { module = "com.composables:icons-material-symbols-sharp-filled-cmp", version.ref = "composableIcons" }
 icons-lucide = { module = "com.composables:icons-lucide-cmp", version.ref = "composableIcons" }
 phosphor-icons = { module = "io.github.dev778g-me:phosphoricon-compose", version = "1.0.2" }
+junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.ref = "junitJupiter" }
+junit-jupiter-engine = { group = "org.junit.jupiter", name = "junit-jupiter-engine", version.ref = "junitJupiter" }
+junit-vintage-engine = { group = "org.junit.vintage", name = "junit-vintage-engine", version.ref = "junitJupiter" }
+junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher", version.ref = "junitPlatform" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
+turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
+koin-test = { group = "io.insert-koin", name = "koin-test", version.ref = "koin" }
 
 [plugins]
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
@@ -99,3 +114,4 @@ kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 kotlinx-rpc = { id = "org.jetbrains.kotlinx.rpc.plugin", version.ref = "kotlinxRpc" }
 sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
+kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }

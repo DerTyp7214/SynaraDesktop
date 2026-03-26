@@ -48,6 +48,16 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "0.3.7",
+                        date = "2026-03-26",
+                        isPrerelease = true,
+                        changes = listOf(
+                            "Updated `common-rpc` submodule.",
+                            "Added Kover for code coverage analysis.",
+                            "Expanded test infrastructure with JUnit 5, MockK, Turbine, and Koin Test."
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "0.3.6",
                         date = "2026-03-21",
                         isPrerelease = true,
