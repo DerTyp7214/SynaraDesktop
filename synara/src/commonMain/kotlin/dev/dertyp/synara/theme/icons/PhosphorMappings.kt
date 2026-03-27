@@ -42,6 +42,7 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.Upload) val CloudArrowUp = PhIcons.Regular.CloudArrowUp
     @MapTo(SynaraIcons.Add) val Plus = PhIcons.Regular.Plus
     @MapTo(SynaraIcons.Delete) val Trash = PhIcons.Regular.Trash
+    @MapTo(SynaraIcons.Edit) val PencilSimple = PhIcons.Regular.PencilSimple
     @MapTo(SynaraIcons.DragHandle) val DotsSixVertical = PhIcons.Regular.DotsSixVertical
     @MapTo(SynaraIcons.Info) val Info = PhIcons.Regular.Info
     @MapTo(SynaraIcons.ThemeLight) val Sun = PhIcons.Regular.Sun

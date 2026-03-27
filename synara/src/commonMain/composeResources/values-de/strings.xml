@@ -128,7 +128,23 @@
     <string name="metadata_copyright">Copyright</string>
     <string name="metadata_quality">Qualität</string>
     <string name="metadata_file_size">Dateigröße</string>
+    <string name="lyrics">Songtext</string>
+    <string name="edit_metadata">Metadaten bearbeiten</string>
+    <string name="edit_lyrics">Songtext bearbeiten</string>
+    <string name="edit_song_artists_title">Song-Interpreten bearbeiten</string>
+    <string name="edit_song_artists_button">Interpreten speichern</string>
+    <string name="edit_song_artists_search_placeholder">Nach Interpreten für diesen Titel suchen…</string>
+    <string name="search_lyrics">Songtext suchen</string>
+    <string name="add_line">Zeile hinzufügen</string>
+    <string name="delete_line">Zeile löschen</string>
+    <string name="lyrics_hint">Songtext-Zeile…</string>
+    <string name="search_musicbrainz">MusicBrainz suchen</string>
+    <string name="match_musicbrainz">MusicBrainz-Abgleich</string>
+    <string name="musicbrainz_id">MusicBrainz-ID</string>
+    <string name="save">Speichern</string>
     <string name="metadata_url">URL</string>
+    <string name="metadata_path">Pfad</string>
+    <string name="metadata_duration">Dauer</string>
 
     <!-- Window -->
     <string name="window">Fenster</string>

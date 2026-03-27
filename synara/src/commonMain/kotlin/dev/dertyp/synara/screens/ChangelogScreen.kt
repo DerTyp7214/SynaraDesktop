@@ -52,11 +52,13 @@ class ChangelogScreen : Screen {
                         date = "2026-03-27",
                         isPrerelease = true,
                         changes = listOf(
+                            "Implemented `MetadataEditScreen` for editing song artists, lyrics, and MusicBrainz IDs.",
                             "Refactored `PlayerBar` into modular sub-components for improved maintainability.",
                             "Implemented a new detailed scrobble status dialog with per-provider tracking.",
-                            "Enhanced the scrobble indicator with overall state visualization and brand icons.",
-                            "Added support for static brand icons and status indicators to the icon system.",
-                            "Updated all scrobblers with real-time status reporting and official logos.",
+                            "Added a menu icon to the `ArtistScreen` top bar for quick access to artist actions.",
+                            "Enhanced the scrobble indicator with overall state visualization and official brand logos.",
+                            "Standardized all text inputs to use the `InternalTextField` component with custom themes.",
+                            "Improved icon system with support for static brand assets and status indicators.",
                             "Added MusicBrainz logo display next to song quality information in the player bar."
                         )
                     ),

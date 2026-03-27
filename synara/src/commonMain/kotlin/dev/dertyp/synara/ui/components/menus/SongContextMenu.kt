@@ -14,6 +14,7 @@ import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.QueueEntry
 import dev.dertyp.synara.screens.AlbumScreen
 import dev.dertyp.synara.screens.ArtistScreen
+import dev.dertyp.synara.screens.MetadataEditScreen
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.ArtistListDialog
@@ -73,6 +74,22 @@ fun SongContextMenu(
             leadingIcon = {
                 Icon(
                     SynaraIcons.Info.get(),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        )
+
+        DropdownMenuItem(
+            text = { Text(stringResource(Res.string.edit_metadata)) },
+            onClick = {
+                globalState.setPlayerExpanded(false)
+                navigator?.push(MetadataEditScreen(song.id))
+                onDismissRequest()
+            },
+            leadingIcon = {
+                Icon(
+                    SynaraIcons.Edit.get(),
                     contentDescription = null,
                     modifier = Modifier.size(20.dp)
                 )

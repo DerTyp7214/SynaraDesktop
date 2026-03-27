@@ -42,6 +42,7 @@ object MaterialMappings {
     @MapTo(SynaraIcons.Upload) val Cloud_upload = MaterialSymbols.Rounded.Cloud_upload
     @MapTo(SynaraIcons.Add) val Add = MaterialSymbols.Rounded.Add
     @MapTo(SynaraIcons.Delete) val Delete = MaterialSymbols.Rounded.Delete
+    @MapTo(SynaraIcons.Edit) val Edit = MaterialSymbols.Rounded.Edit
     @MapTo(SynaraIcons.DragHandle) val Drag_handle = MaterialSymbols.Rounded.Drag_handle
     @MapTo(SynaraIcons.Info) val Info = MaterialSymbols.Rounded.Info
     @MapTo(SynaraIcons.ThemeLight) val Light_mode = MaterialSymbols.Rounded.Light_mode

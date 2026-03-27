@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.dertyp.core.joinArtists
 import dev.dertyp.data.UserSong
+import dev.dertyp.synara.ui.components.formatFileSize
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.*
 
@@ -83,17 +84,5 @@ private fun InfoItem(label: String, value: String) {
             text = value,
             style = MaterialTheme.typography.bodyMedium
         )
-    }
-}
-
-private fun formatFileSize(bytes: Long): String {
-    val kb = bytes / 1024.0
-    val mb = kb / 1024.0
-    val gb = mb / 1024.0
-    return when {
-        gb >= 1 -> "${"%.2f".format(gb)} GB"
-        mb >= 1 -> "${"%.2f".format(mb)} MB"
-        kb >= 1 -> "${"%.2f".format(kb)} KB"
-        else -> "$bytes Bytes"
     }
 }

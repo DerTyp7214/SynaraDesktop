@@ -51,6 +51,22 @@ class MusicBrainzService(
         }
     }
 
+    suspend fun searchRecordings(query: String, limit: Int = 20): List<MbRecording> {
+        return try {
+            val response: MbSearchResponse = httpClient.get("$mbBaseUrl/recording") {
+                parameter("query", query)
+                parameter("limit", limit)
+                parameter("fmt", "json")
+                header("User-Agent", "Synara/${BuildConfig.VERSION} ( https://github.com/dertyp7214/synara )")
+            }.body()
+
+            response.recordings ?: emptyList()
+        } catch (e: Exception) {
+            logger.error(LogTag.MUSICBRAINZ, "Error searching MusicBrainz for $query", e)
+            emptyList()
+        }
+    }
+
     suspend fun searchMb(song: UserSong): MbRecording? {
         val queryParts = mutableListOf<String>()
         queryParts.add("recording:\"${song.title.cleanTitle()}\"")

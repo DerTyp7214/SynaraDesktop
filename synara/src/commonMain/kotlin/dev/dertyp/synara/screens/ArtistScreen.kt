@@ -28,6 +28,7 @@ import dev.dertyp.synara.ui.components.AlbumItem
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.dialogs.FullscreenImageDialog
+import dev.dertyp.synara.ui.components.menus.ArtistContextMenu
 import dev.dertyp.synara.viewmodels.ArtistScreenModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.core.parameter.parametersOf
@@ -45,6 +46,7 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
         val lazyListState = rememberLazyListState()
 
         var showFullscreenImage by remember { mutableStateOf(false) }
+        var showArtistMenu by remember { mutableStateOf(false) }
 
         Scaffold(
             containerColor = Color.Transparent,
@@ -57,6 +59,21 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
                     navigationIcon = {
                         IconButton(onClick = { navigator?.pop() }) {
                             Icon(SynaraIcons.Back.get(), contentDescription = null)
+                        }
+                    },
+                    actions = {
+                        state.artist?.let { artist ->
+                            Box {
+                                IconButton(onClick = { showArtistMenu = true }) {
+                                    Icon(SynaraIcons.MoreOptions.get(), contentDescription = null)
+                                }
+
+                                ArtistContextMenu(
+                                    artist = artist,
+                                    expanded = showArtistMenu,
+                                    onDismissRequest = { showArtistMenu = false }
+                                )
+                            }
                         }
                     }
                 )

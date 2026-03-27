@@ -56,7 +56,7 @@ enum class SynaraIcons {
     AlbumVersions, Expiration, DeviceGeneric, DeviceMobile, DeviceDesktop, Upload, Add, Delete, DragHandle, Info, ThemeLight, 
     ThemeDark, ChevronDown, Filter, FilterOff, VolumeHigh, VolumeOff, VolumeMute, VolumeLow, Success, 
     Pending, ExpandDown, Lyrics, Queue, FullscreenEnter, FullscreenExit, RemoveFromPlaylist, RemoveFromQueue, 
-    ArtistMerge, ArtistSplit, Close, Confirm, OpenInNew, 
+    ArtistMerge, ArtistSplit, Close, Confirm, OpenInNew, Edit,
     CheckCircle, ErrorCircle, SyncCircle, Circle, History,
     LastFm, ListenBrainz, Discord, MusicBrainz, LocalScrobble;
 

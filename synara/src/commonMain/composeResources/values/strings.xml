@@ -97,6 +97,7 @@
     <string name="show_all">Show all</string>
     <string name="show_more">Show more</string>
     <string name="and">and</string>
+    <string name="save">Save</string>
 
     <!-- Context Menu -->
     <string name="info">Info</string>
@@ -129,6 +130,23 @@
     <string name="metadata_quality">Quality</string>
     <string name="metadata_file_size">File Size</string>
     <string name="metadata_url">URL</string>
+    <string name="metadata_path">Path</string>
+    <string name="metadata_duration">Duration</string>
+
+    <!-- Metadata Edit -->
+    <string name="lyrics">Lyrics</string>
+    <string name="edit_metadata">Edit Metadata</string>
+    <string name="edit_lyrics">Edit Lyrics</string>
+    <string name="edit_song_artists_title">Edit Song Artists</string>
+    <string name="edit_song_artists_button">Save Artists</string>
+    <string name="edit_song_artists_search_placeholder">Search artists for this song…</string>
+    <string name="search_lyrics">Search Lyrics</string>
+    <string name="add_line">Add Line</string>
+    <string name="delete_line">Delete Line</string>
+    <string name="lyrics_hint">Lyrics line…</string>
+    <string name="search_musicbrainz">Search MusicBrainz</string>
+    <string name="match_musicbrainz">Match MusicBrainz</string>
+    <string name="musicbrainz_id">MusicBrainz ID</string>
 
     <!-- Window -->
     <string name="window">Window</string>

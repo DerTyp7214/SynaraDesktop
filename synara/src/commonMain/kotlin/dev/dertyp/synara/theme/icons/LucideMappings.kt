@@ -41,6 +41,7 @@ object LucideMappings {
     @MapTo(SynaraIcons.Upload) val CloudUpload = Lucide.CloudUpload
     @MapTo(SynaraIcons.Add) val Plus = Lucide.Plus
     @MapTo(SynaraIcons.Delete) val Trash = Lucide.Trash
+    @MapTo(SynaraIcons.Edit) val Pencil = Lucide.Pencil
     @MapTo(SynaraIcons.DragHandle) val GripVertical = Lucide.GripVertical
     @MapTo(SynaraIcons.Info) val Info = Lucide.Info
     @MapTo(SynaraIcons.ThemeLight) val Sun = Lucide.Sun
