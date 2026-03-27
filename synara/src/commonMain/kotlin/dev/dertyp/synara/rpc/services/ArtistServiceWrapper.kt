@@ -21,6 +21,10 @@ class ArtistServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(mana
         return manager.getService<IArtistService>().rankedSearch(page, pageSize, query)
     }
 
+    override suspend fun setGroup(id: PlatformUUID, artistIds: List<PlatformUUID>?): Artist? {
+        return manager.getService<IArtistService>().setGroup(id, artistIds)
+    }
+
     override suspend fun byGroup(page: Int, pageSize: Int, groupId: PlatformUUID): PaginatedResponse<Artist> {
         return manager.getService<IArtistService>().byGroup(page, pageSize, groupId)
     }

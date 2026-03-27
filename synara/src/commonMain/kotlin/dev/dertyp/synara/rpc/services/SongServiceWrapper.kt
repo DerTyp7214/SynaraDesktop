@@ -19,6 +19,10 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
         return manager.getService<ISongService>().setLyrics(id, lyrics)
     }
 
+    override suspend fun setArtists(id: PlatformUUID, artistIds: List<PlatformUUID>): UserSong? {
+        return manager.getService<ISongService>().setArtists(id, artistIds)
+    }
+
     override suspend fun setMusicBrainzId(id: PlatformUUID, musicBrainzId: String?): UserSong? {
         return manager.getService<ISongService>().setMusicBrainzId(id, musicBrainzId)
     }

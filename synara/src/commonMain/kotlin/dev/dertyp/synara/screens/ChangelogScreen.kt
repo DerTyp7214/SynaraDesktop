@@ -48,6 +48,16 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "0.3.8",
+                        date = "2026-03-27",
+                        isPrerelease = true,
+                        changes = listOf(
+                            "Implemented `setGroup` for artist group management.",
+                            "Implemented `setArtists` for updating song-artist associations.",
+                            "Updated `common-rpc` submodule to the latest version."
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "0.3.7",
                         date = "2026-03-26",
                         isPrerelease = true,
