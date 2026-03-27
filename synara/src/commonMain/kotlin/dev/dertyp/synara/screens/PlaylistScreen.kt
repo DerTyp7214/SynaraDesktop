@@ -26,6 +26,7 @@ import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.dialogs.FullscreenImageDialog
+import dev.dertyp.synara.ui.components.menus.PlaylistContextMenu
 import dev.dertyp.synara.viewmodels.PlaylistScreenModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.core.parameter.parametersOf
@@ -61,6 +62,26 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
                             Icon(SynaraIcons.Back.get(), contentDescription = stringResource(Res.string.back))
+                        }
+                    },
+                    actions = {
+                        (state as? PlaylistScreenModel.PlaylistState.Success)?.let { success ->
+                            if (success.isUserPlaylist) {
+                                Box {
+                                    var showPlaylistMenu by remember { mutableStateOf(false) }
+
+                                    IconButton(onClick = { showPlaylistMenu = true }) {
+                                        Icon(SynaraIcons.MoreOptions.get(), contentDescription = null)
+                                    }
+
+                                    PlaylistContextMenu(
+                                        playlistId = playlistId,
+                                        playlistName = success.name,
+                                        expanded = showPlaylistMenu,
+                                        onDismissRequest = { showPlaylistMenu = false }
+                                    )
+                                }
+                            }
                         }
                     }
                 )

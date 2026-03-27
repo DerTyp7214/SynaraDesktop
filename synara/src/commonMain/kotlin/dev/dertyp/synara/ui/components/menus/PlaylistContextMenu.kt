@@ -10,7 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import dev.dertyp.data.UserPlaylist
+import dev.dertyp.PlatformUUID
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
@@ -27,7 +27,8 @@ import synara.synara.generated.resources.play_next
 
 @Composable
 fun PlaylistContextMenu(
-    playlist: UserPlaylist,
+    playlistId: PlatformUUID,
+    playlistName: String,
     expanded: Boolean,
     onDismissRequest: () -> Unit,
     playerModel: PlayerModel = koinInject(),
@@ -45,7 +46,7 @@ fun PlaylistContextMenu(
                 .widthIn(max = 200.dp)
         ) {
             Text(
-                text = playlist.name,
+                text = playlistName,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
@@ -59,7 +60,7 @@ fun PlaylistContextMenu(
         DropdownMenuItem(
             text = { Text(stringResource(Res.string.add_to_queue)) },
             onClick = {
-                playerModel.addToQueue(PlaybackQueue(source = PlaybackSource.Playlist(playlist.id)))
+                playerModel.addToQueue(PlaybackQueue(source = PlaybackSource.Playlist(playlistId)))
                 onDismissRequest()
             },
             leadingIcon = { Icon(SynaraIcons.AddToPlaylist.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
@@ -68,7 +69,7 @@ fun PlaylistContextMenu(
         DropdownMenuItem(
             text = { Text(stringResource(Res.string.play_next)) },
             onClick = {
-                playerModel.playNext(PlaybackQueue(source = PlaybackSource.Playlist(playlist.id)))
+                playerModel.playNext(PlaybackQueue(source = PlaybackSource.Playlist(playlistId)))
                 onDismissRequest()
             },
             leadingIcon = { Icon(SynaraIcons.PlayNext.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
@@ -87,7 +88,7 @@ fun PlaylistContextMenu(
     PlaylistPickerDialog(
         isOpen = showPlaylistPickerDialog,
         onPlaylistSelected = { targetPlaylist ->
-            playerModel.addSongsToPlaylist(targetPlaylist.id, PlaybackQueue(source = PlaybackSource.Playlist(playlist.id)))
+            playerModel.addSongsToPlaylist(targetPlaylist.id, PlaybackQueue(source = PlaybackSource.Playlist(playlistId)))
         },
         onCreatePlaylist = {
             showPlaylistPickerDialog = false
@@ -99,7 +100,7 @@ fun PlaylistContextMenu(
     CreatePlaylistDialog(
         isOpen = showCreatePlaylistDialog,
         onConfirm = { name ->
-            playerModel.createPlaylist(name, PlaybackQueue(source = PlaybackSource.Playlist(playlist.id)))
+            playerModel.createPlaylist(name, PlaybackQueue(source = PlaybackSource.Playlist(playlistId)))
         },
         onDismissRequest = { showCreatePlaylistDialog = false }
     )

@@ -28,6 +28,7 @@ import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.dialogs.AlbumVersionsDialog
 import dev.dertyp.synara.ui.components.dialogs.FullscreenImageDialog
+import dev.dertyp.synara.ui.components.menus.AlbumContextMenu
 import dev.dertyp.synara.viewmodels.AlbumScreenModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.core.parameter.parametersOf
@@ -62,6 +63,23 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
                     navigationIcon = {
                         IconButton(onClick = { navigator?.pop() }) {
                             Icon(SynaraIcons.Back.get(), contentDescription = null)
+                        }
+                    },
+                    actions = {
+                        state.album?.let { album ->
+                            Box {
+                                var showAlbumMenu by remember { mutableStateOf(false) }
+
+                                IconButton(onClick = { showAlbumMenu = true }) {
+                                    Icon(SynaraIcons.MoreOptions.get(), contentDescription = null)
+                                }
+
+                                AlbumContextMenu(
+                                    album = album,
+                                    expanded = showAlbumMenu,
+                                    onDismissRequest = { showAlbumMenu = false }
+                                )
+                            }
                         }
                     }
                 )

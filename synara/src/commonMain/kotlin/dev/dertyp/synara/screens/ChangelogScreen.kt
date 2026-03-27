@@ -10,8 +10,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.core.screen.ScreenKey
 import cafe.adriel.voyager.core.screen.uniqueScreenKey
@@ -25,10 +32,19 @@ import synara.synara.generated.resources.back
 import synara.synara.generated.resources.changelog
 import synara.synara.generated.resources.current
 
+enum class ChangeType {
+    New, Fixed, Improved, Removed, Updated, Refactored
+}
+
+data class Change(
+    val type: ChangeType,
+    val description: String
+)
+
 data class ChangelogEntry(
     val version: String,
     val date: String,
-    val changes: List<String>,
+    val changes: List<Change>,
     val isPrerelease: Boolean = false,
     val prereleasePrefix: String? = null
 )
@@ -52,14 +68,14 @@ class ChangelogScreen : Screen {
                         date = "2026-03-27",
                         isPrerelease = true,
                         changes = listOf(
-                            "Implemented `MetadataEditScreen` for editing song artists, lyrics, and MusicBrainz IDs.",
-                            "Refactored `PlayerBar` into modular sub-components for improved maintainability.",
-                            "Implemented a new detailed scrobble status dialog with per-provider tracking.",
-                            "Added a menu icon to the `ArtistScreen` top bar for quick access to artist actions.",
-                            "Enhanced the scrobble indicator with overall state visualization and official brand logos.",
-                            "Standardized all text inputs to use the `InternalTextField` component with custom themes.",
-                            "Improved icon system with support for static brand assets and status indicators.",
-                            "Added MusicBrainz logo display next to song quality information in the player bar."
+                            Change(ChangeType.New, "`MetadataEditScreen` for editing song artists, lyrics, and MusicBrainz IDs."),
+                            Change(ChangeType.Refactored, "`PlayerBar` into modular sub-components for improved maintainability."),
+                            Change(ChangeType.New, "Detailed scrobble status dialog with per-provider tracking."),
+                            Change(ChangeType.New, "Menu icon to the `ArtistScreen`, `AlbumScreen`, and `PlaylistScreen` top bars for quick access to actions."),
+                            Change(ChangeType.Improved, "Scrobble indicator with overall state visualization and official brand logos."),
+                            Change(ChangeType.Improved, "All text inputs to use the `InternalTextField` component with custom themes."),
+                            Change(ChangeType.Improved, "Icon system with support for static brand assets and status indicators."),
+                            Change(ChangeType.New, "MusicBrainz logo display next to song quality information in the player bar.")
                         )
                     ),
                     ChangelogEntry(
@@ -67,9 +83,9 @@ class ChangelogScreen : Screen {
                         date = "2026-03-27",
                         isPrerelease = true,
                         changes = listOf(
-                            "Implemented `setGroup` for artist group management.",
-                            "Implemented `setArtists` for updating song-artist associations.",
-                            "Updated `common-rpc` submodule to the latest version."
+                            Change(ChangeType.New, "`setGroup` for artist group management."),
+                            Change(ChangeType.New, "`setArtists` for updating song-artist associations."),
+                            Change(ChangeType.Updated, "`common-rpc` submodule to the latest version.")
                         )
                     ),
                     ChangelogEntry(
@@ -77,9 +93,9 @@ class ChangelogScreen : Screen {
                         date = "2026-03-26",
                         isPrerelease = true,
                         changes = listOf(
-                            "Updated `common-rpc` submodule.",
-                            "Added Kover for code coverage analysis.",
-                            "Expanded test infrastructure with JUnit 5, MockK, Turbine, and Koin Test."
+                            Change(ChangeType.Updated, "`common-rpc` submodule."),
+                            Change(ChangeType.New, "Kover for code coverage analysis."),
+                            Change(ChangeType.New, "Test infrastructure with **JUnit 5**, **MockK**, **Turbine**, and **Koin Test**.")
                         )
                     ),
                     ChangelogEntry(
@@ -87,8 +103,8 @@ class ChangelogScreen : Screen {
                         date = "2026-03-21",
                         isPrerelease = true,
                         changes = listOf(
-                            "Implemented `getAllUsers` endpoint in `UserServiceWrapper`.",
-                            "Updated `common-rpc` submodule to include latest service definitions."
+                            Change(ChangeType.New, "`getAllUsers` endpoint in `UserServiceWrapper`."),
+                            Change(ChangeType.Updated, "`common-rpc` submodule to include latest service definitions.")
                         )
                     ),
                     ChangelogEntry(
@@ -96,11 +112,11 @@ class ChangelogScreen : Screen {
                         date = "2026-03-19",
                         isPrerelease = true,
                         changes = listOf(
-                            "Implemented native system tray support for Windows and macOS.",
-                            "Refactored Linux system tray implementation into its own class.",
-                            "Introduced a factory for platform-specific system tray creation.",
-                            "Moved `OSUtils` to the `tray` module for better architectural separation.",
-                            "Updated `common-rpc` submodule to the latest version."
+                            Change(ChangeType.New, "Native system tray support for Windows and macOS."),
+                            Change(ChangeType.Refactored, "Linux system tray implementation into its own class."),
+                            Change(ChangeType.New, "Factory for platform-specific system tray creation."),
+                            Change(ChangeType.Refactored, "`OSUtils` to the tray module for better architectural separation."),
+                            Change(ChangeType.Updated, "`common-rpc` submodule to the latest version.")
                         )
                     ),
                     ChangelogEntry(
@@ -108,8 +124,8 @@ class ChangelogScreen : Screen {
                         date = "2026-03-18",
                         isPrerelease = true,
                         changes = listOf(
-                            "Updated `SongServiceWrapper` to support configurable `chunkSize` for song streaming and downloads.",
-                            "Updated `common-rpc` submodule to the latest version."
+                            Change(ChangeType.Improved, "`SongServiceWrapper` to support configurable `chunkSize` for song streaming and downloads."),
+                            Change(ChangeType.Updated, "`common-rpc` submodule to the latest version.")
                         )
                     ),
                     ChangelogEntry(
@@ -117,7 +133,7 @@ class ChangelogScreen : Screen {
                         date = "2026-03-17",
                         isPrerelease = true,
                         changes = listOf(
-                            "Fix lastFm request encoding."
+                            Change(ChangeType.Fixed, "LastFm request encoding.")
                         )
                     ),
                     ChangelogEntry(
@@ -125,7 +141,7 @@ class ChangelogScreen : Screen {
                         date = "2026-03-17",
                         isPrerelease = true,
                         changes = listOf(
-                            "Enhanced `SongServiceWrapper` with `downloadSong` and `getDownloadSize` to support music downloads with quality selection."
+                            Change(ChangeType.Improved, "`SongServiceWrapper` with `downloadSong` and `getDownloadSize` to support music downloads with quality selection.")
                         )
                     ),
                     ChangelogEntry(
@@ -133,11 +149,11 @@ class ChangelogScreen : Screen {
                         date = "2026-03-16",
                         isPrerelease = true,
                         changes = listOf(
-                            "Automatically persist resolved MusicBrainz IDs to the database during scrobbling for better metadata consistency.",
-                            "Updated JVM distribution modules to include `java.management` and related components for the Task Manager.",
-                            "Refined GitHub Actions release workflows to use standard authentication tokens and secrets.",
-                            "Improved `TaskManagerScreen` resource monitoring stability and internal UI refinements.",
-                            "Enhanced `SongServiceWrapper` with methods for MusicBrainz ID retrieval and persistence."
+                            Change(ChangeType.New, "Automatic persistence of resolved MusicBrainz IDs to the database during scrobbling."),
+                            Change(ChangeType.Updated, "JVM distribution modules to include `java.management` and related components for the Task Manager."),
+                            Change(ChangeType.Improved, "GitHub Actions release workflows to use standard authentication tokens and secrets."),
+                            Change(ChangeType.Improved, "`TaskManagerScreen` resource monitoring stability and internal UI refinements."),
+                            Change(ChangeType.Improved, "`SongServiceWrapper` with methods for MusicBrainz ID retrieval and persistence.")
                         )
                     ),
                     ChangelogEntry(
@@ -145,13 +161,13 @@ class ChangelogScreen : Screen {
                         date = "2026-03-16",
                         isPrerelease = true,
                         changes = listOf(
-                            "Added `HAS_MUSICBRAINZ_ID` tag support and automated MusicBrainz ID resolution for better metadata enrichment.",
-                            "Implemented a new Task Manager and Performance Monitor for real-time tracking of application resource usage.",
-                            "Optimized `ListenBrainzScrobbler` with caching and automatic metadata resolution via MusicBrainz.",
-                            "Improved `DetachedWindow` and `SynaraView` for more robust and stable multi-window operations.",
-                            "Enhanced theme management and applied UI polish across several core screens for a better visual experience.",
-                            "Refactored multiple screen models to provide a more stable and consistent state management.",
-                            "Expanded support for Lucide, Material, and Phosphor icon packs with improved icon mapping generation."
+                            Change(ChangeType.New, "`HAS_MUSICBRAINZ_ID` tag support and automated MusicBrainz ID resolution."),
+                            Change(ChangeType.New, "Task Manager and Performance Monitor for real-time tracking of application resource usage."),
+                            Change(ChangeType.Improved, "`ListenBrainzScrobbler` with caching and automatic metadata resolution via MusicBrainz."),
+                            Change(ChangeType.Improved, "`DetachedWindow` and `SynaraView` for more robust and stable multi-window operations."),
+                            Change(ChangeType.Improved, "Theme management and UI polish across several core screens."),
+                            Change(ChangeType.Refactored, "Multiple screen models to provide a more stable and consistent state management."),
+                            Change(ChangeType.New, "Support for **Lucide**, **Material**, and **Phosphor** icon packs with improved icon mapping generation.")
                         )
                     ),
                     ChangelogEntry(
@@ -159,12 +175,12 @@ class ChangelogScreen : Screen {
                         date = "2026-03-15",
                         isPrerelease = true,
                         changes = listOf(
-                            "Implemented automatic changelog display on application updates.",
-                            "Added `LastSeenVersion` tracking to ensure the changelog only appears once per update.",
-                            "Refactored `SynaraImage` to use centralized `onClick` handlers for better consistency and cleaner code.",
-                            "Optimized `SnackbarManager` to dismiss active snackbars before showing new ones, preventing notification stacking.",
-                            "Improved settings menu with direct access to the application changelog.",
-                            "Enhanced `BuildConfig` with a `PRERELEASE` flag for version-specific feature management."
+                            Change(ChangeType.New, "Automatic changelog display on application updates."),
+                            Change(ChangeType.New, "`LastSeenVersion` tracking to ensure the changelog only appears once per update."),
+                            Change(ChangeType.Refactored, "`SynaraImage` to use centralized `onClick` handlers."),
+                            Change(ChangeType.Improved, "`SnackbarManager` to dismiss active snackbars before showing new ones."),
+                            Change(ChangeType.Improved, "Settings menu with direct access to the application changelog."),
+                            Change(ChangeType.New, "`BuildConfig` with a `PRERELEASE` flag for version-specific feature management.")
                         )
                     ),
                     ChangelogEntry(
@@ -172,10 +188,10 @@ class ChangelogScreen : Screen {
                         date = "2026-03-15",
                         isPrerelease = true,
                         changes = listOf(
-                            "Added Phosphor icon pack support and updated the icon processor.",
-                            "Implemented KSP-based icon mapping generation for automated icon library handling.",
-                            "Introduced a flexible icon pack system supporting Material Symbols, Lucide, and Phosphor.",
-                            "Implemented icon styling system and added support for song tag filtering."
+                            Change(ChangeType.New, "**Phosphor** icon pack support and updated the icon processor."),
+                            Change(ChangeType.New, "KSP-based icon mapping generation for automated icon library handling."),
+                            Change(ChangeType.New, "Flexible icon pack system supporting **Material Symbols**, **Lucide**, and **Phosphor**."),
+                            Change(ChangeType.New, "Icon styling system and support for song tag filtering.")
                         )
                     ),
                     ChangelogEntry(
@@ -183,18 +199,18 @@ class ChangelogScreen : Screen {
                         date = "2026-03-10",
                         isPrerelease = true,
                         changes = listOf(
-                            "Integrated Haze for glass blur effects across the UI.",
-                            "Added artist merge and split functionality for better library management.",
-                            "Implemented multi-user database support and enhanced home screen UI.",
-                            "Improved macOS system media integration and playback state handling.",
-                            "Added logout functionality and improved icon generation robustness.",
-                            "Introduced proxy support and refactored the settings UI.",
-                            "Implemented cross-platform system media controls.",
-                            "Added token expiration display and improved RPC authentication handling.",
-                            "Added song context menu to the PlayerBar.",
-                            "Optimized ParticleView performance for a smoother visual experience.",
-                            "Refactored RPC initialization and streamlined playlist management.",
-                            "Implemented playlist creation and \"add to playlist\" functionality."
+                            Change(ChangeType.New, "**Haze** integration for glass blur effects across the UI."),
+                            Change(ChangeType.New, "Artist merge and split functionality for better library management."),
+                            Change(ChangeType.New, "Multi-user database support and home screen UI enhancements."),
+                            Change(ChangeType.Improved, "macOS system media integration and playback state handling."),
+                            Change(ChangeType.New, "Logout functionality and icon generation robustness improvements."),
+                            Change(ChangeType.New, "Proxy support and refactored settings UI."),
+                            Change(ChangeType.New, "Cross-platform system media controls."),
+                            Change(ChangeType.New, "Token expiration display and RPC authentication handling improvements."),
+                            Change(ChangeType.New, "Song context menu to the PlayerBar."),
+                            Change(ChangeType.Improved, "`ParticleView` performance for a smoother visual experience."),
+                            Change(ChangeType.Refactored, "RPC initialization and streamlined playlist management."),
+                            Change(ChangeType.New, "Playlist creation and \"add to playlist\" functionality.")
                         )
                     ),
                 ),
@@ -302,25 +318,91 @@ class ChangelogScreen : Screen {
                                 )
                             }
 
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
 
-                            entry.changes.forEach { change ->
-                                Row(modifier = Modifier.padding(vertical = 2.dp)) {
-                                    Text(
-                                        text = "• ",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = if (entry.isPrerelease) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
-                                    )
-                                    Text(
-                                        text = change,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
+                            val typeOrder = listOf(
+                                ChangeType.New,
+                                ChangeType.Improved,
+                                ChangeType.Fixed,
+                                ChangeType.Updated,
+                                ChangeType.Refactored,
+                                ChangeType.Removed
+                            )
+
+                            entry.changes
+                                .groupBy { it.type }
+                                .toSortedMap(compareBy { typeOrder.indexOf(it) })
+                                .forEach { (type, changes) ->
+                                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                        Text(
+                                            text = type.name.uppercase(),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Black,
+                                            color = when (type) {
+                                                ChangeType.New -> MaterialTheme.colorScheme.primary
+                                                ChangeType.Fixed -> MaterialTheme.colorScheme.error
+                                                ChangeType.Improved -> MaterialTheme.colorScheme.tertiary
+                                                ChangeType.Removed -> MaterialTheme.colorScheme.secondary
+                                                ChangeType.Updated -> MaterialTheme.colorScheme.secondary
+                                                ChangeType.Refactored -> MaterialTheme.colorScheme.outline
+                                            },
+                                            letterSpacing = 1.sp,
+                                            modifier = Modifier.padding(bottom = 4.dp)
+                                        )
+
+                                        changes.forEach { change ->
+                                            Row(modifier = Modifier.padding(vertical = 2.dp)) {
+                                                Text(
+                                                    text = "• ",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                        alpha = 0.5f
+                                                    )
+                                                )
+                                                Text(
+                                                    text = parseMarkdown(change.description),
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
-                            }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun parseMarkdown(text: String): AnnotatedString {
+    return buildAnnotatedString {
+        var current = 0
+        val regex = Regex("""(\*\*|__|`)(.*?)\1""")
+        val matches = regex.findAll(text)
+
+        for (match in matches) {
+            append(text.substring(current, match.range.first))
+            val delimiter = match.groupValues[1]
+            val content = match.groupValues[2]
+
+            val style = when (delimiter) {
+                "**" -> SpanStyle(fontWeight = FontWeight.Bold)
+                "__" -> SpanStyle(textDecoration = TextDecoration.Underline)
+                "`" -> SpanStyle(
+                    fontFamily = FontFamily.Monospace,
+                    background = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                else -> SpanStyle()
+            }
+
+            withStyle(style) {
+                append(content)
+            }
+            current = match.range.last + 1
+        }
+        append(text.substring(current))
     }
 }

@@ -426,7 +426,8 @@ class HomeScreen : Screen {
                 }
 
                 PlaylistContextMenu(
-                    playlist = playlist,
+                    playlistId = playlist.id,
+                    playlistName = playlist.name,
                     expanded = showContextMenu,
                     onDismissRequest = { showContextMenu = false }
                 )

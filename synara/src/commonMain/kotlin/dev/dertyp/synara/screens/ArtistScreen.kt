@@ -46,7 +46,6 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
         val lazyListState = rememberLazyListState()
 
         var showFullscreenImage by remember { mutableStateOf(false) }
-        var showArtistMenu by remember { mutableStateOf(false) }
 
         Scaffold(
             containerColor = Color.Transparent,
@@ -64,6 +63,8 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
                     actions = {
                         state.artist?.let { artist ->
                             Box {
+                                var showArtistMenu by remember { mutableStateOf(false) }
+
                                 IconButton(onClick = { showArtistMenu = true }) {
                                     Icon(SynaraIcons.MoreOptions.get(), contentDescription = null)
                                 }
