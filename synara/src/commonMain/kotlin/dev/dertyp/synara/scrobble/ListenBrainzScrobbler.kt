@@ -10,6 +10,7 @@ import dev.dertyp.services.ISongService
 import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -31,6 +32,8 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.koin.core.component.inject
+import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.listenbrainz
 import kotlin.time.Duration.Companion.milliseconds
 
 class ListenBrainzScrobbler(
@@ -40,9 +43,10 @@ class ListenBrainzScrobbler(
     private val songService: ISongService,
     globalJson: Json
 ) : BaseScrobbler() {
-    override val name: String = "ListenBrainz"
-    override val icon: String = ""
+    override val name = Res.string.listenbrainz
+    override val icon: SynaraIcons = SynaraIcons.ListenBrainz
     override val tintIcon: Boolean = false
+    override val sortOrder: Int = 4
 
     private val json = Json(globalJson) {
         ignoreUnknownKeys = true
@@ -107,6 +111,7 @@ class ListenBrainzScrobbler(
     }
 
     override suspend fun triggered(song: UserSong) {
+        updateStatus(ScrobbleStatus.QUEUED)
         submitListen(song, ListenType.SINGLE, currentTimeMillis() / 1000)
     }
 
@@ -191,16 +196,19 @@ class ListenBrainzScrobbler(
                     LogTag.LISTENBRAINZ,
                     "Successfully submitted listen to ListenBrainz: ${song.title}"
                 )
+                if (listenType == ListenType.SINGLE) updateStatus(ScrobbleStatus.SCROBBLED)
             } else {
                 logger.warning(
                     LogTag.LISTENBRAINZ,
                     "Failed to submit listen to ListenBrainz: ${response.status.value}",
                     response.bodyAsText()
                 )
+                if (listenType == ListenType.SINGLE) updateStatus(ScrobbleStatus.FAILED)
             }
             isSuccess
         } catch (e: Exception) {
             logger.error(LogTag.LISTENBRAINZ, "Error submitting to ListenBrainz", e)
+            if (listenType == ListenType.SINGLE) updateStatus(ScrobbleStatus.FAILED)
             false
         }
 

@@ -10,6 +10,7 @@ import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
+import dev.dertyp.synara.ui.SynaraIcons
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -19,15 +20,18 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.koin.core.component.inject
+import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.discord_rpc
 import java.util.Collections
 
 actual class DiscordScrobbler actual constructor(
     private val settings: Settings,
     private val playerModel: PlayerModel
 ) : BaseScrobbler() {
-    override val name: String = "Discord RPC"
-    override val icon: String = ""
-    override val tintIcon: Boolean = false
+    override val name = Res.string.discord_rpc
+    override val icon: SynaraIcons = SynaraIcons.Discord
+    override val sortOrder: Int = 3
+    override val showInDialog: Boolean = false
 
     private val rpcServiceManager: RpcServiceManager by inject()
     private val httpClient: HttpClient by inject()
@@ -72,6 +76,7 @@ actual class DiscordScrobbler actual constructor(
             updateJob = null
             if (song == null || !isPlaying) {
                 clearPresence()
+                updateStatus(ScrobbleStatus.IDLE)
             }
             if (!settings.get(SettingKey.IsDiscordRpcEnabled, false)) {
                 stopClient()
@@ -80,6 +85,7 @@ actual class DiscordScrobbler actual constructor(
         }
 
         if (updateJob == null || !updateJob!!.isActive) {
+            updateStatus(ScrobbleStatus.SCROBBLED)
             updateJob = scope.launch {
                 while (isActive && isRunning) {
                     updatePresence(playerModel.currentSong.value, playerModel.isPlaying.value)

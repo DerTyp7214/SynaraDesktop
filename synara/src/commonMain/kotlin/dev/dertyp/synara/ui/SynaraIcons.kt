@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.vector.ImageVector
 import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.vectorResource
 import synara.synara.generated.resources.*
 
 enum class IconPackType(val label: StringResource) {
@@ -55,11 +56,20 @@ enum class SynaraIcons {
     AlbumVersions, Expiration, DeviceGeneric, DeviceMobile, DeviceDesktop, Upload, Add, Delete, DragHandle, Info, ThemeLight, 
     ThemeDark, ChevronDown, Filter, FilterOff, VolumeHigh, VolumeOff, VolumeMute, VolumeLow, Success, 
     Pending, ExpandDown, Lyrics, Queue, FullscreenEnter, FullscreenExit, RemoveFromPlaylist, RemoveFromQueue, 
-    ArtistMerge, ArtistSplit, Close, Confirm, OpenInNew;
+    ArtistMerge, ArtistSplit, Close, Confirm, OpenInNew, 
+    CheckCircle, ErrorCircle, SyncCircle, Circle, History,
+    LastFm, ListenBrainz, Discord, MusicBrainz, LocalScrobble;
 
     @Composable
     fun get(filled: Boolean = LocalIconFilled.current): ImageVector {
-        return LocalIconPack.current.get(this, LocalIconStyle.current, filled)
+        return when (this) {
+            LastFm -> vectorResource(Res.drawable.lastfm)
+            ListenBrainz -> vectorResource(Res.drawable.listenbrainz)
+            Discord -> vectorResource(Res.drawable.discord)
+            MusicBrainz -> vectorResource(Res.drawable.musicbrainz)
+            LocalScrobble -> vectorResource(Res.drawable.localscrobble)
+            else -> LocalIconPack.current.get(this, LocalIconStyle.current, filled)
+        }
     }
 }
 

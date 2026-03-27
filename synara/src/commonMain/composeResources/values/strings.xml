@@ -49,8 +49,10 @@
     <!-- Scrobbling -->
     <string name="scrobbling">Scrobbling</string>
     <string name="enable_listenbrainz">Enable ListenBrainz</string>
+    <string name="listenbrainz">ListenBrainz</string>
     <string name="listenbrainz_token">ListenBrainz Token</string>
     <string name="enable_lastfm">Enable Last.fm</string>
+    <string name="lastfm">Last.fm</string>
     <string name="lastfm_api_key">Last.fm API Key</string>
     <string name="lastfm_shared_secret">Last.fm Shared Secret</string>
     <string name="lastfm_session_key">Last.fm Session Key</string>
@@ -63,7 +65,11 @@
     <string name="lastfm_not_authenticated">Not authenticated</string>
     <string name="song_scrobbled">Song scrobbled</string>
     <string name="pending_scrobble">Pending scrobble</string>
+    <string name="local_scrobbler">Local Scrobbler</string>
+    <string name="recently_played">Recently Played</string>
     <string name="enable_discord_rpc">Enable Discord Rich Presence</string>
+    <string name="discord_rpc">Discord Rich Presence</string>
+    <string name="scrobble_providers">Scrobble Providers</string>
 
     <!-- Player -->
     <string name="play">Play</string>

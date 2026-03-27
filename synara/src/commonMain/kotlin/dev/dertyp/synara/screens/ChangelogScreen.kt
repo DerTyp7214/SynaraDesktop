@@ -48,6 +48,19 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "0.4.0",
+                        date = "2026-03-27",
+                        isPrerelease = true,
+                        changes = listOf(
+                            "Refactored `PlayerBar` into modular sub-components for improved maintainability.",
+                            "Implemented a new detailed scrobble status dialog with per-provider tracking.",
+                            "Enhanced the scrobble indicator with overall state visualization and brand icons.",
+                            "Added support for static brand icons and status indicators to the icon system.",
+                            "Updated all scrobblers with real-time status reporting and official logos.",
+                            "Added MusicBrainz logo display next to song quality information in the player bar."
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "0.3.8",
                         date = "2026-03-27",
                         isPrerelease = true,

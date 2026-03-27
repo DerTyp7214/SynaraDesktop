@@ -7,6 +7,7 @@ import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -24,6 +25,8 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.koin.core.component.inject
+import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.lastfm
 import kotlin.time.Duration.Companion.milliseconds
 
 class LastFmScrobbler(
@@ -31,8 +34,9 @@ class LastFmScrobbler(
     private val scrobbleQueue: ScrobbleQueue,
     globalJson: Json
 ) : BaseScrobbler() {
-    override val name: String = "Last.fm"
-    override val icon: String = ""
+    override val name = Res.string.lastfm
+    override val icon: SynaraIcons = SynaraIcons.LastFm
+    override val sortOrder: Int = 2
 
     private val json = Json(globalJson) { encodeDefaults = false }
     private val httpClient = HttpClient {
@@ -93,6 +97,7 @@ class LastFmScrobbler(
     }
 
     override suspend fun triggered(song: UserSong) {
+        updateStatus(ScrobbleStatus.QUEUED)
         submitListen(song, false, currentTimeMillis() / 1000)
     }
 
@@ -168,12 +173,15 @@ class LastFmScrobbler(
             val isSuccess = response.status.value in 200..299
             if (isSuccess) {
                 logger.info(LogTag.LASTFM, "Successfully submitted to Last.fm: ${song.title}")
+                if (!isNowPlaying) updateStatus(ScrobbleStatus.SCROBBLED)
             } else {
                 logger.warning(LogTag.LASTFM, "Failed to submit to Last.fm: ${response.status.value}")
+                if (!isNowPlaying) updateStatus(ScrobbleStatus.FAILED)
             }
             isSuccess
         } catch (e: Exception) {
             logger.error(LogTag.LASTFM, "Error submitting to Last.fm", e)
+            if (!isNowPlaying) updateStatus(ScrobbleStatus.FAILED)
             false
         }
 

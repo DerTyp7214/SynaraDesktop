@@ -14,7 +14,9 @@ object LucideMappings {
     @MapTo(SynaraIcons.IsFavorite) val HeartOff = Lucide.HeartOff
     @MapTo(SynaraIcons.IsNotFavorite) val Heart = Lucide.Heart
     @MapTo(SynaraIcons.Songs) val Music = Lucide.Music
-    @MapTo(SynaraIcons.Refresh) val RefreshCw = Lucide.RefreshCw
+    @MapTo(SynaraIcons.Refresh)
+    @MapTo(SynaraIcons.SyncCircle)
+    val RefreshCw = Lucide.RefreshCw
     @MapTo(SynaraIcons.Back) val ArrowLeft = Lucide.ArrowLeft
     @MapTo(SynaraIcons.SideMenu) val Menu = Lucide.Menu
     @MapTo(SynaraIcons.Close)
@@ -33,7 +35,6 @@ object LucideMappings {
     @MapTo(SynaraIcons.Albums) val Disc = Lucide.Disc
     @MapTo(SynaraIcons.Artists) val User = Lucide.User
     @MapTo(SynaraIcons.AlbumVersions) val Layers = Lucide.Layers
-    @MapTo(SynaraIcons.Expiration) val Timer = Lucide.Timer
     @MapTo(SynaraIcons.DeviceGeneric) val Tablet = Lucide.Tablet
     @MapTo(SynaraIcons.DeviceMobile) val Smartphone = Lucide.Smartphone
     @MapTo(SynaraIcons.DeviceDesktop) val Monitor = Lucide.Monitor
@@ -53,8 +54,12 @@ object LucideMappings {
     @MapTo(SynaraIcons.VolumeOff) val VolumeX = Lucide.VolumeX
     @MapTo(SynaraIcons.VolumeMute) val Volume = Lucide.Volume
     @MapTo(SynaraIcons.VolumeLow) val Volume1 = Lucide.Volume1
-    @MapTo(SynaraIcons.Success) val CircleCheck = Lucide.CircleCheck
-    @MapTo(SynaraIcons.Pending) val Clock = Lucide.Clock
+    @MapTo(SynaraIcons.Success)
+    @MapTo(SynaraIcons.CheckCircle)
+    val CircleCheck = Lucide.CircleCheck
+    @MapTo(SynaraIcons.Expiration)
+    @MapTo(SynaraIcons.Pending)
+    val Clock = Lucide.Clock
     @MapTo(SynaraIcons.Lyrics) val Mic = Lucide.Mic
     @MapTo(SynaraIcons.Queue) val ListMusic = Lucide.ListMusic
     @MapTo(SynaraIcons.FullscreenEnter) val Maximize = Lucide.Maximize
@@ -65,4 +70,7 @@ object LucideMappings {
     @MapTo(SynaraIcons.ArtistSplit) val Split = Lucide.Split
     @MapTo(SynaraIcons.Confirm) val Check = Lucide.Check
     @MapTo(SynaraIcons.OpenInNew) val ExternalLink = Lucide.ExternalLink
+    @MapTo(SynaraIcons.ErrorCircle) val CircleAlert = Lucide.CircleAlert
+    @MapTo(SynaraIcons.Circle) val Circle = Lucide.Circle
+    @MapTo(SynaraIcons.History) val History = Lucide.History
 }

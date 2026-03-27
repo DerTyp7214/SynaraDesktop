@@ -6,6 +6,7 @@ import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
 import dev.dertyp.synara.db.SynaraDatabase
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.models.TrayState
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +16,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.koin.core.component.inject
+import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.local_scrobbler
 
 class LocalSongScrobbler(
     database: SynaraDatabase,
@@ -22,8 +25,10 @@ class LocalSongScrobbler(
     private val playerModel: PlayerModel,
     private val json: Json
 ) : BaseScrobbler() {
-    override val name: String = "Local History"
-    override val icon: String = ""
+    override val name = Res.string.local_scrobbler
+    override val icon: SynaraIcons = SynaraIcons.Library
+    override val sortOrder: Int = 1
+    override val showInDialog: Boolean = false
 
     private val queries = database.scrobbleQueueQueries
     private val globalState: GlobalStateModel by inject()
@@ -53,6 +58,7 @@ class LocalSongScrobbler(
         )
 
         currentColor.emit(Color(0xFF87F487))
+        updateStatus(ScrobbleStatus.SCROBBLED)
     }
 
     override suspend fun reset() {

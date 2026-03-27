@@ -4,9 +4,11 @@ import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.utils.SynaraDispatchers
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import org.jetbrains.compose.resources.StringResource
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.coroutines.ContinuationInterceptor
@@ -88,6 +90,7 @@ class ScrobblerService(
                 .collectLatest { song ->
                     if (song != null) {
                         scrobblerTimer.reset()
+                        scrobblers.forEach { it.resetStatus() }
                         _resetTrigger.emit(Unit)
                     }
                     _triggeredSong.value = null
@@ -166,10 +169,29 @@ abstract class BaseScrobbler : KoinComponent {
         }
     }
 
-    open val tintIcon: Boolean = true
+    enum class ScrobbleStatus {
+        IDLE,
+        SCROBBLED,
+        FAILED,
+        QUEUED
+    }
 
-    abstract val icon: String
-    abstract val name: String
+    private val _status = MutableStateFlow(ScrobbleStatus.IDLE)
+    val status: StateFlow<ScrobbleStatus> = _status.asStateFlow()
+
+    fun updateStatus(status: ScrobbleStatus) {
+        _status.value = status
+    }
+
+    internal fun resetStatus() {
+        _status.value = ScrobbleStatus.IDLE
+    }
+
+    open val tintIcon: Boolean = true
+    open val showInDialog: Boolean = true
+
+    abstract val icon: SynaraIcons
+    abstract val name: StringResource
     open val sortOrder: Int = 0
 
     private val scrobblerService: ScrobblerService by inject()

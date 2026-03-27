@@ -36,7 +36,6 @@ object MaterialMappings {
     @MapTo(SynaraIcons.Albums) val Album = MaterialSymbols.Rounded.Album
     @MapTo(SynaraIcons.Artists) val Person = MaterialSymbols.Rounded.Person
     @MapTo(SynaraIcons.AlbumVersions) val Layers = MaterialSymbols.Rounded.Layers
-    @MapTo(SynaraIcons.Expiration) val Timer = MaterialSymbols.Rounded.Timer
     @MapTo(SynaraIcons.DeviceGeneric) val Devices = MaterialSymbols.Rounded.Devices
     @MapTo(SynaraIcons.DeviceMobile) val Smartphone = MaterialSymbols.Rounded.Smartphone
     @MapTo(SynaraIcons.DeviceDesktop) val Desktop_windows = MaterialSymbols.Rounded.Desktop_windows
@@ -54,8 +53,12 @@ object MaterialMappings {
     @MapTo(SynaraIcons.VolumeOff) val Volume_off = MaterialSymbols.Rounded.Volume_off
     @MapTo(SynaraIcons.VolumeMute) val Volume_mute = MaterialSymbols.Rounded.Volume_mute
     @MapTo(SynaraIcons.VolumeLow) val Volume_down = MaterialSymbols.Rounded.Volume_down
-    @MapTo(SynaraIcons.Success) val Check_circle = MaterialSymbols.Rounded.Check_circle
-    @MapTo(SynaraIcons.Pending) val Schedule = MaterialSymbols.Rounded.Schedule
+    @MapTo(SynaraIcons.Success)
+    @MapTo(SynaraIcons.CheckCircle)
+    val Check_circle = MaterialSymbols.Rounded.Check_circle
+    @MapTo(SynaraIcons.Expiration)
+    @MapTo(SynaraIcons.Pending)
+    val Schedule = MaterialSymbols.Rounded.Schedule
     @MapTo(SynaraIcons.ExpandDown) val Keyboard_arrow_down = MaterialSymbols.Rounded.Keyboard_arrow_down
     @MapTo(SynaraIcons.Lyrics) val Lyrics = MaterialSymbols.Rounded.Lyrics
     @MapTo(SynaraIcons.Queue) val Queue_music = MaterialSymbols.Rounded.Queue_music
@@ -67,4 +70,8 @@ object MaterialMappings {
     @MapTo(SynaraIcons.ArtistSplit) val Call_split = MaterialSymbols.Rounded.Call_split
     @MapTo(SynaraIcons.Confirm) val Check = MaterialSymbols.Rounded.Check
     @MapTo(SynaraIcons.OpenInNew) val Open_in_new = MaterialSymbols.Rounded.Open_in_new
+    @MapTo(SynaraIcons.ErrorCircle) val Error_circle_rounded = MaterialSymbols.Rounded.Error_circle_rounded
+    @MapTo(SynaraIcons.SyncCircle) val Change_circle = MaterialSymbols.Rounded.Change_circle
+    @MapTo(SynaraIcons.Circle) val Circle = MaterialSymbols.Rounded.Circle
+    @MapTo(SynaraIcons.History) val History = MaterialSymbols.Rounded.History
 }

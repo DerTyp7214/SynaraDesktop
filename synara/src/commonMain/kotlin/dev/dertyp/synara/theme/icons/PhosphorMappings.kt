@@ -36,7 +36,6 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.Albums) val Disc = PhIcons.Regular.Disc
     @MapTo(SynaraIcons.Artists) val User = PhIcons.Regular.User
     @MapTo(SynaraIcons.AlbumVersions) val Stack = PhIcons.Regular.Stack
-    @MapTo(SynaraIcons.Expiration) val Timer = PhIcons.Regular.Timer
     @MapTo(SynaraIcons.DeviceGeneric) val DeviceTablet = PhIcons.Regular.DeviceTablet
     @MapTo(SynaraIcons.DeviceMobile) val DeviceMobile = PhIcons.Regular.DeviceMobile
     @MapTo(SynaraIcons.DeviceDesktop) val Desktop = PhIcons.Regular.Desktop
@@ -54,8 +53,12 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.VolumeOff) val SpeakerX = PhIcons.Regular.SpeakerX
     @MapTo(SynaraIcons.VolumeMute) val SpeakerNone = PhIcons.Regular.SpeakerNone
     @MapTo(SynaraIcons.VolumeLow) val SpeakerLow = PhIcons.Regular.SpeakerLow
-    @MapTo(SynaraIcons.Success) val CheckCircle = PhIcons.Regular.CheckCircle
-    @MapTo(SynaraIcons.Pending) val Clock = PhIcons.Regular.Clock
+    @MapTo(SynaraIcons.Success)
+    @MapTo(SynaraIcons.CheckCircle)
+    val CheckCircle = PhIcons.Regular.CheckCircle
+    @MapTo(SynaraIcons.Expiration)
+    @MapTo(SynaraIcons.Pending)
+    val Clock = PhIcons.Regular.Clock
     @MapTo(SynaraIcons.ExpandDown) val CaretCircleDown = PhIcons.Regular.CaretCircleDown
     @MapTo(SynaraIcons.Lyrics) val Microphone = PhIcons.Regular.Microphone
     @MapTo(SynaraIcons.Queue) val ListDashes = PhIcons.Regular.ListDashes
@@ -67,4 +70,8 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.ArtistSplit) val ArrowsSplit = PhIcons.Regular.ArrowsSplit
     @MapTo(SynaraIcons.Confirm) val Check = PhIcons.Regular.Check
     @MapTo(SynaraIcons.OpenInNew) val ArrowSquareOut = PhIcons.Regular.ArrowSquareOut
+    @MapTo(SynaraIcons.ErrorCircle) val WarningCircle = PhIcons.Regular.WarningCircle
+    @MapTo(SynaraIcons.SyncCircle) val ArrowClockwise = PhIcons.Regular.ArrowClockwise
+    @MapTo(SynaraIcons.Circle) val Circle = PhIcons.Regular.Circle
+    @MapTo(SynaraIcons.History) val ClockAfternoon = PhIcons.Regular.ClockAfternoon
 }

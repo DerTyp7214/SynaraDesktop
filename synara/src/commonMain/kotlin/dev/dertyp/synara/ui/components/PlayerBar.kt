@@ -5,7 +5,6 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -20,41 +19,35 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.key.*
-import androidx.compose.ui.input.pointer.*
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.isShiftPressed
+import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import coil3.compose.ConstraintsSizeResolver
 import coil3.compose.rememberConstraintsSizeResolver
-import dev.dertyp.core.cleanTitle
-import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.animateColorSchemeAsState
-import dev.dertyp.synara.onSurfaceVariantDistinct
 import dev.dertyp.synara.player.PlayerModel
-import dev.dertyp.synara.scrobble.BaseScrobbler
 import dev.dertyp.synara.scrobble.ScrobblerService
 import dev.dertyp.synara.theme.isAppDark
 import dev.dertyp.synara.theme.rememberCoverScheme
 import dev.dertyp.synara.ui.LocalWindowActions
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.menus.SongContextMenu
+import dev.dertyp.synara.ui.components.player.*
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import synara.synara.generated.resources.*
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
+import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.volume
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -301,7 +294,6 @@ fun PlayerBar(
                             }
                         }
 
-                        // Player Bar Content (always at the bottom)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -319,320 +311,66 @@ fun PlayerBar(
                                         .padding(horizontal = 16.dp, vertical = 8.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    // Song Info
-                                    Row(
-                                        modifier = Modifier.weight(1f),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        AnimatedContent(
-                                            targetState = currentSong?.coverId,
-                                            transitionSpec = {
-                                                fadeIn(tween(500)) togetherWith fadeOut(tween(500))
-                                            },
-                                            label = "smallCoverTransition"
-                                        ) { coverId ->
-                                            SynaraImage(
-                                                imageId = coverId,
-                                                size = 56.dp,
-                                                onClick = { globalState.togglePlayerExpanded() },
-                                                fallbackIcon = SynaraIcons.Songs
-                                            )
-                                        }
-
-                                        Spacer(modifier = Modifier.width(12.dp))
-
-                                        AnimatedContent(
-                                            targetState = currentSong,
-                                            transitionSpec = {
-                                                fadeIn(tween(400)) togetherWith fadeOut(tween(400))
-                                            },
-                                            label = "smallSongInfoTransition",
-                                            modifier = Modifier.weight(1f, fill = false)
-                                        ) { song ->
-                                            Column {
-                                                Text(
-                                                    text = song?.title?.cleanTitle()
-                                                        ?: stringResource(
-                                                            Res.string.not_playing
-                                                        ),
-                                                    modifier = Modifier
-                                                        .pointerInput(song?.id) {
-                                                            detectTapGestures(
-                                                                onLongPress = {
-                                                                    if (song != null) showSongContextMenu = true
-                                                                },
-                                                            )
-                                                        }
-                                                        .onPointerEvent(PointerEventType.Release) {
-                                                            if (it.button == PointerButton.Secondary && song != null) {
-                                                                showSongContextMenu = true
-                                                            }
-                                                        }
-                                                        .pointerHoverIcon(if (song != null) PointerIcon.Hand else PointerIcon.Default),
-                                                    style = MaterialTheme.typography.bodyLarge,
-                                                    fontWeight = FontWeight.Bold,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                                
-                                                if (song != null) {
-                                                    ArtistsText(
-                                                        artists = song.artists,
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis,
-                                                        onArtistClick = {
-                                                            globalState.setPlayerExpanded(false)
-                                                        }
-                                                    )
-                                                }
-
-                                                song?.let { s ->
-                                                    val bitRate =
-                                                        if (liveBitRate > 0) liveBitRate else s.bitRate
-                                                    val sampleRate =
-                                                        if (liveSampleRate > 0) liveSampleRate.toLong() else s.sampleRate.toLong()
-                                                    val bits =
-                                                        if (liveBitsPerSample > 0) liveBitsPerSample else s.bitsPerSample
-
-                                                    if (bitRate > 0 || sampleRate > 0) {
-                                                        Text(
-                                                            text = buildString {
-                                                                if (bitRate > 0) append("$bitRate kbps")
-                                                                if (bitRate > 0 && (bits > 0 || sampleRate > 0)) append(
-                                                                    " • "
-                                                                )
-                                                                if (bits > 0) append("$bits bit")
-                                                                if (bits > 0 && sampleRate > 0) append(
-                                                                    " • "
-                                                                )
-                                                                if (sampleRate > 0) {
-                                                                    if (sampleRate > 1000) {
-                                                                        append("${sampleRate / 1000.0} kHz")
-                                                                    } else {
-                                                                        append("$sampleRate kHz")
-                                                                    }
-                                                                }
-                                                            },
-                                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                                fontSize = 8.sp,
-                                                                fontWeight = FontWeight.Bold
-                                                            ),
-                                                            color = MaterialTheme.colorScheme.primary.copy(
-                                                                alpha = 0.7f
-                                                            ),
-                                                            maxLines = 1,
-                                                            overflow = TextOverflow.Ellipsis
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        if (currentSong != null) {
-                                            IconButton(
-                                                onClick = { playerModel.toggleLike() },
-                                                modifier = Modifier.offset(y = (-8).dp)
-                                            ) {
-                                                Icon(
-                                                    if (currentSong?.isFavourite == true) SynaraIcons.IsFavorite.get() else SynaraIcons.IsNotFavorite.get(),
-                                                    contentDescription = stringResource(Res.string.favorite),
-                                                    tint = if (currentSong?.isFavourite == true) MaterialTheme.colorScheme.primary else LocalContentColor.current
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    // Controls
-                                    Column(
-                                        modifier = Modifier.weight(1.2f),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.Center
-                                        ) {
-                                            IconButton(
-                                                onClick = { playerModel.skipPrevious() },
-                                                enabled = currentSong != null
-                                            ) {
-                                                Icon(
-                                                    SynaraIcons.SkipPrevious.get(),
-                                                    contentDescription = stringResource(Res.string.previous)
-                                                )
-                                            }
-
-                                            SynaraLargeFab(
-                                                onClick = { playerModel.togglePlayPause() },
-                                                modifier = Modifier.size(56.dp),
-                                                shape = MaterialTheme.shapes.medium,
-                                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                elevation = FloatingActionButtonDefaults.elevation(
-                                                    0.dp,
-                                                    0.dp,
-                                                    0.dp,
-                                                    0.dp
-                                                )
-                                            ) {
-                                                PlayPauseIcon(
-                                                    isPlaying = isPlaying,
-                                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                    modifier = Modifier.size(32.dp)
-                                                )
-                                            }
-
-                                            IconButton(
-                                                onClick = { playerModel.skipNext() },
-                                                enabled = currentSong != null
-                                            ) {
-                                                Icon(
-                                                    SynaraIcons.SkipNext.get(),
-                                                    contentDescription = stringResource(Res.string.next_song)
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    // Volume and other actions
-                                    Row(
-                                        modifier = Modifier.weight(1f),
-                                        horizontalArrangement = Arrangement.End,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        IconButton(
-                                            onClick = { playerModel.toggleShuffle() },
-                                            enabled = currentSong != null
-                                        ) {
-                                            Icon(
-                                                SynaraIcons.Shuffle.get(),
-                                                contentDescription = stringResource(Res.string.shuffle),
-                                                tint = if (shuffleMode) MaterialTheme.colorScheme.onSurfaceVariantDistinct() else LocalContentColor.current
-                                            )
-                                        }
-                                        IconButton(
-                                            onClick = { playerModel.toggleRepeat() },
-                                            enabled = currentSong != null
-                                        ) {
-                                            Icon(
-                                                when (repeatMode) {
-                                                    RepeatMode.ONE -> SynaraIcons.RepeatOne.get()
-                                                    else -> SynaraIcons.Repeat.get()
-                                                },
-                                                contentDescription = stringResource(Res.string.repeat),
-                                                tint = if (repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.onSurfaceVariantDistinct() else LocalContentColor.current
-                                            )
-                                        }
-
-                                        Spacer(modifier = Modifier.width(8.dp))
-
-                                        VolumeControl(
-                                            volume = volume,
-                                            onVolumeChange = { playerModel.setVolume(it) },
-                                            isCompact = isCompact
-                                        )
-                                    }
-                                }
-
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        formatDuration(currentPosition.coerceAtMost(duration)),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.widthIn(min = 40.dp)
+                                    SongInfoSection(
+                                        currentSong = currentSong,
+                                        liveBitRate = liveBitRate,
+                                        liveSampleRate = liveSampleRate,
+                                        liveBitsPerSample = liveBitsPerSample,
+                                        onToggleExpanded = { globalState.togglePlayerExpanded() },
+                                        onArtistClick = { globalState.setPlayerExpanded(false) },
+                                        onLikeClick = { playerModel.toggleLike() },
+                                        onSecondaryClick = { showSongContextMenu = true },
+                                        modifier = Modifier.weight(1f)
                                     )
 
-                                    Slider(
-                                        value = if (duration > 0) currentPosition.toFloat() / duration else 0f,
-                                        onValueChange = {
-                                            isSeeking = true
-                                            seekPosition = (it * duration).toLong()
-                                        },
-                                        onValueChangeFinished = {
-                                            playerModel.seekTo(seekPosition)
-                                            isSeeking = false
-                                            isWaitingForPosition = true
-                                        },
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .padding(horizontal = 8.dp)
-                                            .height(12.dp),
-                                        colors = SliderDefaults.colors(
-                                            thumbColor = MaterialTheme.colorScheme.primary,
-                                            activeTrackColor = MaterialTheme.colorScheme.primary,
-                                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                                        ),
-                                        enabled = currentSong != null
+                                    PlayerControls(
+                                        isPlaying = isPlaying,
+                                        currentSongExists = currentSong != null,
+                                        onSkipPrevious = { playerModel.skipPrevious() },
+                                        onTogglePlayPause = { playerModel.togglePlayPause() },
+                                        onSkipNext = { playerModel.skipNext() },
+                                        modifier = Modifier.weight(1.2f)
                                     )
 
-                                    Text(
-                                        formatDuration(duration),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.widthIn(min = 40.dp),
-                                        textAlign = TextAlign.End
+                                    PlayerActions(
+                                        shuffleMode = shuffleMode,
+                                        repeatMode = repeatMode,
+                                        volume = volume,
+                                        currentSongExists = currentSong != null,
+                                        isCompact = isCompact,
+                                        onToggleShuffle = { playerModel.toggleShuffle() },
+                                        onToggleRepeat = { playerModel.toggleRepeat() },
+                                        onVolumeChange = { playerModel.setVolume(it) },
+                                        modifier = Modifier.weight(1f)
                                     )
                                 }
+
+                                PlayerProgressBar(
+                                    currentPosition = currentPosition,
+                                    duration = duration,
+                                    currentSongExists = currentSong != null,
+                                    onSeek = {
+                                        isSeeking = true
+                                        seekPosition = (it * duration).toLong()
+                                    },
+                                    onSeekFinished = {
+                                        playerModel.seekTo(seekPosition)
+                                        isSeeking = false
+                                        isWaitingForPosition = true
+                                    }
+                                )
                             }
 
-                            // Scrobble Indicator in the top right corner
                             currentSong?.let { song ->
-                                val durationLeft = BaseScrobbler.requiredDuration(
-                                    scrobbledFor.seconds,
-                                    song.duration.milliseconds
-                                )
-                                val scrobbled =
-                                    durationLeft.inWholeSeconds <= 0 || triggeredSong?.id == song.id
-
-                                Box(
+                                PlayerScrobbleIndicator(
+                                    currentSong = song,
+                                    scrobbledFor = scrobbledFor,
+                                    triggeredSong = triggeredSong,
+                                    scrobblerService = scrobblerService,
                                     modifier = Modifier
                                         .align(Alignment.TopEnd)
                                         .padding(top = 10.dp, end = 16.dp)
-                                ) {
-                                    AnimatedContent(
-                                        targetState = scrobbled,
-                                        label = "scrobbleIndicator"
-                                    ) { isScrobbled ->
-                                        if (isScrobbled) {
-                                            Icon(
-                                                SynaraIcons.Success.get(),
-                                                contentDescription = stringResource(Res.string.song_scrobbled),
-                                                modifier = Modifier.size(16.dp),
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
-                                        } else {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(
-                                                    modifier = Modifier.padding(top = 2.dp),
-                                                    text = formatDuration(durationLeft.inWholeMilliseconds),
-                                                    style = MaterialTheme.typography.labelSmall.copy(
-                                                        fontSize = 10.sp
-                                                    ),
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                                        alpha = 0.6f
-                                                    )
-                                                )
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Icon(
-                                                    SynaraIcons.Pending.get(),
-                                                    contentDescription = stringResource(
-                                                        Res.string.pending_scrobble
-                                                    ),
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                                        alpha = 0.6f
-                                                    )
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
+                                )
                             }
                         }
                     }
@@ -916,7 +654,7 @@ private fun LargeCover(
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun VolumeControl(
+fun VolumeControl(
     volume: Float,
     onVolumeChange: (Float) -> Unit,
     isCompact: Boolean
