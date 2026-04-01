@@ -64,6 +64,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "0.5.1",
+                        date = "2026-04-01",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Fixed, "CPU load calculation in `TaskManagerScreen` and `PerformanceOverlay`."),
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "0.5.0",
                         date = "2026-04-01",
                         isPrerelease = true,

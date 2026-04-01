@@ -124,7 +124,7 @@ class TaskManagerScreen : Screen {
     private fun CpuInfo(stats: PerformanceStats) {
         Card {
             Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
-                InfoRow("${stringResource(Res.string.process_load)} (${stringResource(Res.string.total)})", "${(stats.processCpuLoad * 100 * 10.0).roundToNDecimals(1)}%")
+                InfoRow("${stringResource(Res.string.process_load)} (${stringResource(Res.string.total)})", "${(stats.processCpuLoad * 100).roundToNDecimals(1)}%")
                 InfoRow("${stringResource(Res.string.process_load)} (${stringResource(Res.string.per_core)})", "${(stats.processCpuLoad * stats.availableProcessors * 100 * 10.0).roundToNDecimals(1)}%")
                 InfoRow(stringResource(Res.string.system_load), "${(stats.systemCpuLoad * 100).roundToNDecimals(1)}%")
                 InfoRow(stringResource(Res.string.available_processors), stats.availableProcessors.toString())

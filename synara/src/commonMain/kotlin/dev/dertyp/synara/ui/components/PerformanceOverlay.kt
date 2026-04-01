@@ -35,7 +35,7 @@ fun PerformanceOverlay() {
     ) {
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                "${stringResource(Res.string.app)} (${stringResource(Res.string.per_core)}): ${(stats.processCpuLoad * stats.availableProcessors * 100 * 10.0).roundToNDecimals(1)}%",
+                "${stringResource(Res.string.app)} (${stringResource(Res.string.per_core)}): ${(stats.processCpuLoad * stats.availableProcessors * 100).roundToNDecimals(1)}%",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary
             )
