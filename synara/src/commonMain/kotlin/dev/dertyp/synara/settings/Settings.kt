@@ -14,6 +14,7 @@ sealed class SettingKey<T>(val name: String) {
     data object DarkThemeColor : SettingKey<Int>("dark_theme_color")
     data object UseSongColor : SettingKey<Boolean>("use_song_color")
     data object UsePywal : SettingKey<Boolean>("use_pywal")
+    data object AudioOutputDevice : SettingKey<String>("audio_output_device")
 
     // Proxy
     data object IsProxyEnabled : SettingKey<Boolean>("is_proxy_enabled")
@@ -101,7 +102,8 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.ListenBrainzToken, is SettingKey.LastFmApiKey,
         is SettingKey.LastFmSharedSecret, is SettingKey.LastFmSessionKey,
         is SettingKey.LastFmUsername, is SettingKey.ProxyHost, is SettingKey.ProxyId,
-        is SettingKey.IconStyle, is SettingKey.IconPack, is SettingKey.LastSeenVersion -> getStringOrNull(key.name) as T?
+        is SettingKey.IconStyle, is SettingKey.IconPack, is SettingKey.LastSeenVersion,
+        is SettingKey.AudioOutputDevice -> getStringOrNull(key.name) as T?
 
         is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor,
         is SettingKey.ProxyPort -> getIntOrNull(

@@ -31,8 +31,16 @@ class AlbumServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manag
         return manager.getService<IAlbumService>().allAlbums(page, pageSize)
     }
 
+    override suspend fun updateAlbum(album: Album): Album? {
+        return manager.getService<IAlbumService>().updateAlbum(album)
+    }
+
     override suspend fun deleteAlbums(ids: List<PlatformUUID>): Boolean {
         return manager.getService<IAlbumService>().deleteAlbums(ids)
+    }
+
+    override suspend fun fetchMusicBrainzId(id: PlatformUUID): Album? {
+        return manager.getService<IAlbumService>().fetchMusicBrainzId(id)
     }
 
     override suspend fun byArtist(

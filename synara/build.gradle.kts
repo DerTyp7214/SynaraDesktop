@@ -16,7 +16,7 @@ val major = 1
 val minor = 0
 val patch = 0
 val buildMajor = 0
-val buildMinor = 4
+val buildMinor = 5
 val buildPatch = 0
 
 fun getVersionName(): String {

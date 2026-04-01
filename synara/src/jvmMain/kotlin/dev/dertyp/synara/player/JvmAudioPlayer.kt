@@ -1,7 +1,10 @@
 package dev.dertyp.synara.player
 
+import com.russhwolf.settings.Settings
 import dev.dertyp.PlatformUUID
 import dev.dertyp.services.ISongService
+import dev.dertyp.synara.settings.SettingKey
+import dev.dertyp.synara.settings.getOrNull
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import org.lwjgl.BufferUtils
@@ -10,6 +13,9 @@ import org.lwjgl.openal.AL10.*
 import org.lwjgl.openal.AL11.AL_SAMPLE_OFFSET
 import org.lwjgl.openal.ALC
 import org.lwjgl.openal.ALC10.*
+import org.lwjgl.openal.ALC11
+import org.lwjgl.openal.ALUtil
+import java.nio.ByteBuffer
 import java.nio.IntBuffer
 import java.nio.ShortBuffer
 import java.util.ArrayDeque
@@ -17,7 +23,8 @@ import java.util.ArrayDeque
 @OptIn(ExperimentalCoroutinesApi::class, DelicateCoroutinesApi::class)
 class JvmAudioPlayer(
     songService: ISongService,
-    songCache: SongCache
+    songCache: SongCache,
+    settings: Settings
 ) : AudioPlayer {
     private val audioDispatcher = newSingleThreadContext("OpenAL-Audio")
     private val scope = CoroutineScope(audioDispatcher + SupervisorJob())
@@ -49,6 +56,12 @@ class JvmAudioPlayer(
     private val _bitRate = MutableStateFlow(0L)
     override val bitRate = _bitRate.asStateFlow()
 
+    private val _availableOutputDevices = MutableStateFlow<List<String>>(emptyList())
+    override val availableOutputDevices = _availableOutputDevices.asStateFlow()
+
+    private val _currentOutputDevice = MutableStateFlow<String?>(null)
+    override val currentOutputDevice = _currentOutputDevice.asStateFlow()
+
     private val fftAnalyzer = FftAnalyzer(1024)
     override val fftData = fftAnalyzer.fftData
 
@@ -62,17 +75,32 @@ class JvmAudioPlayer(
     private val dataSource = SongDataSource(songService, songCache)
 
     init {
+        _currentOutputDevice.value = settings.getOrNull(SettingKey.AudioOutputDevice)
         scope.launch {
             try {
                 initOpenAL()
+                updateAvailableDevices()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
     }
 
+    private fun updateAvailableDevices() {
+        val devices = ALUtil.getStringList(0L, ALC11.ALC_ALL_DEVICES_SPECIFIER)
+        _availableOutputDevices.value = devices ?: emptyList()
+        
+        if (_currentOutputDevice.value == null) {
+            _currentOutputDevice.value = alcGetString(0L, ALC_DEFAULT_DEVICE_SPECIFIER)
+        }
+    }
+
     private fun initOpenAL() {
-        device = alcOpenDevice(null as java.nio.ByteBuffer?)
+        val deviceName = _currentOutputDevice.value
+        device = alcOpenDevice(deviceName)
+        if (device == 0L) {
+            device = alcOpenDevice(null as ByteBuffer?)
+        }
         if (device == 0L) throw RuntimeException("Failed to open OpenAL device")
         
         val deviceCaps = ALC.createCapabilities(device)
@@ -86,6 +114,36 @@ class JvmAudioPlayer(
 
         sourceId = alGenSources()
         alGenBuffers(buffers)
+    }
+
+    override fun setOutputDevice(deviceSpecifier: String?) {
+        if (_currentOutputDevice.value == deviceSpecifier) return
+        _currentOutputDevice.value = deviceSpecifier
+        
+        scope.launch {
+            val wasPlaying = _isPlaying.value
+            val currentPos = _currentPosition.value
+            val currentSongId = lastSongId
+
+            stopInternal(false, resetPosition = false, resetIsPlaying = false)
+            
+            if (sourceId != 0) alDeleteSources(sourceId)
+            if (buffers.get(0) != 0) alDeleteBuffers(buffers)
+            if (context != 0L) {
+                alcMakeContextCurrent(0)
+                alcDestroyContext(context)
+            }
+            if (device != 0L) alcCloseDevice(device)
+            
+            try {
+                initOpenAL()
+                if (currentSongId != null) {
+                    loadInternal(currentSongId, currentPos, wasPlaying)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     override fun play() {

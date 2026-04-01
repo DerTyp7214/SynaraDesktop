@@ -1,12 +1,10 @@
 package dev.dertyp.synara.rpc.services
 
 import dev.dertyp.PlatformUUID
-import dev.dertyp.data.Artist
-import dev.dertyp.data.MergeArtists
-import dev.dertyp.data.PaginatedResponse
-import dev.dertyp.data.SplitArtist
+import dev.dertyp.data.*
 import dev.dertyp.services.IArtistService
 import dev.dertyp.synara.rpc.RpcServiceManager
+import kotlinx.coroutines.flow.Flow
 
 class ArtistServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manager), IArtistService {
     override suspend fun byId(id: PlatformUUID): Artist? {
@@ -39,5 +37,29 @@ class ArtistServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(mana
 
     override suspend fun allArtists(page: Int, pageSize: Int): PaginatedResponse<Artist> {
         return manager.getService<IArtistService>().allArtists(page, pageSize)
+    }
+
+    override suspend fun createArtist(name: String, isGroup: Boolean, about: String, musicBrainzId: String?): Artist {
+        return manager.getService<IArtistService>().createArtist(name, isGroup, about, musicBrainzId)
+    }
+
+    override suspend fun searchArtistOnMusicBrainz(query: String, page: Int, pageSize: Int): PaginatedResponse<MusicBrainzArtist> {
+        return manager.getService<IArtistService>().searchArtistOnMusicBrainz(query, page, pageSize)
+    }
+
+    override suspend fun fetchMusicBrainzId(id: PlatformUUID): Artist? {
+        return manager.getService<IArtistService>().fetchMusicBrainzId(id)
+    }
+
+    override suspend fun setMusicBrainzId(id: PlatformUUID, musicBrainzId: String?): Artist? {
+        return manager.getService<IArtistService>().setMusicBrainzId(id, musicBrainzId)
+    }
+
+    override fun artistsWithoutMusicBrainzIdFlow(): Flow<Artist> {
+        return manager.getService<IArtistService>().artistsWithoutMusicBrainzIdFlow()
+    }
+
+    override fun artistIdsWithoutMusicBrainzId(): Flow<PlatformUUID> {
+        return manager.getService<IArtistService>().artistIdsWithoutMusicBrainzId()
     }
 }

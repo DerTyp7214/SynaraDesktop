@@ -35,6 +35,10 @@
     <string name="lang_english">Englisch</string>
     <string name="lang_german">Deutsch</string>
 
+    <!-- Audio -->
+    <string name="audio">Audio</string>
+    <string name="audio_output_device">Audio-Ausgabegerät</string>
+
     <!-- Theme -->
     <string name="light_theme_color">Helle Theme-Farbe</string>
     <string name="dark_theme_color">Dunkle Theme-Farbe</string>

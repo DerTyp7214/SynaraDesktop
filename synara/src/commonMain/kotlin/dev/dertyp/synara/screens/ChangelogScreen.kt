@@ -64,6 +64,18 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "0.5.0",
+                        date = "2026-04-01",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Audio output device selection in the settings screen."),
+                            Change(ChangeType.New, "Support for switching audio output devices at runtime (JVM)."),
+                            Change(ChangeType.Improved, "`ArtistService` and `AlbumService` with MusicBrainz metadata resolution and update support."),
+                            Change(ChangeType.New, "Dedicated RPC flows for identifying artists and albums without MusicBrainz IDs."),
+                            Change(ChangeType.Updated, "`common-rpc` submodule to the latest version.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "0.4.0",
                         date = "2026-03-27",
                         isPrerelease = true,

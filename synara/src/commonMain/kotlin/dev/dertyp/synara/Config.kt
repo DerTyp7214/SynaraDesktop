@@ -116,6 +116,9 @@ object Config : KoinComponent {
     private val _lastSeenVersion = MutableStateFlow(settings.getOrNull(SettingKey.LastSeenVersion) ?: "")
     val lastSeenVersion: StateFlow<String> = _lastSeenVersion.asStateFlow()
 
+    private val _audioOutputDevice = MutableStateFlow(settings.getOrNull(SettingKey.AudioOutputDevice))
+    val audioOutputDevice: StateFlow<String?> = _audioOutputDevice.asStateFlow()
+
     fun setDarkTheme(isDark: Boolean) {
         _darkTheme.value = isDark
         settings.putBoolean("dark_theme", isDark)
@@ -272,5 +275,10 @@ object Config : KoinComponent {
     fun setLastSeenVersion(version: String) {
         _lastSeenVersion.value = version
         settings.put(SettingKey.LastSeenVersion, version)
+    }
+
+    fun setAudioOutputDevice(device: String?) {
+        _audioOutputDevice.value = device
+        settings.put(SettingKey.AudioOutputDevice, device)
     }
 }

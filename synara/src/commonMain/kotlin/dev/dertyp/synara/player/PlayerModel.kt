@@ -92,6 +92,9 @@ class PlayerModel(
     val bitRate: StateFlow<Long> = audioPlayer.bitRate
     val fftData: StateFlow<FloatArray> = audioPlayer.fftData
 
+    val availableOutputDevices: StateFlow<List<String>> = audioPlayer.availableOutputDevices
+    val currentOutputDevice: StateFlow<String?> = audioPlayer.currentOutputDevice
+
     val audioIntensity: StateFlow<Float> = audioPlayer.fftData
         .map { fft ->
             if (fft.isEmpty()) return@map 0f
@@ -668,6 +671,10 @@ class PlayerModel(
     fun setVolume(value: Float) {
         audioPlayer.setVolume(value)
         settings.put(SettingKey.Volume, value)
+    }
+
+    fun setOutputDevice(device: String?) {
+        audioPlayer.setOutputDevice(device)
     }
 
     fun toggleShuffle() {

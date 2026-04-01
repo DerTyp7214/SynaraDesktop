@@ -16,6 +16,10 @@ interface AudioPlayer {
     val bitRate: StateFlow<Long>
     val fftData: StateFlow<FloatArray>
 
+    val availableOutputDevices: StateFlow<List<String>>
+    val currentOutputDevice: StateFlow<String?>
+
+    fun setOutputDevice(deviceSpecifier: String?)
     fun play()
     fun pause()
     fun stop()

@@ -22,6 +22,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.synara.Config
 import dev.dertyp.synara.IS_DEBUG
 import dev.dertyp.synara.InternalTextField
+import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.scrobble.LastFmScrobbler
 import dev.dertyp.synara.theme.PywalLoader
@@ -75,6 +76,9 @@ class SettingsScreen : Screen {
         val isDiscordRpcEnabled by Config.isDiscordRpcEnabled.collectAsState()
 
         val rpcServiceManager = koinInject<RpcServiceManager>()
+        val playerModel = koinInject<PlayerModel>()
+        val availableDevices by playerModel.availableOutputDevices.collectAsState()
+        val currentOutputDevice by playerModel.currentOutputDevice.collectAsState()
 
         Scaffold(
             containerColor = Color.Transparent,
@@ -114,6 +118,21 @@ class SettingsScreen : Screen {
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     LanguageSetting(currentLanguage = language)
+
+                    Text(
+                        text = stringResource(Res.string.audio),
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+
+                    AudioOutputSetting(
+                        availableDevices = availableDevices,
+                        currentDevice = currentOutputDevice,
+                        onDeviceSelected = {
+                            playerModel.setOutputDevice(it)
+                            Config.setAudioOutputDevice(it)
+                        }
+                    )
 
                     if (PywalLoader.isSupported()) {
                         SettingSwitch(
@@ -664,6 +683,61 @@ class SettingsScreen : Screen {
                         text = { Text(name) },
                         onClick = {
                             Config.setLanguage(code)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun AudioOutputSetting(
+        availableDevices: List<String>,
+        currentDevice: String?,
+        onDeviceSelected: (String) -> Unit
+    ) {
+        var expanded by remember { mutableStateOf(false) }
+
+        Box {
+            SettingsCard(
+                onClick = { expanded = true }
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(Res.string.audio_output_device),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = currentDevice ?: stringResource(Res.string.system_default),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Icon(
+                        imageVector = SynaraIcons.ChevronDown.get(),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            SynaraMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.widthIn(min = 300.dp)
+            ) {
+                availableDevices.forEach { device ->
+                    DropdownMenuItem(
+                        text = { Text(device) },
+                        onClick = {
+                            onDeviceSelected(device)
                             expanded = false
                         }
                     )
