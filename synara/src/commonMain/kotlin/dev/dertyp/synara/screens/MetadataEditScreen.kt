@@ -285,6 +285,10 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
                                     song?.album?.name ?: "-"
                                 )
                                 InfoItem(
+                                    stringResource(Res.string.metadata_genres),
+                                    song?.genres?.joinToString(", ") { it.name } ?: "-"
+                                )
+                                InfoItem(
                                     stringResource(Res.string.metadata_duration),
                                     song?.duration?.let(::formatDuration) ?: "-"
                                 )

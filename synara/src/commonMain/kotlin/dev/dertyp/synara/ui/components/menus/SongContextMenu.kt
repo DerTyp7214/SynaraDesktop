@@ -3,6 +3,7 @@ package dev.dertyp.synara.ui.components.menus
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -51,16 +52,26 @@ fun SongContextMenu(
         Column(
             modifier = Modifier
                 .padding(horizontal = 12.dp, vertical = 8.dp)
-                .widthIn(max = 200.dp)
+                .widthIn(max = 240.dp)
         ) {
-            Text(
-                text = song.title,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.primary
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (song.musicBrainzId != null) {
+                    Icon(
+                        SynaraIcons.MusicBrainz.get(),
+                        contentDescription = null,
+                        modifier = Modifier.padding(end = 8.dp).size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Text(
+                    text = song.title,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
 
         HorizontalDivider()

@@ -24,6 +24,7 @@ import dev.dertyp.data.Album
 import dev.dertyp.synara.formatHumanReadableDuration
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.ArtistsText
+import dev.dertyp.synara.ui.components.GenresText
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.dialogs.AlbumVersionsDialog
@@ -195,6 +196,12 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
                 ArtistsText(
                     artists = album.artists,
                     style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                GenresText(
+                    genres = album.genres,
+                    style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 

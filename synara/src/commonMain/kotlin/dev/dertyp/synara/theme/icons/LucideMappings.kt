@@ -16,6 +16,7 @@ object LucideMappings {
     @MapTo(SynaraIcons.Songs) val Music = Lucide.Music
     @MapTo(SynaraIcons.Refresh)
     @MapTo(SynaraIcons.SyncCircle)
+    @MapTo(SynaraIcons.Sync)
     val RefreshCw = Lucide.RefreshCw
     @MapTo(SynaraIcons.Back) val ArrowLeft = Lucide.ArrowLeft
     @MapTo(SynaraIcons.SideMenu) val Menu = Lucide.Menu
@@ -74,4 +75,5 @@ object LucideMappings {
     @MapTo(SynaraIcons.ErrorCircle) val CircleAlert = Lucide.CircleAlert
     @MapTo(SynaraIcons.Circle) val Circle = Lucide.Circle
     @MapTo(SynaraIcons.History) val History = Lucide.History
+    @MapTo(SynaraIcons.Link) val Link = Lucide.Link
 }

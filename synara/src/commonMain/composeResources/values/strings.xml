@@ -24,10 +24,12 @@
     <string name="albums">Albums</string>
     <string name="artists">Artists</string>
     <string name="playlists">Playlists</string>
+    <string name="genres">Genres</string>
     <string name="server_version">Server Version</string>
     <string name="refresh_playlists">Refresh Playlists</string>
     <string name="dark_mode">Dark Mode</string>
     <string name="connect_to_server">Connect to Synara Server</string>
+    <string name="login_button">Login</string>
     <string name="test_connection">Test Connection</string>
     <string name="next">Next</string>
     <string name="language">Language</string>
@@ -91,6 +93,7 @@
     <string name="added_to_queue_item">Added **%1$s** to queue</string>
     <string name="play_next">Play next</string>
     <string name="playing_next_item">Playing **%1$s** next</string>
+    <string name="menu_download">Download</string>
     <string name="playlist">Playlist</string>
 
     <!-- General -->
@@ -100,6 +103,7 @@
     <string name="drag_me">Drag me</string>
     <string name="show_all">Show all</string>
     <string name="show_more">Show more</string>
+    <string name="show_less">Show less</string>
     <string name="and">and</string>
     <string name="save">Save</string>
 
@@ -128,6 +132,7 @@
     <string name="metadata_title">Title</string>
     <string name="metadata_artist">Artist</string>
     <string name="metadata_album">Album</string>
+    <string name="metadata_genres">Genres</string>
     <string name="metadata_release_date">Release Date</string>
     <string name="metadata_track_disc">Track / Disc</string>
     <string name="metadata_copyright">Copyright</string>
@@ -239,6 +244,22 @@
     <string name="recently_played_songs">Recently Played Songs</string>
     <string name="recently_played_albums">Recently Played Albums</string>
     <string name="recently_played_artists">Recently Played Artists</string>
+    <string name="recent_releases">Recent Releases</string>
+    <string name="release_type_album">Albums</string>
+    <string name="release_type_single">Singles</string>
+    <string name="release_type_ep">EPs</string>
+    <string name="release_type_broadcast">Broadcasts</string>
+    <string name="release_type_other">Other</string>
+    <string name="release_type_unknown">Unknown</string>
+    <string name="menu_download_tidal">Download from Tidal</string>
+    <string name="tidal_download_title">Tidal Download</string>
+    <string name="tidal_login_required">Tidal Login Required</string>
+    <string name="tidal_login_instructions">You need to authorize Synara to download from Tidal.</string>
+    <string name="tidal_url_label">Tidal URL (Track, Album, Playlist, Artist, Mix)</string>
+    <string name="tidal_logs_label">Logs</string>
+    <string name="sync_favorites">Sync Favorites</string>
+    <string name="search_tidal">Search Tidal</string>
+    <string name="tidal_search_title">Tidal Search</string>
     <string name="account">Account</string>
 
     <!-- Artist Merge/Split -->

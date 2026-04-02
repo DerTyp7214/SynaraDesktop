@@ -24,10 +24,12 @@
     <string name="albums">Alben</string>
     <string name="artists">Künstler</string>
     <string name="playlists">Playlisten</string>
+    <string name="genres">Genres</string>
     <string name="server_version">Serverversion</string>
     <string name="refresh_playlists">Playlisten aktualisieren</string>
     <string name="dark_mode">Dunkler Modus</string>
     <string name="connect_to_server">Mit Synara-Server verbinden</string>
+    <string name="login_button">Anmelden</string>
     <string name="test_connection">Verbindung testen</string>
     <string name="next">Weiter</string>
     <string name="language">Sprache</string>
@@ -91,6 +93,7 @@
     <string name="added_to_queue_item">**%1$s** zur Warteschlange hinzugefügt</string>
     <string name="play_next">Als nächstes spielen</string>
     <string name="playing_next_item">Spiele **%1$s** als Nächstes</string>
+    <string name="menu_download">Herunterladen</string>
     <string name="playlist">Playlist</string>
 
     <!-- General -->
@@ -100,6 +103,7 @@
     <string name="drag_me">Zieh mich</string>
     <string name="show_all">Alle anzeigen</string>
     <string name="show_more">Mehr anzeigen</string>
+    <string name="show_less">Weniger anzeigen</string>
     <string name="and">und</string>
 
     <!-- Context Menu -->
@@ -127,6 +131,7 @@
     <string name="metadata_title">Titel</string>
     <string name="metadata_artist">Künstler</string>
     <string name="metadata_album">Album</string>
+    <string name="metadata_genres">Genres</string>
     <string name="metadata_release_date">Veröffentlichungsdatum</string>
     <string name="metadata_track_disc">Titel / Disc</string>
     <string name="metadata_copyright">Copyright</string>
@@ -228,6 +233,22 @@
     <string name="recently_played_songs">Zuletzt gespielte Songs</string>
     <string name="recently_played_albums">Zuletzt gespielte Alben</string>
     <string name="recently_played_artists">Zuletzt gespielte Künstler</string>
+    <string name="recent_releases">Neue Veröffentlichungen</string>
+    <string name="release_type_album">Alben</string>
+    <string name="release_type_single">Singles</string>
+    <string name="release_type_ep">EPs</string>
+    <string name="release_type_broadcast">Broadcasts</string>
+    <string name="release_type_other">Andere</string>
+    <string name="release_type_unknown">Unbekannt</string>
+    <string name="menu_download_tidal">Von Tidal herunterladen</string>
+    <string name="tidal_download_title">Tidal-Download</string>
+    <string name="tidal_login_required">Tidal-Login erforderlich</string>
+    <string name="tidal_login_instructions">Du musst Synara autorisieren, um von Tidal herunterzuladen.</string>
+    <string name="tidal_url_label">Tidal-URL (Titel, Album, Playlist, Interpret, Mix)</string>
+    <string name="tidal_logs_label">Logs</string>
+    <string name="sync_favorites">Favoriten synchronisieren</string>
+    <string name="search_tidal">Tidal-Suche</string>
+    <string name="tidal_search_title">Tidal-Suche</string>
     <string name="account">Konto</string>
 
     <!-- Artist Merge/Split -->

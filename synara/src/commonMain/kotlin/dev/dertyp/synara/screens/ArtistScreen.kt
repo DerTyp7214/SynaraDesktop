@@ -2,6 +2,7 @@
 
 package dev.dertyp.synara.screens
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.core.screen.ScreenKey
@@ -25,6 +27,7 @@ import dev.dertyp.core.parseVersions
 import dev.dertyp.data.Artist
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.AlbumItem
+import dev.dertyp.synara.ui.components.GenresText
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.dialogs.FullscreenImageDialog
@@ -98,6 +101,15 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
                                     onImageClick = { showFullscreenImage = true },
                                     screenModel = screenModel
                                 )
+                            }
+
+                            if (artist.about.isNotBlank()) {
+                                item {
+                                    ExpandableBio(
+                                        text = artist.about,
+                                        modifier = Modifier.padding(bottom = 24.dp)
+                                    )
+                                }
                             }
 
                             if (state.topLikedSongs.isNotEmpty()) {
@@ -204,6 +216,40 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
     }
 
     @Composable
+    private fun ExpandableBio(
+        text: String,
+        modifier: Modifier = Modifier
+    ) {
+        var isExpanded by remember { mutableStateOf(false) }
+        var hasOverflow by remember { mutableStateOf(false) }
+
+        Column(modifier = modifier.animateContentSize()) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = if (isExpanded) Int.MAX_VALUE else 5,
+                overflow = TextOverflow.Ellipsis,
+                onTextLayout = { textLayoutResult ->
+                    hasOverflow = textLayoutResult.hasVisualOverflow
+                }
+            )
+
+            if (hasOverflow || isExpanded) {
+                TextButton(
+                    onClick = { isExpanded = !isExpanded },
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text(
+                        text = if (isExpanded) stringResource(Res.string.show_less) else stringResource(Res.string.show_more),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
     private fun ArtistHeader(
         artist: Artist,
         onImageClick: () -> Unit,
@@ -228,6 +274,12 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
                     text = artist.name,
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Bold
+                )
+
+                GenresText(
+                    genres = artist.genres,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))

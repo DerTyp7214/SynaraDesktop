@@ -64,6 +64,21 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "0.6.0",
+                        date = "2026-04-02",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Recent releases view for discovering new music from followed artists."),
+                            Change(ChangeType.New, "Tidal download screen with URL support and favorite synchronization."),
+                            Change(ChangeType.New, "Dedicated `ReleaseService` for artist following and release tracking."),
+                            Change(ChangeType.New, "Genre metadata support and display for songs, albums, and artists."),
+                            Change(ChangeType.Improved, "MusicBrainz indicators in context menus for enhanced metadata visibility."),
+                            Change(ChangeType.Updated, "German and English localizations with new strings for Tidal and metadata features."),
+                            Change(ChangeType.Improved, "Music metadata formatting and UI consistency across screens."),
+                            Change(ChangeType.Updated, "`common-rpc` submodule with extended service definitions and models.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "0.5.1",
                         date = "2026-04-01",
                         isPrerelease = true,

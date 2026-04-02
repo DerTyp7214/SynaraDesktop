@@ -258,6 +258,18 @@ class HomeScreen : Screen {
                 }
             )
 
+            Spacer(modifier = Modifier.height(8.dp))
+
+            NavigationItem(
+                label = stringResource(Res.string.tidal_download_title),
+                icon = SynaraIcons.Upload.get(),
+                selected = navigator.lastItem is TidalDownloadScreen,
+                onClick = {
+                    if (navigator.lastItem !is TidalDownloadScreen) navigator.push(TidalDownloadScreen())
+                    onItemClick?.invoke()
+                }
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
 
             Row(
@@ -570,6 +582,11 @@ private class DashboardScreen : Screen {
                         style = MaterialTheme.typography.headlineLarge,
                         modifier = Modifier.padding(bottom = 24.dp)
                     )
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    RecentReleasesView()
                 }
 
                 if (recentAlbums.isNotEmpty()) {

@@ -7,6 +7,7 @@ import dev.dertyp.logging.Logger
 import dev.dertyp.serializers.AppCbor
 import dev.dertyp.serializers.AppJson
 import dev.dertyp.services.*
+import dev.dertyp.services.tdn.IDownloadService
 import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.db.SynaraDatabase
 import dev.dertyp.synara.logging.StdoutLogPersistence
@@ -115,16 +116,19 @@ val appModule = module {
     factoryOf(::SearchArtistsViewModel)
     factoryOf(::SearchAlbumsViewModel)
     factoryOf(::SearchPlaylistsViewModel)
+    factoryOf(::TidalDownloadScreenModel)
 
     singleOf(::AlbumServiceWrapper) bind IAlbumService::class
     singleOf(::ArtistServiceWrapper) bind IArtistService::class
     singleOf(::AuthServiceWrapper) bind IAuthService::class
     singleOf(::CustomAudioServiceWrapper) bind ICustomAudioService::class
+    singleOf(::DownloadServiceWrapper) bind IDownloadService::class
     singleOf(::FavSyncServiceWrapper) bind IFavSyncService::class
     singleOf(::ImageServiceWrapper) bind IImageService::class
     singleOf(::LyricsSearchWrapper) bind ILyricsSearch::class
     singleOf(::PlaybackServiceWrapper) bind IPlaybackService::class
     singleOf(::PlaylistServiceWrapper) bind IPlaylistService::class
+    singleOf(::ReleaseServiceWrapper) bind IReleaseService::class
     singleOf(::ServerStatsServiceWrapper) bind IServerStatsService::class
     singleOf(::SessionServiceWrapper) bind ISessionService::class
     singleOf(::SongServiceWrapper) bind ISongService::class

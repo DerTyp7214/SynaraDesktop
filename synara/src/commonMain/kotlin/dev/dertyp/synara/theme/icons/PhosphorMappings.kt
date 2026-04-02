@@ -17,7 +17,9 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.IsNotFavorite, fillMode = FillMode.Outlined)
     val Heart = PhIcons.Regular.Heart
     @MapTo(SynaraIcons.Songs) val MusicNote = PhIcons.Regular.MusicNote
-    @MapTo(SynaraIcons.Refresh) val ArrowsClockwise = PhIcons.Regular.ArrowsClockwise
+    @MapTo(SynaraIcons.Refresh)
+    @MapTo(SynaraIcons.Sync)
+    val ArrowsClockwise = PhIcons.Regular.ArrowsClockwise
     @MapTo(SynaraIcons.Back) val ArrowLeft = PhIcons.Regular.ArrowLeft
     @MapTo(SynaraIcons.SideMenu) val List = PhIcons.Regular.List
     @MapTo(SynaraIcons.Clear)
@@ -75,4 +77,5 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.SyncCircle) val ArrowClockwise = PhIcons.Regular.ArrowClockwise
     @MapTo(SynaraIcons.Circle) val Circle = PhIcons.Regular.Circle
     @MapTo(SynaraIcons.History) val ClockAfternoon = PhIcons.Regular.ClockAfternoon
+    @MapTo(SynaraIcons.Link) val Link = PhIcons.Regular.Link
 }

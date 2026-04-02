@@ -75,4 +75,6 @@ object MaterialMappings {
     @MapTo(SynaraIcons.SyncCircle) val Change_circle = MaterialSymbols.Rounded.Change_circle
     @MapTo(SynaraIcons.Circle) val Circle = MaterialSymbols.Rounded.Circle
     @MapTo(SynaraIcons.History) val History = MaterialSymbols.Rounded.History
+    @MapTo(SynaraIcons.Sync) val Sync = MaterialSymbols.Rounded.Sync
+    @MapTo(SynaraIcons.Link) val Link = MaterialSymbols.Rounded.Link
 }
