@@ -52,6 +52,7 @@ sealed class SettingKey<T>(val name: String) {
 
     // Updates
     data object LastSeenVersion : SettingKey<String>("last_seen_version")
+    data object LastSeenRecentReleaseId : SettingKey<String>("last_seen_recent_release_id")
 
     companion object {
         val authKeys = setOf(
@@ -103,6 +104,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.LastFmSharedSecret, is SettingKey.LastFmSessionKey,
         is SettingKey.LastFmUsername, is SettingKey.ProxyHost, is SettingKey.ProxyId,
         is SettingKey.IconStyle, is SettingKey.IconPack, is SettingKey.LastSeenVersion,
+        is SettingKey.LastSeenRecentReleaseId,
         is SettingKey.AudioOutputDevice -> getStringOrNull(key.name) as T?
 
         is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor,

@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,6 +32,7 @@ import dev.dertyp.services.IReleaseService
 import dev.dertyp.services.models.RecentRelease
 import dev.dertyp.services.tdn.IDownloadService
 import dev.dertyp.services.tdn.Type
+import dev.dertyp.synara.Config
 import dev.dertyp.synara.screens.ArtistScreen
 import dev.dertyp.synara.screens.TidalDownloadScreen
 import dev.dertyp.synara.ui.SynaraIcons
@@ -50,8 +52,20 @@ fun RecentReleasesView(
     var selectedRelease by remember { mutableStateOf<RecentRelease?>(null) }
     var isExpanded by remember { mutableStateOf(false) }
 
+    val lastSeenRecentReleaseId by Config.lastSeenRecentReleaseId.collectAsState()
+
     LaunchedEffect(Unit) {
         releases = releaseService.getRecentReleases(0, 150).data
+    }
+
+    LaunchedEffect(isExpanded, releases) {
+        if (isExpanded && releases.isNotEmpty() && releases.first().releaseId != lastSeenRecentReleaseId) {
+            Config.setLastSeenRecentReleaseId(releases.first().releaseId)
+        }
+    }
+
+    val hasNewReleases = remember(releases, lastSeenRecentReleaseId) {
+        releases.isNotEmpty() && releases.first().releaseId != lastSeenRecentReleaseId
     }
 
     val groupedReleases = remember(releases) {
@@ -65,15 +79,25 @@ fun RecentReleasesView(
                     .fillMaxWidth()
                     .clip(MaterialTheme.shapes.small)
                     .clickable { isExpanded = !isExpanded }
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = stringResource(Res.string.recent_releases),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                 )
+
+                if (hasNewReleases && !isExpanded) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                    )
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
 
                 val rotation by animateFloatAsState(
                     targetValue = if (isExpanded) 180f else 0f,

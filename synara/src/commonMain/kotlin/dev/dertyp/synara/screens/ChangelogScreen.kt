@@ -64,6 +64,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "0.6.1",
+                        date = "2026-04-02",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Added an indicator for new releases in the Recent Releases view.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "0.6.0",
                         date = "2026-04-02",
                         isPrerelease = true,

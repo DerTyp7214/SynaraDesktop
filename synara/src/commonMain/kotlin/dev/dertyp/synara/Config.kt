@@ -116,6 +116,9 @@ object Config : KoinComponent {
     private val _lastSeenVersion = MutableStateFlow(settings.getOrNull(SettingKey.LastSeenVersion) ?: "")
     val lastSeenVersion: StateFlow<String> = _lastSeenVersion.asStateFlow()
 
+    private val _lastSeenRecentReleaseId = MutableStateFlow(settings.getOrNull(SettingKey.LastSeenRecentReleaseId) ?: "")
+    val lastSeenRecentReleaseId: StateFlow<String> = _lastSeenRecentReleaseId.asStateFlow()
+
     private val _audioOutputDevice = MutableStateFlow(settings.getOrNull(SettingKey.AudioOutputDevice))
     val audioOutputDevice: StateFlow<String?> = _audioOutputDevice.asStateFlow()
 
@@ -275,6 +278,11 @@ object Config : KoinComponent {
     fun setLastSeenVersion(version: String) {
         _lastSeenVersion.value = version
         settings.put(SettingKey.LastSeenVersion, version)
+    }
+
+    fun setLastSeenRecentReleaseId(releaseId: String) {
+        _lastSeenRecentReleaseId.value = releaseId
+        settings.put(SettingKey.LastSeenRecentReleaseId, releaseId)
     }
 
     fun setAudioOutputDevice(device: String?) {
