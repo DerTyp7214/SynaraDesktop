@@ -2,14 +2,14 @@ package dev.dertyp.synara.settings
 
 import com.charleskorn.kaml.*
 import com.russhwolf.settings.Settings
-import dev.dertyp.synara.utils.getAppDataDir
+import dev.dertyp.synara.services.LocalStorageService
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import java.io.File
 
-actual class SettingsFactory actual constructor() {
+actual class SettingsFactory actual constructor(private val storageService: LocalStorageService) {
     actual fun create(): Settings {
-        val configDir = getAppDataDir()
+        val configDir = storageService.getConfigDir()
         val configFile = File(configDir, "config.yml")
         val authFile = File(configDir, "auth.yml")
 
@@ -21,7 +21,7 @@ actual class SettingsFactory actual constructor() {
     }
 
     actual fun getStatePath(fileName: String): String {
-        return File(getAppDataDir(), fileName).absolutePath
+        return File(storageService.getDataDir(), fileName).absolutePath
     }
 }
 

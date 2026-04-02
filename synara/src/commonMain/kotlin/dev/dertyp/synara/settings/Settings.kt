@@ -1,6 +1,7 @@
 package dev.dertyp.synara.settings
 
 import com.russhwolf.settings.Settings
+import dev.dertyp.synara.services.LocalStorageService
 
 sealed class SettingKey<T>(val name: String) {
     data object Host : SettingKey<String>("host")
@@ -124,7 +125,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
     }
 }
 
-expect class SettingsFactory() {
+expect class SettingsFactory(storageService: LocalStorageService) {
     fun create(): Settings
     fun getStatePath(fileName: String): String
 }

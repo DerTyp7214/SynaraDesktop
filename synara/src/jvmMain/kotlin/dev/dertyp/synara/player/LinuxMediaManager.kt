@@ -6,6 +6,7 @@ import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.rpc.RpcServiceManager
+import dev.dertyp.synara.services.LocalStorageService
 import dev.dertyp.synara.utils.OSUtils
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
@@ -391,7 +392,9 @@ private fun createMetadata(song: UserSong?): Map<String, Variant<*>> {
         song.album?.let { m["xesam:album"] = Variant(it.name) }
 
         try {
-            val manager = getKoin().get<RpcServiceManager>()
+            val koin = getKoin()
+            val manager = koin.get<RpcServiceManager>()
+            val storageService = koin.get<LocalStorageService>()
             val host = manager.host
             val port = manager.port
             if (host != null && port != null && song.coverId != null) {
@@ -399,13 +402,17 @@ private fun createMetadata(song: UserSong?): Map<String, Variant<*>> {
             } else {
                 song.coverId?.let {
                     m["mpris:artUrl"] =
-                        Variant("file://${System.getProperty("user.home")}/.synara/cache/covers/$it.jpg")
+                        Variant("file://${storageService.getCacheDir()}/covers/$it.jpg")
                 }
             }
         } catch (_: Exception) {
-            song.coverId?.let {
-                m["mpris:artUrl"] =
-                    Variant("file://${System.getProperty("user.home")}/.synara/cache/covers/$it.jpg")
+            try {
+                val storageService = getKoin().get<LocalStorageService>()
+                song.coverId?.let {
+                    m["mpris:artUrl"] =
+                        Variant("file://${storageService.getCacheDir()}/covers/$it.jpg")
+                }
+            } catch (_: Exception) {
             }
         }
     }

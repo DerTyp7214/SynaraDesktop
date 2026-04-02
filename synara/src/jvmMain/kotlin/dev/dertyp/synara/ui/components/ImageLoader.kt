@@ -1,15 +1,13 @@
 package dev.dertyp.synara.ui.components
 
 import coil3.PlatformContext
+import dev.dertyp.synara.services.LocalStorageService
+import org.koin.java.KoinJavaComponent.getKoin
 import java.io.File
 
 actual fun getImageCacheDir(context: PlatformContext): String {
-    val os = System.getProperty("os.name").lowercase()
-    val cacheDir = when {
-        os.contains("win") -> File(System.getenv("LocalAppData"), "synara/cache")
-        os.contains("mac") -> File(System.getProperty("user.home"), "Library/Caches/synara")
-        else -> File(System.getProperty("user.home"), ".cache/synara")
-    }
+    val storageService = getKoin().get<LocalStorageService>()
+    val cacheDir = File(storageService.getCacheDir(), "images")
 
     if (!cacheDir.exists()) {
         cacheDir.mkdirs()

@@ -6,8 +6,9 @@ import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
 import dev.dertyp.synara.db.DatabaseMigrations
 import dev.dertyp.synara.player.*
+import dev.dertyp.synara.services.JvmLocalStorageService
+import dev.dertyp.synara.services.LocalStorageService
 import dev.dertyp.synara.utils.OSUtils
-import dev.dertyp.synara.utils.getAppDataDir
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.bind
@@ -17,6 +18,7 @@ import java.io.File
 
 actual fun platformModule(): Module = module {
     singleOf(::JvmAudioPlayer) bind AudioPlayer::class
+    singleOf(::JvmLocalStorageService) bind LocalStorageService::class
     single<SystemMediaManager> {
         when {
             OSUtils.isWindows -> WindowsMediaManager(get())
@@ -25,7 +27,8 @@ actual fun platformModule(): Module = module {
         }
     }
     single<SqlDriver> {
-        val databasePath = File(getAppDataDir(), "synara.db")
+        val storageService = get<LocalStorageService>()
+        val databasePath = File(storageService.getDataDir(), "synara.db")
         val driver = JdbcSqliteDriver("jdbc:sqlite:${databasePath.absolutePath}")
 
         DatabaseMigrations.migrate(driver)
@@ -39,7 +42,8 @@ actual fun platformInit() {
     
     val koin = getKoin()
     val logger = koin.get<Logger>()
-    logger.info(LogTag("platform"), "Application directory: ${getAppDataDir().absolutePath}")
+    val storageService = koin.get<LocalStorageService>()
+    logger.info(LogTag("platform"), "Application directory: ${storageService.getDataDir()}")
 
     try {
         val mediaManager = koin.get<SystemMediaManager>()
