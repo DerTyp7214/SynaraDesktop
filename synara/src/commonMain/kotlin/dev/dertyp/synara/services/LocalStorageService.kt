@@ -16,4 +16,5 @@ interface LocalStorageService {
     fun getInternalSongDir(): String
     fun getInternalSongPath(song: BaseSong): String
     fun linkSongToSystemMusicDir(song: BaseSong)
+    fun unlinkSongFromSystemMusicDir(song: BaseSong)
 }

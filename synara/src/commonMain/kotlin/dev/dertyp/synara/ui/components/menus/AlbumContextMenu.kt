@@ -14,6 +14,7 @@ import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.screens.ArtistScreen
+import dev.dertyp.synara.services.IDownloadManager
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.ArtistListDialog
@@ -31,6 +32,7 @@ fun AlbumContextMenu(
     onDismissRequest: () -> Unit,
     playerModel: PlayerModel = koinInject(),
     globalState: GlobalStateModel = koinInject(),
+    downloadManager: IDownloadManager? = koinInject<IDownloadManager?>(),
 ) {
     var showArtistListDialog by remember { mutableStateOf(false) }
     var showPlaylistPickerDialog by remember { mutableStateOf(false) }
@@ -118,6 +120,30 @@ fun AlbumContextMenu(
             },
             leadingIcon = { Icon(SynaraIcons.AddToPlaylist.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
+
+        downloadManager?.let { dm ->
+            val isDownloaded by dm.isAlbumDownloaded(album.id).collectAsState(false)
+
+            if (isDownloaded) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.remove_download)) },
+                    onClick = {
+                        dm.removeAlbum(album.id)
+                        onDismissRequest()
+                    },
+                    leadingIcon = { Icon(SynaraIcons.Delete.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+                )
+            } else {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.menu_download)) },
+                    onClick = {
+                        dm.downloadAlbum(album.id)
+                        onDismissRequest()
+                    },
+                    leadingIcon = { Icon(SynaraIcons.Download.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+                )
+            }
+        }
 
         HorizontalDivider()
 

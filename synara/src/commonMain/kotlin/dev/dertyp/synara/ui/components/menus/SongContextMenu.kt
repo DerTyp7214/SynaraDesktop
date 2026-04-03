@@ -16,6 +16,8 @@ import dev.dertyp.synara.player.QueueEntry
 import dev.dertyp.synara.screens.AlbumScreen
 import dev.dertyp.synara.screens.ArtistScreen
 import dev.dertyp.synara.screens.MetadataEditScreen
+import dev.dertyp.synara.services.DownloadStatus
+import dev.dertyp.synara.services.IDownloadManager
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.ArtistListDialog
@@ -34,6 +36,7 @@ fun SongContextMenu(
     onDismissRequest: () -> Unit,
     playerModel: PlayerModel = koinInject(),
     globalState: GlobalStateModel = koinInject(),
+    downloadManager: IDownloadManager? = koinInject<IDownloadManager?>(),
     isInQueue: Boolean = false,
     isInPlaylist: Boolean = false,
     onRemoveFromPlaylist: (() -> Unit)? = null,
@@ -197,6 +200,61 @@ fun SongContextMenu(
                 )
             }
         )
+
+        downloadManager?.let { dm ->
+            val downloadStatus by dm.getDownloadStatus(song.id).collectAsState(DownloadStatus.NotDownloaded)
+
+            when (downloadStatus) {
+                DownloadStatus.NotDownloaded -> {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.menu_download)) },
+                        onClick = {
+                            dm.downloadSong(song.id)
+                            onDismissRequest()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                SynaraIcons.Download.get(),
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    )
+                }
+                DownloadStatus.Queued, DownloadStatus.Downloading -> {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.cancel_download)) },
+                        onClick = {
+                            dm.removeSong(song.id)
+                            onDismissRequest()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                SynaraIcons.Close.get(),
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    )
+                }
+                DownloadStatus.Downloaded -> {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.remove_download)) },
+                        onClick = {
+                            dm.removeSong(song.id)
+                            onDismissRequest()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                SynaraIcons.Delete.get(),
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    )
+                }
+            }
+        }
 
         if (isInPlaylist || isInQueue) {
             HorizontalDivider()

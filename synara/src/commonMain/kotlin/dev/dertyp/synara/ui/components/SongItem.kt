@@ -27,6 +27,8 @@ import dev.dertyp.synara.onSurfaceVariantDistinct
 import dev.dertyp.synara.player.CacheUpdate
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.SongCache
+import dev.dertyp.synara.services.DownloadStatus
+import dev.dertyp.synara.services.IDownloadManager
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.menus.SongContextMenu
 import kotlinx.coroutines.flow.filterIsInstance
@@ -48,6 +50,7 @@ fun SongItem(
     onPlayNext: (() -> Unit)? = null,
     playerModel: PlayerModel = koinInject(),
     songCache: SongCache = koinInject(),
+    downloadManager: IDownloadManager = koinInject<IDownloadManager>(),
     onToggleLike: () -> Unit = { playerModel.toggleLike(song) },
     isInQueue: Boolean = false,
     isInPlaylist: Boolean = false,
@@ -59,6 +62,8 @@ fun SongItem(
     var showContextMenu by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
+    val downloadStatus by downloadManager.getDownloadStatus(song.id).collectAsState(DownloadStatus.NotDownloaded)
+    val currentDownloadState by downloadManager.currentDownload.collectAsState()
 
     LaunchedEffect(song.id) {
         songCache.updates
@@ -145,6 +150,42 @@ fun SongItem(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                }
+
+                if (downloadStatus != DownloadStatus.NotDownloaded) {
+                    Box(modifier = Modifier.padding(start = 8.dp).size(16.dp), contentAlignment = Alignment.Center) {
+                        when (downloadStatus) {
+                            DownloadStatus.Queued -> {
+                                Icon(
+                                    SynaraIcons.Pending.get(),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            DownloadStatus.Downloading -> {
+                                val progress = currentDownloadState?.let {
+                                    if (it.song.id == song.id && it.totalBytes > 0) it.downloadedBytes.toFloat() / it.totalBytes else 0f
+                                } ?: 0f
+                                CircularProgressIndicator(
+                                    progress = { progress },
+                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(14.dp),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                                )
+                            }
+                            DownloadStatus.Downloaded -> {
+                                Icon(
+                                    SynaraIcons.Success.get(),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            else -> {}
+                        }
+                    }
                 }
 
                 Text(

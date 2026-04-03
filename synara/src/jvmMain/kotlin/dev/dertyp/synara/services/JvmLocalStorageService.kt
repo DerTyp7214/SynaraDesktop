@@ -70,6 +70,25 @@ class JvmLocalStorageService : LocalStorageService {
         }
     }
 
+    override fun unlinkSongFromSystemMusicDir(song: BaseSong) {
+        val albumName = song.album?.name ?: "Unknown Album"
+        val songName = song.title
+        val songId = song.id.toString()
+
+        val sanitizedAlbum = sanitizeFileName(albumName)
+        val sanitizedSong = sanitizeFileName(songName)
+
+        val albumDir = File(getSystemMusicDir(), sanitizedAlbum)
+        if (!albumDir.exists()) return
+
+        val fileNameSearch = "$sanitizedSong - $songId"
+        albumDir.listFiles()?.find { it.name.startsWith(fileNameSearch) }?.delete()
+        
+        if (albumDir.list()?.isEmpty() == true) {
+            albumDir.delete()
+        }
+    }
+
     private fun sanitizeFileName(name: String): String {
         return name.replace(Regex("[\\\\/:*?\"<>|]"), "_")
     }
@@ -100,7 +119,9 @@ class JvmLocalStorageService : LocalStorageService {
             legacyDir.listFiles()?.forEach { source ->
                 if (source.isFile) {
                     val shouldMoveToData = dataFilePrefixes.any { source.name.startsWith(it) }
-                    if (shouldMoveToData) {
+                    if (source.name == "synara.db") {
+                        source.delete()
+                    } else if (shouldMoveToData) {
                         val target = File(dataDir, source.name)
                         if (!target.exists() && source.absolutePath != target.absolutePath) {
                             source.renameTo(target)

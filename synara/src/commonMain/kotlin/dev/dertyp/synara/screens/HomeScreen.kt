@@ -261,6 +261,18 @@ class HomeScreen : Screen {
             Spacer(modifier = Modifier.height(8.dp))
 
             NavigationItem(
+                label = stringResource(Res.string.downloads),
+                icon = SynaraIcons.Download.get(),
+                selected = navigator.lastItem is DownloadsScreen,
+                onClick = {
+                    if (navigator.lastItem !is DownloadsScreen) navigator.push(DownloadsScreen())
+                    onItemClick?.invoke()
+                }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            NavigationItem(
                 label = stringResource(Res.string.tidal_download_title),
                 icon = SynaraIcons.Upload.get(),
                 selected = navigator.lastItem is TidalDownloadScreen,

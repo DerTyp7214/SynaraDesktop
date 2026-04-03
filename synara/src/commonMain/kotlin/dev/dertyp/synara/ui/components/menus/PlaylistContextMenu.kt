@@ -14,16 +14,14 @@ import dev.dertyp.PlatformUUID
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.services.IDownloadManager
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.CreatePlaylistDialog
 import dev.dertyp.synara.ui.components.dialogs.PlaylistPickerDialog
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import synara.synara.generated.resources.Res
-import synara.synara.generated.resources.add_to_playlist
-import synara.synara.generated.resources.add_to_queue
-import synara.synara.generated.resources.play_next
+import synara.synara.generated.resources.*
 
 @Composable
 fun PlaylistContextMenu(
@@ -32,6 +30,7 @@ fun PlaylistContextMenu(
     expanded: Boolean,
     onDismissRequest: () -> Unit,
     playerModel: PlayerModel = koinInject(),
+    downloadManager: IDownloadManager? = koinInject<IDownloadManager?>(),
 ) {
     var showPlaylistPickerDialog by remember { mutableStateOf(false) }
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
@@ -83,6 +82,30 @@ fun PlaylistContextMenu(
             },
             leadingIcon = { Icon(SynaraIcons.AddToPlaylist.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
+
+        downloadManager?.let { dm ->
+            val isDownloaded by dm.isPlaylistDownloaded(playlistId).collectAsState(false)
+
+            if (isDownloaded) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.remove_download)) },
+                    onClick = {
+                        dm.removePlaylist(playlistId)
+                        onDismissRequest()
+                    },
+                    leadingIcon = { Icon(SynaraIcons.Delete.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+                )
+            } else {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.menu_download)) },
+                    onClick = {
+                        dm.downloadPlaylist(playlistId)
+                        onDismissRequest()
+                    },
+                    leadingIcon = { Icon(SynaraIcons.Download.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+                )
+            }
+        }
     }
 
     PlaylistPickerDialog(

@@ -76,4 +76,5 @@ object LucideMappings {
     @MapTo(SynaraIcons.Circle) val Circle = Lucide.Circle
     @MapTo(SynaraIcons.History) val History = Lucide.History
     @MapTo(SynaraIcons.Link) val Link = Lucide.Link
+    @MapTo(SynaraIcons.Download) val Download = Lucide.Download
 }

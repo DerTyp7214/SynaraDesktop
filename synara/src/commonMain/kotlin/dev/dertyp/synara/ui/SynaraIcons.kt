@@ -58,7 +58,7 @@ enum class SynaraIcons {
     Pending, ExpandDown, Lyrics, Queue, FullscreenEnter, FullscreenExit, RemoveFromPlaylist, RemoveFromQueue, 
     ArtistMerge, ArtistSplit, Close, Confirm, OpenInNew, Edit,
     CheckCircle, ErrorCircle, SyncCircle, Circle, History,
-    Sync, Link,
+    Sync, Link, Download,
     LastFm, ListenBrainz, Discord, MusicBrainz, LocalScrobble;
 
     @Composable

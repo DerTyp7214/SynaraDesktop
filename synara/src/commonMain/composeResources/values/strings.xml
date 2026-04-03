@@ -299,4 +299,13 @@
     <string name="tag_has_lyrics">Lyrics</string>
     <string name="tag_custom_upload">Custom Upload</string>
     <string name="tag_has_musicbrainz_id">MusicBrainz</string>
+
+    <!-- Downloads -->
+    <string name="downloads">Downloads</string>
+    <string name="downloads_empty">No active downloads</string>
+    <string name="currently_downloading">Currently Downloading</string>
+    <string name="download_queue">Download Queue</string>
+    <string name="remove_download">Remove Download</string>
+    <string name="cancel_download">Cancel Download</string>
+    <string name="downloading">Downloading…</string>
 </resources>

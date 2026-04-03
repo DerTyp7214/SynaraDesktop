@@ -77,4 +77,5 @@ object MaterialMappings {
     @MapTo(SynaraIcons.History) val History = MaterialSymbols.Rounded.History
     @MapTo(SynaraIcons.Sync) val Sync = MaterialSymbols.Rounded.Sync
     @MapTo(SynaraIcons.Link) val Link = MaterialSymbols.Rounded.Link
+    @MapTo(SynaraIcons.Download) val Download = MaterialSymbols.Rounded.Download
 }

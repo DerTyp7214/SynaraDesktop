@@ -78,4 +78,5 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.Circle) val Circle = PhIcons.Regular.Circle
     @MapTo(SynaraIcons.History) val ClockAfternoon = PhIcons.Regular.ClockAfternoon
     @MapTo(SynaraIcons.Link) val Link = PhIcons.Regular.Link
+    @MapTo(SynaraIcons.Download) val DownloadSimple = PhIcons.Regular.DownloadSimple
 }

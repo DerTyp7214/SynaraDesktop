@@ -22,10 +22,7 @@ import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraFab
 import dev.dertyp.synara.viewmodels.LikedSongsScreenModel
 import org.jetbrains.compose.resources.stringResource
-import synara.synara.generated.resources.Res
-import synara.synara.generated.resources.back
-import synara.synara.generated.resources.favorite
-import synara.synara.generated.resources.play_all
+import synara.synara.generated.resources.*
 
 class LikedSongsScreen : Screen {
 
@@ -49,6 +46,11 @@ class LikedSongsScreen : Screen {
                     navigationIcon = {
                         IconButton(onClick = { navigator.pop() }) {
                             Icon(SynaraIcons.Back.get(), contentDescription = stringResource(Res.string.back))
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { screenModel.downloadFavorites() }) {
+                            Icon(SynaraIcons.Download.get(), contentDescription = stringResource(Res.string.menu_download))
                         }
                     }
                 )

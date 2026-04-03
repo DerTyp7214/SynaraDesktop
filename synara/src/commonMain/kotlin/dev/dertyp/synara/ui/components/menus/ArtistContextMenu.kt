@@ -13,6 +13,7 @@ import dev.dertyp.services.IArtistService
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.services.IDownloadManager
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.MergeArtistDialog
@@ -32,7 +33,8 @@ fun ArtistContextMenu(
     playerModel: PlayerModel = koinInject(),
     globalState: GlobalStateModel = koinInject(),
     artistService: IArtistService = koinInject(),
-    snackbarManager: SnackbarManager = koinInject()
+    snackbarManager: SnackbarManager = koinInject(),
+    downloadManager: IDownloadManager? = koinInject<IDownloadManager?>(),
 ) {
     val scope = rememberCoroutineScope()
     val user by globalState.user.collectAsState()
@@ -88,6 +90,30 @@ fun ArtistContextMenu(
             },
             leadingIcon = { Icon(SynaraIcons.PlayNext.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
+
+        downloadManager?.let { dm ->
+            val isDownloaded by dm.isArtistDownloaded(artist.id).collectAsState(false)
+
+            if (isDownloaded) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.remove_download)) },
+                    onClick = {
+                        dm.removeArtist(artist.id)
+                        onDismissRequest()
+                    },
+                    leadingIcon = { Icon(SynaraIcons.Delete.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+                )
+            } else {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.menu_download)) },
+                    onClick = {
+                        dm.downloadArtist(artist.id)
+                        onDismissRequest()
+                    },
+                    leadingIcon = { Icon(SynaraIcons.Download.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+                )
+            }
+        }
 
         if (user?.isAdmin == true) {
             HorizontalDivider()

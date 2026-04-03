@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.Color
 import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
-import dev.dertyp.synara.db.SynaraDatabase
+import dev.dertyp.synara.db.LocalHistoryRepository
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.models.TrayState
@@ -14,25 +14,22 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
 import org.koin.core.component.inject
 import synara.synara.generated.resources.Res
 import synara.synara.generated.resources.local_scrobbler
 
 class LocalSongScrobbler(
-    database: SynaraDatabase,
+    private val repository: LocalHistoryRepository,
     private val trayState: TrayState,
     private val playerModel: PlayerModel,
-    private val json: Json
 ) : BaseScrobbler() {
     override val name = Res.string.local_scrobbler
     override val icon: SynaraIcons = SynaraIcons.Library
     override val sortOrder: Int = 1
     override val showInDialog: Boolean = false
 
-    private val queries = database.scrobbleQueueQueries
     private val globalState: GlobalStateModel by inject()
-    private val currentColor = MutableStateFlow<Color>(Color(0xFFB3B3B3))
+    private val currentColor = MutableStateFlow(Color(0xFFB3B3B3))
 
     init {
         this += scope.launch {
@@ -48,13 +45,12 @@ class LocalSongScrobbler(
     }
 
     override suspend fun triggered(song: UserSong) {
-        val userId = globalState.user.value?.id?.toString() ?: return
+        val userId = globalState.user.value?.id ?: return
         logger.info(LogTag.SCROBBLER, "Local scrobble triggered for ${song.title}")
-        queries.insertHistory(
+        repository.insert(
             userId = userId,
-            song_id = song.id.toString(),
-            timestamp = currentTimeMillis(),
-            payload = json.encodeToString(song)
+            song = song,
+            timestamp = currentTimeMillis()
         )
 
         currentColor.emit(Color(0xFF87F487))

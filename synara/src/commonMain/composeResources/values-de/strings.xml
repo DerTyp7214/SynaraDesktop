@@ -288,4 +288,11 @@
     <string name="tag_has_lyrics">Lyrics</string>
     <string name="tag_custom_upload">Eigener Upload</string>
     <string name="tag_has_musicbrainz_id">MusicBrainz</string>
+
+    <!-- Downloads -->
+    <string name="downloads">Downloads</string>
+    <string name="downloads_empty">Keine aktiven Downloads</string>
+    <string name="currently_downloading">Aktueller Download</string>
+    <string name="download_queue">Download-Warteschlange</string>
+    <string name="remove_download">Download entfernen</string>
 </resources>

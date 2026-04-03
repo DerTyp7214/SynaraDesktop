@@ -64,6 +64,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "0.7.0",
+                        date = "2026-04-03",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "**Download feature (Alpha)**: Initial support for downloading songs, albums, artists, and playlists for offline playback. **(Note: This feature is currently buggy and in alpha)**."),
+                            Change(ChangeType.Improved, "Database performance and stability with **HikariCP** connection pooling and **Exposed** ORM."),
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "0.6.1",
                         date = "2026-04-02",
                         isPrerelease = true,

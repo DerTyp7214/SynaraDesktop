@@ -9,13 +9,14 @@ import dev.dertyp.serializers.AppJson
 import dev.dertyp.services.*
 import dev.dertyp.services.tdn.IDownloadService
 import dev.dertyp.synara.BuildConfig
-import dev.dertyp.synara.db.SynaraDatabase
 import dev.dertyp.synara.logging.StdoutLogPersistence
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.SongCache
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.services.*
 import dev.dertyp.synara.scrobble.*
+import dev.dertyp.synara.services.IDownloadManager
+import dev.dertyp.synara.services.StubDownloadManager
 import dev.dertyp.synara.settings.SettingsFactory
 import dev.dertyp.synara.ui.components.setupCoil
 import dev.dertyp.synara.ui.models.PerformanceMonitor
@@ -82,7 +83,6 @@ val appModule = module {
     single<Settings> { get<SettingsFactory>().create() }
     
     single { AppDispatchers }
-    single { SynaraDatabase(get()) }
 
     single<Logger> { BaseLogger(StdoutLogPersistence(), get()) }
 
@@ -96,6 +96,8 @@ val appModule = module {
     singleOf(::TrayState)
     singleOf(::SnackbarManager)
     singleOf(::PerformanceMonitor)
+
+    single<IDownloadManager> { StubDownloadManager() }
 
     factoryOf(::SetupScreenModel)
     factoryOf(::LoginScreenModel)
@@ -117,6 +119,7 @@ val appModule = module {
     factoryOf(::SearchAlbumsViewModel)
     factoryOf(::SearchPlaylistsViewModel)
     factoryOf(::TidalDownloadScreenModel)
+    factoryOf(::DownloadsScreenModel)
 
     singleOf(::AlbumServiceWrapper) bind IAlbumService::class
     singleOf(::ArtistServiceWrapper) bind IArtistService::class
@@ -152,6 +155,7 @@ fun initializeSynara() {
 
 fun initKoin() {
     startKoin {
+        allowOverride(true)
         modules(appModule, platformModule())
     }
 }
