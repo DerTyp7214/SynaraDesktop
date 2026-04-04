@@ -64,6 +64,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "0.7.1",
+                        date = "2026-04-04",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Automated script for checking dependency updates (`check_updates.py`)."),
+                            Change(ChangeType.Updated, "Numerous core dependencies including **Compose**, **Material3**, **SQLDelight**, **Exposed**, and **Flyway**."),
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "0.7.0",
                         date = "2026-04-03",
                         isPrerelease = true,
