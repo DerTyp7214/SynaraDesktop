@@ -492,6 +492,8 @@ private fun ExpandedPlayerContent(
                         modifier = Modifier.weight(1f),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        Spacer(modifier = Modifier.weight(.5f))
+
                         LargeCover(
                             song = currentSong,
                             sizeResolver = sizeResolver,
@@ -512,7 +514,7 @@ private fun ExpandedPlayerContent(
                                 }
                         )
 
-                        Spacer(modifier = Modifier.height(32.dp))
+                        Spacer(modifier = Modifier.weight(.3f))
 
                         val (colorA, colorB) = sort(
                             MaterialTheme.colorScheme.primaryContainer,
@@ -526,6 +528,8 @@ private fun ExpandedPlayerContent(
                             highlightColor = colorA,
                             color = colorB
                         )
+
+                        Spacer(modifier = Modifier.weight(.2f))
                     }
 
                     androidx.compose.animation.AnimatedVisibility(
