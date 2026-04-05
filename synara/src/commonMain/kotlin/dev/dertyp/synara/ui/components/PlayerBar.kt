@@ -522,7 +522,7 @@ private fun ExpandedPlayerContent(
                         VisualizerView(
                             modifier = Modifier
                                 .fillMaxWidth(visualizerWidthScale)
-                                .requiredHeight(80.dp),
+                                .requiredHeight(120.dp),
                             highlightColor = colorA,
                             color = colorB
                         )

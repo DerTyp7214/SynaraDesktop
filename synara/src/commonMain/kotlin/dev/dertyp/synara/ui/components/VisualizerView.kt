@@ -29,8 +29,11 @@ fun VisualizerView(
 
     BoxWithConstraints(modifier = modifier) {
         val density = LocalDensity.current
-        val widthPx = with(density) { maxWidth.toPx() }
-        val heightPx = with(density) { maxHeight.toPx() }
+        val glowRadius = 9.dp
+        val glowRadiusPx = with(density) { glowRadius.toPx() }
+
+        val widthPx = (with(density) { maxWidth.toPx() } - 2 * glowRadiusPx).coerceAtLeast(1f)
+        val heightPx = (with(density) { maxHeight.toPx() } - 2 * glowRadiusPx).coerceAtLeast(1f)
         
         val targetBarWidthPx = with(density) { 5.dp.toPx() }
         val spacingPx = with(density) { 1.dp.toPx() }
@@ -106,16 +109,16 @@ fun VisualizerView(
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .blur(radius = 8.dp)
+                .blur(radius = glowRadius - 1.dp)
         ) {
             @Suppress("unused")
             val t = tick
 
             for (i in 0 until barCount) {
                 val smoothedHeight = smoothedHeights[i]
-                val x = i * (actualBarWidth + spacingPx)
+                val x = i * (actualBarWidth + spacingPx) + glowRadiusPx
 
-                val centerY = heightPx / 2f
+                val centerY = (heightPx / 2f) + glowRadiusPx
                 val y = centerY - (smoothedHeight / 2f)
 
                 val heightFactor = (smoothedHeight / heightPx).coerceIn(0f, 1f)
@@ -138,9 +141,9 @@ fun VisualizerView(
 
             for (i in 0 until barCount) {
                 val smoothedHeight = smoothedHeights[i]
-                val x = i * (actualBarWidth + spacingPx)
+                val x = i * (actualBarWidth + spacingPx) + glowRadiusPx
 
-                val centerY = heightPx / 2f
+                val centerY = (heightPx / 2f) + glowRadiusPx
                 val y = centerY - (smoothedHeight / 2f)
 
                 val barColor = highlightColor.copy(alpha = (smoothedHeight / heightPx).coerceIn(0f, 1f))
