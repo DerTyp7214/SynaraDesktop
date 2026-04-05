@@ -101,7 +101,7 @@ fun VisualizerView(
                             if (smoothedHeights[leftIdx] >= heightPx * 0.98f) {
                                 maxHeightDuration[leftIdx] += delta
                                 if (maxHeightDuration[leftIdx] > minMaxHeightDuration) {
-                                    flameIntensities[leftIdx] = (flameIntensities[leftIdx] + delta / 1000f).coerceAtMost(1f)
+                                    flameIntensities[leftIdx] = (flameIntensities[leftIdx] + delta / 300f).coerceAtMost(1f)
                                 }
                             } else if (smoothedHeights[leftIdx] < heightPx * 0.80f) {
                                 maxHeightDuration[leftIdx] = 0L
@@ -119,7 +119,7 @@ fun VisualizerView(
                             if (smoothedHeights[rightIdx] >= heightPx * 0.98f) {
                                 maxHeightDuration[rightIdx] += delta
                                 if (maxHeightDuration[rightIdx] > minMaxHeightDuration) {
-                                    flameIntensities[rightIdx] = (flameIntensities[rightIdx] + delta / 1000f).coerceAtMost(1f)
+                                    flameIntensities[rightIdx] = (flameIntensities[rightIdx] + delta / 300f).coerceAtMost(1f)
                                 }
                             } else if (smoothedHeights[rightIdx] < heightPx * 0.80f) {
                                 maxHeightDuration[rightIdx] = 0L
@@ -175,83 +175,84 @@ fun VisualizerView(
             @Suppress("unused")
             val t = tick
 
-            var startIdx = -1
-            for (i in 0..barCount) {
-                val isBurning = i < barCount && flameIntensities[i] > 0f
-                if (isBurning) {
-                    if (startIdx == -1) startIdx = i
-                } else if (startIdx != -1) {
-                    val start = startIdx
-                    val end = i - 1
-                    val groupSize = end - start + 1
-                    val groupWidth = groupSize * actualBarWidth + (groupSize - 1) * spacingPx
-                    val groupStartX = start * (actualBarWidth + spacingPx) + glowRadiusPx
-                    val groupCenterX = groupStartX + groupWidth / 2f
+            for (i in 0 until barCount) {
+                val intensity = flameIntensities[i]
+                if (intensity <= 0f) continue
 
-                    var maxFlameIntensity = 0f
-                    var maxGroupHeight = 0f
-                    for (k in start..end) {
-                        maxFlameIntensity = max(maxFlameIntensity, flameIntensities[k])
-                        maxGroupHeight = max(maxGroupHeight, smoothedHeights[k])
+                val smoothedHeight = smoothedHeights[i]
+                val centerY = (heightPx / 2f) + glowRadiusPx
+                val topY = centerY - (smoothedHeight / 2f)
+                val bottomY = centerY + (smoothedHeight / 2f)
+
+                var weightedSum = 0f
+                var weightedCenterX = 0f
+                val window = 3
+                for (k in (i - window)..(i + window)) {
+                    if (k in 0 until barCount) {
+                        val weight = flameIntensities[k]
+                        weightedSum += weight
+                        val barCenterX = k * (actualBarWidth + spacingPx) + glowRadiusPx + actualBarWidth / 2f
+                        weightedCenterX += weight * barCenterX
                     }
+                }
 
-                    val heightMultiplier = (1f + (groupSize - 1) * 0.2f).coerceAtMost(2f)
-                    val baseFlameHeight = 24.dp.toPx() * maxFlameIntensity * heightMultiplier
+                if (weightedSum <= 0f) continue
 
-                    val centerY = (heightPx / 2f) + glowRadiusPx
-                    val topY = centerY - maxGroupHeight / 2f
-                    val bottomY = centerY + maxGroupHeight / 2f
+                val localCenterX = weightedCenterX / weightedSum
+                val localWidth = (actualBarWidth + (weightedSum - intensity).coerceAtLeast(0f) * (actualBarWidth + spacingPx)) * 1.1f
+                val localHeightMultiplier = (1f + (weightedSum - 1f).coerceAtLeast(0f) * 0.2f).coerceAtMost(2f)
+                val baseFlameHeight = 24.dp.toPx() * intensity * localHeightMultiplier
 
-                    for (j in 0 until 3) {
-                        val flicker = sin(tick / (4f + j)) * 0.2f + 0.8f
-                        val phase = tick / (8f + j)
-                        val flickerX = sin(phase) * (groupWidth * 0.1f)
+                for (j in 0 until 3) {
+                    val flickerSpeed = 4f + j * 2f
+                    val flicker = sin(tick / flickerSpeed + localCenterX / 40f) * 0.2f + 0.8f
+                    val phase = tick / (8f + j * 3f) + localCenterX / 40f
+                    val flickerX = sin(phase) * (actualBarWidth * 0.2f)
 
-                        val segmentHeight = baseFlameHeight * (1f - j * 0.25f) * flicker
-                        val segmentWidth = groupWidth * (1.1f - j * 0.2f)
-                        val segmentAlpha = (0.7f / (j + 1)) * maxFlameIntensity * flicker
+                    val segmentHeight = baseFlameHeight * (1f - j * 0.25f) * flicker
+                    val segmentWidth = localWidth * (1.1f - j * 0.2f)
+                    
+                    val segmentAlpha = (0.7f / (j + 1)) * (intensity / weightedSum) * flicker
 
-                        val topPath = Path().apply {
-                            moveTo(groupCenterX + flickerX, topY - segmentHeight)
-                            quadraticTo(
-                                groupCenterX + segmentWidth / 2 + flickerX * 0.5f, topY,
-                                groupCenterX + flickerX * 0.2f, topY
-                            )
-                            quadraticTo(
-                                groupCenterX - segmentWidth / 2 + flickerX * 0.5f, topY,
-                                groupCenterX + flickerX, topY - segmentHeight
-                            )
-                        }
-                        drawPath(
-                            path = topPath,
-                            brush = Brush.verticalGradient(
-                                colors = listOf(highlightColor.copy(alpha = 0f), highlightColor.copy(alpha = segmentAlpha)),
-                                startY = topY - segmentHeight,
-                                endY = topY
-                            )
+                    val topPath = Path().apply {
+                        moveTo(localCenterX + flickerX, topY - segmentHeight)
+                        quadraticTo(
+                            localCenterX + segmentWidth / 2 + flickerX * 0.5f, topY,
+                            localCenterX + flickerX * 0.2f, topY
                         )
-
-                        val bottomPath = Path().apply {
-                            moveTo(groupCenterX + flickerX, bottomY + segmentHeight)
-                            quadraticTo(
-                                groupCenterX + segmentWidth / 2 + flickerX * 0.5f, bottomY,
-                                groupCenterX + flickerX * 0.2f, bottomY
-                            )
-                            quadraticTo(
-                                groupCenterX - segmentWidth / 2 + flickerX * 0.5f, bottomY,
-                                groupCenterX + flickerX, bottomY + segmentHeight
-                            )
-                        }
-                        drawPath(
-                            path = bottomPath,
-                            brush = Brush.verticalGradient(
-                                colors = listOf(highlightColor.copy(alpha = segmentAlpha), highlightColor.copy(alpha = 0f)),
-                                startY = bottomY,
-                                endY = bottomY + segmentHeight
-                            )
+                        quadraticTo(
+                            localCenterX - segmentWidth / 2 + flickerX * 0.5f, topY,
+                            localCenterX + flickerX, topY - segmentHeight
                         )
                     }
-                    startIdx = -1
+                    drawPath(
+                        path = topPath,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(highlightColor.copy(alpha = 0f), highlightColor.copy(alpha = segmentAlpha)),
+                            startY = topY - segmentHeight,
+                            endY = topY
+                        )
+                    )
+
+                    val bottomPath = Path().apply {
+                        moveTo(localCenterX + flickerX, bottomY + segmentHeight)
+                        quadraticTo(
+                            localCenterX + segmentWidth / 2 + flickerX * 0.5f, bottomY,
+                            localCenterX + flickerX * 0.2f, bottomY
+                        )
+                        quadraticTo(
+                            localCenterX - segmentWidth / 2 + flickerX * 0.5f, bottomY,
+                            localCenterX + flickerX, bottomY + segmentHeight
+                        )
+                    }
+                    drawPath(
+                        path = bottomPath,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(highlightColor.copy(alpha = segmentAlpha), highlightColor.copy(alpha = 0f)),
+                            startY = bottomY,
+                            endY = bottomY + segmentHeight
+                        )
+                    )
                 }
             }
 
