@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -15,10 +16,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import dev.dertyp.synara.player.PlayerModel
 import org.koin.compose.koinInject
-import kotlin.math.abs
-import kotlin.math.ceil
-import kotlin.math.floor
-import kotlin.math.log10
+import kotlin.math.*
 
 @Composable
 fun VisualizerView(
@@ -101,6 +99,35 @@ fun VisualizerView(
                     tick++
                 } else {
                     break
+                }
+            }
+        }
+
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .blur(radius = 8.dp)
+        ) {
+            @Suppress("unused")
+            val t = tick
+
+            for (i in 0 until barCount) {
+                val smoothedHeight = smoothedHeights[i]
+                val x = i * (actualBarWidth + spacingPx)
+
+                val centerY = heightPx / 2f
+                val y = centerY - (smoothedHeight / 2f)
+
+                val heightFactor = (smoothedHeight / heightPx).coerceIn(0f, 1f)
+                val glowIntensity = heightFactor.pow(3f)
+
+                if (glowIntensity > 0.01f) {
+                    drawRoundRect(
+                        color = highlightColor.copy(alpha = glowIntensity * 0.7f),
+                        topLeft = Offset(x, y),
+                        size = Size(actualBarWidth, smoothedHeight),
+                        cornerRadius = CornerRadius(cornerRadiusPx, cornerRadiusPx)
+                    )
                 }
             }
         }

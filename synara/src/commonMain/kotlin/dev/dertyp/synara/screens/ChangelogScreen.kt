@@ -64,6 +64,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "0.7.2",
+                        date = "2026-04-05",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Improved, "Enhanced `VisualizerView` with a dynamic glow effect for a more immersive playback experience."),
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "0.7.1",
                         date = "2026-04-04",
                         isPrerelease = true,
