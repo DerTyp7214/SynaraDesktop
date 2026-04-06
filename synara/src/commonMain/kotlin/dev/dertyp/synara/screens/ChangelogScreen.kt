@@ -64,6 +64,16 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "0.7.3",
+                        date = "2026-04-06",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Improved, "Decoupled scrobbling from the offline library. History and queue items now use independent JSON payloads instead of foreign key references."),
+                            Change(ChangeType.Refactored, "Updated `LibraryRepository` to support filtering for explicitly saved items, ensuring scrobbled-only songs don't appear in the offline collection."),
+                            Change(ChangeType.Updated, "Database migration `V1_2` to transition scrobble-related tables to the new decoupled schema."),
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "0.7.2",
                         date = "2026-04-05",
                         isPrerelease = true,

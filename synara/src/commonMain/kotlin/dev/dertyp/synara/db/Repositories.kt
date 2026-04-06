@@ -66,12 +66,12 @@ interface LibraryRepository {
     suspend fun removeSongFromPlaylist(playlistId: PlatformUUID, songId: PlatformUUID)
     suspend fun getPlaylistSongs(playlistId: PlatformUUID): List<PlatformUUID>
 
-    suspend fun getSongs(): List<UserSong>
+    suspend fun getSongs(explicitlySavedOnly: Boolean = true): List<UserSong>
     suspend fun getAlbums(explicitlySavedOnly: Boolean): List<Album>
     suspend fun getArtists(explicitlySavedOnly: Boolean): List<Artist>
     suspend fun getPlaylists(explicitlySavedOnly: Boolean): List<UserPlaylist>
 
-    suspend fun isSongSaved(id: PlatformUUID): Boolean
+    suspend fun isSongSaved(id: PlatformUUID, explicitlySavedOnly: Boolean = true): Boolean
     suspend fun isAlbumSaved(id: PlatformUUID, explicitlySavedOnly: Boolean): Boolean
     suspend fun isArtistSaved(id: PlatformUUID, explicitlySavedOnly: Boolean): Boolean
     suspend fun isPlaylistSaved(id: PlatformUUID, explicitlySavedOnly: Boolean): Boolean

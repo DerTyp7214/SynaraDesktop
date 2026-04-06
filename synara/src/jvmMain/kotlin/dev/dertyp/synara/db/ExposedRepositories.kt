@@ -6,13 +6,17 @@ import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
 import kotlinx.coroutines.flow.*
+import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.jdbc.*
+import kotlin.uuid.ExperimentalUuidApi
 
+@OptIn(ExperimentalUuidApi::class)
 class ExposedRecentlyPlayedRepository(
     private val songService: ISongService,
     private val albumService: IAlbumService,
-    private val artistService: IArtistService
+    private val artistService: IArtistService,
+    private val json: Json
 ) : RecentlyPlayedRepository {
     private val _updates = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
@@ -20,8 +24,9 @@ class ExposedRecentlyPlayedRepository(
         dbQuery {
             RecentlyPlayedSongs.upsert(RecentlyPlayedSongs.userId, RecentlyPlayedSongs.songId) {
                 it[RecentlyPlayedSongs.userId] = userId
-                it[RecentlyPlayedSongs.songId] = song.id
+                it[RecentlyPlayedSongs.songId] = song.id.toString()
                 it[RecentlyPlayedSongs.timestamp] = timestamp
+                it[RecentlyPlayedSongs.payload] = json.encodeToString(song)
             }
         }
         _updates.emit(Unit)
@@ -31,8 +36,9 @@ class ExposedRecentlyPlayedRepository(
         dbQuery {
             RecentlyPlayedAlbums.upsert(RecentlyPlayedAlbums.userId, RecentlyPlayedAlbums.albumId) {
                 it[RecentlyPlayedAlbums.userId] = userId
-                it[RecentlyPlayedAlbums.albumId] = album.id
+                it[RecentlyPlayedAlbums.albumId] = album.id.toString()
                 it[RecentlyPlayedAlbums.timestamp] = timestamp
+                it[RecentlyPlayedAlbums.payload] = json.encodeToString(album)
             }
         }
         _updates.emit(Unit)
@@ -42,8 +48,9 @@ class ExposedRecentlyPlayedRepository(
         dbQuery {
             RecentlyPlayedArtists.upsert(RecentlyPlayedArtists.userId, RecentlyPlayedArtists.artistId) {
                 it[RecentlyPlayedArtists.userId] = userId
-                it[RecentlyPlayedArtists.artistId] = artist.id
+                it[RecentlyPlayedArtists.artistId] = artist.id.toString()
                 it[RecentlyPlayedArtists.timestamp] = timestamp
+                it[RecentlyPlayedArtists.payload] = json.encodeToString(artist)
             }
         }
         _updates.emit(Unit)
@@ -55,9 +62,7 @@ class ExposedRecentlyPlayedRepository(
                 .where { RecentlyPlayedSongs.userId eq userId }
                 .orderBy(RecentlyPlayedSongs.timestamp, SortOrder.DESC)
                 .limit(limit.toInt())
-                .map { it[RecentlyPlayedSongs.songId].value }
-                .chunked(100)
-                .flatMap { songService.byIds(it).data }
+                .map { json.decodeFromString<UserSong>(it[RecentlyPlayedSongs.payload]) }
         }
     }
 
@@ -67,9 +72,7 @@ class ExposedRecentlyPlayedRepository(
                 .where { RecentlyPlayedAlbums.userId eq userId }
                 .orderBy(RecentlyPlayedAlbums.timestamp, SortOrder.DESC)
                 .limit(limit.toInt())
-                .map { it[RecentlyPlayedAlbums.albumId].value }
-                .chunked(100)
-                .flatMap { albumService.byIds(it) }
+                .map { json.decodeFromString<Album>(it[RecentlyPlayedAlbums.payload]) }
         }
     }
 
@@ -79,9 +82,7 @@ class ExposedRecentlyPlayedRepository(
                 .where { RecentlyPlayedArtists.userId eq userId }
                 .orderBy(RecentlyPlayedArtists.timestamp, SortOrder.DESC)
                 .limit(limit.toInt())
-                .map { it[RecentlyPlayedArtists.artistId].value }
-                .chunked(100)
-                .flatMap { artistService.byIds(it) }
+                .map { json.decodeFromString<Artist>(it[RecentlyPlayedArtists.payload]) }
         }
     }
 
@@ -157,15 +158,15 @@ class ExposedUserRepository : UserRepository {
     }
 }
 
-class ExposedScrobbleQueueRepository : ScrobbleQueueRepository {
+class ExposedScrobbleQueueRepository(private val json: Json) : ScrobbleQueueRepository {
     override suspend fun insert(userId: PlatformUUID, song: UserSong, timestamp: Long, target: String) {
         dbQuery {
-            saveSongMetadataInternal(song, false)
             ScrobbleQueue.insert {
                 it[ScrobbleQueue.userId] = userId
-                it[ScrobbleQueue.songId] = song.id
+                it[ScrobbleQueue.songId] = song.id.toString()
                 it[ScrobbleQueue.timestamp] = timestamp
                 it[ScrobbleQueue.target] = target
+                it[ScrobbleQueue.payload] = json.encodeToString(song)
             }
         }
     }
@@ -179,7 +180,7 @@ class ExposedScrobbleQueueRepository : ScrobbleQueueRepository {
                     ScrobbleQueueEntry(
                         it[ScrobbleQueue.id].value.toLong(),
                         it[ScrobbleQueue.userId].value,
-                        getSongInternal(it[ScrobbleQueue.songId].value)!!,
+                        json.decodeFromString<UserSong>(it[ScrobbleQueue.payload]),
                         it[ScrobbleQueue.timestamp],
                         it[ScrobbleQueue.target]
                     )
@@ -197,7 +198,7 @@ class ExposedScrobbleQueueRepository : ScrobbleQueueRepository {
                     ScrobbleQueueEntry(
                         it[ScrobbleQueue.id].value.toLong(),
                         it[ScrobbleQueue.userId].value,
-                        getSongInternal(it[ScrobbleQueue.songId].value)!!,
+                        json.decodeFromString<UserSong>(it[ScrobbleQueue.payload]),
                         it[ScrobbleQueue.timestamp],
                         it[ScrobbleQueue.target]
                     )
@@ -221,14 +222,14 @@ class ExposedScrobbleQueueRepository : ScrobbleQueueRepository {
     }
 }
 
-class ExposedLocalHistoryRepository : LocalHistoryRepository {
+class ExposedLocalHistoryRepository(private val json: Json) : LocalHistoryRepository {
     override suspend fun insert(userId: PlatformUUID, song: UserSong, timestamp: Long) {
         dbQuery {
-            saveSongMetadataInternal(song, false)
             LocalHistory.insert {
                 it[LocalHistory.userId] = userId
-                it[LocalHistory.songId] = song.id
+                it[LocalHistory.songId] = song.id.toString()
                 it[LocalHistory.timestamp] = timestamp
+                it[LocalHistory.payload] = json.encodeToString(song)
             }
         }
     }
@@ -243,9 +244,9 @@ class ExposedLocalHistoryRepository : LocalHistoryRepository {
                     LocalHistoryEntry(
                         it[LocalHistory.id].value.toLong(),
                         it[LocalHistory.userId].value,
-                        it[LocalHistory.songId].value,
+                        PlatformUUID.fromString(it[LocalHistory.songId]),
                         it[LocalHistory.timestamp],
-                        getSongInternal(it[LocalHistory.songId].value)!!
+                        json.decodeFromString<UserSong>(it[LocalHistory.payload])
                     )
                 }
         }
@@ -339,9 +340,13 @@ class ExposedLibraryRepository : LibraryRepository {
         }
     }
 
-    override suspend fun getSongs(): List<UserSong> {
+    override suspend fun getSongs(explicitlySavedOnly: Boolean): List<UserSong> {
         return dbQuery {
-            DownloadedSongs.selectAll().map { mapRowToUserSong(it) }
+            val query = DownloadedSongs.selectAll()
+            if (explicitlySavedOnly) {
+                query.where { DownloadedSongs.explicitlySaved eq true }
+            }
+            query.map { mapRowToUserSong(it) }
         }
     }
 
@@ -375,9 +380,13 @@ class ExposedLibraryRepository : LibraryRepository {
         }
     }
 
-    override suspend fun isSongSaved(id: PlatformUUID): Boolean {
+    override suspend fun isSongSaved(id: PlatformUUID, explicitlySavedOnly: Boolean): Boolean {
         return dbQuery {
-            DownloadedSongs.selectAll().where { DownloadedSongs.id eq id }.any()
+            val query = DownloadedSongs.selectAll().where { DownloadedSongs.id eq id }
+            if (explicitlySavedOnly) {
+                query.andWhere { DownloadedSongs.explicitlySaved eq true }
+            }
+            query.any()
         }
     }
 

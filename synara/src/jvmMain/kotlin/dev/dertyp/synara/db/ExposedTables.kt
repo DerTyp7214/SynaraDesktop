@@ -147,34 +147,39 @@ object DownloadedArtistGenres : Table("artist_genre") {
 
 object RecentlyPlayedSongs : Table("recentlyPlayedSong") {
     val userId = reference("userId", DownloadedUsers.id, onDelete = ReferenceOption.CASCADE)
-    val songId = reference("songId", DownloadedSongs.id, onDelete = ReferenceOption.CASCADE)
+    val songId = varchar("songId", 36)
     val timestamp = long("timestamp")
+    val payload = text("payload")
     override val primaryKey = PrimaryKey(userId, songId)
 }
 
 object RecentlyPlayedAlbums : Table("recentlyPlayedAlbum") {
     val userId = reference("userId", DownloadedUsers.id, onDelete = ReferenceOption.CASCADE)
-    val albumId = reference("albumId", DownloadedAlbums.id, onDelete = ReferenceOption.CASCADE)
+    val albumId = varchar("albumId", 36)
     val timestamp = long("timestamp")
+    val payload = text("payload")
     override val primaryKey = PrimaryKey(userId, albumId)
 }
 
 object RecentlyPlayedArtists : Table("recentlyPlayedArtist") {
     val userId = reference("userId", DownloadedUsers.id, onDelete = ReferenceOption.CASCADE)
-    val artistId = reference("artistId", DownloadedArtists.id, onDelete = ReferenceOption.CASCADE)
+    val artistId = varchar("artistId", 36)
     val timestamp = long("timestamp")
+    val payload = text("payload")
     override val primaryKey = PrimaryKey(userId, artistId)
 }
 
 object ScrobbleQueue : IntIdTable("scrobbleQueue") {
     val userId = reference("userId", DownloadedUsers.id, onDelete = ReferenceOption.CASCADE)
-    val songId = reference("songId", DownloadedSongs.id, onDelete = ReferenceOption.CASCADE)
+    val songId = varchar("songId", 36)
     val timestamp = long("timestamp")
     val target = text("target")
+    val payload = text("payload")
 }
 
 object LocalHistory : IntIdTable("localHistory") {
     val userId = reference("userId", DownloadedUsers.id, onDelete = ReferenceOption.CASCADE)
-    val songId = reference("songId", DownloadedSongs.id, onDelete = ReferenceOption.CASCADE)
+    val songId = varchar("songId", 36)
     val timestamp = long("timestamp")
+    val payload = text("payload")
 }
