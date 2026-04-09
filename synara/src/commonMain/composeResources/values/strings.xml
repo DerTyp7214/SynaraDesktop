@@ -308,4 +308,17 @@
     <string name="remove_download">Remove Download</string>
     <string name="cancel_download">Cancel Download</string>
     <string name="downloading">Downloading…</string>
+
+    <!-- Scheduled Tasks -->
+    <string name="settings_scheduled_task_logs_title">Scheduled Task Logs</string>
+    <plurals name="settings_scheduled_task_logs_entries">
+        <item quantity="one">%1$d entry</item>
+        <item quantity="other">%1$d entries</item>
+    </plurals>
+    <string name="settings_scheduled_task_logs_progress">Progress</string>
+    <string name="settings_scheduled_task_logs_duration">Duration</string>
+    <string name="settings_scheduled_task_logs_details">Details</string>
+    <string name="task_status_success">Success</string>
+    <string name="task_status_failure">Failure</string>
+    <string name="task_status_running">Running</string>
 </resources>

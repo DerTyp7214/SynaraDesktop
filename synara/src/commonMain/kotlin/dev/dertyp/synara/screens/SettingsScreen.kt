@@ -217,6 +217,19 @@ class SettingsScreen : Screen {
                         }
                     }
 
+                    SettingsCard(onClick = { navigator.push(ScheduledTaskLogsScreen()) }) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.settings_scheduled_task_logs_title),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
+                    }
+
                     Text(
                         text = stringResource(Res.string.proxy),
                         style = MaterialTheme.typography.titleLarge,

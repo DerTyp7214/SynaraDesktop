@@ -166,3 +166,16 @@ fun Long.formatBytes(): String {
     val value = this / 1024.0.pow(exp.toDouble())
     return "${(value * 10).toInt() / 10.0} ${pre}B"
 }
+
+fun Long.formatCompactDuration(includeSeconds: Boolean = true): String {
+    val totalSeconds = this / 1000
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+
+    return buildString {
+        if (hours > 0) append("${hours}h ")
+        if (minutes > 0 || hours > 0) append("${minutes}m ")
+        if (includeSeconds || (hours == 0L && minutes == 0L)) append("${seconds}s")
+    }.trim()
+}

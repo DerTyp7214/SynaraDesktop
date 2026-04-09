@@ -64,6 +64,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "1.0.1",
+                        date = "2026-04-09",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Added a **Scheduled Task Logs** screen to monitor background tasks like metadata updates and downloads.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "1.0.0",
                         date = "2026-04-09",
                         isPrerelease = true,
