@@ -64,6 +64,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "1.0.2",
+                        date = "2026-04-09",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Added support for manually linking albums to their MusicBrainz metadata.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "1.0.1",
                         date = "2026-04-09",
                         isPrerelease = true,

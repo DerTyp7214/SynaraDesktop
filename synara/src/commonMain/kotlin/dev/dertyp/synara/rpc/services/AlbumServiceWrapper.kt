@@ -43,6 +43,10 @@ class AlbumServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manag
         return manager.getService<IAlbumService>().fetchMusicBrainzId(id)
     }
 
+    override suspend fun setMusicBrainzId(id: PlatformUUID, musicBrainzId: PlatformUUID?): Album? {
+        return manager.getService<IAlbumService>().setMusicBrainzId(id, musicBrainzId)
+    }
+
     override suspend fun byArtist(
         page: Int,
         pageSize: Int,
