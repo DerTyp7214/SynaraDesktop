@@ -4,6 +4,7 @@ import org.jetbrains.exposed.v1.core.ReferenceOption
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.dao.id.IntIdTable
 import org.jetbrains.exposed.v1.core.dao.id.java.UUIDTable
+import org.jetbrains.exposed.v1.core.java.javaUUID
 
 object DownloadedImages : UUIDTable("image") {
     val path = text("path")
@@ -44,7 +45,7 @@ object DownloadedSongs : UUIDTable("song") {
     val updatedAt = long("updatedAt").nullable()
 
     val explicitlySaved = bool("explicitlySaved").default(false)
-    val musicBrainzId = varchar("musicBrainzId", 36).nullable()
+    val musicBrainzId = javaUUID("musicBrainzId").nullable()
 }
 
 object DownloadedAlbums : UUIDTable("album") {
@@ -57,7 +58,7 @@ object DownloadedAlbums : UUIDTable("album") {
     val totalSize = long("totalSize").default(0L)
 
     val explicitlySaved = bool("explicitlySaved").default(false)
-    val musicBrainzId = varchar("musicBrainzId", 36).nullable()
+    val musicBrainzId = javaUUID("musicBrainzId").nullable()
 }
 
 object DownloadedArtists : UUIDTable("artist") {
@@ -69,7 +70,7 @@ object DownloadedArtists : UUIDTable("artist") {
     val isFollowed = bool("isFollowed").default(false)
 
     val explicitlySaved = bool("explicitlySaved").default(false)
-    val musicBrainzId = varchar("musicBrainzId", 36).nullable()
+    val musicBrainzId = javaUUID("musicBrainzId").nullable()
 }
 
 object DownloadedGenres : UUIDTable("genre") {
@@ -124,6 +125,7 @@ object DownloadedUserPlaylistSongs : Table("userPlaylistSong") {
     val playlistId = reference("playlistId", DownloadedUserPlaylists.id, onDelete = ReferenceOption.CASCADE)
     val songId = reference("songId", DownloadedSongs.id, onDelete = ReferenceOption.CASCADE)
     val addedAt = long("addedAt")
+    val musicBrainzId = javaUUID("musicBrainzId").nullable()
     override val primaryKey = PrimaryKey(playlistId, songId, addedAt)
 }
 

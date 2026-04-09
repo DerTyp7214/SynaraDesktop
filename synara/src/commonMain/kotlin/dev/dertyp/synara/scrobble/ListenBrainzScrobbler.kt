@@ -174,10 +174,10 @@ class ListenBrainzScrobbler(
                             submissionClient = "Synara Desktop",
                             submissionClientVersion = BuildConfig.VERSION,
                             durationMs = recording?.length ?: song.duration,
-                            recordingId = recording?.id,
-                            artistIds = recording?.artistCredit?.mapNotNull { it.artist?.id }
+                            recordingId = recording?.id?.toString(),
+                            artistIds = recording?.artistCredit?.mapNotNull { it.artist?.id?.toString() }
                                 ?.nullIfEmpty(),
-                            releaseId = release?.id
+                            releaseId = release?.id?.toString()
                         )
                     )
                 )

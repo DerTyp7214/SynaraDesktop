@@ -64,6 +64,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "1.0.0",
+                        date = "2026-04-09",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Improved, "Major metadata upgrade: switched to a more robust format for MusicBrainz IDs to ensure your library stays perfectly organized.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "0.7.3",
                         date = "2026-04-06",
                         isPrerelease = true,

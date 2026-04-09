@@ -304,6 +304,7 @@ class ExposedLibraryRepository : LibraryRepository {
                         it[playlistId] = playlist.id
                         it[songId] = song.songId
                         it[addedAt] = song.addedAt
+                        it[musicBrainzId] = song.musicBrainzId
                     }
                 }
             }
@@ -605,13 +606,13 @@ private fun mapRowToPlaylist(row: ResultRow): UserPlaylist {
     val songs = DownloadedUserPlaylistSongs.selectAll()
         .where { DownloadedUserPlaylistSongs.playlistId eq playlistId }
         .orderBy(DownloadedUserPlaylistSongs.addedAt, SortOrder.ASC)
-        .map { it[DownloadedUserPlaylistSongs.songId].value to it[DownloadedUserPlaylistSongs.addedAt] }
+        .map { Triple(it[DownloadedUserPlaylistSongs.songId].value, it[DownloadedUserPlaylistSongs.addedAt], it[DownloadedUserPlaylistSongs.musicBrainzId]) }
 
     return UserPlaylist(
         id = playlistId,
         name = row[DownloadedUserPlaylists.name],
         songs = songs.map { it.first },
-        songEntries = songs.map { UserPlaylistSong(it.first, it.second) },
+        songEntries = songs.map { UserPlaylistSong(it.first, it.second, it.third) },
         imageId = row[DownloadedUserPlaylists.imageId]?.value,
         creator = row[DownloadedUserPlaylists.creator].value,
         description = row[DownloadedUserPlaylists.description],

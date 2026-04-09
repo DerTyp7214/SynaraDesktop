@@ -1,11 +1,16 @@
 package dev.dertyp.synara.scrobble
 
+import dev.dertyp.PlatformUUID
 import dev.dertyp.core.cleanTitle
 import dev.dertyp.data.Album
+import dev.dertyp.data.MusicBrainzRecording
+import dev.dertyp.data.MusicBrainzRelease
 import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
+import dev.dertyp.services.metadata.IMusicBrainzService
 import dev.dertyp.synara.BuildConfig
+import dev.dertyp.synara.rpc.RpcServiceManager
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -13,13 +18,14 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.serialization.kotlinx.json.json
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 class MusicBrainzService(
     globalJson: Json,
-    private val logger: Logger
+    private val logger: Logger,
+    private val rpcServiceManager: RpcServiceManager,
+    private val remoteMusicBrainzService: IMusicBrainzService
 ) {
 
     private val json = Json(globalJson) {
@@ -35,9 +41,21 @@ class MusicBrainzService(
 
     private val mbBaseUrl = "https://musicbrainz.org/ws/2"
 
-    suspend fun getRecording(id: String): MbRecording? {
+    private fun isOffline(): Boolean {
+        return rpcServiceManager.connectionState.value != RpcServiceManager.ConnectionState.Authenticated
+    }
+
+    suspend fun getRecording(id: PlatformUUID): MusicBrainzRecording? {
+        if (!isOffline()) {
+            try {
+                return remoteMusicBrainzService.getRecording(id)
+            } catch (e: Exception) {
+                logger.error(LogTag.MUSICBRAINZ, "Error getting remote MusicBrainz recording for $id", e)
+            }
+        }
+
         return try {
-            val response: MbRecording = httpClient.get("$mbBaseUrl/recording/$id") {
+            val response: MusicBrainzRecording = httpClient.get("$mbBaseUrl/recording/$id") {
                 parameter("inc", "artist-credits+releases")
                 parameter("fmt", "json")
                 header("User-Agent", "Synara/${BuildConfig.VERSION} ( https://github.com/dertyp7214/synara )")
@@ -51,7 +69,7 @@ class MusicBrainzService(
         }
     }
 
-    suspend fun searchRecordings(query: String, limit: Int = 20): List<MbRecording> {
+    suspend fun searchRecordings(query: String, limit: Int = 20): List<MusicBrainzRecording> {
         return try {
             val response: MbSearchResponse = httpClient.get("$mbBaseUrl/recording") {
                 parameter("query", query)
@@ -67,7 +85,7 @@ class MusicBrainzService(
         }
     }
 
-    suspend fun searchMb(song: UserSong): MbRecording? {
+    suspend fun searchMb(song: UserSong): MusicBrainzRecording? {
         val queryParts = mutableListOf<String>()
         queryParts.add("recording:\"${song.title.cleanTitle()}\"")
         song.artists.forEach { queryParts.add("artist:\"${it.name}\"") }
@@ -98,7 +116,7 @@ class MusicBrainzService(
         }
     }
 
-    suspend fun searchAlbumMb(album: Album): MbRelease? {
+    suspend fun searchAlbumMb(album: Album): MusicBrainzRelease? {
         val queryParts = mutableListOf<String>()
         queryParts.add("release:\"${album.name.cleanTitle()}\"")
         album.artists.forEach { queryParts.add("artist:\"${it.name}\"") }
@@ -122,40 +140,12 @@ class MusicBrainzService(
     }
 
     @Serializable
-    data class MbSearchResponse(
-        val recordings: List<MbRecording>? = null
+    private data class MbSearchResponse(
+        val recordings: List<MusicBrainzRecording>? = null
     )
 
     @Serializable
-    data class MbReleaseSearchResponse(
-        val releases: List<MbRelease>? = null
-    )
-
-    @Serializable
-    data class MbRecording(
-        val id: String,
-        val title: String? = null,
-        @SerialName("artist-credit") val artistCredit: List<MbArtistCredit>? = null,
-        val length: Long? = null,
-        val releases: List<MbRelease>? = null,
-    )
-
-    @Serializable
-    data class MbArtistCredit(
-        val name: String? = null,
-        val artist: MbArtist? = null,
-        val joinphrase: String? = null
-    )
-
-    @Serializable
-    data class MbArtist(
-        val id: String,
-        val name: String? = null
-    )
-
-    @Serializable
-    data class MbRelease(
-        val id: String,
-        val title: String? = null
+    private data class MbReleaseSearchResponse(
+        val releases: List<MusicBrainzRelease>? = null
     )
 }

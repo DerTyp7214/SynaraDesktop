@@ -35,8 +35,9 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+            val synaraVersion = project(":synara").version.toString()
+            packageVersion = synaraVersion.split("-")[0]
             packageName = "Synara"
-            packageVersion = "1.0.0"
             
             val commonIcon = project(":synara").projectDir.resolve("src/commonMain/resources/icon.png")
             val synaraGeneratedIconsDir = project(":synara").layout.buildDirectory.dir("generated/icons")

@@ -1,4 +1,3 @@
-
 import java.net.URI
 
 plugins {
@@ -15,9 +14,19 @@ val prerelease = true
 val major = 1
 val minor = 0
 val patch = 0
-val buildMajor = 0
-val buildMinor = 7
-val buildPatch = 3
+val buildMajor = 1
+val buildMinor = 0
+val buildPatch = 0
+
+if (minor > 9 || patch > 9 || buildMajor > 99 || buildMinor > 99 || buildPatch > 99) {
+    throw GradleException("Version component too high: minor($minor), patch($patch), buildMajor($buildMajor), buildMinor($buildMinor), buildPatch($buildPatch)")
+}
+
+fun getVersionCode(): Int {
+    return (major * 100000000 + minor * 10000000 + patch * 1000000 + if (prerelease) (buildMajor * 10000 + buildMinor * 100 + buildPatch) else 999999).also {
+        if (it < 0) throw GradleException("versionCode overflow: $it")
+    }
+}
 
 fun getVersionName(): String {
     return "$major.$minor.$patch${if (prerelease) "-prerelease$buildMajor.$buildMinor.$buildPatch" else ""}"
@@ -106,6 +115,7 @@ kotlin {
                                     it.contains("createDistributable", ignoreCase = true)
                                 }}
                                 const val VERSION = "${getVersionName()}"
+                                const val VERSION_CODE = ${getVersionCode()}
                                 const val PRERELEASE = $prerelease
                             }
                             """.trimIndent()

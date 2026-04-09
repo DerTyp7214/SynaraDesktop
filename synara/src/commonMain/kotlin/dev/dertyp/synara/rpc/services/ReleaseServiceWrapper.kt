@@ -8,7 +8,7 @@ import dev.dertyp.services.models.RecentRelease
 import dev.dertyp.synara.rpc.RpcServiceManager
 
 class ReleaseServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manager), IReleaseService {
-    override suspend fun followArtist(musicBrainzId: String): Boolean {
+    override suspend fun followArtist(musicBrainzId: PlatformUUID): Boolean {
         return manager.getService<IReleaseService>().followArtist(musicBrainzId)
     }
 

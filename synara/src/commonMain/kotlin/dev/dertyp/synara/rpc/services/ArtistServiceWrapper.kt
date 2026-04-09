@@ -39,7 +39,7 @@ class ArtistServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(mana
         return manager.getService<IArtistService>().allArtists(page, pageSize)
     }
 
-    override suspend fun createArtist(name: String, isGroup: Boolean, about: String, musicBrainzId: String?): Artist {
+    override suspend fun createArtist(name: String, isGroup: Boolean, about: String, musicBrainzId: PlatformUUID?): Artist {
         return manager.getService<IArtistService>().createArtist(name, isGroup, about, musicBrainzId)
     }
 
@@ -51,7 +51,7 @@ class ArtistServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(mana
         return manager.getService<IArtistService>().fetchMusicBrainzId(id)
     }
 
-    override suspend fun setMusicBrainzId(id: PlatformUUID, musicBrainzId: String?): Artist? {
+    override suspend fun setMusicBrainzId(id: PlatformUUID, musicBrainzId: PlatformUUID?): Artist? {
         return manager.getService<IArtistService>().setMusicBrainzId(id, musicBrainzId)
     }
 

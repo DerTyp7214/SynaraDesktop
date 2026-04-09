@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import dev.dertyp.data.MusicBrainzRecording
 import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.scrobble.MusicBrainzService
 import dev.dertyp.synara.ui.SynaraIcons
@@ -31,12 +32,12 @@ fun MusicBrainzSearchDialog(
     isOpen: Boolean,
     onDismissRequest: () -> Unit,
     initialQuery: String,
-    onSelect: (MusicBrainzService.MbRecording) -> Unit,
+    onSelect: (MusicBrainzRecording) -> Unit,
     mbService: MusicBrainzService = koinInject()
 ) {
     val scope = rememberCoroutineScope()
     var query by remember(isOpen) { mutableStateOf(initialQuery) }
-    var results by remember { mutableStateOf<List<MusicBrainzService.MbRecording>>(emptyList()) }
+    var results by remember { mutableStateOf<List<MusicBrainzRecording>>(emptyList()) }
     var isSearching by remember { mutableStateOf(false) }
 
     LaunchedEffect(isOpen) {

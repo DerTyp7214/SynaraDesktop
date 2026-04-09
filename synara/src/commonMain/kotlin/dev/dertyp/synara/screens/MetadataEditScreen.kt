@@ -19,6 +19,7 @@ import coil3.compose.AsyncImage
 import dev.dertyp.PlatformUUID
 import dev.dertyp.core.joinArtists
 import dev.dertyp.data.Artist
+import dev.dertyp.data.MusicBrainzRecording
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.ISongService
 import dev.dertyp.synara.scrobble.MusicBrainzService
@@ -47,8 +48,8 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
         var song by remember { mutableStateOf<UserSong?>(null) }
         var artists by remember { mutableStateOf<List<Artist>>(emptyList()) }
         var lyrics by remember { mutableStateOf<List<String>>(emptyList()) }
-        var musicBrainzId by remember { mutableStateOf<String?>(null) }
-        var mbRecording by remember { mutableStateOf<MusicBrainzService.MbRecording?>(null) }
+        var musicBrainzId by remember { mutableStateOf<PlatformUUID?>(null) }
+        var mbRecording by remember { mutableStateOf<MusicBrainzRecording?>(null) }
         
         var showArtistsDialog by remember { mutableStateOf(false) }
         var showLyricsDialog by remember { mutableStateOf(false) }
@@ -241,7 +242,7 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
                                             }
                                         } else {
                                             Text(
-                                                text = musicBrainzId ?: "",
+                                                text = musicBrainzId?.toString() ?: "",
                                                 style = MaterialTheme.typography.bodySmall
                                             )
                                         }

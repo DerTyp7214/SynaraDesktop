@@ -59,13 +59,13 @@ fun RecentReleasesView(
     }
 
     LaunchedEffect(isExpanded, releases) {
-        if (isExpanded && releases.isNotEmpty() && releases.first().releaseId != lastSeenRecentReleaseId) {
-            Config.setLastSeenRecentReleaseId(releases.first().releaseId)
+        if (isExpanded && releases.isNotEmpty() && releases.first().releaseId.toString() != lastSeenRecentReleaseId) {
+            Config.setLastSeenRecentReleaseId(releases.first().releaseId.toString())
         }
     }
 
     val hasNewReleases = remember(releases, lastSeenRecentReleaseId) {
-        releases.isNotEmpty() && releases.first().releaseId != lastSeenRecentReleaseId
+        releases.isNotEmpty() && releases.first().releaseId.toString() != lastSeenRecentReleaseId
     }
 
     val groupedReleases = remember(releases) {
