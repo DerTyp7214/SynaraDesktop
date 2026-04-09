@@ -39,7 +39,7 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
         return manager.getService<ISongService>().byMusicBrainzId(musicBrainzId)
     }
 
-    override suspend fun byIds(ids: Collection<PlatformUUID>): PaginatedResponse<UserSong> {
+    override suspend fun byIds(ids: Collection<PlatformUUID>): List<UserSong> {
         return manager.getService<ISongService>().byIds(ids)
     }
 

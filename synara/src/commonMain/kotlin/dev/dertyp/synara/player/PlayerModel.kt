@@ -289,7 +289,7 @@ class PlayerModel(
                         rpcServiceManager.awaitAuthentication()
                         neededIds.chunked(50).forEach { chunk ->
                             val response = songService.byIds(chunk)
-                            songCache.putAll(response.data)
+                            songCache.putAll(response)
                         }
                     }
                 } catch (_: Exception) {
