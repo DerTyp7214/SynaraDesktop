@@ -398,7 +398,7 @@ private fun createMetadata(song: UserSong?): Map<String, Variant<*>> {
             val host = manager.host
             val port = manager.port
             if (host != null && port != null && song.coverId != null) {
-                m["mpris:artUrl"] = Variant("http://$host:$port/image/byId/${song.coverId}")
+                m["mpris:artUrl"] = Variant("http://$host:$port/image/imageData/${song.coverId}")
             } else {
                 song.coverId?.let {
                     m["mpris:artUrl"] =

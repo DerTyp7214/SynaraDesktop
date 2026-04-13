@@ -64,6 +64,17 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "1.0.3",
+                        date = "2026-04-13",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Improved, "Enhanced the core connection and stability between the application and the music service."),
+                            Change(ChangeType.Improved, "Added default paging to all lists (albums, artists, songs, playlists), making browsing smoother."),
+                            Change(ChangeType.Fixed, "Resolved an issue where album art was not correctly displayed in the Linux media controller."),
+                            Change(ChangeType.Improved, "Internal stability improvements and better error handling.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "1.0.2",
                         date = "2026-04-09",
                         isPrerelease = true,
