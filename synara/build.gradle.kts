@@ -15,7 +15,7 @@ val major = 1
 val minor = 0
 val patch = 0
 val buildMajor = 1
-val buildMinor = 1
+val buildMinor = 2
 val buildPatch = 0
 
 if (minor > 9 || patch > 9 || buildMajor > 99 || buildMinor > 99 || buildPatch > 99) {
@@ -133,6 +133,7 @@ kotlin {
 
                 // Audio (LWJGL OpenAL + FLAC decoding)
                 implementation(libs.lwjgl)
+                implementation(libs.lwjgl.opengl)
                 implementation(libs.lwjgl.openal)
                 implementation(libs.lwjgl.stb)
                 implementation(libs.jflac)
@@ -159,6 +160,7 @@ kotlin {
                 val platforms = listOf("linux", "windows", "macos", "macos-arm64")
                 platforms.forEach { platform ->
                     runtimeOnly("org.lwjgl:lwjgl::natives-$platform")
+                    runtimeOnly("org.lwjgl:lwjgl-opengl::natives-$platform")
                     runtimeOnly("org.lwjgl:lwjgl-openal::natives-$platform")
                     runtimeOnly("org.lwjgl:lwjgl-stb::natives-$platform")
                 }

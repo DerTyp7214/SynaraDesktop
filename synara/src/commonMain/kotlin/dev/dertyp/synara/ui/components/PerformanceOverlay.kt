@@ -17,14 +17,23 @@ import androidx.compose.ui.unit.dp
 import dev.dertyp.core.roundToNDecimals
 import dev.dertyp.synara.formatBytes
 import dev.dertyp.synara.ui.models.PerformanceMonitor
+import dev.dertyp.synara.viewmodels.GlobalStateModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import synara.synara.generated.resources.*
+import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.app
+import synara.synara.generated.resources.particle_count
+import synara.synara.generated.resources.particle_fps
+import synara.synara.generated.resources.per_core
+import synara.synara.generated.resources.ram
+import synara.synara.generated.resources.system
 
 @Composable
 fun PerformanceOverlay() {
     val monitor = koinInject<PerformanceMonitor>()
+    val globalStateModel = koinInject<GlobalStateModel>()
     val stats by monitor.stats.collectAsState()
+    val isPlayerExpanded by globalStateModel.isPlayerExpanded.collectAsState()
 
     Box(
         modifier = Modifier
@@ -49,6 +58,18 @@ fun PerformanceOverlay() {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.tertiary
             )
+            if (isPlayerExpanded) {
+                Text(
+                    "${stringResource(Res.string.particle_count)}: ${stats.particleCount}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "${stringResource(Res.string.particle_fps)}: ${stats.particleFps} / ${stats.maxFps}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

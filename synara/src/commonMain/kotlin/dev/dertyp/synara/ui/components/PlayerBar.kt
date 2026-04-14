@@ -1,14 +1,54 @@
 package dev.dertyp.synara.ui.components
 
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -18,7 +58,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.input.key.*
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.ui.input.pointer.onPointerEvent
@@ -41,13 +86,19 @@ import dev.dertyp.synara.theme.rememberCoverScheme
 import dev.dertyp.synara.ui.LocalWindowActions
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.menus.SongContextMenu
-import dev.dertyp.synara.ui.components.player.*
+import dev.dertyp.synara.ui.components.player.PlayerActions
+import dev.dertyp.synara.ui.components.player.PlayerControls
+import dev.dertyp.synara.ui.components.player.PlayerProgressBar
+import dev.dertyp.synara.ui.components.player.PlayerScrobbleIndicator
+import dev.dertyp.synara.ui.components.player.SongInfoSection
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import synara.synara.generated.resources.Res
 import synara.synara.generated.resources.volume
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -63,7 +114,7 @@ fun PlayerBar(
         if (isPlayingState) {
             value = true
         } else {
-            delay(50)
+            delay(50.milliseconds)
             value = false
         }
     }
@@ -117,7 +168,7 @@ fun PlayerBar(
 
     LaunchedEffect(isWaitingForPosition) {
         if (isWaitingForPosition) {
-            delay(1000)
+            delay(1.seconds)
             isWaitingForPosition = false
         }
     }
@@ -262,7 +313,7 @@ fun PlayerBar(
                         MaterialTheme.colorScheme.tertiary
                     )
 
-                    ParticleView(
+                    ParticleViewGpu(
                         modifier = Modifier.fillMaxSize(),
                         color = colorA.copy(alpha = .7f),
                         highlightColor = colorB,
@@ -680,7 +731,7 @@ fun VolumeControl(
         if (isHovered || isPopupHovered) {
             showPopup = true
         } else {
-            delay(150)
+            delay(150.milliseconds)
             showPopup = false
         }
     }

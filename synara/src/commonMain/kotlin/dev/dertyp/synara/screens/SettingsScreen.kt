@@ -2,12 +2,45 @@ package dev.dertyp.synara.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,7 +71,50 @@ import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import synara.synara.generated.resources.*
+import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.account
+import synara.synara.generated.resources.audio
+import synara.synara.generated.resources.audio_output_device
+import synara.synara.generated.resources.back
+import synara.synara.generated.resources.cancel
+import synara.synara.generated.resources.changelog
+import synara.synara.generated.resources.dark_theme_color
+import synara.synara.generated.resources.detach
+import synara.synara.generated.resources.enable_discord_rpc
+import synara.synara.generated.resources.enable_lastfm
+import synara.synara.generated.resources.enable_listenbrainz
+import synara.synara.generated.resources.enable_proxy
+import synara.synara.generated.resources.hide_on_close
+import synara.synara.generated.resources.icon_filled
+import synara.synara.generated.resources.icon_pack
+import synara.synara.generated.resources.icon_style
+import synara.synara.generated.resources.lang_english
+import synara.synara.generated.resources.lang_german
+import synara.synara.generated.resources.language
+import synara.synara.generated.resources.lastfm_api_key
+import synara.synara.generated.resources.lastfm_auth_title
+import synara.synara.generated.resources.lastfm_authenticated
+import synara.synara.generated.resources.lastfm_login
+import synara.synara.generated.resources.lastfm_login_failed
+import synara.synara.generated.resources.lastfm_password
+import synara.synara.generated.resources.lastfm_shared_secret
+import synara.synara.generated.resources.lastfm_username
+import synara.synara.generated.resources.light_theme_color
+import synara.synara.generated.resources.listenbrainz_token
+import synara.synara.generated.resources.login
+import synara.synara.generated.resources.logout
+import synara.synara.generated.resources.particle_multiplier
+import synara.synara.generated.resources.performance
+import synara.synara.generated.resources.proxy
+import synara.synara.generated.resources.scrobbling
+import synara.synara.generated.resources.settings
+import synara.synara.generated.resources.settings_scheduled_task_logs_title
+import synara.synara.generated.resources.show_performance_overlay
+import synara.synara.generated.resources.system_default
+import synara.synara.generated.resources.task_manager
+import synara.synara.generated.resources.use_pywal
+import synara.synara.generated.resources.use_song_color
+import synara.synara.generated.resources.window
 import kotlin.math.roundToInt
 
 class SettingsScreen : Screen {
@@ -816,8 +892,8 @@ class SettingsScreen : Screen {
                 Slider(
                     value = multiplier,
                     onValueChange = { onMultiplierChange(it) },
-                    valueRange = 0f..5f,
-                    steps = 49
+                    valueRange = 0f..10f,
+                    steps = 99
                 )
             }
         }

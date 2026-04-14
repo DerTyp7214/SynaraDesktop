@@ -33,9 +33,16 @@ data class PerformanceStats(
     val imageCacheSize: Long,
     val songCacheSize: Int,
     val songCacheMemory: Long,
-    val availableProcessors: Int
+    val availableProcessors: Int,
+    val particleCount: Int = 0,
+    val particleFps: Int = 0,
+    val maxFps: Int = 60
 )
 
 expect class PerformanceMonitor(songCache: SongCache) {
     val stats: StateFlow<PerformanceStats>
+    val isObserved: StateFlow<Boolean>
+
+    fun updateParticleStats(count: Int, fps: Int)
+    fun updateMaxFps(fps: Int)
 }

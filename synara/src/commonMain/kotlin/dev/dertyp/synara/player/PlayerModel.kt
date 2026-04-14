@@ -8,18 +8,34 @@ import dev.dertyp.data.PlaybackState
 import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.rpc.RpcServiceManager
-import dev.dertyp.synara.rpc.services.*
+import dev.dertyp.synara.rpc.services.AlbumServiceWrapper
+import dev.dertyp.synara.rpc.services.ArtistServiceWrapper
+import dev.dertyp.synara.rpc.services.SongServiceWrapper
+import dev.dertyp.synara.rpc.services.UserPlaylistServiceWrapper
+import dev.dertyp.synara.rpc.services.UserServiceWrapper
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.SettingsFactory
 import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.put
-import dev.dertyp.synara.takeAverage
 import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.utils.SynaraDispatchers
 import dev.dertyp.synara.utils.compress
 import dev.dertyp.synara.utils.decompress
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.decodeFromByteArray
@@ -29,7 +45,16 @@ import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
 import org.jetbrains.compose.resources.getString
-import synara.synara.generated.resources.*
+import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.added_to_playlist
+import synara.synara.generated.resources.added_to_playlist_item
+import synara.synara.generated.resources.added_to_queue
+import synara.synara.generated.resources.added_to_queue_item
+import synara.synara.generated.resources.favorite
+import synara.synara.generated.resources.play_next
+import synara.synara.generated.resources.playing_next_item
+import synara.synara.generated.resources.playlist_created
+import synara.synara.generated.resources.songs
 import kotlin.math.log10
 
 @Suppress("unused")
@@ -46,7 +71,7 @@ class PlayerModel(
     private val settings: Settings,
     private val snackbarManager: SnackbarManager,
     private val cbor: Cbor,
-    private val dispatchers: SynaraDispatchers,
+    dispatchers: SynaraDispatchers,
     settingsFactory: SettingsFactory,
 ) {
     private val modelDispatcher = dispatchers.createNamed("PlayerModel", 2)
@@ -98,11 +123,27 @@ class PlayerModel(
     val audioIntensity: StateFlow<Float> = audioPlayer.fftData
         .map { fft ->
             if (fft.isEmpty()) return@map 0f
-            val avgMagnitude = fft.takeAverage(5)
+            
+            var weightedSum = 0f
+            var weightTotal = 0f
+            val limit = if (fft.size < 5) fft.size else 5
+            for (i in 0 until limit) {
+                val freqWeight = (5 - i).toFloat().let { it * it }
+
+                val curvedValue = fft[i] * fft[i]
+                
+                weightedSum += curvedValue * freqWeight
+                weightTotal += freqWeight
+            }
+            
+            val avgPower = if (weightTotal > 0f) weightedSum / weightTotal else 0f
+
             val minDb = -90f
-            val maxDb = -20f
-            val db = if (avgMagnitude > 0.00003f) 20f * log10(avgMagnitude) else minDb
-            ((db - minDb) / (maxDb - minDb)).coerceIn(0f, 1f)
+            val maxDb = -10f
+            val db = if (avgPower > 1e-9f) 10f * log10(avgPower) else minDb
+            val normalized = ((db - minDb) / (maxDb - minDb)).coerceIn(0f, 1f)
+
+            normalized * normalized
         }
         .stateIn(scope, SharingStarted.Lazily, 0f)
 

@@ -36,9 +36,11 @@ import dev.dertyp.synara.theme.isAppDark
 import dev.dertyp.synara.ui.components.SynaraTextField
 import dev.dertyp.synara.ui.components.SynaraTray
 import dev.dertyp.synara.ui.components.WindowDraggableArea
+import dev.dertyp.synara.ui.models.PerformanceMonitor
 import dev.dertyp.synara.utils.OSUtils
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.skia.*
+import org.koin.core.context.GlobalContext
 import org.lwjgl.glfw.Callbacks.glfwFreeCallbacks
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.opengl.GL
@@ -46,6 +48,7 @@ import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.system.MemoryUtil.NULL
 import kotlin.system.exitProcess
 
+@Suppress("DEPRECATION")
 @OptIn(ExperimentalComposeUiApi::class)
 private class GlfwTextInputService : PlatformTextInputService {
     var onEditCommand: ((List<EditCommand>) -> Unit)? = null
@@ -277,12 +280,19 @@ fun runTransparentWindow(
     val clipboard = GlfwClipboard(windowHandle)
     val clipboardManager = GlfwClipboardManager(windowHandle)
 
+    val performanceMonitor = try {
+        GlobalContext.get().get<PerformanceMonitor>()
+    } catch (_: Exception) {
+        null
+    }
+
     var scenePtr: ComposeScene? = null
     val platformContext = object : PlatformContext.Empty() {
         override val windowInfo: WindowInfo = object : WindowInfo {
             override val isWindowFocused: Boolean get() = isWindowFocused
             override val containerSize: IntSize get() = scenePtr?.size ?: IntSize.Zero
         }
+        @Suppress("DEPRECATION")
         override val textInputService: PlatformTextInputService = textInputService
 
         override fun setPointerIcon(pointerIcon: PointerIcon) {
@@ -549,7 +559,47 @@ fun runTransparentWindow(
     var windowWidth = width
     var windowHeight = height
 
+    var lastMonitor: Long = NULL
+
     while (!glfwWindowShouldClose(windowHandle)) {
+        stackPush().use { stack ->
+            val wx = stack.mallocInt(1)
+            val wy = stack.mallocInt(1)
+            val ww = stack.mallocInt(1)
+            val wh = stack.mallocInt(1)
+            glfwGetWindowPos(windowHandle, wx, wy)
+            glfwGetWindowSize(windowHandle, ww, wh)
+
+            val centerX = wx.get(0) + ww.get(0) / 2
+            val centerY = wy.get(0) + wh.get(0) / 2
+
+            val monitors = glfwGetMonitors()
+            if (monitors != null) {
+                var currentMonitor = glfwGetPrimaryMonitor()
+                for (i in 0 until monitors.capacity()) {
+                    val m = monitors.get(i)
+                    val mx = stack.mallocInt(1)
+                    val my = stack.mallocInt(1)
+                    glfwGetMonitorPos(m, mx, my)
+                    val vidMode = glfwGetVideoMode(m) ?: continue
+                    if (centerX >= mx.get(0) && centerX < mx.get(0) + vidMode.width() &&
+                        centerY >= my.get(0) && centerY < my.get(0) + vidMode.height()
+                    ) {
+                        currentMonitor = m
+                        break
+                    }
+                }
+
+                if (currentMonitor != lastMonitor) {
+                    val vidMode = glfwGetVideoMode(currentMonitor)
+                    if (vidMode != null) {
+                        performanceMonitor?.updateMaxFps(vidMode.refreshRate())
+                    }
+                    lastMonitor = currentMonitor
+                }
+            }
+        }
+
         if (isVisible != lastVisibleState) {
             if (isVisible) {
                 glfwShowWindow(windowHandle)

@@ -192,6 +192,11 @@
     <string name="items_count">%1$d items</string>
     <string name="thread_id">ID</string>
     <string name="ram">RAM</string>
+    <string name="particle_renderer">Particle Renderer</string>
+    <string name="particle_threads">Particle Threads</string>
+    <string name="particle_load">Particle Load</string>
+    <string name="particle_count">Particle Count</string>
+    <string name="particle_fps">Particle FPS</string>
 
     <!-- Proxy -->
     <string name="proxy">Proxy</string>

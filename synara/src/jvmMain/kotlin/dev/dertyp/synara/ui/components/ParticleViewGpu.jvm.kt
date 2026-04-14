@@ -2,8 +2,8 @@ package dev.dertyp.synara.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
@@ -11,7 +11,6 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -20,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.skiaCanvas
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -31,8 +31,9 @@ import dev.dertyp.synara.ui.models.PerformanceMonitor
 import dev.dertyp.synara.utils.OSUtils
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.delay
+import org.jetbrains.skia.BlendMode
 import org.jetbrains.skia.Paint
-import org.koin.compose.koinInject
+import org.jetbrains.skia.VertexMode
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.max
@@ -43,16 +44,16 @@ import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
-fun ParticleView(
-    modifier: Modifier = Modifier,
-    color: Color = MaterialTheme.colorScheme.onSurface,
-    highlightColor: Color = MaterialTheme.colorScheme.onSurface,
-    center: State<Offset> = mutableStateOf(Offset.Unspecified),
-    emit: State<Boolean> = mutableStateOf(true),
-    centerResolver: SizeResolver? = null,
-    playerModel: PlayerModel = koinInject(),
-    globalStateModel: GlobalStateModel = koinInject(),
-    performanceMonitor: PerformanceMonitor = koinInject(),
+actual fun ParticleViewGpu(
+    modifier: Modifier,
+    color: Color,
+    highlightColor: Color,
+    center: State<Offset>,
+    emit: State<Boolean>,
+    centerResolver: SizeResolver?,
+    playerModel: PlayerModel,
+    globalStateModel: GlobalStateModel,
+    performanceMonitor: PerformanceMonitor,
 ) {
     val isPlaying by playerModel.isPlaying.collectAsState()
     val isPlayerExpanded by globalStateModel.isPlayerExpanded.collectAsState()
@@ -136,7 +137,7 @@ fun ParticleView(
 
                 val target = if (emitParticles) audioIntensity else 0f
                 val lerpFactor = (deltaMillis / 12.5f).coerceIn(0f, 1f)
-                val alpha = if (target > smoothedIntensity) 1f - 0.25f.pow(lerpFactor) else 1f - 0.90f.pow(lerpFactor)
+                val alpha = if (target > smoothedIntensity) 1f - 0.15f.pow(lerpFactor) else 1f - 0.90f.pow(lerpFactor)
                 smoothedIntensity += (target - smoothedIntensity) * alpha
 
                 val normalizedDt = (dt * 60f).coerceIn(0f, 2f)
@@ -207,6 +208,34 @@ fun ParticleView(
 
     if (activeCount == 0 && !isPlayerExpanded) return
 
+    val paint = remember {
+        Paint().apply {
+            isAntiAlias = false
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            paint.close()
+        }
+    }
+
+    val numBuckets = 100
+    val bucketCounts = remember { IntArray(numBuckets) }
+    val bucketStarts = remember { IntArray(numBuckets + 1) }
+    val sortedIndices = remember(particleCap) { IntArray(particleCap) }
+    val bucketPositions = remember(particleCap) { FloatArray(particleCap * 36) }
+
+    val hexOffsets = remember {
+        FloatArray(12).apply {
+            for (i in 0 until 6) {
+                val angle = i * PI.toFloat() / 3f
+                this[i * 2] = cos(angle)
+                this[i * 2 + 1] = sin(angle)
+            }
+        }
+    }
+
     Canvas(
         modifier = modifier
             .fillMaxSize()
@@ -232,43 +261,87 @@ fun ParticleView(
         val botB = highlightColor.blue
         val botA = highlightColor.alpha
 
-        val skiaCanvas = drawContext.canvas.skiaCanvas
+        drawIntoCanvas { canvas ->
+            val skiaCanvas = canvas.skiaCanvas
 
-        val paint = Paint().apply {
-            isAntiAlias = false
-        }
+            bucketCounts.fill(0)
 
-        for (i in 0 until activeCount) {
-            val life = particleLife[i].coerceIn(0f, 1f)
-
-            val curTopA = topA * life
-            val outA = curTopA + botA * (1f - curTopA)
-
-            val outR: Float
-            val outG: Float
-            val outB: Float
-            if (outA > 0f) {
-                val invTopA = 1f - curTopA
-                outR = (topR * curTopA + botR * botA * invTopA) / outA
-                outG = (topG * curTopA + botG * botA * invTopA) / outA
-                outB = (topB * curTopA + botB * botA * invTopA) / outA
-            } else {
-                outR = 0f; outG = 0f; outB = 0f
+            for (i in 0 until activeCount) {
+                val bucket = (particleLife[i].coerceIn(0f, 0.999f) * numBuckets).toInt()
+                bucketCounts[bucket]++
             }
 
-            val argb = ((outA * 255f + 0.5f).toInt() shl 24) or
-                    ((outR * 255f + 0.5f).toInt() shl 16) or
-                    ((outG * 255f + 0.5f).toInt() shl 8) or
-                    (outB * 255f + 0.5f).toInt()
+            bucketStarts[0] = 0
+            for (b in 0 until numBuckets) {
+                bucketStarts[b + 1] = bucketStarts[b] + bucketCounts[b]
+            }
 
-            paint.color = argb
+            val currentOffsets = bucketCounts.copyOf()
+            currentOffsets.fill(0)
+            for (i in 0 until activeCount) {
+                val bucket = (particleLife[i].coerceIn(0f, 0.999f) * numBuckets).toInt()
+                val pos = bucketStarts[bucket] + currentOffsets[bucket]
+                sortedIndices[pos] = i
+                currentOffsets[bucket]++
+            }
 
-            skiaCanvas.drawCircle(
-                particleX[i],
-                particleY[i],
-                pSize * life,
-                paint
-            )
+            for (b in 0 until numBuckets) {
+                val count = bucketCounts[b]
+                if (count == 0) continue
+
+                val start = bucketStarts[b]
+                val midLife = (b + 0.5f) / numBuckets
+
+                val curTopA = topA * midLife
+                val outA = curTopA + botA * (1f - curTopA)
+                
+                if (outA > 0f) {
+                    val invTopA = 1f - curTopA
+                    val outR = (topR * curTopA + botR * botA * invTopA) / outA
+                    val outG = (topG * curTopA + botG * botA * invTopA) / outA
+                    val outB = (topB * curTopA + botB * botA * invTopA) / outA
+                    
+                    val rInt = (outR * 255f + 0.5f).toInt().coerceIn(0, 255)
+                    val gInt = (outG * 255f + 0.5f).toInt().coerceIn(0, 255)
+                    val bInt = (outB * 255f + 0.5f).toInt().coerceIn(0, 255)
+                    val aInt = (outA * 255f + 0.5f).toInt().coerceIn(0, 255)
+                    paint.color = (aInt shl 24) or (rInt shl 16) or (gInt shl 8) or bInt
+                } else {
+                    paint.color = 0
+                }
+
+                val radius = pSize * midLife
+                var vIdx = 0
+
+                for (i in 0 until count) {
+                    val pIdx = sortedIndices[start + i]
+                    val x = particleX[pIdx]
+                    val y = particleY[pIdx]
+
+                    for (j in 0 until 6) {
+                        val nextJ = (j + 1) % 6
+
+                        bucketPositions[vIdx++] = x
+                        bucketPositions[vIdx++] = y
+
+                        bucketPositions[vIdx++] = x + hexOffsets[j * 2] * radius
+                        bucketPositions[vIdx++] = y + hexOffsets[j * 2 + 1] * radius
+
+                        bucketPositions[vIdx++] = x + hexOffsets[nextJ * 2] * radius
+                        bucketPositions[vIdx++] = y + hexOffsets[nextJ * 2 + 1] * radius
+                    }
+                }
+
+                skiaCanvas.drawVertices(
+                    VertexMode.TRIANGLES,
+                    bucketPositions.copyOfRange(0, vIdx),
+                    null,
+                    null,
+                    null,
+                    BlendMode.SRC_OVER,
+                    paint
+                )
+            }
         }
     }
 }

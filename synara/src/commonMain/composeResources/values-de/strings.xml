@@ -190,6 +190,11 @@
     <string name="items_count">%1$d Einträge</string>
     <string name="thread_id">ID</string>
     <string name="ram">RAM</string>
+    <string name="particle_renderer">Partikel-Renderer</string>
+    <string name="particle_threads">Partikel-Threads</string>
+    <string name="particle_load">Partikel-Auslastung</string>
+    <string name="particle_count">Partikel-Anzahl</string>
+    <string name="particle_fps">Partikel-FPS</string>
 
     <!-- Album Versions -->
     <string name="album_versions">Albumversionen</string>
