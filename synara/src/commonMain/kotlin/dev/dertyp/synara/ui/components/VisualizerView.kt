@@ -46,7 +46,6 @@ fun VisualizerView(
         val barCount = (widthPx / (targetBarWidthPx + spacingPx)).toInt().coerceAtLeast(1)
         val actualBarWidth = (widthPx - (barCount - 1) * spacingPx) / barCount
 
-        val smoothingFactor = 0.75f
         val smoothedHeights = remember(barCount) { FloatArray(barCount) { minHeightPx } }
         val maxHeightDuration = remember(barCount) { LongArray(barCount) }
         val flameIntensities = remember(barCount) { FloatArray(barCount) }
@@ -58,7 +57,7 @@ fun VisualizerView(
             while (true) {
                 var hasChanges = false
                 withFrameMillis { frameTime ->
-                    val delta = if (lastFrameTime == 0L) 0L else frameTime - lastFrameTime
+                    val delta = if (lastFrameTime == 0L) 16L else frameTime - lastFrameTime
                     lastFrameTime = frameTime
 
                     val currentFft = playerModel.fftData.value
@@ -71,6 +70,13 @@ fun VisualizerView(
 
                     val minDb = -60f
                     val maxDb = -20f
+
+                    // Time-independent smoothing factors
+                    // Rise is fast (80% in 1 frame @ 80fps) to ensure short peaks are not missed
+                    // Fall is smooth for a fluid, natural decay
+                    val lerpFactor = (delta / 12.5f).coerceIn(0f, 1f)
+                    val riseAlpha = 1f - 0.2f.pow(lerpFactor) 
+                    val fallAlpha = 1f - 0.88f.pow(lerpFactor)
 
                     for (i in 0 until halfCount) {
                         var maxMagnitude = 0f
@@ -94,41 +100,31 @@ fun VisualizerView(
                         val leftIdx = floor(centerIndex - i).toInt()
                         val rightIdx = ceil(centerIndex + i).toInt()
 
-                        if (leftIdx in 0 until barCount) {
-                            val prev = smoothedHeights[leftIdx]
-                            smoothedHeights[leftIdx] = (prev * smoothingFactor) + (targetHeight * (1f - smoothingFactor))
+                        fun updateBar(idx: Int) {
+                            if (idx in 0 until barCount) {
+                                val prev = smoothedHeights[idx]
+                                val alpha = if (targetHeight > prev) riseAlpha else fallAlpha
+                                smoothedHeights[idx] = prev + (targetHeight - prev) * alpha
 
-                            if (smoothedHeights[leftIdx] >= heightPx * 0.98f) {
-                                maxHeightDuration[leftIdx] += delta
-                                if (maxHeightDuration[leftIdx] > minMaxHeightDuration) {
-                                    flameIntensities[leftIdx] = (flameIntensities[leftIdx] + delta / 300f).coerceAtMost(1f)
+                                if (smoothedHeights[idx] >= heightPx * 0.98f) {
+                                    maxHeightDuration[idx] += delta
+                                    if (maxHeightDuration[idx] > minMaxHeightDuration) {
+                                        flameIntensities[idx] = (flameIntensities[idx] + delta / 300f).coerceAtMost(1f)
+                                    }
+                                } else if (smoothedHeights[idx] < heightPx * 0.80f) {
+                                    maxHeightDuration[idx] = 0L
+                                    flameIntensities[idx] = (flameIntensities[idx] - delta / 500f).coerceAtLeast(0f)
+                                } else {
+                                    maxHeightDuration[idx] = 0L
                                 }
-                            } else if (smoothedHeights[leftIdx] < heightPx * 0.80f) {
-                                maxHeightDuration[leftIdx] = 0L
-                                flameIntensities[leftIdx] = (flameIntensities[leftIdx] - delta / 500f).coerceAtLeast(0f)
-                            } else {
-                                maxHeightDuration[leftIdx] = 0L
-                            }
 
-                            if (abs(smoothedHeights[leftIdx] - prev) > 0.1f) hasChanges = true
+                                if (abs(smoothedHeights[idx] - prev) > 0.1f) hasChanges = true
+                            }
                         }
-                        if (rightIdx in 0 until barCount && rightIdx != leftIdx) {
-                            val prev = smoothedHeights[rightIdx]
-                            smoothedHeights[rightIdx] = (prev * smoothingFactor) + (targetHeight * (1f - smoothingFactor))
 
-                            if (smoothedHeights[rightIdx] >= heightPx * 0.98f) {
-                                maxHeightDuration[rightIdx] += delta
-                                if (maxHeightDuration[rightIdx] > minMaxHeightDuration) {
-                                    flameIntensities[rightIdx] = (flameIntensities[rightIdx] + delta / 300f).coerceAtMost(1f)
-                                }
-                            } else if (smoothedHeights[rightIdx] < heightPx * 0.80f) {
-                                maxHeightDuration[rightIdx] = 0L
-                                flameIntensities[rightIdx] = (flameIntensities[rightIdx] - delta / 500f).coerceAtLeast(0f)
-                            } else {
-                                maxHeightDuration[rightIdx] = 0L
-                            }
-
-                            if (abs(smoothedHeights[rightIdx] - prev) > 0.1f) hasChanges = true
+                        updateBar(leftIdx)
+                        if (rightIdx != leftIdx) {
+                            updateBar(rightIdx)
                         }
                     }
                 }

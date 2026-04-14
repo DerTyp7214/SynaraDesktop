@@ -8,7 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.skiaCanvas
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import coil3.size.SizeResolver
@@ -22,6 +22,7 @@ import org.jetbrains.skia.Paint
 import org.koin.compose.koinInject
 import kotlin.math.*
 import kotlin.random.Random
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun ParticleView(
@@ -86,25 +87,32 @@ fun ParticleView(
             if (value != newValue) value = newValue
 
             when {
-                isPlayerExpanded && value == 0 -> delay(32)
-                else -> delay(250)
+                isPlayerExpanded && value == 0 -> delay(32.milliseconds)
+                else -> delay(250.milliseconds)
             }
         }
     }
 
     LaunchedEffect(particleCap) {
         var frameTime = 0L
+        var smoothedIntensity = 0f
 
         while (true) {
             withFrameNanos { time ->
                 val dt = if (frameTime == 0L) 0f else (time - frameTime) / 1E9f
-                val normalizedDt = (dt * 60f).coerceIn(0f, 2f)
+                val deltaMillis = dt * 1000f
                 frameTime = time
 
+                val target = if (emitParticles) audioIntensity else 0f
+                val lerpFactor = (deltaMillis / 12.5f).coerceIn(0f, 1f)
+                val alpha = if (target > smoothedIntensity) 1f - 0.25f.pow(lerpFactor) else 1f - 0.90f.pow(lerpFactor)
+                smoothedIntensity += (target - smoothedIntensity) * alpha
+
+                val normalizedDt = (dt * 60f).coerceIn(0f, 2f)
                 var currentCount = activeCount
 
                 if (emitParticles && particleMultiplier > 0) {
-                    val intensity = audioIntensity
+                    val intensity = smoothedIntensity
                     val baseSpeed = (2..5).random() * intensity
                     val speed = baseSpeed * speedMultiplier * .6f
                     val velocity = (speed * speed * speed / 4f).coerceAtLeast(1f)
@@ -193,7 +201,7 @@ fun ParticleView(
         val botB = highlightColor.blue
         val botA = highlightColor.alpha
 
-        val skiaCanvas = drawContext.canvas.nativeCanvas
+        val skiaCanvas = drawContext.canvas.skiaCanvas
 
         val paint = Paint().apply {
             isAntiAlias = false

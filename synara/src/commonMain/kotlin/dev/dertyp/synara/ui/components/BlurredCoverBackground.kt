@@ -2,7 +2,6 @@ package dev.dertyp.synara.ui.components
 
 import androidx.collection.LruCache
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -103,18 +102,32 @@ fun BlurredCoverBackground(
         ) { coverId ->
             val coverLuminance = rememberCoverLuminance(coverId)
 
-            val smoothedAudioIntensity by animateFloatAsState(
-                targetValue = if (isPlaying) audioIntensity else 0f,
-                animationSpec = tween(if (isPlaying) 200 else 400),
-                label = "audioIntensityAnimation"
-            )
+            var manualSmoothedIntensity by remember { mutableFloatStateOf(0f) }
+            LaunchedEffect(audioIntensity, isPlaying) {
+                var lastTime = 0L
+                while (true) {
+                    withFrameMillis { time ->
+                        val dt = if (lastTime == 0L) 16L else time - lastTime
+                        lastTime = time
+
+                        val target = if (isPlaying) audioIntensity else 0f
+                        val lerpFactor = (dt / 16.67f).coerceIn(0f, 1f)
+
+                        val riseAlpha = 1f - 0.70f.pow(lerpFactor) 
+                        val fallAlpha = 1f - 0.96f.pow(lerpFactor) 
+
+                        val alpha = if (target > manualSmoothedIntensity) riseAlpha else fallAlpha
+                        manualSmoothedIntensity += (target - manualSmoothedIntensity) * alpha
+                    }
+                }
+            }
 
             val baseBrightness = (0.35f + (0.25f - coverLuminance) * 0.5f).coerceIn(0.1f, 0.6f)
 
             val audioModifier = if (audioReactive) {
                 Modifier.adjustColors(
-                    saturation = .4f + smoothedAudioIntensity.pow(2),
-                    brightness = baseBrightness + smoothedAudioIntensity.pow(2) * (0.3f * (1f - coverLuminance * 0.5f))
+                    saturation = .4f + manualSmoothedIntensity.pow(2),
+                    brightness = baseBrightness + manualSmoothedIntensity.pow(2) * (0.3f * (1f - coverLuminance * 0.5f))
                 )
             } else {
                 Modifier.adjustColors(

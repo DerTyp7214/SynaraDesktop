@@ -19,6 +19,7 @@ import java.nio.ByteBuffer
 import java.nio.IntBuffer
 import java.nio.ShortBuffer
 import java.util.ArrayDeque
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalCoroutinesApi::class, DelicateCoroutinesApi::class)
 class JvmAudioPlayer(
@@ -232,19 +233,22 @@ class JvmAudioPlayer(
                 val channels = session.channels
                 val alFormat = if (channels == 1) AL_FORMAT_MONO16 else AL_FORMAT_STEREO16
                 var totalSamplesPlayedBase = (startTimeMs * sampleRate) / 1000
-                
-                // FFT synchronization queue
+
                 val fftQueue = ArrayDeque<Pair<Long, FloatArray>>()
                 var totalSamplesQueued = totalSamplesPlayedBase
 
                 val pcmChannel = session.pcmFlow.produceIn(this)
 
-                // Initial buffering
                 for (i in 0 until numBuffers) {
                     val buffer = pcmChannel.receiveCatching().getOrNull() ?: break
-                    val mags = processFft(buffer, channels)
-                    fftQueue.add(totalSamplesQueued to mags)
-                    totalSamplesQueued += buffer.remaining() / channels
+                    val samplesInThisBuffer = buffer.remaining() / channels
+
+                    val fftStepSamples = 256
+                    for (offset in 0 until samplesInThisBuffer step fftStepSamples) {
+                        val mags = processFftAt(buffer, channels, offset)
+                        fftQueue.add((totalSamplesQueued + offset) to mags)
+                    }
+                    totalSamplesQueued += samplesInThisBuffer
                     
                     alBufferData(buffers.get(i), alFormat, buffer, sampleRate)
                     alSourceQueueBuffers(sourceId, buffers.get(i))
@@ -271,9 +275,13 @@ class JvmAudioPlayer(
 
                         val pcmData = pcmChannel.receiveCatching().getOrNull()
                         if (pcmData != null) {
-                            val mags = processFft(pcmData, channels)
-                            fftQueue.add(totalSamplesQueued to mags)
-                            totalSamplesQueued += pcmData.remaining() / channels
+                            val samplesInThisBuffer = pcmData.remaining() / channels
+                            val fftStepSamples = 256
+                            for (offset in 0 until samplesInThisBuffer step fftStepSamples) {
+                                val mags = processFftAt(pcmData, channels, offset)
+                                fftQueue.add((totalSamplesQueued + offset) to mags)
+                            }
+                            totalSamplesQueued += samplesInThisBuffer
                             
                             alBufferData(bufferId, alFormat, pcmData, sampleRate)
                             alSourceQueueBuffers(sourceId, bufferId)
@@ -315,7 +323,7 @@ class JvmAudioPlayer(
                         break
                     }
 
-                    delay(10)
+                    delay(1.milliseconds)
                 }
 
                 if (isActive && alGetSourcei(sourceId, AL_BUFFERS_QUEUED) == 0) {
@@ -333,11 +341,14 @@ class JvmAudioPlayer(
         }
     }
 
-    private fun processFft(buffer: ShortBuffer, channels: Int): FloatArray {
-        val size = buffer.remaining()
-        val pcm = ShortArray(size / channels)
-        val startPos = buffer.position()
-        for (i in pcm.indices) {
+    private fun processFftAt(buffer: ShortBuffer, channels: Int, sampleOffset: Int): FloatArray {
+        val fftSize = 1024 // Matching FftAnalyzer's default bufferSize
+        val pcm = ShortArray(fftSize)
+        val startPos = buffer.position() + (sampleOffset * channels)
+        val samplesInFullBuffer = buffer.remaining() / channels
+        val samplesToRead = (samplesInFullBuffer - sampleOffset).coerceAtMost(fftSize)
+        
+        for (i in 0 until samplesToRead) {
             if (channels == 2) {
                 val left = buffer.get(startPos + i * 2)
                 val right = buffer.get(startPos + i * 2 + 1)

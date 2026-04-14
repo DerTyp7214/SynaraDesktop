@@ -64,6 +64,17 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "1.1.0",
+                        date = "2026-04-14",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Improved, "Significantly smoother and more fluid background glow and particle effects."),
+                            Change(ChangeType.Improved, "Enhanced visualizer responsiveness with faster peak detection and natural decay."),
+                            Change(ChangeType.Improved, "Tighter synchronization between audio and visuals through high-frequency frequency analysis."),
+                            Change(ChangeType.Improved, "Lower latency audio playback for a more responsive experience.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "1.0.3",
                         date = "2026-04-13",
                         isPrerelease = true,
