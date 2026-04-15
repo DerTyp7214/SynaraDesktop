@@ -40,8 +40,13 @@
     <!-- Audio -->
     <string name="audio">Audio</string>
     <string name="audio_output_device">Audio-Ausgabegerät</string>
+    <string name="audio_buffer_size">Audio-Puffergröße (Quantum)</string>
+    <string name="audio_buffer_count">Audio-Pufferanzahl</string>
+    <string name="audio_target_sample_rate">Ziel-Abtastrate (Sample Rate)</string>
+    <string name="restart_required">Neustart erforderlich, um Änderungen zu übernehmen</string>
 
     <!-- Theme -->
+    <string name="theme">Theme</string>
     <string name="light_theme_color">Helle Theme-Farbe</string>
     <string name="dark_theme_color">Dunkle Theme-Farbe</string>
     <string name="select_color">Farbe auswählen</string>

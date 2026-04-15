@@ -122,6 +122,15 @@ object Config : KoinComponent {
     private val _audioOutputDevice = MutableStateFlow(settings.getOrNull(SettingKey.AudioOutputDevice))
     val audioOutputDevice: StateFlow<String?> = _audioOutputDevice.asStateFlow()
 
+    private val _audioBufferSize = MutableStateFlow(settings.getOrNull(SettingKey.AudioBufferSize))
+    val audioBufferSize: StateFlow<Int?> = _audioBufferSize.asStateFlow()
+
+    private val _audioBufferCount = MutableStateFlow(settings.getOrNull(SettingKey.AudioBufferCount))
+    val audioBufferCount: StateFlow<Int?> = _audioBufferCount.asStateFlow()
+
+    private val _audioTargetSampleRate = MutableStateFlow(settings.getOrNull(SettingKey.AudioTargetSampleRate))
+    val audioTargetSampleRate: StateFlow<Int?> = _audioTargetSampleRate.asStateFlow()
+
     fun setDarkTheme(isDark: Boolean) {
         _darkTheme.value = isDark
         settings.putBoolean("dark_theme", isDark)
@@ -288,5 +297,20 @@ object Config : KoinComponent {
     fun setAudioOutputDevice(device: String?) {
         _audioOutputDevice.value = device
         settings.put(SettingKey.AudioOutputDevice, device)
+    }
+
+    fun setAudioBufferSize(size: Int?) {
+        _audioBufferSize.value = size
+        settings.put(SettingKey.AudioBufferSize, size)
+    }
+
+    fun setAudioBufferCount(count: Int?) {
+        _audioBufferCount.value = count
+        settings.put(SettingKey.AudioBufferCount, count)
+    }
+
+    fun setAudioTargetSampleRate(rate: Int?) {
+        _audioTargetSampleRate.value = rate
+        settings.put(SettingKey.AudioTargetSampleRate, rate)
     }
 }

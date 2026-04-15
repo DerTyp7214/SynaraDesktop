@@ -74,7 +74,10 @@ import org.koin.compose.koinInject
 import synara.synara.generated.resources.Res
 import synara.synara.generated.resources.account
 import synara.synara.generated.resources.audio
+import synara.synara.generated.resources.audio_buffer_count
+import synara.synara.generated.resources.audio_buffer_size
 import synara.synara.generated.resources.audio_output_device
+import synara.synara.generated.resources.audio_target_sample_rate
 import synara.synara.generated.resources.back
 import synara.synara.generated.resources.cancel
 import synara.synara.generated.resources.changelog
@@ -106,12 +109,14 @@ import synara.synara.generated.resources.logout
 import synara.synara.generated.resources.particle_multiplier
 import synara.synara.generated.resources.performance
 import synara.synara.generated.resources.proxy
+import synara.synara.generated.resources.restart_required
 import synara.synara.generated.resources.scrobbling
 import synara.synara.generated.resources.settings
 import synara.synara.generated.resources.settings_scheduled_task_logs_title
 import synara.synara.generated.resources.show_performance_overlay
 import synara.synara.generated.resources.system_default
 import synara.synara.generated.resources.task_manager
+import synara.synara.generated.resources.theme
 import synara.synara.generated.resources.use_pywal
 import synara.synara.generated.resources.use_song_color
 import synara.synara.generated.resources.window
@@ -208,6 +213,39 @@ class SettingsScreen : Screen {
                             playerModel.setOutputDevice(it)
                             Config.setAudioOutputDevice(it)
                         }
+                    )
+
+                    val audioBufferSize by Config.audioBufferSize.collectAsState()
+                    AudioBufferSizeSetting(
+                        currentSize = audioBufferSize,
+                        onSizeSelected = { Config.setAudioBufferSize(it) }
+                    )
+
+                    val audioBufferCount by Config.audioBufferCount.collectAsState()
+                    AudioBufferCountSetting(
+                        currentCount = audioBufferCount,
+                        onCountChanged = { Config.setAudioBufferCount(it) }
+                    )
+
+                    val audioTargetSampleRate by Config.audioTargetSampleRate.collectAsState()
+                    AudioTargetSampleRateSetting(
+                        currentRate = audioTargetSampleRate,
+                        onRateSelected = { Config.setAudioTargetSampleRate(it) }
+                    )
+
+                    if (audioBufferSize != null || audioBufferCount != null || audioTargetSampleRate != null) {
+                        Text(
+                            text = stringResource(Res.string.restart_required),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                    }
+
+                    Text(
+                        text = stringResource(Res.string.theme),
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(top = 8.dp)
                     )
 
                     if (PywalLoader.isSupported()) {
@@ -827,6 +865,156 @@ class SettingsScreen : Screen {
                         text = { Text(device) },
                         onClick = {
                             onDeviceSelected(device)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun AudioBufferSizeSetting(currentSize: Int?, onSizeSelected: (Int?) -> Unit) {
+        var expanded by remember { mutableStateOf(false) }
+        val sizes = listOf(
+            null to stringResource(Res.string.system_default),
+            128 to "128",
+            256 to "256",
+            512 to "512",
+            1024 to "1024",
+            2048 to "2048",
+            4096 to "4096"
+        )
+
+        Box {
+            SettingsCard(onClick = { expanded = true }) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(Res.string.audio_buffer_size),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = sizes.find { it.first == currentSize }?.second
+                                ?: stringResource(Res.string.system_default),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Icon(
+                        imageVector = SynaraIcons.ChevronDown.get(),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            SynaraMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.widthIn(min = 200.dp)
+            ) {
+                sizes.forEach { (size, label) ->
+                    DropdownMenuItem(
+                        text = { Text(label) },
+                        onClick = {
+                            onSizeSelected(size)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun AudioBufferCountSetting(currentCount: Int?, onCountChanged: (Int?) -> Unit) {
+        SettingsCard {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(Res.string.audio_buffer_count),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = currentCount?.toString() ?: stringResource(Res.string.system_default),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Slider(
+                    value = currentCount?.toFloat() ?: 0f,
+                    onValueChange = {
+                        if (it == 0f) onCountChanged(null)
+                        else onCountChanged(it.roundToInt())
+                    },
+                    valueRange = 0f..16f,
+                    steps = 15
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun AudioTargetSampleRateSetting(currentRate: Int?, onRateSelected: (Int?) -> Unit) {
+        var expanded by remember { mutableStateOf(false) }
+        val rates = listOf(
+            null to stringResource(Res.string.system_default),
+            44100 to "44.1 kHz",
+            48000 to "48.0 kHz",
+            88200 to "88.2 kHz",
+            96000 to "96.0 kHz",
+            176400 to "176.4 kHz",
+            192000 to "192.0 kHz"
+        )
+
+        Box {
+            SettingsCard(onClick = { expanded = true }) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(Res.string.audio_target_sample_rate),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = rates.find { it.first == currentRate }?.second
+                                ?: stringResource(Res.string.system_default),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Icon(
+                        imageVector = SynaraIcons.ChevronDown.get(),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            SynaraMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.widthIn(min = 200.dp)
+            ) {
+                rates.forEach { (rate, label) ->
+                    DropdownMenuItem(
+                        text = { Text(label) },
+                        onClick = {
+                            onRateSelected(rate)
                             expanded = false
                         }
                     )

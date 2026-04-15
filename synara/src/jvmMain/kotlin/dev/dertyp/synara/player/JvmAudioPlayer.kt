@@ -4,15 +4,62 @@ import com.russhwolf.settings.Settings
 import dev.dertyp.PlatformUUID
 import dev.dertyp.services.ISongService
 import dev.dertyp.synara.settings.SettingKey
+import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.getOrNull
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.produceIn
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.newSingleThreadContext
+import kotlinx.coroutines.runBlocking
 import org.lwjgl.BufferUtils
 import org.lwjgl.openal.AL
-import org.lwjgl.openal.AL10.*
+import org.lwjgl.openal.AL10.AL_BITS
+import org.lwjgl.openal.AL10.AL_BUFFER
+import org.lwjgl.openal.AL10.AL_BUFFERS_PROCESSED
+import org.lwjgl.openal.AL10.AL_BUFFERS_QUEUED
+import org.lwjgl.openal.AL10.AL_CHANNELS
+import org.lwjgl.openal.AL10.AL_FORMAT_MONO16
+import org.lwjgl.openal.AL10.AL_FORMAT_STEREO16
+import org.lwjgl.openal.AL10.AL_GAIN
+import org.lwjgl.openal.AL10.AL_PAUSED
+import org.lwjgl.openal.AL10.AL_PLAYING
+import org.lwjgl.openal.AL10.AL_SIZE
+import org.lwjgl.openal.AL10.AL_SOURCE_STATE
+import org.lwjgl.openal.AL10.alBufferData
+import org.lwjgl.openal.AL10.alDeleteBuffers
+import org.lwjgl.openal.AL10.alDeleteSources
+import org.lwjgl.openal.AL10.alGenBuffers
+import org.lwjgl.openal.AL10.alGenSources
+import org.lwjgl.openal.AL10.alGetBufferi
+import org.lwjgl.openal.AL10.alGetSourcei
+import org.lwjgl.openal.AL10.alSourcePause
+import org.lwjgl.openal.AL10.alSourcePlay
+import org.lwjgl.openal.AL10.alSourceQueueBuffers
+import org.lwjgl.openal.AL10.alSourceStop
+import org.lwjgl.openal.AL10.alSourceUnqueueBuffers
+import org.lwjgl.openal.AL10.alSourcef
+import org.lwjgl.openal.AL10.alSourcei
 import org.lwjgl.openal.AL11.AL_SAMPLE_OFFSET
 import org.lwjgl.openal.ALC
-import org.lwjgl.openal.ALC10.*
+import org.lwjgl.openal.ALC10.ALC_DEFAULT_DEVICE_SPECIFIER
+import org.lwjgl.openal.ALC10.alcCloseDevice
+import org.lwjgl.openal.ALC10.alcCreateContext
+import org.lwjgl.openal.ALC10.alcDestroyContext
+import org.lwjgl.openal.ALC10.alcGetString
+import org.lwjgl.openal.ALC10.alcMakeContextCurrent
+import org.lwjgl.openal.ALC10.alcOpenDevice
 import org.lwjgl.openal.ALC11
 import org.lwjgl.openal.ALUtil
 import java.nio.ByteBuffer
@@ -25,7 +72,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class JvmAudioPlayer(
     songService: ISongService,
     songCache: SongCache,
-    settings: Settings
+    private val settings: Settings
 ) : AudioPlayer {
     private val audioDispatcher = newSingleThreadContext("OpenAL-Audio")
     private val scope = CoroutineScope(audioDispatcher + SupervisorJob())
@@ -33,8 +80,8 @@ class JvmAudioPlayer(
     private var device: Long = 0
     private var context: Long = 0
     private var sourceId: Int = 0
-    private val numBuffers = 4
-    private val buffers: IntBuffer = BufferUtils.createIntBuffer(numBuffers)
+    private var numBuffers = settings.get(SettingKey.AudioBufferCount, 4)
+    private var buffers: IntBuffer = BufferUtils.createIntBuffer(numBuffers)
     
     private val _isPlaying = MutableStateFlow(false)
     override val isPlaying = _isPlaying.asStateFlow()
@@ -105,7 +152,48 @@ class JvmAudioPlayer(
         if (device == 0L) throw RuntimeException("Failed to open OpenAL device")
         
         val deviceCaps = ALC.createCapabilities(device)
-        context = alcCreateContext(device, null as IntBuffer?)
+
+        val bufferSize = settings.getOrNull(SettingKey.AudioBufferSize)
+        val bufferCount = settings.getOrNull(SettingKey.AudioBufferCount)
+        val targetSampleRate = settings.getOrNull(SettingKey.AudioTargetSampleRate)
+
+        val attributes = if (bufferSize != null || bufferCount != null || targetSampleRate != null) {
+            val list = mutableListOf<Int>()
+            
+            val freq = targetSampleRate ?: 48000
+            val bSize = bufferSize ?: 1024
+            val bCount = bufferCount ?: 4
+
+            list.add(0x1007) // ALC_FREQUENCY
+            list.add(freq)
+
+            list.add(0x1008) // ALC_REFRESH
+            list.add(freq / bSize)
+
+            list.add(0x1009) // ALC_SYNC
+            list.add(1) // ALC_TRUE
+
+            list.add(0x1016) // ALC_BUFFER_SIZE
+            list.add(bSize * bCount)
+
+            list.add(0x1014) // ALC_PERIOD_SIZE
+            list.add(bSize)
+            list.add(0x1015) // ALC_PERIODS
+            list.add(bCount)
+
+            list.add(0x1992) // ALC_PERIOD_SIZE_SOFT
+            list.add(bSize)
+            list.add(0x1993) // ALC_PERIODS_SOFT
+            list.add(bCount)
+
+            list.add(0) // Null terminator
+            val attrBuffer = BufferUtils.createIntBuffer(list.size)
+            list.forEach { attrBuffer.put(it) }
+            attrBuffer.flip()
+            attrBuffer
+        } else null
+
+        context = alcCreateContext(device, attributes)
         if (context == 0L) throw RuntimeException("Failed to create OpenAL context")
         
         if (!alcMakeContextCurrent(context)) {

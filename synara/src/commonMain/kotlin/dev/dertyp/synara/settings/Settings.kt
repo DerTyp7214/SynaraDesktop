@@ -16,6 +16,9 @@ sealed class SettingKey<T>(val name: String) {
     data object UseSongColor : SettingKey<Boolean>("use_song_color")
     data object UsePywal : SettingKey<Boolean>("use_pywal")
     data object AudioOutputDevice : SettingKey<String>("audio_output_device")
+    data object AudioBufferSize : SettingKey<Int>("audio_buffer_size")
+    data object AudioBufferCount : SettingKey<Int>("audio_buffer_count")
+    data object AudioTargetSampleRate : SettingKey<Int>("audio_target_sample_rate")
 
     // Proxy
     data object IsProxyEnabled : SettingKey<Boolean>("is_proxy_enabled")
@@ -112,7 +115,8 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.AudioOutputDevice -> getStringOrNull(key.name) as T?
 
         is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor,
-        is SettingKey.ProxyPort -> getIntOrNull(
+        is SettingKey.ProxyPort, is SettingKey.AudioBufferSize, is SettingKey.AudioBufferCount,
+        is SettingKey.AudioTargetSampleRate -> getIntOrNull(
             key.name
         ) as T?
 

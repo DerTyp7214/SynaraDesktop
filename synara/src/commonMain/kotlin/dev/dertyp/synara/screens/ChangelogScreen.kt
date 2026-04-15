@@ -82,6 +82,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "1.2.2",
+                        date = "2026-04-15",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Advanced audio configuration settings for buffer size, count, and target sample rate."),
+                            Change(ChangeType.Improved, "Enhanced audio engine initialization and performance tuning.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "1.2.1",
                         date = "2026-04-15",
                         isPrerelease = true,
