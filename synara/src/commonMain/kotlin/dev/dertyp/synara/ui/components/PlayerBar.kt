@@ -2,6 +2,7 @@ package dev.dertyp.synara.ui.components
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.TweenSpec
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -52,6 +53,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
@@ -77,10 +79,15 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import coil3.compose.ConstraintsSizeResolver
 import coil3.compose.rememberConstraintsSizeResolver
+import dev.dertyp.core.safeParseUrl
+import dev.dertyp.core.tidalId
 import dev.dertyp.data.UserSong
+import dev.dertyp.services.metadata.IMetadataService
 import dev.dertyp.synara.animateColorSchemeAsState
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.rpc.services.MetadataServiceWrapper
 import dev.dertyp.synara.scrobble.ScrobblerService
+import dev.dertyp.synara.theme.createColorSchemeFromSeeds
 import dev.dertyp.synara.theme.isAppDark
 import dev.dertyp.synara.theme.rememberCoverScheme
 import dev.dertyp.synara.ui.LocalWindowActions
@@ -281,6 +288,7 @@ fun PlayerBar(
         )
 
         var parentCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+        val videoFrameSeeds = remember(currentSong?.id) { mutableStateOf<Triple<Int?, Int?, Int?>>(Triple(null, null, null)) }
 
         Surface(
             modifier = Modifier
@@ -291,19 +299,39 @@ fun PlayerBar(
             contentColor = MaterialTheme.colorScheme.onSurface,
             tonalElevation = 8.dp
         ) {
-            val colorScheme by rememberCoverScheme(currentSong?.coverId, isDark = isAppDark())
+            val isDark = isAppDark()
+            val colorScheme by rememberCoverScheme(currentSong?.coverId, isDark = isDark)
+            
+            val dynamicColorScheme = remember(videoFrameSeeds.value, colorScheme, isDark) {
+                if (videoFrameSeeds.value.first != null) {
+                    createColorSchemeFromSeeds(videoFrameSeeds.value, isDark)
+                } else {
+                    colorScheme
+                }
+            }
+
+            val colorAnimationSpec: TweenSpec<Color> = remember(videoFrameSeeds.value.first == null, currentSong?.id) {
+                if (videoFrameSeeds.value.first != null) {
+                    tween(150)
+                } else {
+                    tween(500)
+                }
+            }
+
             val animatedScheme by animateColorSchemeAsState(
-                targetColorScheme = if (isExpanded) colorScheme else MaterialTheme.colorScheme,
+                targetColorScheme = if (isExpanded) dynamicColorScheme else MaterialTheme.colorScheme,
+                animationSpec = colorAnimationSpec
             )
 
             MaterialTheme(
                 colorScheme = animatedScheme
             ) {
-                BlurredCoverBackground(
+                BlurredVideoCoverBackground(
                     song = currentSong,
                     alpha = blurredAlpha,
                     audioReactive = true,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+                    onFrame = { videoFrameSeeds.value = it }
                 ) {
                     val sizeResolver = rememberConstraintsSizeResolver()
                     val coverCenter = remember { mutableStateOf(Offset.Unspecified) }
@@ -688,22 +716,62 @@ private fun sort(a: Color, b: Color): Pair<Color, Color> =
 private fun LargeCover(
     song: UserSong?,
     modifier: Modifier = Modifier,
-    sizeResolver: ConstraintsSizeResolver
+    sizeResolver: ConstraintsSizeResolver,
+    metadataService: MetadataServiceWrapper = koinInject()
 ) {
     AnimatedContent(
-        targetState = song?.coverId,
+        targetState = song,
         transitionSpec = {
             fadeIn(tween(500)) togetherWith fadeOut(tween(500))
         },
         label = "largeCoverTransition",
         modifier = modifier
-    ) { coverId ->
-        SynaraImage(
-            imageId = coverId,
-            modifier = Modifier.fillMaxSize().then(sizeResolver),
-            shape = RoundedCornerShape(16.dp),
-            fallbackIcon = SynaraIcons.Songs
+    ) { currentSong ->
+        val currentSongId = currentSong?.id
+        val videoInfo by produceState<Pair<String?, Boolean>>(null to false, currentSongId) {
+            val originalUrl = currentSong?.originalUrl ?: return@produceState
+            val url = safeParseUrl(originalUrl) ?: return@produceState
+            if (url.host.contains("tidal.com")) {
+                val tidalId = originalUrl.tidalId()
+                val images = try {
+                    metadataService.getTrackById(IMetadataService.MetadataType.tidal, tidalId)?.images ?: emptyList()
+                } catch (_: Exception) {
+                    emptyList()
+                }
+                val animated = images.find { it.animated }
+                value = animated?.url to (animated != null)
+            }
+        }
+
+        var videoLoaded by remember(videoInfo.first) { mutableStateOf(false) }
+        val videoAlpha by animateFloatAsState(
+            targetValue = if (videoLoaded) 1f else 0f,
+            animationSpec = tween(1000),
+            label = "videoFade"
         )
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            SynaraImage(
+                imageId = currentSong?.coverId,
+                modifier = Modifier.fillMaxSize().then(sizeResolver),
+                shape = RoundedCornerShape(16.dp),
+                fallbackIcon = SynaraIcons.Songs
+            )
+
+            if (videoInfo.second && videoInfo.first != null) {
+                SynaraVideoPlayer(
+                    url = videoInfo.first!!,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(sizeResolver)
+                        .clip(RoundedCornerShape(16.dp))
+                        .graphicsLayer { alpha = videoAlpha },
+                    loop = true,
+                    onLoaded = { videoLoaded = true },
+                    frameIndex = LocalVideoFrameIndex.current
+                )
+            }
+        }
     }
 }
 

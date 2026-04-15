@@ -4,12 +4,30 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
-import dev.dertyp.synara.db.*
-import dev.dertyp.synara.player.*
+import dev.dertyp.synara.db.DatabaseMigrationRepository
+import dev.dertyp.synara.db.ExposedDatabaseMigrationRepository
+import dev.dertyp.synara.db.ExposedLibraryRepository
+import dev.dertyp.synara.db.ExposedLocalHistoryRepository
+import dev.dertyp.synara.db.ExposedRecentlyPlayedRepository
+import dev.dertyp.synara.db.ExposedScrobbleQueueRepository
+import dev.dertyp.synara.db.ExposedUserRepository
+import dev.dertyp.synara.db.LibraryRepository
+import dev.dertyp.synara.db.LocalHistoryRepository
+import dev.dertyp.synara.db.RecentlyPlayedRepository
+import dev.dertyp.synara.db.ScrobbleQueueRepository
+import dev.dertyp.synara.db.UserRepository
+import dev.dertyp.synara.player.AudioPlayer
+import dev.dertyp.synara.player.JvmAudioPlayer
+import dev.dertyp.synara.player.LinuxMediaManager
+import dev.dertyp.synara.player.MacMediaManager
+import dev.dertyp.synara.player.SystemMediaManager
+import dev.dertyp.synara.player.WindowsMediaManager
 import dev.dertyp.synara.services.DownloadManager
 import dev.dertyp.synara.services.IDownloadManager
 import dev.dertyp.synara.services.JvmLocalStorageService
+import dev.dertyp.synara.services.JvmVideoFrameService
 import dev.dertyp.synara.services.LocalStorageService
+import dev.dertyp.synara.services.VideoFrameService
 import dev.dertyp.synara.utils.OSUtils
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -23,6 +41,7 @@ import java.io.File
 actual fun platformModule(): Module = module {
     singleOf(::JvmAudioPlayer) bind AudioPlayer::class
     singleOf(::JvmLocalStorageService) bind LocalStorageService::class
+    singleOf(::JvmVideoFrameService) bind VideoFrameService::class
     singleOf(::DownloadManager) bind IDownloadManager::class
     single<SystemMediaManager> {
         when {

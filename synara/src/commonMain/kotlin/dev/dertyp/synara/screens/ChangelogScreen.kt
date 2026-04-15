@@ -82,6 +82,16 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "1.3.0",
+                        date = "2026-04-15",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Support for animated track covers from Tidal."),
+                            Change(ChangeType.New, "Dynamic UI colors that sync with the current video frame colors."),
+                            Change(ChangeType.Improved, "Smoother video transitions and improved playback performance.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "1.2.2",
                         date = "2026-04-15",
                         isPrerelease = true,

@@ -10,9 +10,9 @@ jetbrainsCompose = "1.10.3"
 kotlinxRpc = "0.10.2"
 ktor = "3.4.0"
 kotlinxSerialization = "1.10.0"
-material3 = "1.11.0-alpha05"
+material3 = "1.11.0-alpha06"
 runtime = "1.10.3"
-skikoAwt = "0.144.4"
+skikoAwt = "0.144.5"
 hikari = "7.0.2"
 lwjgl = "3.4.1"
 uiToolingPreview = "1.10.3"
@@ -24,12 +24,13 @@ okio = "3.17.0"
 jflac = "1.5.2"
 kmpalette = "3.1.0"
 exposed = "1.2.0"
-flyway = "12.3.0"
+flyway = "12.4.0"
 sqldelight = "2.3.2"
 dbus-java = "5.2.0"
 zstd = "1.5.6-9"
 mediasession-kt = "0.1.1"
 haze = "1.7.2"
+jcodec = "0.2.5"
 composableIcons = "2.2.1"
 kover = "0.9.8"
 junitJupiter = "6.0.3"
@@ -95,6 +96,8 @@ dbus-java-transport-native-unixsocket = { module = "com.github.hypfvieh:dbus-jav
 zstd = { group = "com.github.luben", name = "zstd-jni", version.ref = "zstd" }
 mediasession-kt = { module = "dev.toastbits:mediasession", version.ref = "mediasession-kt" }
 haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
+jcodec = { module = "org.jcodec:jcodec", version.ref = "jcodec" }
+jcodec-javase = { module = "org.jcodec:jcodec-javase", version.ref = "jcodec" }
 material-symbols-rounded = { module = "com.composables:icons-material-symbols-rounded-cmp", version.ref = "composableIcons" }
 material-symbols-rounded-filled = { module = "com.composables:icons-material-symbols-rounded-filled-cmp", version.ref = "composableIcons" }
 material-symbols-outlined = { module = "com.composables:icons-material-symbols-outlined-cmp", version.ref = "composableIcons" }

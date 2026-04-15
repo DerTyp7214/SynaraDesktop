@@ -1,7 +1,13 @@
 package dev.dertyp.synara.theme
 
 import androidx.compose.material3.ColorScheme
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.asComposeImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -71,7 +77,7 @@ fun rememberCoverScheme(coverId: PlatformUUID?, isDark: Boolean): State<ColorSch
     return scheme
 }
 
-private fun getSeedsFromPalette(palette: Palette): Triple<Int?, Int?, Int?> {
+fun getSeedsFromPalette(palette: Palette): Triple<Int?, Int?, Int?> {
     val primary = palette.vibrantSwatch ?: palette.dominantSwatch
     val secondary = palette.mutedSwatch ?: palette.dominantSwatch
     val tertiary = palette.lightVibrantSwatch ?: palette.darkVibrantSwatch ?: palette.dominantSwatch
