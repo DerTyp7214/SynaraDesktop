@@ -288,7 +288,7 @@ fun PlayerBar(
         )
 
         var parentCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
-        val videoFrameSeeds = remember(currentSong?.id) { mutableStateOf<Triple<Int?, Int?, Int?>>(Triple(null, null, null)) }
+        val videoFrameSeeds = remember(currentSong?.originalUrl) { mutableStateOf<Triple<Int?, Int?, Int?>>(Triple(null, null, null)) }
 
         Surface(
             modifier = Modifier
