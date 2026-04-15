@@ -82,6 +82,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "1.2.1",
+                        date = "2026-04-15",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Improved, "More reliable album cover display in Discord Rich Presence."),
+                            Change(ChangeType.Improved, "Internal performance optimizations for metadata fetching and service communication.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "1.2.0",
                         date = "2026-04-14",
                         isPrerelease = true,

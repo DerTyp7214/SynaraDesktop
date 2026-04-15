@@ -7,6 +7,7 @@ import dev.dertyp.logging.Logger
 import dev.dertyp.serializers.AppCbor
 import dev.dertyp.serializers.AppJson
 import dev.dertyp.services.*
+import dev.dertyp.services.metadata.IMetadataService
 import dev.dertyp.services.metadata.IMusicBrainzService
 import dev.dertyp.services.tdn.IDownloadService
 import dev.dertyp.synara.BuildConfig
@@ -130,6 +131,7 @@ val appModule = module {
     singleOf(::FavSyncServiceWrapper) bind IFavSyncService::class
     singleOf(::ImageServiceWrapper) bind IImageService::class
     singleOf(::LyricsSearchWrapper) bind ILyricsSearch::class
+    singleOf(::MetadataServiceWrapper) bind IMetadataService::class
     singleOf(::MusicBrainzServiceWrapper) bind IMusicBrainzService::class
     singleOf(::PlaybackServiceWrapper) bind IPlaybackService::class
     singleOf(::PlaylistServiceWrapper) bind IPlaylistService::class

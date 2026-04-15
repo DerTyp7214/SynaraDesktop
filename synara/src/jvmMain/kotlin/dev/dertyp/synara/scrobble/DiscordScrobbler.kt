@@ -1,40 +1,40 @@
 package dev.dertyp.synara.scrobble
 
 import com.russhwolf.settings.Settings
+import dev.dertyp.PlatformUUID
 import dev.dertyp.core.cleanTitle
 import dev.dertyp.core.joinArtists
 import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
+import dev.dertyp.services.metadata.IMetadataService
 import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.player.PlayerModel
-import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.ui.SynaraIcons
-import io.ktor.client.HttpClient
-import io.ktor.client.request.get
-import io.ktor.client.request.header
-import io.ktor.client.statement.bodyAsText
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import org.koin.core.component.inject
 import synara.synara.generated.resources.Res
 import synara.synara.generated.resources.discord_rpc
 import java.util.Collections
+import kotlin.time.Duration.Companion.seconds
 
 actual class DiscordScrobbler actual constructor(
     private val settings: Settings,
-    private val playerModel: PlayerModel
+    private val playerModel: PlayerModel,
+    private val metadataService: IMetadataService
 ) : BaseScrobbler() {
     override val name = Res.string.discord_rpc
     override val icon: SynaraIcons = SynaraIcons.Discord
     override val sortOrder: Int = 3
     override val showInDialog: Boolean = false
-
-    private val rpcServiceManager: RpcServiceManager by inject()
-    private val httpClient: HttpClient by inject()
 
     private var client: DiscordIpcClient? = null
     private var isClientRunning = false
@@ -44,13 +44,13 @@ actual class DiscordScrobbler actual constructor(
     private var updateJob: Job? = null
 
     private val imageCache =
-        Collections.synchronizedMap(object : LinkedHashMap<String, String>(16, 0.75f, true) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?): Boolean {
+        Collections.synchronizedMap(object : LinkedHashMap<PlatformUUID, String>(16, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<PlatformUUID, String>?): Boolean {
                 return size > 1000
             }
         })
 
-    private val imageJobs = mutableMapOf<String, Deferred<String?>>()
+    private val imageJobs = mutableMapOf<PlatformUUID, Deferred<String?>>()
 
     override fun onStart() {
         this += scope.launch {
@@ -89,7 +89,7 @@ actual class DiscordScrobbler actual constructor(
             updateJob = scope.launch {
                 while (isActive && isRunning) {
                     updatePresence(playerModel.currentSong.value, playerModel.isPlaying.value)
-                    delay(1000)
+                    delay(1.seconds)
                 }
             }
         }
@@ -100,28 +100,16 @@ actual class DiscordScrobbler actual constructor(
         return if (s.length < 2) s.padEnd(2, ' ') else s
     }
 
-    private suspend fun getImageUrl(imageId: String): String? {
+    private suspend fun getImageUrl(imageId: PlatformUUID): String? {
         imageCache[imageId]?.let { return it }
 
         val deferred = synchronized(imageJobs) {
             imageJobs.getOrPut(imageId) {
                 scope.async {
                     try {
-                        val host = rpcServiceManager.host ?: return@async null
-                        val port = rpcServiceManager.port ?: return@async null
-                        val token = rpcServiceManager.getAuthToken() ?: return@async null
-
-                        val response =
-                            httpClient.get("http://$host:$port/metadata/imageCache/imageUrlById/$imageId") {
-                                header("Authorization", "Bearer $token")
-                            }
-                        if (response.status.value in 200..299) {
-                            val url = response.bodyAsText()
-                            imageCache[imageId] = url
-                            url
-                        } else {
-                            null
-                        }
+                        val url = metadataService.getImageUrlByImageId(IMetadataService.MetadataType.imageCache, imageId)
+                        imageCache[imageId] = url
+                        url
                     } catch (e: Exception) {
                         logger.error(
                             LogTag.SCROBBLER,
@@ -148,7 +136,7 @@ actual class DiscordScrobbler actual constructor(
             startClient()
         }
 
-        val imageUrl = song.coverId?.let { getImageUrl(it.toString()) }
+        val imageUrl = song.coverId?.let { getImageUrl(it) }
 
         val activity = buildJsonObject {
             put("type", 2)
