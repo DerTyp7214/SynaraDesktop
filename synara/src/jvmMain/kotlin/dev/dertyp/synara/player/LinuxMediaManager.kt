@@ -300,7 +300,10 @@ open class MprisObjectImpl(private val playerModel: PlayerModel) : IMprisMediaPl
     override fun getCanControl() = true
 }
 
-class LinuxMediaManager(private val playerModel: PlayerModel) : SystemMediaManager {
+class LinuxMediaManager(
+    private val playerModel: PlayerModel,
+    private val synaraApi: ISynaraApi
+) : SystemMediaManager {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var connection: DBusConnection? = null
     private var isStarted = false
@@ -315,7 +318,7 @@ class LinuxMediaManager(private val playerModel: PlayerModel) : SystemMediaManag
                 val busName = if (BuildConfig.IS_DEBUG) "org.mpris.MediaPlayer2.synara-dev" else "org.mpris.MediaPlayer2.synara"
                 connection?.requestBusName(busName)
                 connection?.exportObject("/org/mpris/MediaPlayer2", MprisObjectImpl(playerModel))
-                connection?.exportObject("/dev/dertyp/synara", SynaraApiImpl(playerModel))
+                connection?.exportObject("/dev/dertyp/synara", synaraApi)
 
                 launch {
                     playerModel.isPlaying.collectLatest {

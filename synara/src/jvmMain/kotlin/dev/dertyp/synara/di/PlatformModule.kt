@@ -19,7 +19,9 @@ import dev.dertyp.synara.db.UserRepository
 import dev.dertyp.synara.player.AudioPlayer
 import dev.dertyp.synara.player.JvmAudioPlayer
 import dev.dertyp.synara.player.LinuxMediaManager
+import dev.dertyp.synara.player.LocalHttpServer
 import dev.dertyp.synara.player.MacMediaManager
+import dev.dertyp.synara.player.SynaraApiImpl
 import dev.dertyp.synara.player.SystemMediaManager
 import dev.dertyp.synara.player.WindowsMediaManager
 import dev.dertyp.synara.services.DownloadManager
@@ -43,14 +45,16 @@ actual fun platformModule(): Module = module {
     singleOf(::JvmLocalStorageService) bind LocalStorageService::class
     singleOf(::JvmVideoFrameService) bind VideoFrameService::class
     singleOf(::DownloadManager) bind IDownloadManager::class
+    singleOf(::SynaraApiImpl)
+    singleOf(::LocalHttpServer)
     single<SystemMediaManager> {
         when {
             OSUtils.isWindows -> WindowsMediaManager(get())
             OSUtils.isMac -> MacMediaManager(get())
-            else -> LinuxMediaManager(get())
+            else -> LinuxMediaManager(get(), get())
         }
     }
-    
+
     single<HikariDataSource> {
         val storageService = get<LocalStorageService>()
         val databasePath = File(storageService.getDataDir(), "synara.db")
@@ -101,5 +105,13 @@ actual fun platformInit() {
         val mediaManager = koin.get<SystemMediaManager>()
         mediaManager.start()
     } catch (_: Exception) {
+    }
+
+    if (OSUtils.isWindows || OSUtils.isMac) {
+        try {
+            val httpServer = koin.get<LocalHttpServer>()
+            httpServer.start()
+        } catch (_: Exception) {
+        }
     }
 }
