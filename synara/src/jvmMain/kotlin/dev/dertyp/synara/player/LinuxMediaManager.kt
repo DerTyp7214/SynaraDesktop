@@ -8,8 +8,13 @@ import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.services.LocalStorageService
 import dev.dertyp.synara.utils.OSUtils
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import org.freedesktop.dbus.DBusPath
 import org.freedesktop.dbus.annotations.DBusBoundProperty
 import org.freedesktop.dbus.annotations.DBusInterfaceName
@@ -20,6 +25,7 @@ import org.freedesktop.dbus.interfaces.DBusInterface
 import org.freedesktop.dbus.interfaces.Properties
 import org.freedesktop.dbus.types.Variant
 import org.koin.java.KoinJavaComponent.getKoin
+import kotlin.time.Duration.Companion.seconds
 
 @Suppress("FunctionName")
 @DBusInterfaceName("org.mpris.MediaPlayer2")
@@ -309,6 +315,7 @@ class LinuxMediaManager(private val playerModel: PlayerModel) : SystemMediaManag
                 val busName = if (BuildConfig.IS_DEBUG) "org.mpris.MediaPlayer2.synara-dev" else "org.mpris.MediaPlayer2.synara"
                 connection?.requestBusName(busName)
                 connection?.exportObject("/org/mpris/MediaPlayer2", MprisObjectImpl(playerModel))
+                connection?.exportObject("/dev/dertyp/synara", SynaraApiImpl(playerModel))
 
                 launch {
                     playerModel.isPlaying.collectLatest {
@@ -353,7 +360,7 @@ class LinuxMediaManager(private val playerModel: PlayerModel) : SystemMediaManag
                     }
                 }
 
-                while (isActive && connection?.isConnected == true) delay(2000)
+                while (isActive && connection?.isConnected == true) delay(2.seconds)
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {

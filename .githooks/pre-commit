@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# --- RPC Documentation ---
+RPC_PATHS_TO_CHECK=("common-rpc/src/commonMain/kotlin" "common-rpc/doc-compiler/src/main/kotlin")
+STAGED_FILES=$(git diff --cached --name-only)
+NEEDS_RPC_REBUILD=false
+
+for path in "${RPC_PATHS_TO_CHECK[@]}"; do
+    if echo "$STAGED_FILES" | grep -q "^$path"; then
+        NEEDS_RPC_REBUILD=true
+        break
+    fi
+done
+
+if echo "$STAGED_FILES" | grep -q "^common-rpc$"; then
+    NEEDS_RPC_REBUILD=true
+fi
+
+if [ "$NEEDS_RPC_REBUILD" = true ]; then
+    echo "Changes detected in RPC code or doc-compiler. Rebuilding RPC documentation..."
+    ./gradlew :common-rpc:kspCommonMainKotlinMetadata
+    if [ $? -eq 0 ]; then
+        git add docs/RPC_SERVICES.md
+        echo "RPC Documentation rebuilt and staged."
+    else
+        echo "RPC Documentation build failed."
+        exit 1
+    fi
+fi
+
+# --- D-Bus Documentation ---
+DBUS_PATHS_TO_CHECK=("dbus-api/src/commonMain/kotlin" "dbus-compiler/src/main/kotlin" "synara/src/jvmMain/kotlin/dev/dertyp/synara/player/SynaraApi.kt")
+NEEDS_DBUS_REBUILD=false
+
+for path in "${DBUS_PATHS_TO_CHECK[@]}"; do
+    if echo "$STAGED_FILES" | grep -q "^$path"; then
+        NEEDS_DBUS_REBUILD=true
+        break
+    fi
+done
+
+if [ "$NEEDS_DBUS_REBUILD" = true ]; then
+    echo "Changes detected in D-Bus API or compiler. Rebuilding D-Bus documentation..."
+    ./gradlew :synara:kspKotlinJvm
+    if [ $? -eq 0 ]; then
+        git add docs/DBUS_API.md
+        echo "D-Bus Documentation rebuilt and staged."
+    else
+        echo "D-Bus Documentation build failed."
+        exit 1
+    fi
+fi
+
+exit 0

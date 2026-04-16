@@ -82,6 +82,16 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "1.4.0",
+                        date = "2026-04-17",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Support for the **Vicinae** launcher extension to search and control your music library."),
+                            Change(ChangeType.New, "Integration with \"Now Playing\" status, real-time lyrics, and queue management."),
+                            Change(ChangeType.New, "Expanded D-Bus API for deeper interaction with external tools.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "1.3.0",
                         date = "2026-04-15",
                         isPrerelease = true,

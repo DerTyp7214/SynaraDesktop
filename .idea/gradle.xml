@@ -14,6 +14,8 @@
             <option value="$PROJECT_DIR$/common-rpc" />
             <option value="$PROJECT_DIR$/common-rpc/compiler" />
             <option value="$PROJECT_DIR$/common-rpc/doc-compiler" />
+            <option value="$PROJECT_DIR$/dbus-api" />
+            <option value="$PROJECT_DIR$/dbus-compiler" />
             <option value="$PROJECT_DIR$/icon-processor" />
             <option value="$PROJECT_DIR$/synara" />
             <option value="$PROJECT_DIR$/tray" />

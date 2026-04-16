@@ -15,7 +15,7 @@ val major = 1
 val minor = 0
 val patch = 0
 val buildMajor = 1
-val buildMinor = 3
+val buildMinor = 4
 val buildPatch = 0
 
 if (minor > 9 || patch > 9 || buildMajor > 99 || buildMinor > 99 || buildPatch > 99) {
@@ -42,6 +42,7 @@ kotlin {
             dependencies {
                 implementation(project(":tray"))
                 implementation(project(":common-rpc"))
+                implementation(project(":dbus-api"))
 
                 implementation(libs.kotlinx.coroutines.core)
                 implementation(libs.voyager.navigator)
@@ -178,6 +179,7 @@ kotlin {
 dependencies {
     add("kspCommonMainMetadata", project(":icon-processor"))
     add("kspJvm", project(":icon-processor"))
+    add("kspJvm", project(":dbus-compiler"))
 }
 
 sqldelight {
