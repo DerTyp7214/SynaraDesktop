@@ -1,4 +1,4 @@
-import { Detail } from "@raycast/api";
+import { Detail, Icon } from "@raycast/api";
 import React, { useEffect, useState } from "react";
 import * as synara from "./lib/api";
 import type { UserSong } from "./lib/types";
@@ -34,9 +34,9 @@ ${song.lyrics || "*No lyrics available*"}
       markdown={markdown}
       metadata={
         <Detail.Metadata>
-          <Detail.Metadata.Label title="Title" text={song.title} />
-          <Detail.Metadata.Label title="Artist" text={song.artists.map((a) => a.name).join(", ")} />
-          <Detail.Metadata.Label title="Album" text={song.album?.name ?? "-"} />
+          <Detail.Metadata.Label title="Title" text={song.title} icon={Icon.Music} />
+          <Detail.Metadata.Label title="Artist" text={song.artists.map((a) => a.name).join(", ")} icon={Icon.Person} />
+          <Detail.Metadata.Label title="Album" text={song.album?.name ?? "-"} icon={Icon.Album} />
         </Detail.Metadata>
       }
     />

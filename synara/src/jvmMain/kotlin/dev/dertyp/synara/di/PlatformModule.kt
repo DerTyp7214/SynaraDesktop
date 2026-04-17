@@ -17,6 +17,7 @@ import dev.dertyp.synara.db.RecentlyPlayedRepository
 import dev.dertyp.synara.db.ScrobbleQueueRepository
 import dev.dertyp.synara.db.UserRepository
 import dev.dertyp.synara.player.AudioPlayer
+import dev.dertyp.synara.player.ISynaraApi
 import dev.dertyp.synara.player.JvmAudioPlayer
 import dev.dertyp.synara.player.LinuxMediaManager
 import dev.dertyp.synara.player.LocalHttpServer
@@ -45,7 +46,7 @@ actual fun platformModule(): Module = module {
     singleOf(::JvmLocalStorageService) bind LocalStorageService::class
     singleOf(::JvmVideoFrameService) bind VideoFrameService::class
     singleOf(::DownloadManager) bind IDownloadManager::class
-    singleOf(::SynaraApiImpl)
+    singleOf(::SynaraApiImpl) bind ISynaraApi::class
     singleOf(::LocalHttpServer)
     single<SystemMediaManager> {
         when {
@@ -104,14 +105,17 @@ actual fun platformInit() {
     try {
         val mediaManager = koin.get<SystemMediaManager>()
         mediaManager.start()
-    } catch (_: Exception) {
+    } catch (e: Throwable) {
+        logger.error(LogTag("platform"), "Failed to start media manager", e)
     }
 
     if (OSUtils.isWindows || OSUtils.isMac) {
+        logger.info(LogTag("platform"), "Initializing local HTTP server...")
         try {
             val httpServer = koin.get<LocalHttpServer>()
             httpServer.start()
-        } catch (_: Exception) {
+        } catch (e: Throwable) {
+            logger.error(LogTag("platform"), "Failed to start local HTTP server", e)
         }
     }
 }

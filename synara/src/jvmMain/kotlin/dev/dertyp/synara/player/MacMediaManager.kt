@@ -116,6 +116,7 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
         if (isStarted || !OSUtils.isMac) return
         isStarted = true
 
+        println("[INFO] [platform] Starting MacMediaManager...")
         try {
             NativeLibrary.getInstance("Foundation")
             NativeLibrary.getInstance("MediaPlayer")

@@ -5,11 +5,19 @@ import {
   List,
   showToast,
   Toast,
+  Icon,
 } from "@raycast/api";
 import React, { useEffect, useState } from "react";
 import * as synara from "./lib/api";
-import type { SynaraSearchResult, UserSong } from "./lib/types";
+import type { SynaraSearchResult, UserSong, Album, Artist, UserPlaylist } from "./lib/types";
 import NowPlaying from "./now-playing";
+
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
 
 export default function Command() {
   const [searchText, setSearchText] = useState("");
@@ -81,9 +89,9 @@ export default function Command() {
       );
 
     const actions = [
-      <Action key="play" title="Play" onAction={play} />,
-      <Action key="next" title="Play Next" onAction={next} />,
-      <Action key="queue" title="Add to Queue" onAction={queue} />,
+      <Action key="play" title="Play" icon={Icon.Play} onAction={play} />,
+      <Action key="next" title="Play Next" icon={Icon.ArrowRight} onAction={next} />,
+      <Action key="queue" title="Add to Queue" icon={Icon.Plus} onAction={queue} />,
     ];
 
     const primaryIndex =
@@ -144,7 +152,11 @@ export default function Command() {
             }
             actions={
               <ActionPanel>
-                <Action.Push title="Show Now Playing" target={<NowPlaying />} />
+                <Action.Push
+                  title="Show Now Playing"
+                  icon={Icon.Music}
+                  target={<NowPlaying />}
+                />
               </ActionPanel>
             }
           />
@@ -156,10 +168,18 @@ export default function Command() {
             key={song.id}
             title={song.title}
             subtitle={song.artists.map((a) => a.name).join(", ")}
-            icon={song.coverId}
+            icon={song.coverId || Icon.Music}
             detail={
               <List.Item.Detail
-                markdown={`![Cover](${song.coverId?.replace("size=128", "size=512")})\n\n# ${song.title}`}
+                markdown={`![Cover](${song.coverId?.replace("size=128", "size=512")})\n\n# ${song.title}\n\n**Artist:** ${song.artists.map((a) => a.name).join(", ")}\n\n**Album:** ${song.album?.name ?? "Unknown"}`}
+                metadata={
+                  <List.Item.Detail.Metadata>
+                    <List.Item.Detail.Metadata.Label title="Title" text={song.title} icon={Icon.Music} />
+                    <List.Item.Detail.Metadata.Label title="Artist" text={song.artists.map((a) => a.name).join(", ")} icon={Icon.Person} />
+                    <List.Item.Detail.Metadata.Label title="Album" text={song.album?.name ?? "-"} icon={Icon.Album} />
+                    <List.Item.Detail.Metadata.Label title="Duration" text={formatDuration(song.duration)} icon={Icon.Clock} />
+                  </List.Item.Detail.Metadata>
+                }
               />
             }
             actions={renderActions(song.id, "song", song.title)}
@@ -172,10 +192,16 @@ export default function Command() {
             key={album.id}
             title={album.name}
             subtitle={album.artists.map((a) => a.name).join(", ")}
-            icon={album.coverId}
+            icon={album.coverId || Icon.Album}
             detail={
               <List.Item.Detail
-                markdown={`![Cover](${album.coverId?.replace("size=128", "size=512")})\n\n# ${album.name}`}
+                markdown={`![Cover](${album.coverId?.replace("size=128", "size=512")})\n\n# ${album.name}\n\n**Artist:** ${album.artists.map((a) => a.name).join(", ")}`}
+                metadata={
+                  <List.Item.Detail.Metadata>
+                    <List.Item.Detail.Metadata.Label title="Title" text={album.name} icon={Icon.Album} />
+                    <List.Item.Detail.Metadata.Label title="Artist" text={album.artists.map((a) => a.name).join(", ")} icon={Icon.Person} />
+                  </List.Item.Detail.Metadata>
+                }
               />
             }
             actions={renderActions(album.id, "album", album.name)}
@@ -187,10 +213,15 @@ export default function Command() {
           <List.Item
             key={artist.id}
             title={artist.name}
-            icon={artist.imageId}
+            icon={artist.imageId || Icon.Person}
             detail={
               <List.Item.Detail
                 markdown={`![Artist](${artist.imageId?.replace("size=128", "size=512")})\n\n# ${artist.name}`}
+                metadata={
+                  <List.Item.Detail.Metadata>
+                    <List.Item.Detail.Metadata.Label title="Name" text={artist.name} icon={Icon.Person} />
+                  </List.Item.Detail.Metadata>
+                }
               />
             }
             actions={renderActions(artist.id, "artist", artist.name)}
@@ -202,10 +233,15 @@ export default function Command() {
           <List.Item
             key={playlist.id}
             title={playlist.name}
-            icon={playlist.imageId}
+            icon={playlist.imageId || Icon.List}
             detail={
               <List.Item.Detail
                 markdown={`![Playlist](${playlist.imageId?.replace("size=128", "size=512")})\n\n# ${playlist.name}`}
+                metadata={
+                  <List.Item.Detail.Metadata>
+                    <List.Item.Detail.Metadata.Label title="Name" text={playlist.name} icon={Icon.List} />
+                  </List.Item.Detail.Metadata>
+                }
               />
             }
             actions={renderActions(playlist.id, "playlist", playlist.name)}
