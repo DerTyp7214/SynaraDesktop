@@ -33,11 +33,6 @@ haze = "1.7.2"
 jcodec = "0.2.5"
 composableIcons = "2.2.1"
 kover = "0.9.8"
-junitJupiter = "6.0.3"
-junitPlatform = "6.0.3"
-junit = "4.13.2"
-mockk = "1.14.9"
-turbine = "1.2.1"
 
 [libraries]
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coilCompose" }
@@ -53,6 +48,10 @@ kotlinx-rpc-krpc-serialization-cbor = { group = "org.jetbrains.kotlinx", name = 
 ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
 ktor-client-cio = { group = "io.ktor", name = "ktor-client-cio", version.ref = "ktor" }
 ktor-client-content-negotiation = { group = "io.ktor", name = "ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-server-core = { group = "io.ktor", name = "ktor-server-core", version.ref = "ktor" }
+ktor-server-cio = { group = "io.ktor", name = "ktor-server-cio", version.ref = "ktor" }
+ktor-server-content-negotiation = { group = "io.ktor", name = "ktor-server-content-negotiation", version.ref = "ktor" }
+ktor-server-cors = { group = "io.ktor", name = "ktor-server-cors", version.ref = "ktor" }
 ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
 ktor-serialization-kotlinx-cbor = { group = "io.ktor", name = "ktor-serialization-kotlinx-cbor", version.ref = "ktor" }
 ktor-client-websockets = { group = "io.ktor", name = "ktor-client-websockets", version.ref = "ktor" }
@@ -106,15 +105,7 @@ material-symbols-sharp = { module = "com.composables:icons-material-symbols-shar
 material-symbols-sharp-filled = { module = "com.composables:icons-material-symbols-sharp-filled-cmp", version.ref = "composableIcons" }
 icons-lucide = { module = "com.composables:icons-lucide-cmp", version.ref = "composableIcons" }
 phosphor-icons = { module = "io.github.dev778g-me:phosphoricon-compose", version = "1.0.2" }
-junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.ref = "junitJupiter" }
-junit-jupiter-engine = { group = "org.junit.jupiter", name = "junit-jupiter-engine", version.ref = "junitJupiter" }
-junit-vintage-engine = { group = "org.junit.vintage", name = "junit-vintage-engine", version.ref = "junitJupiter" }
-junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher", version.ref = "junitPlatform" }
-junit = { group = "junit", name = "junit", version.ref = "junit" }
-mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
-turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
-koin-test = { group = "io.insert-koin", name = "koin-test", version.ref = "koin" }
 
 [plugins]
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
