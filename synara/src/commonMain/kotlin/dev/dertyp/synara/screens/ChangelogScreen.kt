@@ -82,6 +82,16 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "1.5.0",
+                        date = "2026-04-17",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Full support for the **Raycast** extension, allowing you to search music, manage the queue, and control playback directly from your launcher."),
+                            Change(ChangeType.New, "Added a local web API, enabling other applications and tools to interact with Synara."),
+                            Change(ChangeType.Improved, "Enhanced stability and reliability for platform-specific services.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "1.4.0",
                         date = "2026-04-17",
                         isPrerelease = true,
