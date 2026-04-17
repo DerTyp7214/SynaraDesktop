@@ -82,6 +82,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "1.6.0",
+                        date = "2026-04-17",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Improved, "Introduced a **smart data deduplication** system that significantly reduces network usage by eliminating redundant information in server responses."),
+                            Change(ChangeType.Improved, "Enhanced server communication with a specialized **pack header** to optimize data transfer performance."),
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "1.5.0",
                         date = "2026-04-17",
                         isPrerelease = true,
