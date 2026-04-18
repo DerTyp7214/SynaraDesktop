@@ -15,7 +15,11 @@ import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.rpc.annotations.Rpc
 import kotlinx.rpc.withService
@@ -231,7 +235,7 @@ class RpcServiceManager(
     }
 
     suspend fun awaitAuthentication() {
-        connectionState.filter { it == ConnectionState.Authenticated }.first()
+        connectionState.first { it == ConnectionState.Authenticated }
     }
 
     private suspend fun checkConnectionState(): ConnectionState {

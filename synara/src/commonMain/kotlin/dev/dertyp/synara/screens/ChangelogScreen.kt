@@ -82,6 +82,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "1.6.1",
+                        date = "2026-04-18",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Fixed, "Fixed an issue that prevented the app from connecting to the server."),
+                            Change(ChangeType.Improved, "Improved overall connection stability and reliability.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "1.6.0",
                         date = "2026-04-17",
                         isPrerelease = true,

@@ -6,8 +6,6 @@ import dev.dertyp.logging.BaseLogger
 import dev.dertyp.logging.Logger
 import dev.dertyp.serializers.AppCbor
 import dev.dertyp.serializers.AppJson
-import dev.dertyp.serializers.SynaraPackHeader
-import dev.dertyp.serializers.synaraCbor
 import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
 import dev.dertyp.services.IAuthService
@@ -98,9 +96,9 @@ import io.ktor.client.plugins.UserAgent
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.pingInterval
-import io.ktor.client.request.header
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.rpc.krpc.ktor.client.Krpc
+import kotlinx.rpc.krpc.serialization.cbor.cbor
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.json.Json
@@ -128,11 +126,12 @@ private fun buildHttpClient(cbor: Cbor, json: Json): HttpClient {
             maxFrameSize = Long.MAX_VALUE
         }
         install(DefaultRequest) {
-            header(SynaraPackHeader, "true")
+            //header(SynaraPackHeader, "true")
         }
         install(Krpc) {
             serialization {
-                synaraCbor(cbor)
+                //synaraCbor(cbor)
+                cbor(cbor)
             }
         }
         install(ContentNegotiation) {
