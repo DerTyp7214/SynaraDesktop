@@ -16,7 +16,7 @@ val minor = 0
 val patch = 0
 val buildMajor = 1
 val buildMinor = 6
-val buildPatch = 1
+val buildPatch = 2
 
 if (minor > 9 || patch > 9 || buildMajor > 99 || buildMinor > 99 || buildPatch > 99) {
     throw GradleException("Version component too high: minor($minor), patch($patch), buildMajor($buildMajor), buildMinor($buildMinor), buildPatch($buildPatch)")
@@ -135,7 +135,7 @@ kotlin {
         jvmMain {
             dependencies {
                 implementation(compose.desktop.currentOs)
-                implementation(libs.ktor.client.cio)
+                implementation(libs.ktor.client.okhttp)
                 implementation(libs.kotlinx.coroutines.swing)
 
                 // Audio (LWJGL OpenAL + FLAC decoding)

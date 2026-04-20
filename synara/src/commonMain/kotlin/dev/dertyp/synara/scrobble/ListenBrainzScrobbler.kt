@@ -5,6 +5,7 @@ import dev.dertyp.core.cleanTitle
 import dev.dertyp.core.nullIfEmpty
 import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.UserSong
+import dev.dertyp.getPlatformName
 import dev.dertyp.logging.LogTag
 import dev.dertyp.services.ISongService
 import dev.dertyp.synara.BuildConfig
@@ -13,6 +14,7 @@ import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.UserAgent
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -54,6 +56,9 @@ class ListenBrainzScrobbler(
     }
 
     private val httpClient = HttpClient {
+        install(UserAgent) {
+            agent = "Synara/Synara Desktop (${BuildConfig.VERSION}; ${getPlatformName()})"
+        }
         install(ContentNegotiation) {
             json(json)
         }
@@ -96,7 +101,7 @@ class ListenBrainzScrobbler(
                 )
                 if (success) {
                     scrobbleQueue.pop(entry.id)
-                    delay(100)
+                    delay(100.milliseconds)
                 } else {
                     break
                 }
@@ -151,7 +156,7 @@ class ListenBrainzScrobbler(
                 }
             }
 
-        delay(50)
+        delay(50.milliseconds)
 
         val release = recording?.releases?.find {
             it.title == song.album?.name?.cleanTitle()
@@ -207,7 +212,7 @@ class ListenBrainzScrobbler(
             }
             isSuccess
         } catch (e: Exception) {
-            logger.error(LogTag.LISTENBRAINZ, "Error submitting to ListenBrainz", e)
+            logger.error(LogTag.LISTENBRAINZ, "Error submitting to ListenBrainz", e, listen)
             if (listenType == ListenType.SINGLE) updateStatus(ScrobbleStatus.FAILED)
             false
         }

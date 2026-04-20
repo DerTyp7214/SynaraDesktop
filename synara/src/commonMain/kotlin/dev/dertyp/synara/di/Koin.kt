@@ -123,7 +123,6 @@ private fun buildHttpClient(cbor: Cbor, json: Json): HttpClient {
         }
         install(WebSockets) {
             pingInterval = 15.seconds
-            maxFrameSize = Long.MAX_VALUE
         }
         install(DefaultRequest) {
             //header(SynaraPackHeader, "true")

@@ -6,6 +6,7 @@ import dev.dertyp.data.Album
 import dev.dertyp.data.MusicBrainzRecording
 import dev.dertyp.data.MusicBrainzRelease
 import dev.dertyp.data.UserSong
+import dev.dertyp.getPlatformName
 import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
 import dev.dertyp.services.metadata.IMusicBrainzService
@@ -13,6 +14,7 @@ import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.rpc.RpcServiceManager
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.UserAgent
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -34,6 +36,9 @@ class MusicBrainzService(
     }
 
     private val httpClient = HttpClient {
+        install(UserAgent) {
+            agent = "Synara/Synara Desktop (${BuildConfig.VERSION}; ${getPlatformName()})"
+        }
         install(ContentNegotiation) {
             json(json)
         }
