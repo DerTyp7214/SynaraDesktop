@@ -37,6 +37,9 @@ object Config : KoinComponent {
     )
     val iconPack: StateFlow<IconPackType> = _iconPack.asStateFlow()
 
+    private val _showRemainingTime = MutableStateFlow(settings.get(SettingKey.ShowRemainingTime, false))
+    val showRemainingTime: StateFlow<Boolean> = _showRemainingTime.asStateFlow()
+
     private val _language = MutableStateFlow(settings.getStringOrNull("language"))
     val language: StateFlow<String?> = _language.asStateFlow()
 
@@ -149,6 +152,11 @@ object Config : KoinComponent {
     fun setIconPack(pack: IconPackType) {
         _iconPack.value = pack
         settings.put(SettingKey.IconPack, pack.name)
+    }
+
+    fun setShowRemainingTime(show: Boolean) {
+        _showRemainingTime.value = show
+        settings.put(SettingKey.ShowRemainingTime, show)
     }
 
     fun setLanguage(lang: String?) {

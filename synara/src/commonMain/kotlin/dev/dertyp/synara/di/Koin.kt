@@ -24,9 +24,9 @@ import dev.dertyp.services.IStorageService
 import dev.dertyp.services.ISyncService
 import dev.dertyp.services.IUserPlaylistService
 import dev.dertyp.services.IUserService
+import dev.dertyp.services.download.IDownloadService
 import dev.dertyp.services.metadata.IMetadataService
 import dev.dertyp.services.metadata.IMusicBrainzService
-import dev.dertyp.services.tdn.IDownloadService
 import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.logging.StdoutLogPersistence
 import dev.dertyp.synara.player.PlayerModel
@@ -75,6 +75,7 @@ import dev.dertyp.synara.viewmodels.ArtistAlbumsScreenModel
 import dev.dertyp.synara.viewmodels.ArtistLikedSongsScreenModel
 import dev.dertyp.synara.viewmodels.ArtistScreenModel
 import dev.dertyp.synara.viewmodels.ArtistSongsScreenModel
+import dev.dertyp.synara.viewmodels.DownloaderScreenModel
 import dev.dertyp.synara.viewmodels.DownloadsScreenModel
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import dev.dertyp.synara.viewmodels.HomeScreenModel
@@ -88,7 +89,6 @@ import dev.dertyp.synara.viewmodels.SearchScreenModel
 import dev.dertyp.synara.viewmodels.SearchSongsViewModel
 import dev.dertyp.synara.viewmodels.SessionsScreenModel
 import dev.dertyp.synara.viewmodels.SetupScreenModel
-import dev.dertyp.synara.viewmodels.TidalDownloadScreenModel
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.HttpTimeout
@@ -187,7 +187,7 @@ val appModule = module {
     factoryOf(::SearchArtistsViewModel)
     factoryOf(::SearchAlbumsViewModel)
     factoryOf(::SearchPlaylistsViewModel)
-    factoryOf(::TidalDownloadScreenModel)
+    factoryOf(::DownloaderScreenModel)
     factoryOf(::DownloadsScreenModel)
 
     singleOf(::AlbumServiceWrapper) bind IAlbumService::class

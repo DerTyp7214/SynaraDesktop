@@ -1,6 +1,12 @@
 package dev.dertyp.synara.rpc.services
 
-import dev.dertyp.services.tdn.*
+import dev.dertyp.services.download.DownloadBackend
+import dev.dertyp.services.download.DownloadQueueEntry
+import dev.dertyp.services.download.DownloadSong
+import dev.dertyp.services.download.FinishedDownloadQueueEntry
+import dev.dertyp.services.download.IDownloadService
+import dev.dertyp.services.download.LogLine
+import dev.dertyp.services.download.Type
 import dev.dertyp.synara.rpc.RpcServiceManager
 import kotlinx.coroutines.flow.Flow
 
@@ -29,28 +35,40 @@ class DownloadServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(ma
         manager.getService<IDownloadService>().syncFavourites()
     }
 
-    override suspend fun downloadTidalIds(ids: List<String>, type: Type) {
-        manager.getService<IDownloadService>().downloadTidalIds(ids, type)
+    override suspend fun downloadIds(ids: List<String>, type: Type, downloader: DownloadBackend?) {
+        manager.getService<IDownloadService>().downloadIds(ids, type, downloader)
     }
 
-    override suspend fun existsByTidalId(id: String, type: Type): Boolean {
-        return manager.getService<IDownloadService>().existsByTidalId(id, type)
+    override suspend fun downloadUrls(urls: List<String>) {
+        manager.getService<IDownloadService>().downloadUrls(urls)
     }
 
-    override suspend fun setTidalDownloadService(service: TidalDownloadService) {
-        manager.getService<IDownloadService>().setTidalDownloadService(service)
+    override suspend fun getDownloaderForUrl(url: String): DownloadBackend? {
+        return manager.getService<IDownloadService>().getDownloaderForUrl(url)
     }
 
-    override suspend fun getTidalDownloadService(): TidalDownloadService {
-        return manager.getService<IDownloadService>().getTidalDownloadService()
+    override suspend fun existsByOriginalId(id: String, type: Type): Boolean {
+        return manager.getService<IDownloadService>().existsByOriginalId(id, type)
     }
 
-    override suspend fun tidalDownloadAuthorized(): Boolean {
-        return manager.getService<IDownloadService>().tidalDownloadAuthorized()
+    override suspend fun setDownloadService(service: DownloadBackend) {
+        manager.getService<IDownloadService>().setDownloadService(service)
     }
 
-    override fun tidalDownloadLogin(): Flow<String> {
-        return manager.getService<IDownloadService>().tidalDownloadLogin()
+    override suspend fun getDownloadService(): DownloadBackend {
+        return manager.getService<IDownloadService>().getDownloadService()
+    }
+
+    override suspend fun getAllDownloadServices(): List<DownloadBackend> {
+        return manager.getService<IDownloadService>().getAllDownloadServices()
+    }
+
+    override suspend fun downloadAuthorized(): Boolean {
+        return manager.getService<IDownloadService>().downloadAuthorized()
+    }
+
+    override fun downloadLogin(): Flow<String> {
+        return manager.getService<IDownloadService>().downloadLogin()
     }
 
     override suspend fun tidalSyncAuthorized(): Boolean {
@@ -65,12 +83,12 @@ class DownloadServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(ma
         manager.getService<IDownloadService>().killAllChildProcesses()
     }
 
-    override suspend fun searchTidal(
+    override suspend fun search(
         query: String?,
         title: String?,
         artist: String?,
         count: Int
-    ): List<TidalSong> {
-        return manager.getService<IDownloadService>().searchTidal(query, title, artist, count)
+    ): List<DownloadSong> {
+        return manager.getService<IDownloadService>().search(query, title, artist, count)
     }
 }

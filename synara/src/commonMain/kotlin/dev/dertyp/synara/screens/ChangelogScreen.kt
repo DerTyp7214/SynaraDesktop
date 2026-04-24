@@ -82,6 +82,18 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "2.0.0",
+                        date = "2026-04-24",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Universal Downloader: Support for multiple sources including **YouTube**."),
+                            Change(ChangeType.New, "Toggle remaining playback time by clicking on the duration in the player bar."),
+                            Change(ChangeType.Improved, "Enhanced MusicBrainz integration with remote searching for more accurate metadata."),
+                            Change(ChangeType.Improved, "Streamlined downloader UI and authorized source management."),
+                            Change(ChangeType.Refactored, "Migrated internal Tidal services to a more flexible external source architecture.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "1.6.2",
                         date = "2026-04-20",
                         isPrerelease = true,

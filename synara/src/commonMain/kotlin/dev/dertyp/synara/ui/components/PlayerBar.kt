@@ -79,9 +79,9 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import coil3.compose.ConstraintsSizeResolver
 import coil3.compose.rememberConstraintsSizeResolver
-import dev.dertyp.core.safeParseUrl
 import dev.dertyp.core.tidalId
 import dev.dertyp.data.UserSong
+import dev.dertyp.services.download.IDownloadService
 import dev.dertyp.services.metadata.IMetadataService
 import dev.dertyp.synara.animateColorSchemeAsState
 import dev.dertyp.synara.player.PlayerModel
@@ -717,7 +717,8 @@ private fun LargeCover(
     song: UserSong?,
     modifier: Modifier = Modifier,
     sizeResolver: ConstraintsSizeResolver,
-    metadataService: MetadataServiceWrapper = koinInject()
+    metadataService: MetadataServiceWrapper = koinInject(),
+    downloadService: IDownloadService = koinInject()
 ) {
     AnimatedContent(
         targetState = song,
@@ -730,8 +731,13 @@ private fun LargeCover(
         val currentSongId = currentSong?.id
         val videoInfo by produceState<Pair<String?, Boolean>>(null to false, currentSongId) {
             val originalUrl = currentSong?.originalUrl ?: return@produceState
-            val url = safeParseUrl(originalUrl) ?: return@produceState
-            if (url.host.contains("tidal.com")) {
+            val downloader = try {
+                downloadService.getDownloaderForUrl(originalUrl)
+            } catch (_: Exception) {
+                null
+            } ?: return@produceState
+
+            if (downloader.id == "tdn" || downloader.id == "tiddl") {
                 val tidalId = originalUrl.tidalId()
                 val images = try {
                     metadataService.getTrackById(IMetadataService.MetadataType.tidal, tidalId)?.images ?: emptyList()

@@ -72,12 +72,12 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
         return manager.getService<ISongService>().byUserPlaylist(page, pageSize, playlistId)
     }
 
-    override suspend fun byTidalTrackIds(ids: Collection<String>): List<UserSong> {
-        return manager.getService<ISongService>().byTidalTrackIds(ids)
+    override suspend fun byOriginalIds(ids: Collection<String>): List<UserSong> {
+        return manager.getService<ISongService>().byOriginalIds(ids)
     }
 
-    override suspend fun byTidalTracks(tracks: Collection<IMetadataService.Track>): List<UserSong> {
-        return manager.getService<ISongService>().byTidalTracks(tracks)
+    override suspend fun byOriginalTracks(tracks: Collection<IMetadataService.Track>): List<UserSong> {
+        return manager.getService<ISongService>().byOriginalTracks(tracks)
     }
 
     override suspend fun likedSongs(page: Int, pageSize: Int, explicit: Boolean): PaginatedResponse<UserSong> {
@@ -150,5 +150,9 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
 
     override fun songIdsByUserPlaylist(playlistId: PlatformUUID): Flow<PlatformUUID> {
         return manager.getService<ISongService>().songIdsByUserPlaylist(playlistId)
+    }
+
+    override suspend fun moveSongs(oldPath: String, newPath: String, originalIdPrefix: String?): Int {
+        return manager.getService<ISongService>().moveSongs(oldPath, newPath, originalIdPrefix)
     }
 }

@@ -91,6 +91,16 @@ class MusicBrainzService(
     }
 
     suspend fun searchMb(song: UserSong): MusicBrainzRecording? {
+        if (!isOffline()) {
+            try {
+                return remoteMusicBrainzService.searchRecording(
+                    title = song.title.cleanTitle(),
+                    artists = song.artists.map { it.name }
+                )
+            } catch (e: Exception) {
+                logger.error(LogTag.MUSICBRAINZ, "Error searching remote MusicBrainz recording for ${song.title}", e)
+            }
+        }
         val queryParts = mutableListOf<String>()
         queryParts.add("recording:\"${song.title.cleanTitle()}\"")
         song.artists.forEach { queryParts.add("artist:\"${it.name}\"") }
@@ -122,6 +132,16 @@ class MusicBrainzService(
     }
 
     suspend fun searchAlbumMb(album: Album): MusicBrainzRelease? {
+        if (!isOffline()) {
+            try {
+                return remoteMusicBrainzService.searchRelease(
+                    title = album.name.cleanTitle(),
+                    artists = album.artists.map { it.name }
+                )
+            } catch (e: Exception) {
+                logger.error(LogTag.MUSICBRAINZ, "Error searching remote MusicBrainz release for ${album.name}", e)
+            }
+        }
         val queryParts = mutableListOf<String>()
         queryParts.add("release:\"${album.name.cleanTitle()}\"")
         album.artists.forEach { queryParts.add("artist:\"${it.name}\"") }

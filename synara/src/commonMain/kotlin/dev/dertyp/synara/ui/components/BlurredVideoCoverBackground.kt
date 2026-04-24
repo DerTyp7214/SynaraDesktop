@@ -31,9 +31,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import dev.dertyp.core.safeParseUrl
 import dev.dertyp.core.tidalId
 import dev.dertyp.data.UserSong
+import dev.dertyp.services.download.IDownloadService
 import dev.dertyp.services.metadata.IMetadataService
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.rpc.services.MetadataServiceWrapper
@@ -51,6 +51,7 @@ fun BlurredVideoCoverBackground(
     audioReactive: Boolean = false,
     playerModel: PlayerModel = koinInject(),
     metadataService: MetadataServiceWrapper = koinInject(),
+    downloadService: IDownloadService = koinInject(),
     videoService: VideoFrameService = koinInject(),
     onFrame: (Triple<Int?, Int?, Int?>) -> Unit = {},
     content: @Composable BoxScope.() -> Unit = {}
@@ -61,8 +62,13 @@ fun BlurredVideoCoverBackground(
     val currentSongId = song?.id
     val videoInfo by produceState<Pair<String?, Boolean>>(null to false, currentSongId) {
         val originalUrl = song?.originalUrl ?: return@produceState
-        val url = safeParseUrl(originalUrl) ?: return@produceState
-        if (url.host.contains("tidal.com")) {
+        val downloader = try {
+            downloadService.getDownloaderForUrl(originalUrl)
+        } catch (_: Exception) {
+            null
+        } ?: return@produceState
+
+        if (downloader.id == "tdn" || downloader.id == "tiddl") {
             val tidalId = originalUrl.tidalId()
             val images = try {
                 metadataService.getTrackById(IMetadataService.MetadataType.tidal, tidalId)?.images ?: emptyList()

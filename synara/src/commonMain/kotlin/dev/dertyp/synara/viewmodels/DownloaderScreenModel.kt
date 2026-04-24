@@ -2,21 +2,23 @@ package dev.dertyp.synara.viewmodels
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
-import dev.dertyp.core.safeParseUrl
-import dev.dertyp.core.tidalId
-import dev.dertyp.services.tdn.IDownloadService
-import dev.dertyp.services.tdn.Type
+import dev.dertyp.services.download.IDownloadService
 import dev.dertyp.synara.utils.SynaraDispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.seconds
 
-class TidalDownloadScreenModel(
+class DownloaderScreenModel(
     private val downloadService: IDownloadService,
     dispatchers: SynaraDispatchers
 ) : ScreenModel {
 
-    private val modelDispatcher = dispatchers.createNamed("TidalDownloadScreenModel")
+    private val modelDispatcher = dispatchers.createNamed("DownloaderScreenModel")
 
     private val _isAuthorized = MutableStateFlow<Boolean?>(null)
     val isAuthorized = _isAuthorized.asStateFlow()
@@ -32,7 +34,7 @@ class TidalDownloadScreenModel(
 
     init {
         screenModelScope.launch(modelDispatcher) {
-            _isAuthorized.value = downloadService.tidalDownloadAuthorized()
+            _isAuthorized.value = downloadService.downloadAuthorized()
             _syncFavAvailable.value = downloadService.syncFavouritesAvailable()
             _isLoading.value = false
 
@@ -49,21 +51,14 @@ class TidalDownloadScreenModel(
                 if (!_syncFavAvailable.value) {
                     _syncFavAvailable.value = downloadService.syncFavouritesAvailable()
                 }
-                delay(5000)
+                delay(5.seconds)
             }
         }
     }
 
     fun submitUrl(urlStr: String) {
-        val url = safeParseUrl(urlStr) ?: return
-        val segment = url.segments.let { segments ->
-            if (segments.firstOrNull() == "browse") segments.getOrNull(1)
-            else segments.firstOrNull()
-        } ?: return
-        val type = Type.fromValue(segment) ?: return
-
         screenModelScope.launch(modelDispatcher) {
-            downloadService.downloadTidalIds(listOf(url.tidalId()), type)
+            downloadService.downloadUrls(listOf(urlStr))
         }
     }
 
@@ -84,13 +79,13 @@ class TidalDownloadScreenModel(
         return downloadService.getAuthUrl()
     }
 
-    fun tidalDownloadLogin(): Flow<String> {
-        return downloadService.tidalDownloadLogin()
+    fun downloadLogin(): Flow<String> {
+        return downloadService.downloadLogin()
     }
 
     fun checkAuthorization() {
         screenModelScope.launch(modelDispatcher) {
-            _isAuthorized.value = downloadService.tidalDownloadAuthorized()
+            _isAuthorized.value = downloadService.downloadAuthorized()
         }
     }
 

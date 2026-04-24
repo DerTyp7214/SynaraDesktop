@@ -250,15 +250,15 @@
     <string name="release_type_broadcast">Broadcasts</string>
     <string name="release_type_other">Andere</string>
     <string name="release_type_unknown">Unbekannt</string>
-    <string name="menu_download_tidal">Von Tidal herunterladen</string>
-    <string name="tidal_download_title">Tidal-Download</string>
-    <string name="tidal_login_required">Tidal-Login erforderlich</string>
-    <string name="tidal_login_instructions">Du musst Synara autorisieren, um von Tidal herunterzuladen.</string>
-    <string name="tidal_url_label">Tidal-URL (Titel, Album, Playlist, Interpret, Mix)</string>
-    <string name="tidal_logs_label">Logs</string>
+    <string name="menu_download_external">Von externer Quelle herunterladen</string>
+    <string name="downloader_title">Downloader</string>
+    <string name="downloader_login_required">Anmeldung erforderlich</string>
+    <string name="downloader_login_instructions">Du musst Synara autorisieren, um von dieser Quelle herunterzuladen.</string>
+    <string name="downloader_url_label">URL (Titel, Album, Playlist, Interpret, Mix)</string>
+    <string name="downloader_logs_label">Logs</string>
     <string name="sync_favorites">Favoriten synchronisieren</string>
-    <string name="search_tidal">Tidal-Suche</string>
-    <string name="tidal_search_title">Tidal-Suche</string>
+    <string name="search_external">Externe Suche</string>
+    <string name="external_search_title">Externe Suche</string>
     <string name="account">Konto</string>
 
     <!-- Artist Merge/Split -->

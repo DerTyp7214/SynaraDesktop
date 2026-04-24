@@ -2,6 +2,7 @@ package dev.dertyp.synara.rpc.services
 
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.Image
+import dev.dertyp.data.InsertableImage
 import dev.dertyp.services.IImageService
 import dev.dertyp.synara.rpc.RpcServiceManager
 
@@ -24,5 +25,13 @@ class ImageServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manag
 
     override suspend fun createImage(bytes: ByteArray, origin: String): PlatformUUID {
         return manager.getService<IImageService>().createImage(bytes, origin)
+    }
+
+    override suspend fun createBatch(images: List<InsertableImage>): Map<String, PlatformUUID> {
+        return manager.getService<IImageService>().createBatch(images)
+    }
+
+    override suspend fun moveImages(oldPath: String, newPath: String): Int {
+        return manager.getService<IImageService>().moveImages(oldPath, newPath)
     }
 }

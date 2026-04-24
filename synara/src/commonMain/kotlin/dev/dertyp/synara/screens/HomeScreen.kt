@@ -1,25 +1,76 @@
 package dev.dertyp.synara.screens
 
-import androidx.compose.animation.*
-import androidx.compose.foundation.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.PointerMatcher
+import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.onClick
+import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.*
+import androidx.compose.ui.input.pointer.PointerButton
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.isBackPressed
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -37,7 +88,12 @@ import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.theme.isAppDark
 import dev.dertyp.synara.ui.SynaraIcons
-import dev.dertyp.synara.ui.components.*
+import dev.dertyp.synara.ui.components.AlbumItem
+import dev.dertyp.synara.ui.components.ArtistItem
+import dev.dertyp.synara.ui.components.PlayerBar
+import dev.dertyp.synara.ui.components.RecentReleasesView
+import dev.dertyp.synara.ui.components.SongItem
+import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.menus.PlaylistContextMenu
 import dev.dertyp.synara.ui.models.AnnotatedSnackbarVisuals
 import dev.dertyp.synara.ui.models.SnackbarManager
@@ -45,7 +101,26 @@ import dev.dertyp.synara.viewmodels.HomeScreenModel
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import synara.synara.generated.resources.*
+import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.albums
+import synara.synara.generated.resources.artists
+import synara.synara.generated.resources.dark_mode
+import synara.synara.generated.resources.dashboard
+import synara.synara.generated.resources.downloader_title
+import synara.synara.generated.resources.downloads
+import synara.synara.generated.resources.favorite
+import synara.synara.generated.resources.home
+import synara.synara.generated.resources.library
+import synara.synara.generated.resources.playlists
+import synara.synara.generated.resources.recently_played_albums
+import synara.synara.generated.resources.recently_played_artists
+import synara.synara.generated.resources.recently_played_songs
+import synara.synara.generated.resources.refresh_playlists
+import synara.synara.generated.resources.search_hint
+import synara.synara.generated.resources.server_version
+import synara.synara.generated.resources.sessions
+import synara.synara.generated.resources.settings
+import synara.synara.generated.resources.songs
 
 class HomeScreen : Screen {
     @OptIn(ExperimentalComposeUiApi::class, ExperimentalMaterial3Api::class)
@@ -273,11 +348,11 @@ class HomeScreen : Screen {
             Spacer(modifier = Modifier.height(8.dp))
 
             NavigationItem(
-                label = stringResource(Res.string.tidal_download_title),
+                label = stringResource(Res.string.downloader_title),
                 icon = SynaraIcons.Upload.get(),
-                selected = navigator.lastItem is TidalDownloadScreen,
+                selected = navigator.lastItem is DownloaderScreen,
                 onClick = {
-                    if (navigator.lastItem !is TidalDownloadScreen) navigator.push(TidalDownloadScreen())
+                    if (navigator.lastItem !is DownloaderScreen) navigator.push(DownloaderScreen())
                     onItemClick?.invoke()
                 }
             )
