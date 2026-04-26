@@ -1,8 +1,25 @@
 package dev.dertyp.synara.ui.components.menus
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -16,6 +33,7 @@ import dev.dertyp.synara.player.QueueEntry
 import dev.dertyp.synara.screens.AlbumScreen
 import dev.dertyp.synara.screens.ArtistScreen
 import dev.dertyp.synara.screens.MetadataEditScreen
+import dev.dertyp.synara.screens.SimilarSongsScreen
 import dev.dertyp.synara.services.DownloadStatus
 import dev.dertyp.synara.services.IDownloadManager
 import dev.dertyp.synara.ui.SynaraIcons
@@ -23,11 +41,30 @@ import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.ArtistListDialog
 import dev.dertyp.synara.ui.components.dialogs.CreatePlaylistDialog
 import dev.dertyp.synara.ui.components.dialogs.PlaylistPickerDialog
+import dev.dertyp.synara.ui.components.dialogs.SimilarSongsDialog
+import dev.dertyp.synara.ui.components.dialogs.SimilarSongsSeed
 import dev.dertyp.synara.ui.components.dialogs.SongInfoDialog
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import synara.synara.generated.resources.*
+import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.add_to_favorites
+import synara.synara.generated.resources.add_to_playlist
+import synara.synara.generated.resources.add_to_queue
+import synara.synara.generated.resources.cancel_download
+import synara.synara.generated.resources.delete
+import synara.synara.generated.resources.edit_metadata
+import synara.synara.generated.resources.get_similar_songs
+import synara.synara.generated.resources.info
+import synara.synara.generated.resources.menu_download
+import synara.synara.generated.resources.play_next
+import synara.synara.generated.resources.remove_download
+import synara.synara.generated.resources.remove_from_favorites
+import synara.synara.generated.resources.remove_from_playlist
+import synara.synara.generated.resources.remove_from_queue
+import synara.synara.generated.resources.show_album
+import synara.synara.generated.resources.show_artist
+import synara.synara.generated.resources.show_artists
 
 @Composable
 fun SongContextMenu(
@@ -46,6 +83,7 @@ fun SongContextMenu(
     var showArtistListDialog by remember { mutableStateOf(false) }
     var showPlaylistPickerDialog by remember { mutableStateOf(false) }
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+    var showSimilarSongsDialog by remember { mutableStateOf(false) }
     val navigator = LocalNavigator.current
 
     SynaraMenu(
@@ -195,6 +233,21 @@ fun SongContextMenu(
             leadingIcon = {
                 Icon(
                     SynaraIcons.AddToPlaylist.get(),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        )
+
+        DropdownMenuItem(
+            text = { Text(stringResource(Res.string.get_similar_songs)) },
+            onClick = {
+                showSimilarSongsDialog = true
+                onDismissRequest()
+            },
+            leadingIcon = {
+                Icon(
+                    SynaraIcons.Discovery.get(),
                     contentDescription = null,
                     modifier = Modifier.size(20.dp)
                 )
@@ -370,5 +423,14 @@ fun SongContextMenu(
             playerModel.createPlaylist(name, PlaybackQueue(items = listOf(QueueEntry.Explicit(song))))
         },
         onDismissRequest = { showCreatePlaylistDialog = false }
+    )
+
+    SimilarSongsDialog(
+        isOpen = showSimilarSongsDialog,
+        seed = SimilarSongsSeed.Songs(listOf(song.id), song.title),
+        onConfirm = { criterion, limit ->
+            navigator?.push(SimilarSongsScreen(SimilarSongsSeed.Songs(listOf(song.id), song.title), criterion, limit))
+        },
+        onDismissRequest = { showSimilarSongsDialog = false }
     )
 }

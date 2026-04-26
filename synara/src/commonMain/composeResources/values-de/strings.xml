@@ -43,6 +43,8 @@
     <string name="audio_buffer_size">Audio-Puffergröße (Quantum)</string>
     <string name="audio_buffer_count">Audio-Pufferanzahl</string>
     <string name="audio_target_sample_rate">Ziel-Abtastrate (Sample Rate)</string>
+    <string name="streaming_quality">Streaming-Qualität</string>
+    <string name="quality_source">Original (Source)</string>
     <string name="restart_required">Neustart erforderlich, um Änderungen zu übernehmen</string>
 
     <!-- Theme -->
@@ -305,4 +307,36 @@
     <string name="currently_downloading">Aktueller Download</string>
     <string name="download_queue">Download-Warteschlange</string>
     <string name="remove_download">Download entfernen</string>
+    <string name="cancel_download">Download abbrechen</string>
+    <string name="downloading">Herunterladen…</string>
+
+    <!-- Scheduled Tasks -->
+    <string name="settings_scheduled_task_logs_title">Geplante Aufgabenprotokolle</string>
+    <plurals name="settings_scheduled_task_logs_entries">
+        <item quantity="one">%1$d Eintrag</item>
+        <item quantity="other">%1$d Einträge</item>
+    </plurals>
+    <string name="settings_scheduled_task_logs_progress">Fortschritt</string>
+    <string name="settings_scheduled_task_logs_duration">Dauer</string>
+    <string name="settings_scheduled_task_logs_details">Details</string>
+    <string name="task_status_success">Erfolg</string>
+    <string name="task_status_failure">Fehlgeschlagen</string>
+    <string name="task_status_running">Läuft</string>
+
+    <!-- Discovery -->
+    <string name="get_similar_songs">Ähnliche Songs finden</string>
+    <string name="discovery_dialog_title">Ähnliche Songs suchen</string>
+    <string name="discovery_criterion">Ähnlichkeitskriterium</string>
+    <string name="discovery_criterion_default">Allgemeine Ähnlichkeit</string>
+    <string name="discovery_criterion_bpm">Ähnliche BPM</string>
+    <string name="discovery_criterion_energy">Ähnliche Energie</string>
+    <string name="discovery_criterion_mood">Ähnliche Stimmung</string>
+    <string name="discovery_criterion_composers">Gleiche Komponisten</string>
+    <string name="discovery_criterion_lyricists">Gleiche Texter</string>
+    <string name="discovery_criterion_producers">Gleiche Produzenten</string>
+    <string name="discovery_limit">Anzahl der Songs</string>
+    <string name="find_songs">Songs finden</string>
+    <string name="discovery_seed_songs">Ausgangs-Songs</string>
+    <string name="similar_songs_title">Ähnliche Songs</string>
+    <string name="create_playlist_from_results">Playlist aus Ergebnissen erstellen</string>
 </resources>

@@ -8,8 +8,10 @@ import dev.dertyp.serializers.AppCbor
 import dev.dertyp.serializers.AppJson
 import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
+import dev.dertyp.services.IAudioAnalysisService
 import dev.dertyp.services.IAuthService
 import dev.dertyp.services.ICustomAudioService
+import dev.dertyp.services.IDiscoveryService
 import dev.dertyp.services.IFavSyncService
 import dev.dertyp.services.IImageService
 import dev.dertyp.services.ILyricsSearch
@@ -34,8 +36,10 @@ import dev.dertyp.synara.player.SongCache
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.services.AlbumServiceWrapper
 import dev.dertyp.synara.rpc.services.ArtistServiceWrapper
+import dev.dertyp.synara.rpc.services.AudioAnalysisServiceWrapper
 import dev.dertyp.synara.rpc.services.AuthServiceWrapper
 import dev.dertyp.synara.rpc.services.CustomAudioServiceWrapper
+import dev.dertyp.synara.rpc.services.DiscoveryServiceWrapper
 import dev.dertyp.synara.rpc.services.DownloadServiceWrapper
 import dev.dertyp.synara.rpc.services.FavSyncServiceWrapper
 import dev.dertyp.synara.rpc.services.ImageServiceWrapper
@@ -89,6 +93,7 @@ import dev.dertyp.synara.viewmodels.SearchScreenModel
 import dev.dertyp.synara.viewmodels.SearchSongsViewModel
 import dev.dertyp.synara.viewmodels.SessionsScreenModel
 import dev.dertyp.synara.viewmodels.SetupScreenModel
+import dev.dertyp.synara.viewmodels.SimilarSongsScreenModel
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.HttpTimeout
@@ -182,6 +187,7 @@ val appModule = module {
     factoryOf(::ArtistLikedSongsScreenModel)
     factoryOf(::AlbumScreenModel)
     factoryOf(::PlaylistScreenModel)
+    factoryOf(::SimilarSongsScreenModel)
 
     factoryOf(::SearchSongsViewModel)
     factoryOf(::SearchArtistsViewModel)
@@ -192,8 +198,10 @@ val appModule = module {
 
     singleOf(::AlbumServiceWrapper) bind IAlbumService::class
     singleOf(::ArtistServiceWrapper) bind IArtistService::class
+    singleOf(::AudioAnalysisServiceWrapper) bind IAudioAnalysisService::class
     singleOf(::AuthServiceWrapper) bind IAuthService::class
     singleOf(::CustomAudioServiceWrapper) bind ICustomAudioService::class
+    singleOf(::DiscoveryServiceWrapper) bind IDiscoveryService::class
     singleOf(::DownloadServiceWrapper) bind IDownloadService::class
     singleOf(::FavSyncServiceWrapper) bind IFavSyncService::class
     singleOf(::ImageServiceWrapper) bind IImageService::class

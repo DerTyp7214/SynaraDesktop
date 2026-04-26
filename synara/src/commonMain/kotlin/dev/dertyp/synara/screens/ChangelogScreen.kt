@@ -82,6 +82,16 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "2.1.0",
+                        date = "2026-04-26",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Discover similar music based on **BPM, Energy, Mood**, or creators from songs, albums, and playlists."),
+                            Change(ChangeType.New, "Support for high-quality **Opus and Ogg** audio streaming."),
+                            Change(ChangeType.Improved, "Enhanced context menus with direct access to similarity-based discovery."),
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "2.0.0",
                         date = "2026-04-24",
                         isPrerelease = true,

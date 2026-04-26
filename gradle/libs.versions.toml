@@ -10,7 +10,7 @@ jetbrainsCompose = "1.10.3"
 kotlinxRpc = "0.10.2"
 ktor = "3.4.0"
 kotlinxSerialization = "1.10.0"
-material3 = "1.11.0-alpha06"
+material3 = "1.11.0-alpha07"
 runtime = "1.10.3"
 skikoAwt = "0.144.5"
 hikari = "7.0.2"
@@ -33,6 +33,8 @@ haze = "1.7.2"
 jcodec = "0.2.5"
 composableIcons = "2.2.1"
 kover = "0.9.8"
+concentus = "1.0.2"
+vorbis-java = "0.8"
 
 [libraries]
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coilCompose" }
@@ -107,6 +109,8 @@ material-symbols-sharp-filled = { module = "com.composables:icons-material-symbo
 icons-lucide = { module = "com.composables:icons-lucide-cmp", version.ref = "composableIcons" }
 phosphor-icons = { module = "io.github.dev778g-me:phosphoricon-compose", version = "1.0.2" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
+concentus = { module = "io.github.jaredmdobson:concentus", version.ref = "concentus" }
+vorbis-java = { module = "org.gagravarr:vorbis-java-core", version.ref = "vorbis-java" }
 
 [plugins]
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

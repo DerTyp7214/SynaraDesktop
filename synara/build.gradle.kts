@@ -15,7 +15,7 @@ val major = 1
 val minor = 0
 val patch = 0
 val buildMajor = 2
-val buildMinor = 0
+val buildMinor = 1
 val buildPatch = 0
 
 if (minor > 9 || patch > 9 || buildMajor > 99 || buildMinor > 99 || buildPatch > 99) {
@@ -144,6 +144,8 @@ kotlin {
                 implementation(libs.lwjgl.openal)
                 implementation(libs.lwjgl.stb)
                 implementation(libs.jflac)
+                implementation(libs.concentus)
+                implementation(libs.vorbis.java)
                 
                 implementation(libs.sqldelight.sqlite.driver)
                 implementation(libs.hikari)

@@ -109,11 +109,13 @@ import synara.synara.generated.resources.logout
 import synara.synara.generated.resources.particle_multiplier
 import synara.synara.generated.resources.performance
 import synara.synara.generated.resources.proxy
+import synara.synara.generated.resources.quality_source
 import synara.synara.generated.resources.restart_required
 import synara.synara.generated.resources.scrobbling
 import synara.synara.generated.resources.settings
 import synara.synara.generated.resources.settings_scheduled_task_logs_title
 import synara.synara.generated.resources.show_performance_overlay
+import synara.synara.generated.resources.streaming_quality
 import synara.synara.generated.resources.system_default
 import synara.synara.generated.resources.task_manager
 import synara.synara.generated.resources.theme
@@ -231,6 +233,12 @@ class SettingsScreen : Screen {
                     AudioTargetSampleRateSetting(
                         currentRate = audioTargetSampleRate,
                         onRateSelected = { Config.setAudioTargetSampleRate(it) }
+                    )
+
+                    val streamingQuality by Config.streamingQuality.collectAsState()
+                    StreamingQualitySetting(
+                        currentQuality = streamingQuality,
+                        onQualitySelected = { Config.setStreamingQuality(it) }
                     )
 
                     if (audioBufferSize != null || audioBufferCount != null || audioTargetSampleRate != null) {
@@ -960,6 +968,63 @@ class SettingsScreen : Screen {
                     valueRange = 0f..16f,
                     steps = 15
                 )
+            }
+        }
+    }
+
+    @Composable
+    private fun StreamingQualitySetting(currentQuality: Int, onQualitySelected: (Int) -> Unit) {
+        var expanded by remember { mutableStateOf(false) }
+        val qualities = listOf(
+            0 to stringResource(Res.string.quality_source),
+            128 to "128 kbps",
+            256 to "256 kbps",
+            320 to "320 kbps",
+            510 to "510 kbps"
+        )
+
+        Box {
+            SettingsCard(onClick = { expanded = true }) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(Res.string.streaming_quality),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = qualities.find { it.first == currentQuality }?.second
+                                ?: stringResource(Res.string.quality_source),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Icon(
+                        imageVector = SynaraIcons.ChevronDown.get(),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            SynaraMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.widthIn(min = 200.dp)
+            ) {
+                qualities.forEach { (quality, label) ->
+                    DropdownMenuItem(
+                        text = { Text(label) },
+                        onClick = {
+                            onQualitySelected(quality)
+                            expanded = false
+                        }
+                    )
+                }
             }
         }
     }

@@ -17,6 +17,7 @@ class StdoutLogPersistence : LogPersistence {
             LogLevel.INFO -> "INFO"
             LogLevel.WARNING -> "WARN"
             LogLevel.ERROR -> "ERROR"
+            LogLevel.CRASH -> "CRASH"
         }
         println("[$levelStr] [$tag] $message")
         if (data != null) {

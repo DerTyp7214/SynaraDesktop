@@ -112,16 +112,22 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
         return manager.getService<ISongService>().streamSong(id, offset, chunkSize)
     }
 
-    override fun downloadSong(id: PlatformUUID, quality: Int, offset: Long, chunkSize: Int): Flow<ByteArray>? {
-        return manager.getService<ISongService>().downloadSong(id, quality, offset, chunkSize)
+    override fun downloadSong(
+        id: PlatformUUID,
+        quality: Int,
+        offset: Long,
+        chunkSize: Int,
+        force: Boolean
+    ): Flow<ByteArray>? {
+        return manager.getService<ISongService>().downloadSong(id, quality, offset, chunkSize, force)
     }
 
     override suspend fun getStreamSize(id: PlatformUUID): Long {
         return manager.getService<ISongService>().getStreamSize(id)
     }
 
-    override suspend fun getDownloadSize(id: PlatformUUID, quality: Int): Long {
-        return manager.getService<ISongService>().getDownloadSize(id, quality)
+    override suspend fun getDownloadSize(id: PlatformUUID, quality: Int, force: Boolean): Long {
+        return manager.getService<ISongService>().getDownloadSize(id, quality, force)
     }
 
     override fun allSongIds(

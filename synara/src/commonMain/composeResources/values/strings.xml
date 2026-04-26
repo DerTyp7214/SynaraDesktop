@@ -43,6 +43,8 @@
     <string name="audio_buffer_size">Audio Buffer Size (Quantum)</string>
     <string name="audio_buffer_count">Audio Buffer Count</string>
     <string name="audio_target_sample_rate">Target Sample Rate</string>
+    <string name="streaming_quality">Streaming Quality</string>
+    <string name="quality_source">Source</string>
     <string name="restart_required">Restart required to apply changes</string>
 
     <!-- Theme -->
@@ -331,4 +333,21 @@
     <string name="task_status_success">Success</string>
     <string name="task_status_failure">Failure</string>
     <string name="task_status_running">Running</string>
+
+    <!-- Discovery -->
+    <string name="get_similar_songs">Get similar songs</string>
+    <string name="discovery_dialog_title">Find Similar Songs</string>
+    <string name="discovery_criterion">Similarity Criterion</string>
+    <string name="discovery_criterion_default">General Similarity</string>
+    <string name="discovery_criterion_bpm">Similar BPM</string>
+    <string name="discovery_criterion_energy">Similar Energy</string>
+    <string name="discovery_criterion_mood">Similar Mood</string>
+    <string name="discovery_criterion_composers">Same Composers</string>
+    <string name="discovery_criterion_lyricists">Same Lyricists</string>
+    <string name="discovery_criterion_producers">Same Producers</string>
+    <string name="discovery_limit">Number of songs</string>
+    <string name="find_songs">Find Songs</string>
+    <string name="discovery_seed_songs">Seed Songs</string>
+    <string name="similar_songs_title">Similar Songs</string>
+    <string name="create_playlist_from_results">Create Playlist from Results</string>
 </resources>

@@ -5,7 +5,25 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.vector.ImageVector
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.vectorResource
-import synara.synara.generated.resources.*
+import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.discord
+import synara.synara.generated.resources.icon_pack_lucide
+import synara.synara.generated.resources.icon_pack_material_symbols
+import synara.synara.generated.resources.icon_pack_phosphor
+import synara.synara.generated.resources.icon_style_bold
+import synara.synara.generated.resources.icon_style_default
+import synara.synara.generated.resources.icon_style_duotone
+import synara.synara.generated.resources.icon_style_filled
+import synara.synara.generated.resources.icon_style_light
+import synara.synara.generated.resources.icon_style_outlined
+import synara.synara.generated.resources.icon_style_regular
+import synara.synara.generated.resources.icon_style_rounded
+import synara.synara.generated.resources.icon_style_sharp
+import synara.synara.generated.resources.icon_style_thin
+import synara.synara.generated.resources.lastfm
+import synara.synara.generated.resources.listenbrainz
+import synara.synara.generated.resources.localscrobble
+import synara.synara.generated.resources.musicbrainz
 
 enum class IconPackType(val label: StringResource) {
     MaterialSymbols(Res.string.icon_pack_material_symbols),
@@ -55,10 +73,10 @@ enum class SynaraIcons {
     Play, Pause, SkipNext, SkipPrevious, Shuffle, Repeat, RepeatOne, PlayNext, AddToPlaylist, Albums, Artists, 
     AlbumVersions, Expiration, DeviceGeneric, DeviceMobile, DeviceDesktop, Upload, Add, Delete, DragHandle, Info, ThemeLight, 
     ThemeDark, ChevronDown, Filter, FilterOff, VolumeHigh, VolumeOff, VolumeMute, VolumeLow, Success, 
-    Pending, ExpandDown, Lyrics, Queue, FullscreenEnter, FullscreenExit, RemoveFromPlaylist, RemoveFromQueue, 
+    Pending, ExpandDown, ExpandUp, Lyrics, Queue, FullscreenEnter, FullscreenExit, RemoveFromPlaylist, RemoveFromQueue,
     ArtistMerge, ArtistSplit, Close, Confirm, OpenInNew, Edit,
     CheckCircle, ErrorCircle, SyncCircle, Circle, History,
-    Sync, Link, Download,
+    Sync, Link, Download, Discovery,
     LastFm, ListenBrainz, Discord, MusicBrainz, LocalScrobble;
 
     @Composable

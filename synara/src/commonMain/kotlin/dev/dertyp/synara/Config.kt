@@ -134,6 +134,9 @@ object Config : KoinComponent {
     private val _audioTargetSampleRate = MutableStateFlow(settings.getOrNull(SettingKey.AudioTargetSampleRate))
     val audioTargetSampleRate: StateFlow<Int?> = _audioTargetSampleRate.asStateFlow()
 
+    private val _streamingQuality = MutableStateFlow(settings.get(SettingKey.StreamingQuality, 0))
+    val streamingQuality: StateFlow<Int> = _streamingQuality.asStateFlow()
+
     fun setDarkTheme(isDark: Boolean) {
         _darkTheme.value = isDark
         settings.putBoolean("dark_theme", isDark)
@@ -320,5 +323,10 @@ object Config : KoinComponent {
     fun setAudioTargetSampleRate(rate: Int?) {
         _audioTargetSampleRate.value = rate
         settings.put(SettingKey.AudioTargetSampleRate, rate)
+    }
+
+    fun setStreamingQuality(quality: Int) {
+        _streamingQuality.value = quality
+        settings.put(SettingKey.StreamingQuality, quality)
     }
 }

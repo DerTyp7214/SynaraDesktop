@@ -120,7 +120,7 @@ class JvmAudioPlayer(
     private var lastSongId: PlatformUUID? = null
     private var isDesiredPlaying: Boolean = false
 
-    private val dataSource = SongDataSource(songService, songCache)
+    private val dataSource = SongDataSource(songService, songCache, settings)
 
     init {
         _currentOutputDevice.value = settings.getOrNull(SettingKey.AudioOutputDevice)

@@ -219,14 +219,12 @@ class RpcServiceManager(
         }
     }
 
-    fun clearServerConfig() {
-        this.host = null
-        this.port = null
+    fun resetToSetup() {
         hasFetchedProxyInfo = false
         scope.launch {
             clearAuth()
             clear()
-            refreshConnectionState()
+            _connectionState.value = ConnectionState.SetupRequired
         }
     }
 

@@ -43,8 +43,8 @@ class LoginScreenModel(
         }
     }
 
-    fun clearServer() {
-        rpcServiceManager.clearServerConfig()
+    fun backToSetup() {
+        rpcServiceManager.resetToSetup()
     }
 
     fun reset() {

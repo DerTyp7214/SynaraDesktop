@@ -5,7 +5,68 @@ import dev.dertyp.synara.ui.MapTo
 import dev.dertyp.synara.ui.PhosphorPack
 import dev.dertyp.synara.ui.SynaraIcons
 import icons.PhIcons
-import icons.regular.*
+import icons.regular.ArrowClockwise
+import icons.regular.ArrowLeft
+import icons.regular.ArrowSquareOut
+import icons.regular.ArrowsClockwise
+import icons.regular.ArrowsIn
+import icons.regular.ArrowsOut
+import icons.regular.ArrowsSplit
+import icons.regular.Books
+import icons.regular.CaretCircleDown
+import icons.regular.CaretCircleUp
+import icons.regular.CaretDown
+import icons.regular.Check
+import icons.regular.CheckCircle
+import icons.regular.Circle
+import icons.regular.Clock
+import icons.regular.ClockAfternoon
+import icons.regular.CloudArrowUp
+import icons.regular.Desktop
+import icons.regular.DeviceMobile
+import icons.regular.DeviceTablet
+import icons.regular.Disc
+import icons.regular.DotsSixVertical
+import icons.regular.DotsThreeVertical
+import icons.regular.DownloadSimple
+import icons.regular.Funnel
+import icons.regular.FunnelSimple
+import icons.regular.Gear
+import icons.regular.GitMerge
+import icons.regular.Heart
+import icons.regular.House
+import icons.regular.Info
+import icons.regular.Link
+import icons.regular.List
+import icons.regular.ListChecks
+import icons.regular.ListDashes
+import icons.regular.MagnifyingGlass
+import icons.regular.Microphone
+import icons.regular.MinusCircle
+import icons.regular.Moon
+import icons.regular.MusicNote
+import icons.regular.Pause
+import icons.regular.PencilSimple
+import icons.regular.Play
+import icons.regular.Playlist
+import icons.regular.Plus
+import icons.regular.PlusSquare
+import icons.regular.Repeat
+import icons.regular.RepeatOnce
+import icons.regular.Shuffle
+import icons.regular.SkipBack
+import icons.regular.SkipForward
+import icons.regular.Sparkle
+import icons.regular.SpeakerHigh
+import icons.regular.SpeakerLow
+import icons.regular.SpeakerNone
+import icons.regular.SpeakerX
+import icons.regular.Stack
+import icons.regular.Sun
+import icons.regular.Trash
+import icons.regular.User
+import icons.regular.WarningCircle
+import icons.regular.X
 
 @PhosphorPack
 object PhosphorMappings {
@@ -63,6 +124,7 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.Pending)
     val Clock = PhIcons.Regular.Clock
     @MapTo(SynaraIcons.ExpandDown) val CaretCircleDown = PhIcons.Regular.CaretCircleDown
+    @MapTo(SynaraIcons.ExpandUp) val CaretCircleUp = PhIcons.Regular.CaretCircleUp
     @MapTo(SynaraIcons.Lyrics) val Microphone = PhIcons.Regular.Microphone
     @MapTo(SynaraIcons.Queue) val ListDashes = PhIcons.Regular.ListDashes
     @MapTo(SynaraIcons.FullscreenEnter) val ArrowsOut = PhIcons.Regular.ArrowsOut
@@ -79,4 +141,5 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.History) val ClockAfternoon = PhIcons.Regular.ClockAfternoon
     @MapTo(SynaraIcons.Link) val Link = PhIcons.Regular.Link
     @MapTo(SynaraIcons.Download) val DownloadSimple = PhIcons.Regular.DownloadSimple
+    @MapTo(SynaraIcons.Discovery) val Sparkle = PhIcons.Regular.Sparkle
 }

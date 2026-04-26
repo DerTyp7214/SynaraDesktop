@@ -54,6 +54,7 @@ sealed class SettingKey<T>(val name: String) {
 
     // Downloads
     data object DownloadFavorites : SettingKey<Boolean>("download_favorites")
+    data object StreamingQuality : SettingKey<Int>("streaming_quality")
 
     // Performance
     data object ShowPerformanceOverlay : SettingKey<Boolean>("show_performance_overlay")
@@ -117,7 +118,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
 
         is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor,
         is SettingKey.ProxyPort, is SettingKey.AudioBufferSize, is SettingKey.AudioBufferCount,
-        is SettingKey.AudioTargetSampleRate -> getIntOrNull(
+        is SettingKey.AudioTargetSampleRate, is SettingKey.StreamingQuality -> getIntOrNull(
             key.name
         ) as T?
 

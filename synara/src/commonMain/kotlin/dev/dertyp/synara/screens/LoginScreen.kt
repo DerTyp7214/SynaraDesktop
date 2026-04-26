@@ -1,12 +1,35 @@
 package dev.dertyp.synara.screens
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -24,7 +47,11 @@ import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.viewmodels.LoginResult
 import dev.dertyp.synara.viewmodels.LoginScreenModel
 import org.jetbrains.compose.resources.stringResource
-import synara.synara.generated.resources.*
+import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.back
+import synara.synara.generated.resources.login
+import synara.synara.generated.resources.password
+import synara.synara.generated.resources.username
 
 class LoginScreen : Screen {
     @Composable
@@ -67,7 +94,7 @@ class LoginScreen : Screen {
                     ) {
                         Box(modifier = Modifier.fillMaxWidth()) {
                             IconButton(
-                                onClick = { screenModel.clearServer() },
+                                onClick = { screenModel.backToSetup() },
                                 modifier = Modifier.align(Alignment.TopStart)
                             ) {
                                 Icon(
