@@ -21,6 +21,7 @@ import org.jetbrains.exposed.v1.jdbc.update
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(FlowPreview::class)
 class DownloadManager(
@@ -76,7 +77,7 @@ class DownloadManager(
         scope.launch {
             queueUpdateFlow
                 .onStart { emit(Unit) }
-                .debounce(100)
+                .debounce(100.milliseconds)
                 .takeWhile { isActive }
                 .collect {
                     while (_queue.value.isNotEmpty()) {
@@ -207,7 +208,7 @@ class DownloadManager(
                             val expectedTime = (downloaded.toDouble() / MAX_SPEED_BYTES_PER_SECOND) * 1000
                             val actualTime = System.currentTimeMillis() - startTime
                             if (actualTime < expectedTime) {
-                                delay((expectedTime - actualTime).toLong().coerceAtMost(250))
+                                delay((expectedTime - actualTime).toLong().coerceAtMost(250).milliseconds)
                             }
 
                             yield()
@@ -215,7 +216,7 @@ class DownloadManager(
                     }
                 }
                 storageService.linkSongToSystemMusicDir(song)
-                delay(10)
+                delay(10.milliseconds)
             }
         }
         

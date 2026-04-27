@@ -2,8 +2,7 @@ package dev.dertyp.synara.ui.components.dialogs
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -22,10 +21,13 @@ import dev.dertyp.services.IArtistService
 import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraImage
+import dev.dertyp.synara.ui.verticalScrollScrim
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import synara.synara.generated.resources.*
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -36,17 +38,19 @@ fun EditSongArtistsDialog(
     onSave: (List<Artist>) -> Unit,
     artistService: IArtistService = koinInject()
 ) {
+    val scope = rememberCoroutineScope()
     var selectedArtists by remember(song) { mutableStateOf(song.artists) }
     var searchQuery by remember { mutableStateOf("") }
     var searchResults by remember { mutableStateOf(emptyList<Artist>()) }
     var isSearching by remember { mutableStateOf(false) }
+    var isCreating by remember { mutableStateOf(false) }
 
     LaunchedEffect(searchQuery) {
         if (searchQuery.length < 2) {
             searchResults = emptyList()
             return@LaunchedEffect
         }
-        delay(300)
+        delay(300.milliseconds)
         isSearching = true
         try {
             searchResults = artistService.rankedSearch(0, 10, searchQuery).data
@@ -77,10 +81,12 @@ fun EditSongArtistsDialog(
                 .widthIn(max = 500.dp)
                 .padding(24.dp)
         ) {
+            val scrollState = rememberScrollState()
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp),
+                    .padding(24.dp)
+                    .verticalScrollScrim(scrollState, applyScroll = true),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
@@ -145,13 +151,42 @@ fun EditSongArtistsDialog(
                     singleLine = true
                 )
 
-                if (searchResults.isNotEmpty()) {
-                    LazyColumn(
+                if (searchQuery.length >= 2 && !isSearching) {
+                    ListItem(
+                        headlineContent = { Text(stringResource(Res.string.create_artist_x, searchQuery)) },
+                        leadingContent = {
+                            if (isCreating) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            } else {
+                                Icon(SynaraIcons.Add.get(), contentDescription = null)
+                            }
+                        },
+                        colors = ListItemDefaults.colors(
+                            containerColor = Color.Transparent
+                        ),
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 200.dp)
+                            .clip(MaterialTheme.shapes.medium)
+                            .clickable(enabled = !isCreating) {
+                                scope.launch {
+                                    isCreating = true
+                                    try {
+                                        val newArtist = artistService.createArtist(searchQuery)
+                                        selectedArtists = selectedArtists + newArtist
+                                        searchQuery = ""
+                                    } catch (_: Exception) {
+                                    } finally {
+                                        isCreating = false
+                                    }
+                                }
+                            }
+                    )
+                }
+
+                if (searchResults.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        items(searchResults) { result ->
+                        searchResults.forEach { result ->
                             ListItem(
                                 headlineContent = { Text(result.name) },
                                 leadingContent = {

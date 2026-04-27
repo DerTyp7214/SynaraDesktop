@@ -27,6 +27,7 @@ import dev.dertyp.synara.viewmodels.AllSongsScreenModel
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.*
+import kotlin.time.Duration.Companion.milliseconds
 
 class AllSongsScreen : Screen {
 
@@ -162,7 +163,7 @@ class AllSongsScreen : Screen {
                 itemsIndexed(songs, key = { index, song -> song?.id ?: "placeholder_$index" }) { index, song ->
                     if (song == null) {
                         LaunchedEffect(index) {
-                            delay(200)
+                            delay(200.milliseconds)
                             screenModel.loadPage(index / screenModel.pageSize)
                         }
                         SongPlaceholder()

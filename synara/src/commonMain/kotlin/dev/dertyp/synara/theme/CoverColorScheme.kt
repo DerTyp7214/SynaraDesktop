@@ -1,13 +1,7 @@
 package dev.dertyp.synara.theme
 
 import androidx.compose.material3.ColorScheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.asComposeImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -31,7 +25,7 @@ fun rememberCoverScheme(coverId: PlatformUUID?, isDark: Boolean): State<ColorSch
     val lightColorScheme by Config.lightColorScheme.collectAsState()
     val defaultScheme = if (isDark) darkColorScheme else lightColorScheme
 
-    val scheme = remember(isDark) {
+    val scheme = remember(coverId, isDark, defaultScheme) {
         mutableStateOf(
             coverId?.let { id ->
                 schemeCache[id]?.let { seeds ->

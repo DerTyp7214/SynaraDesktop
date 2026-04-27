@@ -17,6 +17,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 class SearchScreenModel(
     private val songService: ISongService,
@@ -65,7 +66,7 @@ class SearchScreenModel(
         }
 
         searchJob = screenModelScope.launch(modelDispatcher) {
-            delay(400)
+            delay(400.milliseconds)
             _isSearching.value = true
             try {
                 val songsJob = launch { _songs.value = songService.rankedSearch(0, 10, query, explicit = true).data }

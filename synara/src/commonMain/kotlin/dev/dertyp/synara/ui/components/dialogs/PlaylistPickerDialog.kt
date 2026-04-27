@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,6 +16,7 @@ import dev.dertyp.data.UserPlaylist
 import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraImage
+import dev.dertyp.synara.ui.verticalScrollScrim
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
@@ -41,9 +43,13 @@ fun PlaylistPickerDialog(
             )
         },
         text = {
+            val lazyListState = rememberLazyListState()
             Box(modifier = Modifier.heightIn(max = 400.dp)) {
                 LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
+                    state = lazyListState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScrollScrim(lazyListState),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     item {

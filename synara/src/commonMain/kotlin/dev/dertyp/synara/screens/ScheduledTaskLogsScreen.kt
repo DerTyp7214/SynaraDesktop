@@ -36,6 +36,7 @@ import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import synara.synara.generated.resources.*
+import kotlin.time.Duration.Companion.seconds
 
 private val SuccessGreen = Color(0xFF4CAF50)
 private val WarningOrange = Color(0xFFFF9800)
@@ -383,7 +384,7 @@ class ScheduledTaskLogsScreen : Screen {
         LaunchedEffect(log.startTime) {
             while (true) {
                 currentTime = currentTimeMillis()
-                delay(1000)
+                delay(1.seconds)
             }
         }
 

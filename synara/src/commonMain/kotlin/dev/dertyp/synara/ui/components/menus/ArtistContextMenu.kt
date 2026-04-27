@@ -17,10 +17,12 @@ import dev.dertyp.synara.services.IDownloadManager
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.MergeArtistDialog
+import dev.dertyp.synara.ui.components.dialogs.SetArtistGroupDialog
 import dev.dertyp.synara.ui.components.dialogs.SplitArtistDialog
 import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import synara.synara.generated.resources.*
@@ -41,6 +43,7 @@ fun ArtistContextMenu(
     
     var showMergeDialog by remember { mutableStateOf(false) }
     var showSplitDialog by remember { mutableStateOf(false) }
+    var showSetGroupDialog by remember { mutableStateOf(false) }
 
     SynaraMenu(
         expanded = expanded,
@@ -119,6 +122,15 @@ fun ArtistContextMenu(
             HorizontalDivider()
 
             DropdownMenuItem(
+                text = { Text(stringResource(Res.string.set_artist_group_title)) },
+                onClick = {
+                    showSetGroupDialog = true
+                    onDismissRequest()
+                },
+                leadingIcon = { Icon(SynaraIcons.Artists.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+            )
+
+            DropdownMenuItem(
                 text = { Text(stringResource(Res.string.menu_merge_artist)) },
                 onClick = {
                     showMergeDialog = true
@@ -147,12 +159,12 @@ fun ArtistContextMenu(
                 try {
                     val result = artistService.mergeArtists(mergeArtists)
                     if (result != null) {
-                        snackbarManager.showSnackbar("Artist merged successfully")
+                        snackbarManager.showSnackbar(getString(Res.string.artist_merged_success))
                     } else {
-                        snackbarManager.showSnackbar("Failed to merge artist")
+                        snackbarManager.showSnackbar(getString(Res.string.artist_merged_failed))
                     }
                 } catch (e: Exception) {
-                    snackbarManager.showSnackbar("Error merging artist: ${e.message}")
+                    snackbarManager.showSnackbar(getString(Res.string.artist_merged_error, e.message ?: "Unknown error"))
                 }
             }
         }
@@ -167,12 +179,32 @@ fun ArtistContextMenu(
                 try {
                     val result = artistService.splitArtist(splitArtist)
                     if (result.isNotEmpty()) {
-                        snackbarManager.showSnackbar("Artist split into ${result.size} artists")
+                        snackbarManager.showSnackbar(getString(Res.string.artist_split_success, result.size))
                     } else {
-                        snackbarManager.showSnackbar("Failed to split artist")
+                        snackbarManager.showSnackbar(getString(Res.string.artist_split_failed))
                     }
                 } catch (e: Exception) {
-                    snackbarManager.showSnackbar("Error splitting artist: ${e.message}")
+                    snackbarManager.showSnackbar(getString(Res.string.artist_split_error, e.message ?: "Unknown error"))
+                }
+            }
+        }
+    )
+
+    SetArtistGroupDialog(
+        isOpen = showSetGroupDialog,
+        artist = artist,
+        onDismissRequest = { showSetGroupDialog = false },
+        onSave = { artists ->
+            scope.launch {
+                try {
+                    val result = artistService.setGroup(artist.id, artists?.map { it.id } ?: emptyList())
+                    if (result != null) {
+                        snackbarManager.showSnackbar(getString(Res.string.artist_group_updated_success))
+                    } else {
+                        snackbarManager.showSnackbar(getString(Res.string.artist_group_updated_failed))
+                    }
+                } catch (e: Exception) {
+                    snackbarManager.showSnackbar(getString(Res.string.artist_group_updated_error, e.message ?: "Unknown error"))
                 }
             }
         }

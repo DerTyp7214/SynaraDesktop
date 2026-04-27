@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -17,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import dev.dertyp.data.Artist
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraImage
+import dev.dertyp.synara.ui.verticalScrollScrim
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.Res
 import synara.synara.generated.resources.artists
@@ -40,9 +42,13 @@ fun ArtistListDialog(
             )
         },
         text = {
+            val lazyListState = rememberLazyListState()
             Box(modifier = Modifier.heightIn(max = 400.dp)) {
                 LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
+                    state = lazyListState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScrollScrim(lazyListState),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(artists.sortedBy { it.name }) { artist ->

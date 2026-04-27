@@ -33,7 +33,7 @@ class ScrobbleTimer(private val scope: CoroutineScope) {
         isRunning = true
         timerJob = scope.launch {
             while (isActive) {
-                delay(1000)
+                delay(1.seconds)
                 _time.value += 1
             }
         }
@@ -57,7 +57,7 @@ class ScrobbleTimer(private val scope: CoroutineScope) {
 class ScrobblerService(
     private val playerModel: PlayerModel,
     private val logger: Logger,
-    private val dispatchers: SynaraDispatchers
+    dispatchers: SynaraDispatchers
 ) : KoinComponent {
     private val modelDispatcher = dispatchers.createNamed("ScrobblerService")
     private val scope: CoroutineScope = CoroutineScope(modelDispatcher + SupervisorJob())

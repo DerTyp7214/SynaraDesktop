@@ -17,6 +17,7 @@ import java.nio.channels.AsynchronousCloseException
 import java.nio.channels.ByteChannel
 import java.nio.channels.SocketChannel
 import java.util.UUID
+import kotlin.time.Duration.Companion.milliseconds
 
 @Suppress("PropertyName")
 class DiscordIpcClient(
@@ -78,7 +79,7 @@ class DiscordIpcClient(
                         val read = currentChannel.read(header)
                         if (read == -1) break
                         if (read == 0) {
-                            delay(100)
+                            delay(100.milliseconds)
                             continue
                         }
                     } catch (_: AsynchronousCloseException) {

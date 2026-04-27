@@ -26,10 +26,7 @@ import dev.dertyp.PlatformUUID
 import dev.dertyp.core.parseVersions
 import dev.dertyp.data.Artist
 import dev.dertyp.synara.ui.SynaraIcons
-import dev.dertyp.synara.ui.components.AlbumItem
-import dev.dertyp.synara.ui.components.GenresText
-import dev.dertyp.synara.ui.components.SongItem
-import dev.dertyp.synara.ui.components.SynaraImage
+import dev.dertyp.synara.ui.components.*
 import dev.dertyp.synara.ui.components.dialogs.FullscreenImageDialog
 import dev.dertyp.synara.ui.components.menus.ArtistContextMenu
 import dev.dertyp.synara.viewmodels.ArtistScreenModel
@@ -109,6 +106,16 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
                                         text = artist.about,
                                         modifier = Modifier.padding(bottom = 24.dp)
                                     )
+                                }
+                            }
+
+                            if (artist.isGroup && artist.artists.isNotEmpty()) {
+                                item {
+                                    ArtistGroupMembers(
+                                        artist = artist,
+                                        navigator = navigator
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
                                 }
                             }
 

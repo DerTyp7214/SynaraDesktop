@@ -7,10 +7,6 @@ import java.io.File
 import java.nio.file.Files
 
 class JvmLocalStorageService : LocalStorageService {
-    init {
-        performMigration()
-    }
-
     override fun getConfigDir(): String = getAppDir(AppDirType.Config).absolutePath
     override fun getCacheDir(): String = getAppDir(AppDirType.Cache).absolutePath
     override fun getDataDir(): String = getAppDir(AppDirType.Data).absolutePath
@@ -91,113 +87,6 @@ class JvmLocalStorageService : LocalStorageService {
 
     private fun sanitizeFileName(name: String): String {
         return name.replace(Regex("[\\\\/:*?\"<>|]"), "_")
-    }
-
-    private fun performMigration() {
-        val legacyDir = getLegacyDir()
-        val configDir = getAppDir(AppDirType.Config)
-        val dataDir = getAppDir(AppDirType.Data)
-        val cacheDir = getAppDir(AppDirType.Cache)
-        val targetImages = File(cacheDir, "images")
-
-        if (!configDir.exists()) configDir.mkdirs()
-        if (!dataDir.exists()) dataDir.mkdirs()
-        if (!targetImages.exists()) targetImages.mkdirs()
-
-        if (legacyDir.exists() && legacyDir.isDirectory) {
-            val configFiles = listOf("config.yml", "auth.yml")
-            val dataFilePrefixes = listOf("synara.db", "player_state")
-
-            configFiles.forEach { fileName ->
-                val source = File(legacyDir, fileName)
-                val target = File(configDir, fileName)
-                if (source.exists() && !target.exists() && source.absolutePath != target.absolutePath) {
-                    source.renameTo(target)
-                }
-            }
-
-            legacyDir.listFiles()?.forEach { source ->
-                if (source.isFile) {
-                    val shouldMoveToData = dataFilePrefixes.any { source.name.startsWith(it) }
-                    if (source.name == "synara.db") {
-                        source.delete()
-                    } else if (shouldMoveToData) {
-                        val target = File(dataDir, source.name)
-                        if (!target.exists() && source.absolutePath != target.absolutePath) {
-                            source.renameTo(target)
-                        }
-                    }
-                }
-            }
-
-            val legacyCache = File(legacyDir, "cache")
-            if (legacyCache.exists() && legacyCache.isDirectory) {
-                if (targetImages.list()?.isEmpty() == true) {
-                    legacyCache.renameTo(targetImages)
-                } else {
-                    deleteRecursively(legacyCache)
-                }
-            }
-        }
-
-        cacheDir.listFiles()?.forEach { file ->
-            if (file.absolutePath != targetImages.absolutePath) {
-                val dest = File(targetImages, file.name)
-                if (!dest.exists()) {
-                    file.renameTo(dest)
-                } else {
-                    deleteRecursively(file)
-                }
-            }
-        }
-
-        if (OSUtils.isLinux) {
-            val home = System.getProperty("user.home")
-            val dotSynara = File(home, ".synara")
-            if (dotSynara.exists() && dotSynara.isDirectory) {
-                val dotCache = File(dotSynara, "cache")
-                if (dotCache.exists() && dotCache.isDirectory) {
-                    if (targetImages.list()?.isEmpty() == true) {
-                        dotCache.renameTo(targetImages)
-                    } else {
-                        deleteRecursively(dotCache)
-                    }
-                }
-                if (dotSynara.list()?.isEmpty() == true) {
-                    dotSynara.delete()
-                }
-            }
-        }
-    }
-
-    private fun deleteRecursively(file: File) {
-        if (file.isDirectory) {
-            file.listFiles()?.forEach { deleteRecursively(it) }
-        }
-        file.delete()
-    }
-
-    private fun getLegacyDir(): File {
-        if (BuildConfig.IS_DEBUG) {
-            return File(getProjectRoot(), "dev")
-        }
-
-        val home = System.getProperty("user.home")
-        return when {
-            OSUtils.isWindows -> {
-                val appData = System.getenv("APPDATA")
-                if (appData != null) File(appData, "synara") else File(home, "AppData/Roaming/synara")
-            }
-            OSUtils.isMac -> File(home, "Library/Application Support/synara")
-            else -> {
-                val xdgConfig = System.getenv("XDG_CONFIG_HOME")
-                if (xdgConfig != null && xdgConfig.isNotEmpty()) {
-                    File(xdgConfig, "synara")
-                } else {
-                    File(home, ".config/synara")
-                }
-            }
-        }
     }
 
     private fun getAppDir(type: AppDirType): File {

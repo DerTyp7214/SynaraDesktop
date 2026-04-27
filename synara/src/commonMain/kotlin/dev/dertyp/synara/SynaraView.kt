@@ -33,6 +33,7 @@ import dev.dertyp.synara.ui.components.PerformanceOverlay
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -55,7 +56,7 @@ fun SynaraView() {
     LaunchedEffect(lastPointerMoveTime, windowActions.isFullscreen, isAnyOverlayOpen) {
         if (windowActions.isFullscreen && !isAnyOverlayOpen) {
             windowActions.setCursorVisible(true)
-            delay(3000)
+            delay(3.seconds)
             windowActions.setCursorVisible(false)
         } else {
             windowActions.setCursorVisible(true)

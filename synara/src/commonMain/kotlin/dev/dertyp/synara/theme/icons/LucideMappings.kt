@@ -1,67 +1,6 @@
 package dev.dertyp.synara.theme.icons
 
-import com.composables.icons.lucide.ArrowLeft
-import com.composables.icons.lucide.Check
-import com.composables.icons.lucide.ChevronDown
-import com.composables.icons.lucide.ChevronUp
-import com.composables.icons.lucide.Circle
-import com.composables.icons.lucide.CircleAlert
-import com.composables.icons.lucide.CircleCheck
-import com.composables.icons.lucide.CircleMinus
-import com.composables.icons.lucide.Clock
-import com.composables.icons.lucide.CloudUpload
-import com.composables.icons.lucide.Disc
-import com.composables.icons.lucide.Download
-import com.composables.icons.lucide.EllipsisVertical
-import com.composables.icons.lucide.ExternalLink
-import com.composables.icons.lucide.GitMerge
-import com.composables.icons.lucide.GripVertical
-import com.composables.icons.lucide.Heart
-import com.composables.icons.lucide.HeartOff
-import com.composables.icons.lucide.History
-import com.composables.icons.lucide.House
-import com.composables.icons.lucide.Info
-import com.composables.icons.lucide.Layers
-import com.composables.icons.lucide.Library
-import com.composables.icons.lucide.Link
-import com.composables.icons.lucide.ListFilter
-import com.composables.icons.lucide.ListFilterPlus
-import com.composables.icons.lucide.ListMusic
-import com.composables.icons.lucide.ListPlus
-import com.composables.icons.lucide.ListVideo
-import com.composables.icons.lucide.ListX
-import com.composables.icons.lucide.Lucide
-import com.composables.icons.lucide.Maximize
-import com.composables.icons.lucide.Menu
-import com.composables.icons.lucide.Mic
-import com.composables.icons.lucide.Minimize
-import com.composables.icons.lucide.Monitor
-import com.composables.icons.lucide.Moon
-import com.composables.icons.lucide.Music
-import com.composables.icons.lucide.Pause
-import com.composables.icons.lucide.Pencil
-import com.composables.icons.lucide.Play
-import com.composables.icons.lucide.Plus
-import com.composables.icons.lucide.RefreshCw
-import com.composables.icons.lucide.Repeat
-import com.composables.icons.lucide.Repeat1
-import com.composables.icons.lucide.Search
-import com.composables.icons.lucide.Settings
-import com.composables.icons.lucide.Shuffle
-import com.composables.icons.lucide.SkipBack
-import com.composables.icons.lucide.SkipForward
-import com.composables.icons.lucide.Smartphone
-import com.composables.icons.lucide.Sparkles
-import com.composables.icons.lucide.Split
-import com.composables.icons.lucide.Sun
-import com.composables.icons.lucide.Tablet
-import com.composables.icons.lucide.Trash
-import com.composables.icons.lucide.User
-import com.composables.icons.lucide.Volume
-import com.composables.icons.lucide.Volume1
-import com.composables.icons.lucide.Volume2
-import com.composables.icons.lucide.VolumeX
-import com.composables.icons.lucide.X
+import com.composables.icons.lucide.*
 import dev.dertyp.synara.ui.LucidePack
 import dev.dertyp.synara.ui.MapTo
 import dev.dertyp.synara.ui.SynaraIcons
@@ -111,7 +50,11 @@ object LucideMappings {
     @MapTo(SynaraIcons.ChevronDown)
     @MapTo(SynaraIcons.ExpandDown)
     val ChevronDown = Lucide.ChevronDown
-    @MapTo(SynaraIcons.ExpandUp) val ChevronUp = Lucide.ChevronUp
+    @MapTo(SynaraIcons.ChevronRight) val ChevronRight = Lucide.ChevronRight
+    @MapTo(SynaraIcons.ChevronUp)
+    @MapTo(SynaraIcons.ExpandUp)
+    val ChevronUp = Lucide.ChevronUp
+    @MapTo(SynaraIcons.ChevronLeft) val ChevronLeft = Lucide.ChevronLeft
     @MapTo(SynaraIcons.Filter) val ListFilterPlus = Lucide.ListFilterPlus
     @MapTo(SynaraIcons.FilterOff) val ListFilter = Lucide.ListFilter
     @MapTo(SynaraIcons.VolumeHigh) val Volume2 = Lucide.Volume2

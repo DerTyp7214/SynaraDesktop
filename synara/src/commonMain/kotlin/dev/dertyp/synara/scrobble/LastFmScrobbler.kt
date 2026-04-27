@@ -82,7 +82,7 @@ class LastFmScrobbler(
                 )
                 if (success) {
                     scrobbleQueue.pop(entry.id)
-                    delay(100)
+                    delay(100.milliseconds)
                 } else {
                     break
                 }

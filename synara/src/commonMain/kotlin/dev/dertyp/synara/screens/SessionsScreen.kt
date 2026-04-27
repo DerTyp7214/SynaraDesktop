@@ -26,6 +26,7 @@ import dev.dertyp.synara.viewmodels.SessionsScreenModel
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.*
+import kotlin.time.Duration.Companion.seconds
 
 class SessionsScreen : Screen {
 
@@ -146,7 +147,7 @@ class SessionsScreen : Screen {
         LaunchedEffect(Unit) {
             while (true) {
                 currentTime = currentTimeMillis()
-                delay(1000)
+                delay(1.seconds)
             }
         }
 
