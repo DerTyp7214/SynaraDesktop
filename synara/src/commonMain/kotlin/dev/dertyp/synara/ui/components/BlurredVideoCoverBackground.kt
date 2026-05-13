@@ -9,19 +9,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameMillis
-import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.ColorFilter
@@ -33,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import dev.dertyp.core.tidalId
 import dev.dertyp.data.UserSong
-import dev.dertyp.services.download.IDownloadService
+import dev.dertyp.services.import.IImportService
 import dev.dertyp.services.metadata.IMetadataService
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.rpc.services.MetadataServiceWrapper
@@ -51,7 +39,7 @@ fun BlurredVideoCoverBackground(
     audioReactive: Boolean = false,
     playerModel: PlayerModel = koinInject(),
     metadataService: MetadataServiceWrapper = koinInject(),
-    downloadService: IDownloadService = koinInject(),
+    importService: IImportService = koinInject(),
     videoService: VideoFrameService = koinInject(),
     onFrame: (Triple<Int?, Int?, Int?>) -> Unit = {},
     content: @Composable BoxScope.() -> Unit = {}
@@ -62,13 +50,13 @@ fun BlurredVideoCoverBackground(
     val currentSongId = song?.id
     val videoInfo by produceState<Pair<String?, Boolean>>(null to false, currentSongId) {
         val originalUrl = song?.originalUrl ?: return@produceState
-        val downloader = try {
-            downloadService.getDownloaderForUrl(originalUrl)
+        val importer = try {
+            importService.getImporterForUrl(originalUrl)
         } catch (_: Exception) {
             null
         } ?: return@produceState
 
-        if (downloader.id == "tdn" || downloader.id == "tiddl") {
+        if (importer.id == "tdn" || importer.id == "tiddl") {
             val tidalId = originalUrl.tidalId()
             val images = try {
                 metadataService.getTrackById(IMetadataService.MetadataType.tidal, tidalId)?.images ?: emptyList()

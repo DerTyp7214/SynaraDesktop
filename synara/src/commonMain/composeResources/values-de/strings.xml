@@ -101,6 +101,7 @@
     <string name="play_next">Als nächstes spielen</string>
     <string name="playing_next_item">Spiele **%1$s** als Nächstes</string>
     <string name="menu_download">Herunterladen</string>
+    <string name="menu_import">Importieren</string>
     <string name="playlist">Playlist</string>
 
     <!-- General -->
@@ -252,12 +253,12 @@
     <string name="release_type_broadcast">Broadcasts</string>
     <string name="release_type_other">Andere</string>
     <string name="release_type_unknown">Unbekannt</string>
-    <string name="menu_download_external">Von externer Quelle herunterladen</string>
-    <string name="downloader_title">Downloader</string>
-    <string name="downloader_login_required">Anmeldung erforderlich</string>
-    <string name="downloader_login_instructions">Du musst Synara autorisieren, um von dieser Quelle herunterzuladen.</string>
-    <string name="downloader_url_label">URL (Titel, Album, Playlist, Interpret, Mix)</string>
-    <string name="downloader_logs_label">Logs</string>
+    <string name="menu_import_external">Von externer Quelle importieren</string>
+    <string name="importer_title">Importer</string>
+    <string name="importer_login_required">Anmeldung erforderlich</string>
+    <string name="importer_login_instructions">Du musst Synara autorisieren, um von dieser Quelle zu importieren.</string>
+    <string name="importer_url_label">URL (Titel, Album, Playlist, Interpret, Mix)</string>
+    <string name="importer_logs_label">Logs</string>
     <string name="sync_favorites">Favoriten synchronisieren</string>
     <string name="search_external">Externe Suche</string>
     <string name="external_search_title">Externe Suche</string>

@@ -64,6 +64,16 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "2.1.2",
+                        date = "2026-05-13",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Refactored, "Rebranded all server-side download components to **Importer** to better reflect their role in the library ecosystem."),
+                            Change(ChangeType.Improved, "Enhanced security by enforcing specific capabilities (`EDIT`, `DELETE`) for administrative actions like metadata editing and content removal."),
+                            Change(ChangeType.Updated, "Updated internal RPC services and localized strings to align with the new importer terminology.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "2.1.1",
                         date = "2026-04-27",
                         isPrerelease = true,

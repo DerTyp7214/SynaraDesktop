@@ -6,27 +6,8 @@ import dev.dertyp.logging.BaseLogger
 import dev.dertyp.logging.Logger
 import dev.dertyp.serializers.AppCbor
 import dev.dertyp.serializers.AppJson
-import dev.dertyp.services.IAlbumService
-import dev.dertyp.services.IArtistService
-import dev.dertyp.services.IAudioAnalysisService
-import dev.dertyp.services.IAuthService
-import dev.dertyp.services.ICustomAudioService
-import dev.dertyp.services.IDiscoveryService
-import dev.dertyp.services.IFavSyncService
-import dev.dertyp.services.IImageService
-import dev.dertyp.services.ILyricsSearch
-import dev.dertyp.services.IPlaybackService
-import dev.dertyp.services.IPlaylistService
-import dev.dertyp.services.IReleaseService
-import dev.dertyp.services.IScheduledTaskLogService
-import dev.dertyp.services.IServerStatsService
-import dev.dertyp.services.ISessionService
-import dev.dertyp.services.ISongService
-import dev.dertyp.services.IStorageService
-import dev.dertyp.services.ISyncService
-import dev.dertyp.services.IUserPlaylistService
-import dev.dertyp.services.IUserService
-import dev.dertyp.services.download.IDownloadService
+import dev.dertyp.services.*
+import dev.dertyp.services.import.IImportService
 import dev.dertyp.services.metadata.IMetadataService
 import dev.dertyp.services.metadata.IMusicBrainzService
 import dev.dertyp.synara.BuildConfig
@@ -34,37 +15,8 @@ import dev.dertyp.synara.logging.StdoutLogPersistence
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.SongCache
 import dev.dertyp.synara.rpc.RpcServiceManager
-import dev.dertyp.synara.rpc.services.AlbumServiceWrapper
-import dev.dertyp.synara.rpc.services.ArtistServiceWrapper
-import dev.dertyp.synara.rpc.services.AudioAnalysisServiceWrapper
-import dev.dertyp.synara.rpc.services.AuthServiceWrapper
-import dev.dertyp.synara.rpc.services.CustomAudioServiceWrapper
-import dev.dertyp.synara.rpc.services.DiscoveryServiceWrapper
-import dev.dertyp.synara.rpc.services.DownloadServiceWrapper
-import dev.dertyp.synara.rpc.services.FavSyncServiceWrapper
-import dev.dertyp.synara.rpc.services.ImageServiceWrapper
-import dev.dertyp.synara.rpc.services.LyricsSearchWrapper
-import dev.dertyp.synara.rpc.services.MetadataServiceWrapper
-import dev.dertyp.synara.rpc.services.MusicBrainzServiceWrapper
-import dev.dertyp.synara.rpc.services.PlaybackServiceWrapper
-import dev.dertyp.synara.rpc.services.PlaylistServiceWrapper
-import dev.dertyp.synara.rpc.services.ReleaseServiceWrapper
-import dev.dertyp.synara.rpc.services.ScheduledTaskLogServiceWrapper
-import dev.dertyp.synara.rpc.services.ServerStatsServiceWrapper
-import dev.dertyp.synara.rpc.services.SessionServiceWrapper
-import dev.dertyp.synara.rpc.services.SongServiceWrapper
-import dev.dertyp.synara.rpc.services.StorageServiceWrapper
-import dev.dertyp.synara.rpc.services.SyncServiceWrapper
-import dev.dertyp.synara.rpc.services.UserPlaylistServiceWrapper
-import dev.dertyp.synara.rpc.services.UserServiceWrapper
-import dev.dertyp.synara.scrobble.DiscordScrobbler
-import dev.dertyp.synara.scrobble.LastFmScrobbler
-import dev.dertyp.synara.scrobble.ListenBrainzScrobbler
-import dev.dertyp.synara.scrobble.LocalSongScrobbler
-import dev.dertyp.synara.scrobble.MusicBrainzService
-import dev.dertyp.synara.scrobble.RecentlyPlayedScrobbler
-import dev.dertyp.synara.scrobble.ScrobbleQueue
-import dev.dertyp.synara.scrobble.ScrobblerService
+import dev.dertyp.synara.rpc.services.*
+import dev.dertyp.synara.scrobble.*
 import dev.dertyp.synara.services.IDownloadManager
 import dev.dertyp.synara.services.StubDownloadManager
 import dev.dertyp.synara.settings.SettingsFactory
@@ -73,27 +25,7 @@ import dev.dertyp.synara.ui.models.PerformanceMonitor
 import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.ui.models.TrayState
 import dev.dertyp.synara.utils.AppDispatchers
-import dev.dertyp.synara.viewmodels.AlbumScreenModel
-import dev.dertyp.synara.viewmodels.AllSongsScreenModel
-import dev.dertyp.synara.viewmodels.ArtistAlbumsScreenModel
-import dev.dertyp.synara.viewmodels.ArtistLikedSongsScreenModel
-import dev.dertyp.synara.viewmodels.ArtistScreenModel
-import dev.dertyp.synara.viewmodels.ArtistSongsScreenModel
-import dev.dertyp.synara.viewmodels.DownloaderScreenModel
-import dev.dertyp.synara.viewmodels.DownloadsScreenModel
-import dev.dertyp.synara.viewmodels.GlobalStateModel
-import dev.dertyp.synara.viewmodels.HomeScreenModel
-import dev.dertyp.synara.viewmodels.LikedSongsScreenModel
-import dev.dertyp.synara.viewmodels.LoginScreenModel
-import dev.dertyp.synara.viewmodels.PlaylistScreenModel
-import dev.dertyp.synara.viewmodels.SearchAlbumsViewModel
-import dev.dertyp.synara.viewmodels.SearchArtistsViewModel
-import dev.dertyp.synara.viewmodels.SearchPlaylistsViewModel
-import dev.dertyp.synara.viewmodels.SearchScreenModel
-import dev.dertyp.synara.viewmodels.SearchSongsViewModel
-import dev.dertyp.synara.viewmodels.SessionsScreenModel
-import dev.dertyp.synara.viewmodels.SetupScreenModel
-import dev.dertyp.synara.viewmodels.SimilarSongsScreenModel
+import dev.dertyp.synara.viewmodels.*
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.HttpTimeout
@@ -193,7 +125,7 @@ val appModule = module {
     factoryOf(::SearchArtistsViewModel)
     factoryOf(::SearchAlbumsViewModel)
     factoryOf(::SearchPlaylistsViewModel)
-    factoryOf(::DownloaderScreenModel)
+    factoryOf(::ImportScreenModel)
     factoryOf(::DownloadsScreenModel)
 
     singleOf(::AlbumServiceWrapper) bind IAlbumService::class
@@ -202,7 +134,7 @@ val appModule = module {
     singleOf(::AuthServiceWrapper) bind IAuthService::class
     singleOf(::CustomAudioServiceWrapper) bind ICustomAudioService::class
     singleOf(::DiscoveryServiceWrapper) bind IDiscoveryService::class
-    singleOf(::DownloadServiceWrapper) bind IDownloadService::class
+    singleOf(::ImportServiceWrapper) bind IImportService::class
     singleOf(::FavSyncServiceWrapper) bind IFavSyncService::class
     singleOf(::ImageServiceWrapper) bind IImageService::class
     singleOf(::LyricsSearchWrapper) bind ILyricsSearch::class

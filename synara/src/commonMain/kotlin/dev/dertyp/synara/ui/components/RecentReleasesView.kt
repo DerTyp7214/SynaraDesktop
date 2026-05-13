@@ -1,49 +1,21 @@
 package dev.dertyp.synara.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.*
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,35 +29,24 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.data.ReleaseType
 import dev.dertyp.formatDate
 import dev.dertyp.services.IReleaseService
-import dev.dertyp.services.download.DownloadBackend
-import dev.dertyp.services.download.IDownloadService
+import dev.dertyp.services.import.IImportService
+import dev.dertyp.services.import.ImportBackend
 import dev.dertyp.services.models.RecentRelease
 import dev.dertyp.synara.Config
 import dev.dertyp.synara.screens.ArtistScreen
-import dev.dertyp.synara.screens.DownloaderScreen
+import dev.dertyp.synara.screens.ImportScreen
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.dialogs.SynaraDialog
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import synara.synara.generated.resources.Res
-import synara.synara.generated.resources.menu_download
-import synara.synara.generated.resources.recent_releases
-import synara.synara.generated.resources.release_type_album
-import synara.synara.generated.resources.release_type_broadcast
-import synara.synara.generated.resources.release_type_ep
-import synara.synara.generated.resources.release_type_other
-import synara.synara.generated.resources.release_type_single
-import synara.synara.generated.resources.release_type_unknown
-import synara.synara.generated.resources.show_less
-import synara.synara.generated.resources.show_more
-import synara.synara.generated.resources.tag_has_musicbrainz_id
+import synara.synara.generated.resources.*
 
 @Composable
 fun RecentReleasesView(
     modifier: Modifier = Modifier,
     releaseService: IReleaseService = koinInject(),
-    downloadService: IDownloadService = koinInject()
+    importService: IImportService = koinInject()
 ) {
     var releases by remember { mutableStateOf(emptyList<RecentRelease>()) }
     var selectedRelease by remember { mutableStateOf<RecentRelease?>(null) }
@@ -188,7 +149,7 @@ fun RecentReleasesView(
     selectedRelease?.let { release ->
         RecentReleaseDialog(
             release = release,
-            downloadService = downloadService,
+            importService = importService,
             onDismissRequest = { selectedRelease = null }
         )
     }
@@ -248,7 +209,7 @@ fun RecentReleaseCard(
 @Composable
 fun RecentReleaseDialog(
     release: RecentRelease,
-    downloadService: IDownloadService,
+    importService: IImportService,
     onDismissRequest: () -> Unit
 ) {
     val uriHandler = LocalUriHandler.current
@@ -307,13 +268,13 @@ fun RecentReleaseDialog(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 val downloadableLinks by produceState(emptyList(), release.links) {
-                    val results = mutableListOf<Pair<String, DownloadBackend>>()
+                    val results = mutableListOf<Pair<String, ImportBackend>>()
                     release.links.forEach { link ->
                         if (!link.contains("musicbrainz.org", ignoreCase = true)) {
                             try {
-                                val downloader = downloadService.getDownloaderForUrl(link)
-                                if (downloader != null) {
-                                    results.add(link to downloader)
+                                val importer = importService.getImporterForUrl(link)
+                                if (importer != null) {
+                                    results.add(link to importer)
                                 }
                             } catch (_: Exception) {
                             }
@@ -338,22 +299,22 @@ fun RecentReleaseDialog(
                         .heightIn(max = 300.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(downloadableLinks) { (link, downloader) ->
+                    items(downloadableLinks) { (link, importer) ->
                         Button(
                             onClick = {
                                 scope.launch {
-                                    downloadService.downloadUrls(listOf(link))
+                                    importService.importUrls(listOf(link))
                                     onDismissRequest()
-                                    navigator?.push(DownloaderScreen())
+                                    navigator?.push(ImportScreen())
                                 }
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            val label = when (downloader.id) {
-                                DownloadBackend.Youtube.id -> "YouTube"
-                                else -> downloader.id.replaceFirstChar { it.uppercase() }
+                            val label = when (importer.id) {
+                                "youtube" -> "YouTube"
+                                else -> importer.id.replaceFirstChar { it.uppercase() }
                             }
-                            Text(stringResource(Res.string.menu_download) + " ($label)")
+                            Text(stringResource(Res.string.menu_import) + " ($label)")
                         }
                     }
 

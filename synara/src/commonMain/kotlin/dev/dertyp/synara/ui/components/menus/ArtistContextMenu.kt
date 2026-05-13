@@ -9,6 +9,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.dertyp.data.Artist
+import dev.dertyp.data.UserCapability
 import dev.dertyp.services.IArtistService
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
@@ -118,7 +119,7 @@ fun ArtistContextMenu(
             }
         }
 
-        if (user?.isAdmin == true) {
+        if (user?.hasCapability(UserCapability.EDIT) == true) {
             HorizontalDivider()
 
             DropdownMenuItem(

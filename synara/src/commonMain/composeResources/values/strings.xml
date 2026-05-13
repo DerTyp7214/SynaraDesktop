@@ -101,6 +101,7 @@
     <string name="play_next">Play next</string>
     <string name="playing_next_item">Playing **%1$s** next</string>
     <string name="menu_download">Download</string>
+    <string name="menu_import">Import</string>
     <string name="playlist">Playlist</string>
 
     <!-- General -->
@@ -263,12 +264,12 @@
     <string name="release_type_broadcast">Broadcasts</string>
     <string name="release_type_other">Other</string>
     <string name="release_type_unknown">Unknown</string>
-    <string name="menu_download_external">Download from External Source</string>
-    <string name="downloader_title">Downloader</string>
-    <string name="downloader_login_required">Login Required</string>
-    <string name="downloader_login_instructions">You need to authorize Synara to download from this source.</string>
-    <string name="downloader_url_label">URL (Track, Album, Playlist, Artist, Mix)</string>
-    <string name="downloader_logs_label">Logs</string>
+    <string name="menu_import_external">Import from External Source</string>
+    <string name="importer_title">Importer</string>
+    <string name="importer_login_required">Login Required</string>
+    <string name="importer_login_instructions">You need to authorize Synara to import from this source.</string>
+    <string name="importer_url_label">URL (Track, Album, Playlist, Artist, Mix)</string>
+    <string name="importer_logs_label">Logs</string>
     <string name="sync_favorites">Sync Favorites</string>
     <string name="search_external">Search External</string>
     <string name="external_search_title">External Search</string>
