@@ -6,6 +6,8 @@ import dev.dertyp.synara.services.LocalStorageService
 sealed class SettingKey<T>(val name: String) {
     data object Host : SettingKey<String>("host")
     data object Port : SettingKey<Int>("port")
+    data object Ssl : SettingKey<Boolean>("ssl")
+    data object RpcPath : SettingKey<String>("rpc_path")
     data object AuthToken : SettingKey<String>("auth_token")
     data object RefreshToken : SettingKey<String>("refresh_token")
     data object TokenExpiration : SettingKey<Long>("token_expiration")
@@ -113,7 +115,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.LastFmSharedSecret, is SettingKey.LastFmSessionKey,
         is SettingKey.LastFmUsername, is SettingKey.ProxyHost, is SettingKey.ProxyId,
         is SettingKey.IconStyle, is SettingKey.IconPack, is SettingKey.LastSeenVersion,
-        is SettingKey.LastSeenRecentReleaseId,
+        is SettingKey.LastSeenRecentReleaseId, is SettingKey.RpcPath,
         is SettingKey.AudioOutputDevice -> getStringOrNull(key.name) as T?
 
         is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor,
@@ -126,7 +128,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.DarkTheme, is SettingKey.UseSongColor, is SettingKey.UsePywal,
         is SettingKey.IsListenBrainzEnabled, is SettingKey.IsLastFmEnabled,
         is SettingKey.IsDiscordRpcEnabled, is SettingKey.HideOnClose,
-        is SettingKey.IsProxyEnabled, is SettingKey.ProxySsl,
+        is SettingKey.IsProxyEnabled, is SettingKey.ProxySsl, is SettingKey.Ssl,
         is SettingKey.NeedsUserIdMigration, is SettingKey.IconFilled,
         is SettingKey.DownloadFavorites, is SettingKey.ShowRemainingTime,
         is SettingKey.ShowPerformanceOverlay -> getBooleanOrNull(key.name) as T?

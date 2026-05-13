@@ -15,11 +15,7 @@ import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.rpc.annotations.Rpc
 import kotlinx.rpc.withService
@@ -97,6 +93,14 @@ class RpcServiceManager(
         get() = settings.getOrNull(SettingKey.Port)
         private set(value) = settings.put(SettingKey.Port, value)
 
+    var ssl: Boolean
+        get() = settings.get(SettingKey.Ssl, false)
+        private set(value) = settings.put(SettingKey.Ssl, value)
+
+    var rpcPath: String
+        get() = settings.get(SettingKey.RpcPath, "/")
+        private set(value) = settings.put(SettingKey.RpcPath, value)
+
     private var storedAuthToken: String?
         get() = settings.getOrNull(SettingKey.AuthToken)
         set(value) = settings.put(SettingKey.AuthToken, value)
@@ -132,7 +136,12 @@ class RpcServiceManager(
     override suspend fun getRpcUrl(): String? {
         val h = host
         val p = port
-        val base = if (h != null && p != null) "ws://$h:$p" else null
+        val s = ssl
+        val path = rpcPath.removeSuffix("/")
+        val base = if (h != null && p != null) {
+            val scheme = if (s) "wss://" else "ws://"
+            "$scheme$h:$p$path"
+        } else null
 
         val ph = settings.getOrNull(SettingKey.ProxyHost)
         val pp = settings.getOrNull(SettingKey.ProxyPort)
@@ -147,6 +156,13 @@ class RpcServiceManager(
         val useProxy = isUsingFallback || preferProxy
 
         return if (useProxy && proxy != null) proxy else base
+    }
+
+    override suspend fun setRpcUrl(host: String, port: Int, ssl: Boolean, path: String) {
+        this.host = host
+        this.port = port
+        this.ssl = ssl
+        this.rpcPath = path
     }
 
     override fun onServerUnreachable() {
@@ -208,9 +224,11 @@ class RpcServiceManager(
         storedTokenExpiration = null
     }
 
-    fun setServer(host: String, port: Int) {
+    fun setServer(host: String, port: Int, ssl: Boolean = false, path: String = "/") {
         this.host = host
         this.port = port
+        this.ssl = ssl
+        this.rpcPath = path
         hasFetchedProxyInfo = false
         scope.launch {
             clearAuth()
@@ -269,34 +287,53 @@ class RpcServiceManager(
         scope.launch {
             val h = host
             val p = port
-            val base = if (h != null && p != null) "ws://$h:$p" else null
 
             val ph = settings.getOrNull(SettingKey.ProxyHost)
             val pp = settings.getOrNull(SettingKey.ProxyPort)
             val pi = settings.getOrNull(SettingKey.ProxyId)
             val ps = settings.get(SettingKey.ProxySsl, false)
-            val proxy = if (ph != null && pp != null) {
-                val scheme = if (ps) "wss://" else "ws://"
-                "$scheme$ph:$pp${pi?.let { "/$it" } ?: ""}"
-            } else null
 
             val preferProxy = settings.get(SettingKey.IsProxyEnabled, false)
-            val primary = if (preferProxy) proxy else base
-            val secondary = if (preferProxy) base else proxy
 
-            if (primary != null && validateServer(primary)) {
-                isUsingFallback = false
-                onServerReachable()
-                if (!hasFetchedProxyInfo) {
-                    hasFetchedProxyInfo = true
-                    launch { fetchProxyInfo() }
+            suspend fun tryPrimary(): Boolean {
+                if (preferProxy) {
+                    if (ph != null && pp != null) {
+                        if (validateServer(ph, pp, pi ?: "/", ps).validated) {
+                            isUsingFallback = false
+                            return true
+                        }
+                    }
+                } else {
+                    if (h != null && p != null) {
+                        if (validateServer(h, p, rpcPath, ssl).validated) {
+                            isUsingFallback = false
+                            return true
+                        }
+                    }
                 }
-                clear()
-                return@launch
+                return false
             }
 
-            if (secondary != null && validateServer(secondary)) {
-                isUsingFallback = true
+            suspend fun trySecondary(): Boolean {
+                if (!preferProxy) {
+                    if (ph != null && pp != null) {
+                        if (validateServer(ph, pp, pi ?: "/", ps).validated) {
+                            isUsingFallback = true
+                            return true
+                        }
+                    }
+                } else {
+                    if (h != null && p != null) {
+                        if (validateServer(h, p, rpcPath, ssl).validated) {
+                            isUsingFallback = true
+                            return true
+                        }
+                    }
+                }
+                return false
+            }
+
+            if (tryPrimary() || trySecondary()) {
                 onServerReachable()
                 if (!hasFetchedProxyInfo) {
                     hasFetchedProxyInfo = true

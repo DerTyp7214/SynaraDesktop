@@ -39,7 +39,7 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
         return manager.getService<ISongService>().byMusicBrainzId(musicBrainzId)
     }
 
-    override suspend fun byIds(ids: Collection<PlatformUUID>): List<UserSong> {
+    override suspend fun byIds(ids: List<PlatformUUID>): List<UserSong> {
         return manager.getService<ISongService>().byIds(ids)
     }
 
@@ -94,7 +94,7 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
         return manager.getService<ISongService>().allSongs(page, pageSize, explicit, tags, invertTags)
     }
 
-    override suspend fun deleteSongs(ids: Collection<PlatformUUID>): Boolean {
+    override suspend fun deleteSongs(ids: List<PlatformUUID>): Boolean {
         return manager.getService<ISongService>().deleteSongs(ids)
     }
 

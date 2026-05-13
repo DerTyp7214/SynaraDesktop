@@ -201,6 +201,7 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `totalDuration` | Long |  |
 | `totalSize` | Long |  |
 | `coverId` | PlatformUUID? |  |
+| `blurHash` | String? |  |
 | `genres` | List<[Genre](#genre)> |  |
 | `originalId` | String? |  |
 | `musicbrainzId` | PlatformUUID? |  |
@@ -216,6 +217,7 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `about` | String |  |
 | `genres` | List<[Genre](#genre)> |  |
 | `imageId` | PlatformUUID? |  |
+| `blurHash` | String? |  |
 | `musicbrainzId` | PlatformUUID? |  |
 | `isFollowed` | Boolean |  |
 
@@ -276,6 +278,7 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `songEntries` | List<[UserPlaylistSong](#userplaylistsong)>? |  |
 | `totalDuration` | Long |  |
 | `imageId` | PlatformUUID? |  |
+| `blurHash` | String? |  |
 | `creator` | PlatformUUID |  |
 | `description` | String |  |
 | `origin` | String? |  |
@@ -311,6 +314,7 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `bitRate` | Long |  |
 | `fileSize` | Long |  |
 | `coverId` | PlatformUUID? |  |
+| `blurHash` | String? |  |
 | `musicBrainzId` | PlatformUUID? |  |
 | `genres` | List<[Genre](#genre)> |  |
 | `isFavourite` | Boolean? |  |

@@ -2,6 +2,7 @@ package dev.dertyp.synara.rpc.services
 
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.User
+import dev.dertyp.data.UserCapability
 import dev.dertyp.services.IUserService
 import dev.dertyp.synara.rpc.RpcServiceManager
 
@@ -28,5 +29,9 @@ class UserServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
 
     override suspend fun setDisplayName(name: String?) {
         manager.getService<IUserService>().setDisplayName(name)
+    }
+
+    override suspend fun setCapabilities(id: PlatformUUID, capabilities: List<UserCapability>) {
+        manager.getService<IUserService>().setCapabilities(id, capabilities)
     }
 }

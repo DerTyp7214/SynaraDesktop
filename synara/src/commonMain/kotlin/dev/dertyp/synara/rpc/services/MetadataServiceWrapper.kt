@@ -107,4 +107,12 @@ class MetadataServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(ma
     ): List<IMetadataService.Artist> {
         return manager.getService<IMetadataService>().getArtistsByIds(type, artistIds)
     }
+
+    override suspend fun getSupportedFeatures(type: IMetadataService.MetadataType): Set<IMetadataService.Feature> {
+        return manager.getService<IMetadataService>().getSupportedFeatures(type)
+    }
+
+    override suspend fun getAllMetadataTypes(features: Set<IMetadataService.Feature>): List<IMetadataService.MetadataType> {
+        return manager.getService<IMetadataService>().getAllMetadataTypes(features)
+    }
 }

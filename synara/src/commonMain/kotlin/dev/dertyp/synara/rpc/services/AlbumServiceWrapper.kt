@@ -15,6 +15,10 @@ class AlbumServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manag
         return manager.getService<IAlbumService>().byIds(ids)
     }
 
+    override suspend fun byMusicBrainzId(mbId: PlatformUUID): List<Album> {
+        return manager.getService<IAlbumService>().byMusicBrainzId(mbId)
+    }
+
     override suspend fun versions(id: PlatformUUID): List<Album> {
         return manager.getService<IAlbumService>().versions(id)
     }

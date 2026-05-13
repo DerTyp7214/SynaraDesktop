@@ -33,11 +33,12 @@ class SetupScreen : Screen {
 
         var host by remember { mutableStateOf(screenModel.getHost() ?: "localhost") }
         var port by remember { mutableStateOf(screenModel.getPort()?.toString() ?: "8080") }
+        var path by remember { mutableStateOf(screenModel.getRpcPath()) }
 
         LaunchedEffect(Unit) {
             screenModel.resetTestConnectionResult()
             if (host.isNotEmpty() && port.isNotEmpty()) {
-                screenModel.testConnection(host, port.toIntOrNull() ?: 8080)
+                screenModel.testConnection(host, port.toIntOrNull() ?: 8080, path)
             }
         }
 
@@ -74,7 +75,10 @@ class SetupScreen : Screen {
 
                         InternalTextField(
                             value = host,
-                            onValueChange = { host = it },
+                            onValueChange = { 
+                                host = it
+                                screenModel.resetTestConnectionResult()
+                            },
                             label = { Text(stringResource(Res.string.host)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
@@ -85,7 +89,10 @@ class SetupScreen : Screen {
                         )
                         InternalTextField(
                             value = port,
-                            onValueChange = { port = it },
+                            onValueChange = { 
+                                port = it
+                                screenModel.resetTestConnectionResult()
+                            },
                             label = { Text(stringResource(Res.string.port)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
@@ -93,7 +100,7 @@ class SetupScreen : Screen {
                             keyboardActions = KeyboardActions(
                                 onDone = {
                                     scope.launch {
-                                        screenModel.testConnection(host, port.toIntOrNull() ?: 8080)
+                                        screenModel.testConnection(host, port.toIntOrNull() ?: 8080, path)
                                     }
                                 }
                             )
@@ -109,7 +116,7 @@ class SetupScreen : Screen {
                                     TestButton(
                                         onClick = {
                                             scope.launch {
-                                                screenModel.testConnection(host, port.toIntOrNull() ?: 8080)
+                                                screenModel.testConnection(host, port.toIntOrNull() ?: 8080, path)
                                             }
                                         },
                                         isLoading = testResult is TestConnectionResult.Loading,
@@ -117,7 +124,7 @@ class SetupScreen : Screen {
                                     )
                                     Button(
                                         onClick = {
-                                            screenModel.setServer(host, port.toIntOrNull() ?: 8080)
+                                            screenModel.setServer()
                                         },
                                         modifier = Modifier.fillMaxWidth(),
                                         enabled = testResult is TestConnectionResult.Success
@@ -133,7 +140,7 @@ class SetupScreen : Screen {
                                     TestButton(
                                         onClick = {
                                             scope.launch {
-                                                screenModel.testConnection(host, port.toIntOrNull() ?: 8080)
+                                                screenModel.testConnection(host, port.toIntOrNull() ?: 8080, path)
                                             }
                                         },
                                         isLoading = testResult is TestConnectionResult.Loading,
@@ -141,7 +148,7 @@ class SetupScreen : Screen {
                                     )
                                     Button(
                                         onClick = {
-                                            screenModel.setServer(host, port.toIntOrNull() ?: 8080)
+                                            screenModel.setServer()
                                         },
                                         modifier = Modifier.weight(1f),
                                         enabled = testResult is TestConnectionResult.Success

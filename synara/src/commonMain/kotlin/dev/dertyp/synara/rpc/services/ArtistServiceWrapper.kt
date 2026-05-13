@@ -3,6 +3,7 @@ package dev.dertyp.synara.rpc.services
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.*
 import dev.dertyp.services.IArtistService
+import dev.dertyp.services.metadata.IMetadataService
 import dev.dertyp.synara.rpc.RpcServiceManager
 import kotlinx.coroutines.flow.Flow
 
@@ -13,6 +14,10 @@ class ArtistServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(mana
 
     override suspend fun byIds(ids: List<PlatformUUID>): List<Artist> {
         return manager.getService<IArtistService>().byIds(ids)
+    }
+
+    override suspend fun byMusicBrainzId(mbId: PlatformUUID): List<Artist> {
+        return manager.getService<IArtistService>().byMusicBrainzId(mbId)
     }
 
     override suspend fun rankedSearch(page: Int, pageSize: Int, query: String): PaginatedResponse<Artist> {
@@ -53,6 +58,18 @@ class ArtistServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(mana
 
     override suspend fun setMusicBrainzId(id: PlatformUUID, musicBrainzId: PlatformUUID?): Artist? {
         return manager.getService<IArtistService>().setMusicBrainzId(id, musicBrainzId)
+    }
+
+    override suspend fun searchArtistImages(
+        type: IMetadataService.MetadataType,
+        query: String,
+        limit: Int
+    ): List<IMetadataService.Image> {
+        return manager.getService<IArtistService>().searchArtistImages(type, query, limit)
+    }
+
+    override suspend fun setArtistImageByUrl(id: PlatformUUID, url: String): Artist? {
+        return manager.getService<IArtistService>().setArtistImageByUrl(id, url)
     }
 
     override fun artistsWithoutMusicBrainzIdFlow(): Flow<Artist> {
