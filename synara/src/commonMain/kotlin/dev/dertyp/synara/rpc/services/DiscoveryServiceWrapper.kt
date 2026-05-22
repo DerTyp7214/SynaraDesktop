@@ -1,11 +1,37 @@
 package dev.dertyp.synara.rpc.services
 
 import dev.dertyp.PlatformUUID
+import dev.dertyp.data.Album
+import dev.dertyp.data.PaginatedResponse
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.IDiscoveryService
 import dev.dertyp.synara.rpc.RpcServiceManager
 
 class DiscoveryServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manager), IDiscoveryService {
+    override suspend fun createSongMosaic(
+        image: ByteArray,
+        width: Int,
+        height: Int,
+        page: Int,
+        pageSize: Int,
+        range: Int,
+    ): PaginatedResponse<UserSong> {
+        return manager.getService<IDiscoveryService>()
+            .createSongMosaic(image, width, height, page, pageSize, range)
+    }
+
+    override suspend fun createAlbumMosaic(
+        image: ByteArray,
+        width: Int,
+        height: Int,
+        page: Int,
+        pageSize: Int,
+        range: Int
+    ): PaginatedResponse<Album> {
+        return manager.getService<IDiscoveryService>()
+            .createAlbumMosaic(image, width, height, page, pageSize, range)
+    }
+
     override suspend fun getSimilarSongs(seedSongIds: List<PlatformUUID>, limit: Int): List<UserSong> {
         return manager.getService<IDiscoveryService>().getSimilarSongs(seedSongIds, limit)
     }

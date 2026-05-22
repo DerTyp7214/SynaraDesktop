@@ -64,6 +64,16 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.0.0",
+                        date = "2026-05-22",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Improved, "Enhanced music matching accuracy with support for direct MusicBrainz ID lookups."),
+                            Change(ChangeType.Improved, "Internal service optimizations and preparation for upcoming discovery features."),
+                            Change(ChangeType.Updated, "Synchronized application services with the latest server API definitions.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "2.1.2",
                         date = "2026-05-13",
                         isPrerelease = true,

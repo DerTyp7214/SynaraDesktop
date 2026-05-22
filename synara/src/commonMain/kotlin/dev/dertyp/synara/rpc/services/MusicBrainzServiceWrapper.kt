@@ -32,4 +32,8 @@ class MusicBrainzServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper
     override suspend fun searchRelease(title: String, artists: List<String>): MusicBrainzRelease? {
         return manager.getService<IMusicBrainzService>().searchRelease(title, artists)
     }
+
+    override suspend fun getReleasesByReleaseGroup(id: PlatformUUID): List<MusicBrainzRelease> {
+        return manager.getService<IMusicBrainzService>().getReleasesByReleaseGroup(id)
+    }
 }

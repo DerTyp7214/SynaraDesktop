@@ -44,6 +44,15 @@ class ArtistServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(mana
         return manager.getService<IArtistService>().allArtists(page, pageSize)
     }
 
+    override suspend fun byColor(
+        page: Int,
+        pageSize: Int,
+        color: Int,
+        range: Int,
+    ): PaginatedResponse<Artist> {
+        return manager.getService<IArtistService>().byColor(page, pageSize, color, range)
+    }
+
     override suspend fun createArtist(name: String, isGroup: Boolean, about: String, musicBrainzId: PlatformUUID?): Artist {
         return manager.getService<IArtistService>().createArtist(name, isGroup, about, musicBrainzId)
     }
@@ -63,7 +72,7 @@ class ArtistServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(mana
     override suspend fun searchArtistImages(
         type: IMetadataService.MetadataType,
         query: String,
-        limit: Int
+        limit: Int,
     ): List<IMetadataService.Image> {
         return manager.getService<IArtistService>().searchArtistImages(type, query, limit)
     }

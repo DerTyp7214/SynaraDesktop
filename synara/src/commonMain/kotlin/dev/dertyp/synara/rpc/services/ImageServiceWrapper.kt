@@ -3,8 +3,10 @@ package dev.dertyp.synara.rpc.services
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.Image
 import dev.dertyp.data.InsertableImage
+import dev.dertyp.data.MosaicGenerationResponse
 import dev.dertyp.services.IImageService
 import dev.dertyp.synara.rpc.RpcServiceManager
+import kotlinx.coroutines.flow.Flow
 
 class ImageServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manager), IImageService {
     override suspend fun byId(id: PlatformUUID): Image? {
@@ -33,5 +35,14 @@ class ImageServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manag
 
     override suspend fun moveImages(oldPath: String, newPath: String): Int {
         return manager.getService<IImageService>().moveImages(oldPath, newPath)
+    }
+
+    override fun generateMosaicImage(
+        image: ByteArray,
+        width: Int,
+        height: Int,
+        resultSize: Int
+    ): Flow<MosaicGenerationResponse> {
+        return manager.getService<IImageService>().generateMosaicImage(image, width, height, resultSize)
     }
 }

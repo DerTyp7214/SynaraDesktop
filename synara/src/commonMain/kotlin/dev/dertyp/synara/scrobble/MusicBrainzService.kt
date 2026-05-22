@@ -1,6 +1,7 @@
 package dev.dertyp.synara.scrobble
 
 import dev.dertyp.PlatformUUID
+import dev.dertyp.toPlatformUUID
 import dev.dertyp.core.cleanTitle
 import dev.dertyp.data.Album
 import dev.dertyp.data.MusicBrainzRecording
@@ -75,6 +76,16 @@ class MusicBrainzService(
     }
 
     suspend fun searchRecordings(query: String, limit: Int = 20): List<MusicBrainzRecording> {
+        val uuid = try {
+            query.toPlatformUUID()
+        } catch (_: Exception) {
+            null
+        }
+
+        if (uuid != null) {
+            getRecording(uuid)?.let { return listOf(it) }
+        }
+
         return try {
             val response: MbSearchResponse = httpClient.get("$mbBaseUrl/recording") {
                 parameter("query", query)

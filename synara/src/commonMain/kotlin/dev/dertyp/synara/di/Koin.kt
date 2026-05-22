@@ -143,6 +143,7 @@ val appModule = module {
     singleOf(::PlaybackServiceWrapper) bind IPlaybackService::class
     singleOf(::PlaylistServiceWrapper) bind IPlaylistService::class
     singleOf(::ReleaseServiceWrapper) bind IReleaseService::class
+    singleOf(::ScheduledTaskConfigurationServiceWrapper) bind IScheduledTaskConfigurationService::class
     singleOf(::ScheduledTaskLogServiceWrapper) bind IScheduledTaskLogService::class
     singleOf(::ServerStatsServiceWrapper) bind IServerStatsService::class
     singleOf(::SessionServiceWrapper) bind ISessionService::class

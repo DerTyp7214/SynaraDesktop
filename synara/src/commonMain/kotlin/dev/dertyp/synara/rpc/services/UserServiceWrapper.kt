@@ -1,6 +1,7 @@
 package dev.dertyp.synara.rpc.services
 
 import dev.dertyp.PlatformUUID
+import dev.dertyp.data.AuthenticationRequest
 import dev.dertyp.data.User
 import dev.dertyp.data.UserCapability
 import dev.dertyp.services.IUserService
@@ -33,5 +34,13 @@ class UserServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
 
     override suspend fun setCapabilities(id: PlatformUUID, capabilities: List<UserCapability>) {
         manager.getService<IUserService>().setCapabilities(id, capabilities)
+    }
+
+    override suspend fun createUser(
+        user: AuthenticationRequest,
+        isAdmin: Boolean,
+        capabilities: List<UserCapability>
+    ): User? {
+        return manager.getService<IUserService>().createUser(user, isAdmin, capabilities)
     }
 }

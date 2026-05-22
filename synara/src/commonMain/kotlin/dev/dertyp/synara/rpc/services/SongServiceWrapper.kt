@@ -2,7 +2,9 @@ package dev.dertyp.synara.rpc.services
 
 import dev.dertyp.PlatformInstant
 import dev.dertyp.PlatformUUID
+import dev.dertyp.PrefixedId
 import dev.dertyp.data.PaginatedResponse
+import dev.dertyp.data.SongExtendedMetadata
 import dev.dertyp.data.SongTag
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.ISongService
@@ -55,7 +57,7 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
         page: Int,
         pageSize: Int,
         artistId: PlatformUUID,
-        explicit: Boolean
+        explicit: Boolean,
     ): PaginatedResponse<UserSong> {
         return manager.getService<ISongService>().likedByArtist(page, pageSize, artistId, explicit)
     }
@@ -72,8 +74,12 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
         return manager.getService<ISongService>().byUserPlaylist(page, pageSize, playlistId)
     }
 
-    override suspend fun byOriginalIds(ids: Collection<String>): List<UserSong> {
+    override suspend fun byOriginalIds(ids: Collection<PrefixedId>): List<UserSong> {
         return manager.getService<ISongService>().byOriginalIds(ids)
+    }
+
+    override suspend fun byOriginalUrls(urls: Collection<String>): Map<String, UserSong?> {
+        return manager.getService<ISongService>().byOriginalUrls(urls)
     }
 
     override suspend fun byOriginalTracks(tracks: Collection<IMetadataService.Track>): List<UserSong> {
@@ -94,6 +100,16 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
         return manager.getService<ISongService>().allSongs(page, pageSize, explicit, tags, invertTags)
     }
 
+    override suspend fun byColor(
+        page: Int,
+        pageSize: Int,
+        color: Int,
+        range: Int,
+        explicit: Boolean
+    ): PaginatedResponse<UserSong> {
+        return manager.getService<ISongService>().byColor(page, pageSize, color, range, explicit)
+    }
+
     override suspend fun deleteSongs(ids: List<PlatformUUID>): Boolean {
         return manager.getService<ISongService>().deleteSongs(ids)
     }
@@ -106,6 +122,15 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
         liked: Boolean
     ): PaginatedResponse<UserSong> {
         return manager.getService<ISongService>().rankedSearch(page, pageSize, query, explicit, liked)
+    }
+
+    override suspend fun searchByLyrics(
+        page: Int,
+        pageSize: Int,
+        query: String,
+        explicit: Boolean,
+    ): PaginatedResponse<UserSong> {
+        return manager.getService<ISongService>().searchByLyrics(page, pageSize, query, explicit)
     }
 
     override fun streamSong(id: PlatformUUID, offset: Long, chunkSize: Int): Flow<ByteArray>? {
@@ -160,5 +185,9 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
 
     override suspend fun moveSongs(oldPath: String, newPath: String, originalIdPrefix: String?): Int {
         return manager.getService<ISongService>().moveSongs(oldPath, newPath, originalIdPrefix)
+    }
+
+    override suspend fun extendedMetadata(id: PlatformUUID): SongExtendedMetadata? {
+        return manager.getService<ISongService>().extendedMetadata(id)
     }
 }

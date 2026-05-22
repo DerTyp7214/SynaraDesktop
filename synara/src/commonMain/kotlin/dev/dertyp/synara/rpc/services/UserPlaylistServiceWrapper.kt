@@ -34,6 +34,16 @@ class UserPlaylistServiceWrapper(manager: RpcServiceManager) : BaseServiceWrappe
         return manager.getService<IUserPlaylistService>().allPlaylists(creator, page, pageSize)
     }
 
+    override suspend fun byColor(
+        creator: PlatformUUID?,
+        page: Int,
+        pageSize: Int,
+        color: Int,
+        range: Int
+    ): PaginatedResponse<UserPlaylist> {
+        return manager.getService<IUserPlaylistService>().byColor(creator, page, pageSize, color, range)
+    }
+
     override suspend fun delete(id: PlatformUUID): Boolean {
         return manager.getService<IUserPlaylistService>().delete(id)
     }

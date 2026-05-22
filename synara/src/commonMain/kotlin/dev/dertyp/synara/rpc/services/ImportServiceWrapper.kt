@@ -1,5 +1,6 @@
 package dev.dertyp.synara.rpc.services
 
+import dev.dertyp.PrefixedId
 import dev.dertyp.services.import.*
 import dev.dertyp.synara.rpc.RpcServiceManager
 import kotlinx.coroutines.flow.Flow
