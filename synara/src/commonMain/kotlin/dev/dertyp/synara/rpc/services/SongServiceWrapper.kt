@@ -3,10 +3,7 @@ package dev.dertyp.synara.rpc.services
 import dev.dertyp.PlatformInstant
 import dev.dertyp.PlatformUUID
 import dev.dertyp.PrefixedId
-import dev.dertyp.data.PaginatedResponse
-import dev.dertyp.data.SongExtendedMetadata
-import dev.dertyp.data.SongTag
-import dev.dertyp.data.UserSong
+import dev.dertyp.data.*
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.metadata.IMetadataService
 import dev.dertyp.synara.rpc.RpcServiceManager
@@ -142,17 +139,18 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
         quality: Int,
         offset: Long,
         chunkSize: Int,
-        force: Boolean
+        force: Boolean,
+        format: AudioFormat
     ): Flow<ByteArray>? {
-        return manager.getService<ISongService>().downloadSong(id, quality, offset, chunkSize, force)
+        return manager.getService<ISongService>().downloadSong(id, quality, offset, chunkSize, force, format)
     }
 
     override suspend fun getStreamSize(id: PlatformUUID): Long {
         return manager.getService<ISongService>().getStreamSize(id)
     }
 
-    override suspend fun getDownloadSize(id: PlatformUUID, quality: Int, force: Boolean): Long {
-        return manager.getService<ISongService>().getDownloadSize(id, quality, force)
+    override suspend fun getDownloadSize(id: PlatformUUID, quality: Int, force: Boolean, format: AudioFormat): Long {
+        return manager.getService<ISongService>().getDownloadSize(id, quality, force, format)
     }
 
     override fun allSongIds(

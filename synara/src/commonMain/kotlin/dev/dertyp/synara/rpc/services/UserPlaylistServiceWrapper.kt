@@ -1,9 +1,9 @@
 package dev.dertyp.synara.rpc.services
 
 import dev.dertyp.PlatformUUID
+import dev.dertyp.data.ArtistPlaylistSortStrategy
 import dev.dertyp.data.InsertablePlaylist
 import dev.dertyp.data.PaginatedResponse
-import dev.dertyp.data.User
 import dev.dertyp.data.UserPlaylist
 import dev.dertyp.services.IUserPlaylistService
 import dev.dertyp.synara.rpc.RpcServiceManager
@@ -49,11 +49,11 @@ class UserPlaylistServiceWrapper(manager: RpcServiceManager) : BaseServiceWrappe
     }
 
     override suspend fun getOrAddPlaylist(
-        user: User,
+        userId: PlatformUUID,
         customIdentifier: String?,
         playlist: InsertablePlaylist
     ): PlatformUUID {
-        return manager.getService<IUserPlaylistService>().getOrAddPlaylist(user, customIdentifier, playlist)
+        return manager.getService<IUserPlaylistService>().getOrAddPlaylist(userId, customIdentifier, playlist)
     }
 
     override suspend fun addToPlaylist(
@@ -85,5 +85,16 @@ class UserPlaylistServiceWrapper(manager: RpcServiceManager) : BaseServiceWrappe
 
     override suspend fun setPlaylistImage(id: PlatformUUID, imageId: PlatformUUID?): Boolean {
         return manager.getService<IUserPlaylistService>().setPlaylistImage(id, imageId)
+    }
+
+    override suspend fun createPlaylistFromArtists(
+        userId: PlatformUUID,
+        name: String,
+        artistIds: List<PlatformUUID>,
+        maxSongsPerArtist: Int,
+        sortStrategy: ArtistPlaylistSortStrategy
+    ): PlatformUUID {
+        return manager.getService<IUserPlaylistService>()
+            .createPlaylistFromArtists(userId, name, artistIds, maxSongsPerArtist, sortStrategy)
     }
 }

@@ -89,6 +89,10 @@ class MetadataServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(ma
         return manager.getService<IMetadataService>().getTrackById(type, trackId)
     }
 
+    override suspend fun getTrackByIsrc(type: IMetadataService.MetadataType, isrc: String): IMetadataService.Track? {
+        return manager.getService<IMetadataService>().getTrackByIsrc(type, isrc)
+    }
+
     override suspend fun getTracksByIds(type: IMetadataService.MetadataType, trackIds: List<String>): List<IMetadataService.Track> {
         return manager.getService<IMetadataService>().getTracksByIds(type, trackIds)
     }

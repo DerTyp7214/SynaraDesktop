@@ -18,4 +18,8 @@ class ScheduledTaskConfigurationServiceWrapper(manager: RpcServiceManager) : Bas
     override fun getConfigurationsFlow(): Flow<List<TaskConfiguration>> {
         return manager.getService<IScheduledTaskConfigurationService>().getConfigurationsFlow()
     }
+
+    override suspend fun triggerTask(key: String): Boolean {
+        return manager.getService<IScheduledTaskConfigurationService>().triggerTask(key)
+    }
 }

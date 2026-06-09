@@ -64,6 +64,16 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.1.0",
+                        date = "2026-06-09",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Implemented **Artist Playlists**, allowing you to generate smart playlists from your favorite artists."),
+                            Change(ChangeType.New, "Enhanced metadata discovery with support for **ISRC and Barcode** searching."),
+                            Change(ChangeType.Fixed, "Resolved a stability issue when creating new playlists.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.0.0",
                         date = "2026-05-22",
                         isPrerelease = true,

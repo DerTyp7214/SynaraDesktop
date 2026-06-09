@@ -8,11 +8,7 @@ import dev.dertyp.data.PlaybackState
 import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.rpc.RpcServiceManager
-import dev.dertyp.synara.rpc.services.AlbumServiceWrapper
-import dev.dertyp.synara.rpc.services.ArtistServiceWrapper
-import dev.dertyp.synara.rpc.services.SongServiceWrapper
-import dev.dertyp.synara.rpc.services.UserPlaylistServiceWrapper
-import dev.dertyp.synara.rpc.services.UserServiceWrapper
+import dev.dertyp.synara.rpc.services.*
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.SettingsFactory
 import dev.dertyp.synara.settings.get
@@ -21,21 +17,8 @@ import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.utils.SynaraDispatchers
 import dev.dertyp.synara.utils.compress
 import dev.dertyp.synara.utils.decompress
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.decodeFromByteArray
@@ -45,16 +28,7 @@ import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
 import org.jetbrains.compose.resources.getString
-import synara.synara.generated.resources.Res
-import synara.synara.generated.resources.added_to_playlist
-import synara.synara.generated.resources.added_to_playlist_item
-import synara.synara.generated.resources.added_to_queue
-import synara.synara.generated.resources.added_to_queue_item
-import synara.synara.generated.resources.favorite
-import synara.synara.generated.resources.play_next
-import synara.synara.generated.resources.playing_next_item
-import synara.synara.generated.resources.playlist_created
-import synara.synara.generated.resources.songs
+import synara.synara.generated.resources.*
 import kotlin.math.log10
 
 @Suppress("unused")
@@ -807,7 +781,7 @@ class PlayerModel(
             try {
                 val currentUser = userService.me()
                 val insertable = InsertablePlaylist(name = name, songPaths = emptyList())
-                val playlistId = userPlaylistService.getOrAddPlaylist(currentUser, null, insertable)
+                val playlistId = userPlaylistService.getOrAddPlaylist(currentUser.id, null, insertable)
 
                 if (playbackQueue != null) {
                     val entries = resolvePlaybackQueueItems(playbackQueue)

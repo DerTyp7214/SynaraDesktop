@@ -88,4 +88,16 @@ class ArtistServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(mana
     override fun artistIdsWithoutMusicBrainzId(): Flow<PlatformUUID> {
         return manager.getService<IArtistService>().artistIdsWithoutMusicBrainzId()
     }
+
+    override suspend fun aliases(id: PlatformUUID): List<ArtistAlias> {
+        return manager.getService<IArtistService>().aliases(id)
+    }
+
+    override suspend fun addAlias(artistId: PlatformUUID, name: String): Boolean {
+        return manager.getService<IArtistService>().addAlias(artistId, name)
+    }
+
+    override suspend fun removeAlias(artistId: PlatformUUID, name: String): Boolean {
+        return manager.getService<IArtistService>().removeAlias(artistId, name)
+    }
 }
