@@ -34,13 +34,10 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import coil3.compose.ConstraintsSizeResolver
 import coil3.compose.rememberConstraintsSizeResolver
-import dev.dertyp.core.tidalId
 import dev.dertyp.data.UserSong
-import dev.dertyp.services.import.IImportService
-import dev.dertyp.services.metadata.IMetadataService
+import dev.dertyp.services.IAnimatedImageService
 import dev.dertyp.synara.animateColorSchemeAsState
 import dev.dertyp.synara.player.PlayerModel
-import dev.dertyp.synara.rpc.services.MetadataServiceWrapper
 import dev.dertyp.synara.scrobble.ScrobblerService
 import dev.dertyp.synara.theme.createColorSchemeFromSeeds
 import dev.dertyp.synara.theme.isAppDark
@@ -251,7 +248,7 @@ fun PlayerBar(
             tonalElevation = 8.dp
         ) {
             val isDark = isAppDark()
-            val colorScheme by rememberCoverScheme(currentSong?.coverId, isDark = isDark)
+            val colorScheme by rememberCoverScheme(currentSong?.animatedCoverImageId ?: currentSong?.coverId, isDark = isDark)
             
             val dynamicColorScheme = remember(videoFrameSeeds.value, colorScheme, isDark) {
                 if (videoFrameSeeds.value.first != null) {
@@ -668,8 +665,7 @@ private fun LargeCover(
     song: UserSong?,
     modifier: Modifier = Modifier,
     sizeResolver: ConstraintsSizeResolver,
-    metadataService: MetadataServiceWrapper = koinInject(),
-    importService: IImportService = koinInject()
+    animatedImageService: IAnimatedImageService = koinInject()
 ) {
     AnimatedContent(
         targetState = song,
@@ -679,28 +675,10 @@ private fun LargeCover(
         label = "largeCoverTransition",
         modifier = modifier
     ) { currentSong ->
-        val currentSongId = currentSong?.id
-        val videoInfo by produceState<Pair<String?, Boolean>>(null to false, currentSongId) {
-            val originalUrl = currentSong?.originalUrl ?: return@produceState
-            val importer = try {
-                importService.getImporterForUrl(originalUrl)
-            } catch (_: Exception) {
-                null
-            } ?: return@produceState
+        val animatedCoverId = currentSong?.animatedCoverId
+        val staticCoverId = currentSong?.animatedCoverImageId ?: currentSong?.coverId
 
-            if (importer.id == "tdn" || importer.id == "tiddl") {
-                val tidalId = originalUrl.tidalId()
-                val images = try {
-                    metadataService.getTrackById(IMetadataService.MetadataType.tidal, tidalId)?.images ?: emptyList()
-                } catch (_: Exception) {
-                    emptyList()
-                }
-                val animated = images.find { it.animated }
-                value = animated?.url to (animated != null)
-            }
-        }
-
-        var videoLoaded by remember(videoInfo.first) { mutableStateOf(false) }
+        var videoLoaded by remember(animatedCoverId) { mutableStateOf(false) }
         val videoAlpha by animateFloatAsState(
             targetValue = if (videoLoaded) 1f else 0f,
             animationSpec = tween(1000),
@@ -709,15 +687,16 @@ private fun LargeCover(
 
         Box(modifier = Modifier.fillMaxSize()) {
             SynaraImage(
-                imageId = currentSong?.coverId,
+                imageId = staticCoverId,
                 modifier = Modifier.fillMaxSize().then(sizeResolver),
                 shape = RoundedCornerShape(16.dp),
                 fallbackIcon = SynaraIcons.Songs
             )
 
-            if (videoInfo.second && videoInfo.first != null) {
+            if (animatedCoverId != null) {
                 SynaraVideoPlayer(
-                    url = videoInfo.first!!,
+                    key = animatedCoverId.toString(),
+                    loader = { animatedImageService.getAnimatedImageData(animatedCoverId) },
                     modifier = Modifier
                         .fillMaxSize()
                         .then(sizeResolver)

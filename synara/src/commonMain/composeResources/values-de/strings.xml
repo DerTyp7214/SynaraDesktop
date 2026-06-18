@@ -24,6 +24,7 @@
     <string name="albums">Alben</string>
     <string name="artists">Künstler</string>
     <string name="playlists">Playlisten</string>
+    <string name="animated_covers">Animierte Cover</string>
     <string name="genres">Genres</string>
     <string name="server_version">Serverversion</string>
     <string name="refresh_playlists">Playlisten aktualisieren</string>

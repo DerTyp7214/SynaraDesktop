@@ -204,7 +204,11 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `blurHash` | String? |  |
 | `genres` | List<[Genre](#genre)> |  |
 | `originalId` | String? |  |
+| `barcode` | String? |  |
 | `musicbrainzId` | PlatformUUID? |  |
+| `animatedCoverId` | PlatformUUID? |  |
+| `animatedCoverImageId` | PlatformUUID? |  |
+| `animatedCoverBlurHash` | String? |  |
 
 ### Artist
 
@@ -316,7 +320,11 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `coverId` | PlatformUUID? |  |
 | `blurHash` | String? |  |
 | `musicBrainzId` | PlatformUUID? |  |
+| `isrc` | String? |  |
 | `genres` | List<[Genre](#genre)> |  |
+| `animatedCoverId` | PlatformUUID? |  |
+| `animatedCoverImageId` | PlatformUUID? |  |
+| `animatedCoverBlurHash` | String? |  |
 | `isFavourite` | Boolean? |  |
 | `userSongCreatedAt` | PlatformDate? |  |
 | `userSongUpdatedAt` | PlatformDate? |  |

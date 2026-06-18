@@ -20,7 +20,8 @@ import kotlin.math.roundToLong
 
 @Composable
 actual fun SynaraVideoPlayer(
-    url: String,
+    key: String,
+    loader: suspend () -> ByteArray?,
     modifier: Modifier,
     loop: Boolean,
     onLoaded: () -> Unit,
@@ -28,16 +29,16 @@ actual fun SynaraVideoPlayer(
     frameIndex: Int?
 ) {
     val videoService: VideoFrameService = koinInject()
-    val videoFramesState by videoService.getFrames(url, onLoaded).collectAsState()
-    
-    var localCurrentIndex by remember(url) { mutableIntStateOf(0) }
+    val videoFramesState by videoService.getFrames(key, loader, onLoaded).collectAsState()
+
+    var localCurrentIndex by remember(key) { mutableIntStateOf(0) }
     val currentIndex = frameIndex ?: localCurrentIndex
 
     if (videoFramesState != null) {
         val videoFrames = videoFramesState!!
         val frames = videoFrames.frames
         val fps = videoFrames.fps
-        
+
         val currentBitmap = frames[currentIndex.coerceAtMost(frames.size - 1)]
         Canvas(modifier = modifier.fillMaxSize()) {
             val bitmapWidth = currentBitmap.width.toFloat()
@@ -63,13 +64,13 @@ actual fun SynaraVideoPlayer(
             LaunchedEffect(frames, fps, loop) {
                 val frameTimeNanos = (1_000_000_000L / fps).roundToLong()
                 var startTime = -1L
-                
+
                 while (true) {
                     withFrameNanos { frameTime ->
                         if (startTime == -1L) startTime = frameTime
                         val elapsed = frameTime - startTime
                         val totalDurationNanos = frameTimeNanos * frames.size
-                        
+
                         if (!loop && elapsed >= totalDurationNanos) {
                             localCurrentIndex = frames.size - 1
                             return@withFrameNanos

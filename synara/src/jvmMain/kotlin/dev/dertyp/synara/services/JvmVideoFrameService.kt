@@ -32,23 +32,24 @@ class JvmVideoFrameService : VideoFrameService {
             return size > 10
         }
     })
-    
+
     private val loadingStates = ConcurrentHashMap<String, MutableStateFlow<VideoFrames?>>()
 
-    override fun getFrames(url: String, onLoaded: () -> Unit): StateFlow<VideoFrames?> {
-        val cached = memoryCache[url]
+    override fun getFrames(key: String, loader: suspend () -> ByteArray?, onLoaded: () -> Unit): StateFlow<VideoFrames?> {
+        val cached = memoryCache[key]
         if (cached != null) {
             onLoaded()
             return MutableStateFlow(cached).asStateFlow()
         }
 
-        return loadingStates.getOrPut(url) {
+        return loadingStates.getOrPut(key) {
             MutableStateFlow<VideoFrames?>(null).also { stateFlow ->
                 scope.launch {
                     try {
-                        val videoFile = VideoCache.getFile(url)
+                        val bytes = loader()
+                        val videoFile = VideoCache.getFileFromBytes(key, bytes) ?: return@launch
                         val channel = NIOUtils.readableChannel(videoFile)
-                        
+
                         var fps = 25f
                         try {
                             val demuxer = MP4Demuxer.createMP4Demuxer(channel)
@@ -60,7 +61,7 @@ class JvmVideoFrameService : VideoFrameService {
                                 }
                             }
                         } catch (_: Exception) {}
-                        
+
                         channel.setPosition(0)
                         val grab = FrameGrab.createFrameGrab(channel)
                         val tempFrames = mutableListOf<Pair<Double, Bitmap>>()
@@ -71,11 +72,15 @@ class JvmVideoFrameService : VideoFrameService {
                             val frameWithMeta = grab.nativeFrameWithMetadata ?: break
                             val timestamp = frameWithMeta.timestamp
                             val frame = frameWithMeta.picture
-                            
+
                             var bufferedImage = AWTUtil.toBufferedImage(frame)
                             if (bufferedImage.width > maxDecodeSize || bufferedImage.height > maxDecodeSize) {
                                 val scale = maxDecodeSize.toDouble() / maxOf(bufferedImage.width, bufferedImage.height)
-                                val scaled = BufferedImage((bufferedImage.width * scale).toInt(), (bufferedImage.height * scale).toInt(), BufferedImage.TYPE_INT_ARGB)
+                                val scaled = BufferedImage(
+                                    (bufferedImage.width * scale).toInt(),
+                                    (bufferedImage.height * scale).toInt(),
+                                    BufferedImage.TYPE_INT_ARGB
+                                )
                                 val g = scaled.createGraphics()
                                 g.drawRenderedImage(bufferedImage, AffineTransform.getScaleInstance(scale, scale))
                                 g.dispose()
@@ -85,7 +90,7 @@ class JvmVideoFrameService : VideoFrameService {
                             val skiaBitmap = Bitmap().apply {
                                 allocPixels(ImageInfo(bufferedImage.width, bufferedImage.height, ColorType.RGBA_8888, ColorAlphaType.PREMUL))
                             }
-                            
+
                             val argb = bufferedImage.getRGB(0, 0, bufferedImage.width, bufferedImage.height, null, 0, bufferedImage.width)
                             val rgba = ByteArray(bufferedImage.width * bufferedImage.height * 4)
                             for (i in argb.indices) {
@@ -95,7 +100,7 @@ class JvmVideoFrameService : VideoFrameService {
                                 rgba[i * 4 + 2] = (p and 0xFF).toByte()
                                 rgba[i * 4 + 3] = (p shr 24 and 0xFF).toByte()
                             }
-                            
+
                             skiaBitmap.installPixels(rgba)
                             tempFrames.add(timestamp to skiaBitmap)
 
@@ -103,14 +108,14 @@ class JvmVideoFrameService : VideoFrameService {
                             val palette = Palette.from(composeBitmap).generate()
                             tempSeeds.add(timestamp to getSeedsFromPalette(palette))
                         }
-                        
+
                         val sortedEntries = tempFrames.zip(tempSeeds.map { it.second }).sortedBy { it.first.first }
                         val sortedBitmaps = sortedEntries.map { it.first.second.asComposeImageBitmap() }
                         val sortedSeeds = sortedEntries.map { it.second }
-                        
+
                         val videoFrames = VideoFrames(sortedBitmaps, fps, sortedSeeds)
-                        
-                        memoryCache[url] = videoFrames
+
+                        memoryCache[key] = videoFrames
                         stateFlow.value = videoFrames
                         withContext(Dispatchers.Main) {
                             onLoaded()
@@ -118,7 +123,7 @@ class JvmVideoFrameService : VideoFrameService {
                     } catch (e: Exception) {
                         e.printStackTrace()
                     } finally {
-                        loadingStates.remove(url)
+                        loadingStates.remove(key)
                     }
                 }
             }

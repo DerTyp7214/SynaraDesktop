@@ -4,11 +4,9 @@ import dev.dertyp.synara.services.LocalStorageService
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.io.File
-import java.io.FileOutputStream
-import java.net.URI
 import java.security.MessageDigest
 
-object VideoCache: KoinComponent {
+object VideoCache : KoinComponent {
     private val storageService: LocalStorageService by inject()
     private val cacheDir by lazy {
         File(storageService.getCacheDir(), "videos").also { if (!it.exists()) it.mkdirs() }
@@ -16,21 +14,17 @@ object VideoCache: KoinComponent {
 
     private const val MAX_ENTRIES = 100
 
-    fun getFile(url: String): File {
-        val hash = sha256(url)
+    fun getFileFromBytes(key: String, bytes: ByteArray?): File? {
+        if (bytes == null) return null
+        val hash = sha256(key)
         val file = File(cacheDir, "$hash.mp4")
-        
+
         if (file.exists()) {
             file.setLastModified(System.currentTimeMillis())
             return file
         }
 
-        URI(url).toURL().openStream().use { input ->
-            FileOutputStream(file).use { output ->
-                input.copyTo(output)
-            }
-        }
-
+        file.writeBytes(bytes)
         cleanup()
         return file
     }

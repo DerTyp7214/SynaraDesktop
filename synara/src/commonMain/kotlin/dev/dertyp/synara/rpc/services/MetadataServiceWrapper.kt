@@ -101,6 +101,10 @@ class MetadataServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(ma
         return manager.getService<IMetadataService>().getAlbumsByIds(type, albumIds)
     }
 
+    override suspend fun getAlbumByBarcode(type: IMetadataService.MetadataType, barcode: String): IMetadataService.Album? {
+        return manager.getService<IMetadataService>().getAlbumByBarcode(type, barcode)
+    }
+
     override suspend fun albumExistsById(type: IMetadataService.MetadataType, albumId: String): Boolean {
         return manager.getService<IMetadataService>().albumExistsById(type, albumId)
     }

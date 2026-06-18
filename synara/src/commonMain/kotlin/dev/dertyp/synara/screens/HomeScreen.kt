@@ -750,6 +750,12 @@ private class DashboardScreen : Screen {
                 StatCard(stringResource(Res.string.artists), stats.artistCount.toString(), Modifier.weight(1f))
                 StatCard(stringResource(Res.string.playlists), stats.playlistCount.toString(), Modifier.weight(1f))
             }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                StatCard(stringResource(Res.string.animated_covers), stats.animatedImagesCount.toString(), Modifier.weight(1f))
+            }
 
             Card(
                 modifier = Modifier.fillMaxWidth(),

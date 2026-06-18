@@ -64,6 +64,17 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.2.0",
+                        date = "2026-06-18",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Improved, "Animated cover art is now served directly from the **server's own animated image library**, replacing the previous external metadata fetch."),
+                            Change(ChangeType.Improved, "The player background now shows the animated cover's **first-frame still image** instantly while the video loads, then fades the animation in smoothly."),
+                            Change(ChangeType.Improved, "Player color scheme is now derived from the animated cover's **first frame** instead of the static album art, for more accurate color extraction."),
+                            Change(ChangeType.New, "**Animated Covers** count is now displayed on the server dashboard.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.1.0",
                         date = "2026-06-09",
                         isPrerelease = true,

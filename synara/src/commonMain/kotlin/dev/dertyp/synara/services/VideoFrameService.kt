@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.coroutines.flow.StateFlow
 
 interface VideoFrameService {
-    fun getFrames(url: String, onLoaded: () -> Unit): StateFlow<VideoFrames?>
+    fun getFrames(key: String, loader: suspend () -> ByteArray?, onLoaded: () -> Unit): StateFlow<VideoFrames?>
     fun clearCache()
 }
 

@@ -129,6 +129,7 @@ val appModule = module {
     factoryOf(::DownloadsScreenModel)
 
     singleOf(::AlbumServiceWrapper) bind IAlbumService::class
+    singleOf(::AnimatedImageServiceWrapper) bind IAnimatedImageService::class
     singleOf(::ArtistServiceWrapper) bind IArtistService::class
     singleOf(::AudioAnalysisServiceWrapper) bind IAudioAnalysisService::class
     singleOf(::AuthServiceWrapper) bind IAuthService::class

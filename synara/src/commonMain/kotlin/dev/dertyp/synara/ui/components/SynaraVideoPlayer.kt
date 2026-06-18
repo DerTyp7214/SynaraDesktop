@@ -6,7 +6,8 @@ import androidx.compose.ui.Modifier
 
 @Composable
 expect fun SynaraVideoPlayer(
-    url: String,
+    key: String,
+    loader: suspend () -> ByteArray?,
     modifier: Modifier = Modifier,
     loop: Boolean = true,
     onLoaded: () -> Unit = {},

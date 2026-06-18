@@ -19,12 +19,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import dev.dertyp.core.tidalId
 import dev.dertyp.data.UserSong
-import dev.dertyp.services.import.IImportService
-import dev.dertyp.services.metadata.IMetadataService
+import dev.dertyp.services.IAnimatedImageService
 import dev.dertyp.synara.player.PlayerModel
-import dev.dertyp.synara.rpc.services.MetadataServiceWrapper
 import dev.dertyp.synara.services.VideoFrameService
 import org.koin.compose.koinInject
 import kotlin.math.pow
@@ -38,8 +35,7 @@ fun BlurredVideoCoverBackground(
     alpha: Float = 0.5f,
     audioReactive: Boolean = false,
     playerModel: PlayerModel = koinInject(),
-    metadataService: MetadataServiceWrapper = koinInject(),
-    importService: IImportService = koinInject(),
+    animatedImageService: IAnimatedImageService = koinInject(),
     videoService: VideoFrameService = koinInject(),
     onFrame: (Triple<Int?, Int?, Int?>) -> Unit = {},
     content: @Composable BoxScope.() -> Unit = {}
@@ -47,28 +43,10 @@ fun BlurredVideoCoverBackground(
     val audioIntensity by playerModel.audioIntensity.collectAsState()
     val isPlaying by playerModel.isPlaying.collectAsState()
 
-    val currentSongId = song?.id
-    val videoInfo by produceState<Pair<String?, Boolean>>(null to false, currentSongId) {
-        val originalUrl = song?.originalUrl ?: return@produceState
-        val importer = try {
-            importService.getImporterForUrl(originalUrl)
-        } catch (_: Exception) {
-            null
-        } ?: return@produceState
+    val animatedCoverId = song?.animatedCoverId
+    val displayCoverId = song?.animatedCoverImageId ?: song?.coverId
 
-        if (importer.id == "tdn" || importer.id == "tiddl") {
-            val tidalId = originalUrl.tidalId()
-            val images = try {
-                metadataService.getTrackById(IMetadataService.MetadataType.tidal, tidalId)?.images ?: emptyList()
-            } catch (_: Exception) {
-                emptyList()
-            }
-            val animated = images.find { it.animated }
-            value = animated?.url to (animated != null)
-        }
-    }
-
-    var videoLoaded by remember(videoInfo.first) { mutableStateOf(false) }
+    var videoLoaded by remember(animatedCoverId) { mutableStateOf(false) }
     val videoAlpha by animateFloatAsState(
         targetValue = if (videoLoaded) 1f else 0f,
         animationSpec = tween(1000),
@@ -77,7 +55,7 @@ fun BlurredVideoCoverBackground(
 
     Box(modifier = modifier) {
         AnimatedContent(
-            targetState = song?.coverId,
+            targetState = displayCoverId,
             transitionSpec = {
                 fadeIn(animationSpec = tween(1000)).togetherWith(fadeOut(animationSpec = tween(1000)))
             },
@@ -97,8 +75,8 @@ fun BlurredVideoCoverBackground(
                         val target = if (isPlaying) audioIntensity else 0f
                         val lerpFactor = (dt / 16.67f).coerceIn(0f, 1f)
 
-                        val riseAlpha = 1f - 0.70f.pow(lerpFactor) 
-                        val fallAlpha = 1f - 0.96f.pow(lerpFactor) 
+                        val riseAlpha = 1f - 0.70f.pow(lerpFactor)
+                        val fallAlpha = 1f - 0.96f.pow(lerpFactor)
 
                         val alphaValue = if (target > manualSmoothedIntensity) riseAlpha else fallAlpha
                         manualSmoothedIntensity += (target - manualSmoothedIntensity) * alphaValue
@@ -135,16 +113,21 @@ fun BlurredVideoCoverBackground(
                     )
                 }
 
-                if (videoInfo.second && videoInfo.first != null) {
-                    val url = videoInfo.first!!
-                    val videoFramesState by videoService.getFrames(url) { videoLoaded = true }.collectAsState()
-                    
+                if (animatedCoverId != null) {
+                    val loader: suspend () -> ByteArray? = { animatedImageService.getAnimatedImageData(animatedCoverId) }
+                    val videoFramesState by videoService.getFrames(
+                        key = animatedCoverId.toString(),
+                        loader = loader,
+                        onLoaded = { videoLoaded = true }
+                    ).collectAsState()
+
                     if (videoFramesState != null) {
                         val videoFrames = videoFramesState!!
-                        var currentIndex by remember(url) { mutableIntStateOf(0) }
+                        var currentIndex by remember(animatedCoverId) { mutableIntStateOf(0) }
 
                         SynaraVideoPlayer(
-                            url = url,
+                            key = animatedCoverId.toString(),
+                            loader = loader,
                             modifier = Modifier
                                 .fillMaxSize()
                                 .blur(blurRadius)
