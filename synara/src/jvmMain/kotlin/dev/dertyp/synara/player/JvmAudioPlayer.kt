@@ -311,7 +311,11 @@ class JvmAudioPlayer(
 
         playerJob = scope.launch {
             try {
-                val session = dataSource.createPlaybackSession(songId, startTimeMs, scope) ?: return@launch
+                val session = dataSource.createPlaybackSession(songId, startTimeMs, scope)
+                if (session == null) {
+                    println("Failed to create playback session for $songId (unsupported or unreadable audio stream)")
+                    return@launch
+                }
                 _duration.value = session.song.duration
                 _sampleRate.value = session.sampleRate
                 _bitsPerSample.value = session.bitsPerSample

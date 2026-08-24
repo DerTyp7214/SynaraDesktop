@@ -4,6 +4,8 @@ import com.russhwolf.settings.Settings
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.ISongService
+import dev.dertyp.synara.player.audio.AiffHeader
+import dev.dertyp.synara.player.audio.PcmHeader
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
 import io.github.jaredmdobson.concentus.OpusDecoder
@@ -85,6 +87,7 @@ class SongDataSource(
 
             var foundFlac = false
             var foundOgg = false
+            var foundPcm = false
             var magicOffset = -1
 
             for (i in 0 until firstRead - 3) {
@@ -101,6 +104,25 @@ class SongDataSource(
                     foundOgg = true
                     magicOffset = i
                     break
+                }
+                if (PcmHeader.isWav(initialBuffer, i) || AiffHeader.isAiff(initialBuffer, i)) {
+                    foundPcm = true
+                    magicOffset = i
+                    break
+                }
+            }
+
+            if (foundPcm) {
+                val headerStream = SequenceInputStream(
+                    initialBuffer.sliceArray(magicOffset until firstRead).inputStream(),
+                    stream
+                )
+                val pcmHeader = PcmHeader.parseFromStream(headerStream, magicOffset.toLong())
+                stream.close()
+                return@withContext pcmHeader?.encode()?.also { encoded ->
+                    cacheMutex.withLock {
+                        metadataCache[cacheKey] = encoded
+                    }
                 }
             }
 
@@ -152,10 +174,10 @@ class SongDataSource(
         }
     }
 
-    private fun readExactly(input: InputStream, buffer: ByteArray): Int {
+    private fun readExactly(input: InputStream, buffer: ByteArray, length: Int = buffer.size): Int {
         var totalRead = 0
-        while (totalRead < buffer.size) {
-            val read = input.read(buffer, totalRead, buffer.size - totalRead)
+        while (totalRead < length) {
+            val read = input.read(buffer, totalRead, length - totalRead)
             if (read == -1) break
             totalRead += read
         }
@@ -183,6 +205,10 @@ class SongDataSource(
     ): PlaybackSession? {
         val song = getSong(songId) ?: return null
         val metadata = getMetadata(songId) ?: return null
+
+        PcmHeader.decode(metadata)?.let { pcmHeader ->
+            return createPcmPlaybackSession(song, songId, pcmHeader, positionMs, sessionScope)
+        }
 
         val totalDuration = song.duration
         val mSize = metadata.size.toLong()
@@ -452,7 +478,91 @@ class SongDataSource(
         }
     }
 
-    private fun convertToShortBuffer(data: ByteArray, len: Int, bitsPerSample: Int): ShortBuffer {
+    private suspend fun createPcmPlaybackSession(
+        song: UserSong,
+        songId: PlatformUUID,
+        header: PcmHeader,
+        positionMs: Long,
+        sessionScope: CoroutineScope
+    ): PlaybackSession? {
+        val bytesPerFrame = header.bytesPerFrame
+        if (bytesPerFrame <= 0 || header.sampleRate <= 0) return null
+
+        var byteOffset = header.dataStart
+        if (positionMs > 0) {
+            var frame = positionMs * header.sampleRate / 1000
+            if (header.dataSize > 0) {
+                val lastFrame = (header.dataSize / bytesPerFrame - 1).coerceAtLeast(0)
+                frame = frame.coerceAtMost(lastFrame)
+            }
+            byteOffset = header.dataStart + frame * bytesPerFrame
+        }
+
+        val flow = songService.streamSong(songId, byteOffset) ?: return null
+        val rawStream = FlowInputStream(flow, sessionScope)
+
+        val pcmChannel = Channel<ShortBuffer>(Channel.BUFFERED)
+
+        sessionScope.launch(Dispatchers.IO) {
+            try {
+                val chunkBytes = ((32 * 1024) / bytesPerFrame).coerceAtLeast(1) * bytesPerFrame
+                val buffer = ByteArray(chunkBytes)
+                var remaining = if (header.dataSize > 0) {
+                    header.dataSize - (byteOffset - header.dataStart)
+                } else Long.MAX_VALUE
+
+                while (remaining > 0) {
+                    val want = min(chunkBytes.toLong(), remaining).toInt()
+                    val read = readExactly(rawStream, buffer, want)
+                    if (read <= 0) break
+
+                    val wholeFrames = (read / bytesPerFrame) * bytesPerFrame
+                    if (wholeFrames > 0) {
+                        header.normalize(buffer, wholeFrames)
+                        pcmChannel.send(
+                            convertToShortBuffer(
+                                buffer,
+                                wholeFrames,
+                                header.bitsPerSample,
+                                isFloat = header.isFloat,
+                                unsigned8Bit = true
+                            )
+                        )
+                    }
+
+                    remaining -= read
+                    if (read < want) break
+                }
+            } catch (e: Exception) {
+                if (e !is CancellationException) {
+                    println("PCM decoder error for $songId: ${e.message}")
+                }
+            } finally {
+                pcmChannel.close()
+                rawStream.close()
+            }
+        }
+
+        return PlaybackSession(
+            song = song,
+            sampleRate = header.sampleRate,
+            bitsPerSample = header.bitsPerSample,
+            channels = header.channels,
+            pcmFlow = flow {
+                for (buffer in pcmChannel) {
+                    emit(buffer)
+                }
+            }
+        )
+    }
+
+    private fun convertToShortBuffer(
+        data: ByteArray,
+        len: Int,
+        bitsPerSample: Int,
+        isFloat: Boolean = false,
+        unsigned8Bit: Boolean = false
+    ): ShortBuffer {
         val bytesPerSample = bitsPerSample / 8
         val samplesCount = len / bytesPerSample
         val shortBuffer = BufferUtils.createShortBuffer(samplesCount)
@@ -474,10 +584,36 @@ class SongDataSource(
                 }
             }
 
+            32 -> {
+                if (isFloat) {
+                    for (i in 0 until samplesCount) {
+                        val bits = (data[i * 4].toInt() and 0xFF) or
+                                ((data[i * 4 + 1].toInt() and 0xFF) shl 8) or
+                                ((data[i * 4 + 2].toInt() and 0xFF) shl 16) or
+                                ((data[i * 4 + 3].toInt() and 0xFF) shl 24)
+                        val sample = Float.fromBits(bits).coerceIn(-1f, 1f)
+                        shortBuffer.put((sample * Short.MAX_VALUE).toInt().toShort())
+                    }
+                } else {
+                    for (i in 0 until samplesCount) {
+                        val mid = data[i * 4 + 2].toInt() and 0xFF
+                        val msb = data[i * 4 + 3].toInt()
+                        shortBuffer.put(((msb shl 8) or mid).toShort())
+                    }
+                }
+            }
+
             8 -> {
-                for (i in 0 until samplesCount) {
-                    val s = data[i].toInt()
-                    shortBuffer.put((s shl 8).toShort())
+                if (unsigned8Bit) {
+                    for (i in 0 until samplesCount) {
+                        val s = (data[i].toInt() and 0xFF) - 128
+                        shortBuffer.put((s shl 8).toShort())
+                    }
+                } else {
+                    for (i in 0 until samplesCount) {
+                        val s = data[i].toInt()
+                        shortBuffer.put((s shl 8).toShort())
+                    }
                 }
             }
         }

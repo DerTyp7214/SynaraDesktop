@@ -4,6 +4,7 @@ import com.russhwolf.settings.Settings
 import dev.dertyp.getPlatformName
 import dev.dertyp.logging.BaseLogger
 import dev.dertyp.logging.Logger
+import dev.dertyp.rpc.apiVersionHeader
 import dev.dertyp.serializers.AppCbor
 import dev.dertyp.serializers.AppJson
 import dev.dertyp.services.*
@@ -63,6 +64,7 @@ private fun buildHttpClient(cbor: Cbor, json: Json): HttpClient {
         }
         install(DefaultRequest) {
             //header(SynaraPackHeader, "true")
+            apiVersionHeader()
         }
         install(Krpc) {
             serialization {

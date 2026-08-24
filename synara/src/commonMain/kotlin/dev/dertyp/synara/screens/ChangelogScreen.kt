@@ -64,6 +64,16 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.3.1",
+                        date = "2026-08-24",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "**WAV and AIFF** songs now stream and play in their original format instead of relying on a server-side FLAC conversion — including AIFF-C variants (sowt, in24, in32, fl32) and 32-bit/float WAV."),
+                            Change(ChangeType.Improved, "The app now tells the server which API version it supports (**v2**) on every connection, enabling format-aware streaming."),
+                            Change(ChangeType.Improved, "Unplayable songs now log a clear message instead of failing silently.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.3.0",
                         date = "2026-08-24",
                         isPrerelease = true,
