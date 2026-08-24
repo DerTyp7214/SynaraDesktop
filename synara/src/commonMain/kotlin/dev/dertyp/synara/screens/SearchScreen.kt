@@ -28,6 +28,7 @@ import dev.dertyp.synara.ui.components.PlaylistItem
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.fadingEdge
 import dev.dertyp.synara.viewmodels.GlobalStateModel
+import dev.dertyp.synara.viewmodels.SearchMode
 import dev.dertyp.synara.viewmodels.SearchScreenModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
@@ -43,6 +44,7 @@ class SearchScreen : Screen {
         val query by globalState.searchQuery.collectAsState()
         
         val isSearching by screenModel.isSearching.collectAsState()
+        val searchMode by screenModel.searchMode.collectAsState()
         val songs by screenModel.songs.collectAsState()
         val albums by screenModel.albums.collectAsState()
         val artists by screenModel.artists.collectAsState()
@@ -67,6 +69,28 @@ class SearchScreen : Screen {
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold
                     )
+                }
+
+                item {
+                    SingleChoiceSegmentedButtonRow {
+                        SearchMode.entries.forEachIndexed { index, mode ->
+                            SegmentedButton(
+                                selected = searchMode == mode,
+                                onClick = { screenModel.setSearchMode(mode) },
+                                shape = SegmentedButtonDefaults.itemShape(
+                                    index = index,
+                                    count = SearchMode.entries.size
+                                )
+                            ) {
+                                Text(
+                                    when (mode) {
+                                        SearchMode.STANDARD -> stringResource(Res.string.search_mode_standard)
+                                        SearchMode.LYRICS -> stringResource(Res.string.lyrics)
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
 
                 if (isSearching) {
@@ -99,10 +123,13 @@ class SearchScreen : Screen {
                         item {
                             SearchSection(
                                 title = stringResource(Res.string.songs),
-                                onShowAll = { navigator.push(SearchSongsScreen(query)) }
+                                onShowAll = if (searchMode == SearchMode.STANDARD) {
+                                    { navigator.push(SearchSongsScreen(query)) }
+                                } else null
                             ) {
                                 Column {
-                                    songs.take(5).forEach { song ->
+                                    val visibleSongs = if (searchMode == SearchMode.LYRICS) songs else songs.take(5)
+                                    visibleSongs.forEach { song ->
                                         SongItem(
                                             song = song,
                                             showCover = true,
@@ -216,7 +243,7 @@ class SearchScreen : Screen {
     @Composable
     private fun SearchSection(
         title: String,
-        onShowAll: () -> Unit,
+        onShowAll: (() -> Unit)?,
         content: @Composable () -> Unit
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -230,8 +257,10 @@ class SearchScreen : Screen {
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
-                TextButton(onClick = onShowAll) {
-                    Text(stringResource(Res.string.show_all))
+                if (onShowAll != null) {
+                    TextButton(onClick = onShowAll) {
+                        Text(stringResource(Res.string.show_all))
+                    }
                 }
             }
             content()

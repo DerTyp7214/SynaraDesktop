@@ -83,6 +83,28 @@ class SqlDelightScrobbleQueueRepository(
         queries.insert(userId.toString(), json.encodeToString(song), timestamp, target)
     }
 
+    override suspend fun insertRaw(
+        userId: PlatformUUID,
+        songId: String,
+        payload: String,
+        timestamp: Long,
+        target: String
+    ) {
+        queries.insert(userId.toString(), payload, timestamp, target)
+    }
+
+    override suspend fun getAllRaw(userId: PlatformUUID, target: String): List<RawScrobbleQueueEntry> {
+        return queries.getAll(userId.toString(), target).executeAsList().map {
+            RawScrobbleQueueEntry(
+                it.id,
+                it.userId.toPlatformUUID(),
+                it.payload,
+                it.timestamp,
+                it.target
+            )
+        }
+    }
+
     override suspend fun getAll(userId: PlatformUUID, target: String): List<ScrobbleQueueEntry> {
         return queries.getAll(userId.toString(), target).executeAsList().map {
             ScrobbleQueueEntry(

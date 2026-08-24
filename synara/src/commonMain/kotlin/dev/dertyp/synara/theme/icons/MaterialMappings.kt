@@ -84,4 +84,9 @@ object MaterialMappings {
     @MapTo(SynaraIcons.Link) val Link = MaterialSymbols.Rounded.Link
     @MapTo(SynaraIcons.Download) val Download = MaterialSymbols.Rounded.Download
     @MapTo(SynaraIcons.Discovery) val Auto_awesome = MaterialSymbols.Rounded.Auto_awesome
+    @MapTo(SynaraIcons.Radio) val Radio = MaterialSymbols.Rounded.Radio
+    @MapTo(SynaraIcons.Collections) val Collections_bookmark = MaterialSymbols.Rounded.Collections_bookmark
+    @MapTo(SynaraIcons.Stats) val Bar_chart = MaterialSymbols.Rounded.Bar_chart
+    @MapTo(SynaraIcons.Users) val Group = MaterialSymbols.Rounded.Group
+    @MapTo(SynaraIcons.Key) val Key = MaterialSymbols.Rounded.Key
 }

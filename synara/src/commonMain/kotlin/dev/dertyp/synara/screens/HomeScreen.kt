@@ -263,6 +263,42 @@ class HomeScreen : Screen {
             Spacer(modifier = Modifier.height(8.dp))
 
             NavigationItem(
+                label = stringResource(Res.string.radio),
+                icon = SynaraIcons.Radio.get(),
+                selected = navigator.lastItem is RadioScreen,
+                onClick = {
+                    if (navigator.lastItem !is RadioScreen) navigator.push(RadioScreen())
+                    onItemClick?.invoke()
+                }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            NavigationItem(
+                label = stringResource(Res.string.collections),
+                icon = SynaraIcons.Collections.get(),
+                selected = navigator.lastItem is CollectionsScreen,
+                onClick = {
+                    if (navigator.lastItem !is CollectionsScreen) navigator.push(CollectionsScreen())
+                    onItemClick?.invoke()
+                }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            NavigationItem(
+                label = stringResource(Res.string.stats),
+                icon = SynaraIcons.Stats.get(),
+                selected = navigator.lastItem is StatsScreen,
+                onClick = {
+                    if (navigator.lastItem !is StatsScreen) navigator.push(StatsScreen())
+                    onItemClick?.invoke()
+                }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            NavigationItem(
                 label = stringResource(Res.string.downloads),
                 icon = SynaraIcons.Download.get(),
                 selected = navigator.lastItem is DownloadsScreen,

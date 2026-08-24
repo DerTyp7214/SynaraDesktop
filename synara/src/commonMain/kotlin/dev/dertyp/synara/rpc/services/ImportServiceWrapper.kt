@@ -58,6 +58,14 @@ class ImportServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(mana
         return manager.getService<IImportService>().getAllImportServices()
     }
 
+    override suspend fun getImporterCapabilities(): Map<String, Set<ImporterCapability>> {
+        return manager.getService<IImportService>().getImporterCapabilities()
+    }
+
+    override suspend fun setImportCredentials(backend: ImportBackend, credentials: ImporterCredentials) {
+        manager.getService<IImportService>().setImportCredentials(backend, credentials)
+    }
+
     override suspend fun importAuthorized(): Boolean {
         return manager.getService<IImportService>().importAuthorized()
     }

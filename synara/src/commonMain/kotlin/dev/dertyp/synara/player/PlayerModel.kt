@@ -33,6 +33,9 @@ import kotlin.math.log10
 
 @Suppress("unused")
 @OptIn(ExperimentalSerializationApi::class)
+private const val RADIO_BATCH_SIZE = 20
+private const val RADIO_TOP_UP_THRESHOLD = 8
+
 class PlayerModel(
     private val rpcServiceManager: RpcServiceManager,
     private val audioPlayer: AudioPlayer,
@@ -41,6 +44,7 @@ class PlayerModel(
     private val albumService: AlbumServiceWrapper,
     private val artistService: ArtistServiceWrapper,
     private val userService: UserServiceWrapper,
+    private val radioService: RadioServiceWrapper,
     private val songCache: SongCache,
     private val settings: Settings,
     private val snackbarManager: SnackbarManager,
@@ -126,6 +130,8 @@ class PlayerModel(
 
         val savedVolume = settings.get(SettingKey.Volume, 0.5f)
         audioPlayer.setVolume(savedVolume)
+
+        startRadioTopUpWatcher()
 
         scope.launch {
             combine(_queue, _currentIndex, _currentSource, _repeatMode, _shuffleMode) { q, idx, src, repeat, shuffle ->
@@ -383,6 +389,62 @@ class PlayerModel(
         audioPlayer.play()
     }
 
+    fun playRadio(sessionId: PlatformUUID, displayName: String? = null) {
+        setSourceJob?.cancel()
+        radioTopUpJob?.cancel()
+        setSourceJob = scope.launch {
+            val source = PlaybackSource.Radio(sessionId, displayName)
+            _currentSource.value = source
+
+            val entries = fetchRadioBatch(sessionId)
+            if (entries.isEmpty()) {
+                snackbarManager.showSnackbar(getString(Res.string.radio_no_songs))
+                return@launch
+            }
+
+            originalQueue = entries
+            _queue.value = entries
+            playAtIndex(0)
+        }
+    }
+
+    private suspend fun fetchRadioBatch(sessionId: PlatformUUID): List<QueueEntry> {
+        return try {
+            withContext(modelDispatcher) {
+                radioService.radioFlow(sessionId)
+                    .take(RADIO_BATCH_SIZE)
+                    .toList()
+                    .map { QueueEntry.FromSource(it) }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    private var radioTopUpJob: Job? = null
+
+    private fun startRadioTopUpWatcher() {
+        scope.launch {
+            combine(_queue, _currentIndex, _currentSource) { q, idx, src ->
+                Triple(q, idx, src)
+            }.collect { (q, idx, src) ->
+                val radio = src as? PlaybackSource.Radio ?: return@collect
+                if (idx < 0 || q.isEmpty()) return@collect
+                if (q.size - idx > RADIO_TOP_UP_THRESHOLD) return@collect
+                if (radioTopUpJob?.isActive == true) return@collect
+
+                radioTopUpJob = scope.launch {
+                    val entries = fetchRadioBatch(radio.sessionId)
+                    if (entries.isNotEmpty() && _currentSource.value == radio) {
+                        originalQueue = originalQueue + entries
+                        _queue.value += entries
+                    }
+                }
+            }
+        }
+    }
+
     fun playQueue(playbackQueue: PlaybackQueue, startIndex: Int = 0) {
         setSourceJob?.cancel()
         setSourceJob = scope.launch {
@@ -490,6 +552,7 @@ class PlayerModel(
             is PlaybackSource.Playlist -> userPlaylistService.byId(source.playlistId)?.name
             is PlaybackSource.AllSongs -> getString(Res.string.songs)
             is PlaybackSource.LikedSongs -> getString(Res.string.favorite)
+            is PlaybackSource.Radio -> source.name ?: getString(Res.string.radio)
             is PlaybackSource.Manual -> null
         }
     }
@@ -693,6 +756,7 @@ class PlayerModel(
     }
 
     fun toggleShuffle() {
+        if (_currentSource.value is PlaybackSource.Radio) return
         val currentEntry = _queue.value.getOrNull(_currentIndex.value)
         val newShuffleMode = !_shuffleMode.value
         _shuffleMode.value = newShuffleMode

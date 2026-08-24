@@ -4,6 +4,7 @@ import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.UserSong
+import dev.dertyp.services.IImageService
 import dev.dertyp.services.IPlaylistService
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
@@ -23,6 +24,7 @@ class PlaylistScreenModel(
     private val playlistService: IPlaylistService,
     private val userPlaylistService: IUserPlaylistService,
     private val songService: ISongService,
+    private val imageService: IImageService,
     private val songCache: SongCache,
     val playerModel: PlayerModel,
     dispatchers: SynaraDispatchers
@@ -87,6 +89,22 @@ class PlaylistScreenModel(
         currentPage = 0
         hasNextPage = true
         loadPlaylist()
+    }
+
+    fun setCover(bytes: ByteArray) {
+        if (!isUserPlaylist) return
+        screenModelScope.launch(modelDispatcher) {
+            try {
+                val imageId = imageService.createImage(bytes)
+                userPlaylistService.setPlaylistImage(playlistId, imageId)
+                val currentState = _state.value
+                if (currentState is PlaylistState.Success) {
+                    _state.value = currentState.copy(imageId = imageId)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     fun loadPlaylist() {

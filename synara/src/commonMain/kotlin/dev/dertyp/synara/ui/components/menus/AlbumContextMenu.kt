@@ -10,6 +10,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.data.Album
+import dev.dertyp.data.CollectionItemType
 import dev.dertyp.data.UserCapability
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
@@ -38,6 +39,7 @@ fun AlbumContextMenu(
     var showPlaylistPickerDialog by remember { mutableStateOf(false) }
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     var showSimilarSongsDialog by remember { mutableStateOf(false) }
+    var showCollectionPickerDialog by remember { mutableStateOf(false) }
     val navigator = LocalNavigator.current
     val user by globalState.user.collectAsState()
 
@@ -124,6 +126,15 @@ fun AlbumContextMenu(
         )
 
         DropdownMenuItem(
+            text = { Text(stringResource(Res.string.add_to_collection)) },
+            onClick = {
+                showCollectionPickerDialog = true
+                onDismissRequest()
+            },
+            leadingIcon = { Icon(SynaraIcons.Collections.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+        )
+
+        DropdownMenuItem(
             text = { Text(stringResource(Res.string.get_similar_songs)) },
             onClick = {
                 showSimilarSongsDialog = true
@@ -205,6 +216,13 @@ fun AlbumContextMenu(
             playerModel.createPlaylist(name, PlaybackQueue(source = PlaybackSource.Album(album.id)))
         },
         onDismissRequest = { showCreatePlaylistDialog = false }
+    )
+
+    AddToCollectionDialog(
+        isOpen = showCollectionPickerDialog,
+        itemType = CollectionItemType.ALBUM,
+        itemId = album.id,
+        onDismissRequest = { showCollectionPickerDialog = false }
     )
 
     SimilarSongsDialog(

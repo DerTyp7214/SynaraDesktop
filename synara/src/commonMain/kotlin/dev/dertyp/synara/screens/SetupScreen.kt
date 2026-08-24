@@ -34,11 +34,12 @@ class SetupScreen : Screen {
         var host by remember { mutableStateOf(screenModel.getHost() ?: "localhost") }
         var port by remember { mutableStateOf(screenModel.getPort()?.toString() ?: "8080") }
         var path by remember { mutableStateOf(screenModel.getRpcPath()) }
+        var useSsl by remember { mutableStateOf(true) }
 
         LaunchedEffect(Unit) {
             screenModel.resetTestConnectionResult()
             if (host.isNotEmpty() && port.isNotEmpty()) {
-                screenModel.testConnection(host, port.toIntOrNull() ?: 8080, path)
+                screenModel.testConnection(host, port.toIntOrNull() ?: 8080, path, useSsl)
             }
         }
 
@@ -89,22 +90,54 @@ class SetupScreen : Screen {
                         )
                         InternalTextField(
                             value = port,
-                            onValueChange = { 
+                            onValueChange = {
                                 port = it
                                 screenModel.resetTestConnectionResult()
                             },
                             label = { Text(stringResource(Res.string.port)) },
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            keyboardActions = KeyboardActions(
+                                onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                            )
+                        )
+                        InternalTextField(
+                            value = path,
+                            onValueChange = {
+                                path = it
+                                screenModel.resetTestConnectionResult()
+                            },
+                            label = { Text(stringResource(Res.string.server_path)) },
+                            placeholder = { Text("/") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                             keyboardActions = KeyboardActions(
                                 onDone = {
                                     scope.launch {
-                                        screenModel.testConnection(host, port.toIntOrNull() ?: 8080, path)
+                                        screenModel.testConnection(host, port.toIntOrNull() ?: 8080, path, useSsl)
                                     }
                                 }
                             )
                         )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.server_use_ssl),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Switch(
+                                checked = useSsl,
+                                onCheckedChange = {
+                                    useSsl = it
+                                    screenModel.resetTestConnectionResult()
+                                }
+                            )
+                        }
 
                         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                             val isNarrow = maxWidth < 360.dp
@@ -116,7 +149,7 @@ class SetupScreen : Screen {
                                     TestButton(
                                         onClick = {
                                             scope.launch {
-                                                screenModel.testConnection(host, port.toIntOrNull() ?: 8080, path)
+                                                screenModel.testConnection(host, port.toIntOrNull() ?: 8080, path, useSsl)
                                             }
                                         },
                                         isLoading = testResult is TestConnectionResult.Loading,
@@ -140,7 +173,7 @@ class SetupScreen : Screen {
                                     TestButton(
                                         onClick = {
                                             scope.launch {
-                                                screenModel.testConnection(host, port.toIntOrNull() ?: 8080, path)
+                                                screenModel.testConnection(host, port.toIntOrNull() ?: 8080, path, useSsl)
                                             }
                                         },
                                         isLoading = testResult is TestConnectionResult.Loading,

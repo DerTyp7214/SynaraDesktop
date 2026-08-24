@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
+enum class SearchMode { STANDARD, LYRICS }
+
 class SearchScreenModel(
     private val songService: ISongService,
     private val albumService: IAlbumService,
@@ -52,9 +54,20 @@ class SearchScreenModel(
     private val _isSearching = MutableStateFlow(false)
     val isSearching = _isSearching.asStateFlow()
 
+    private val _searchMode = MutableStateFlow(SearchMode.STANDARD)
+    val searchMode = _searchMode.asStateFlow()
+
+    private var lastQuery: String = ""
     private var searchJob: Job? = null
 
+    fun setSearchMode(mode: SearchMode) {
+        if (_searchMode.value == mode) return
+        _searchMode.value = mode
+        search(lastQuery)
+    }
+
     fun search(query: String) {
+        lastQuery = query
         searchJob?.cancel()
         if (query.isBlank()) {
             _songs.value = emptyList()
@@ -69,15 +82,26 @@ class SearchScreenModel(
             delay(400.milliseconds)
             _isSearching.value = true
             try {
-                val songsJob = launch { _songs.value = songService.rankedSearch(0, 10, query, explicit = true).data }
-                val albumsJob = launch { _albums.value = albumService.rankedSearch(0, 10, query).data }
-                val artistsJob = launch { _artists.value = artistService.rankedSearch(0, 10, query).data }
-                val playlistsJob = launch { _playlists.value = userPlaylistService.rankedSearch(globalStateModel.user.value?.id, 0, 10, query).data }
+                when (_searchMode.value) {
+                    SearchMode.STANDARD -> {
+                        val songsJob = launch { _songs.value = songService.rankedSearch(0, 10, query, explicit = true).data }
+                        val albumsJob = launch { _albums.value = albumService.rankedSearch(0, 10, query).data }
+                        val artistsJob = launch { _artists.value = artistService.rankedSearch(0, 10, query).data }
+                        val playlistsJob = launch { _playlists.value = userPlaylistService.rankedSearch(globalStateModel.user.value?.id, 0, 10, query).data }
 
-                songsJob.join()
-                albumsJob.join()
-                artistsJob.join()
-                playlistsJob.join()
+                        songsJob.join()
+                        albumsJob.join()
+                        artistsJob.join()
+                        playlistsJob.join()
+                    }
+
+                    SearchMode.LYRICS -> {
+                        _albums.value = emptyList()
+                        _artists.value = emptyList()
+                        _playlists.value = emptyList()
+                        _songs.value = songService.searchByLyrics(0, 50, query, explicit = true).data
+                    }
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {

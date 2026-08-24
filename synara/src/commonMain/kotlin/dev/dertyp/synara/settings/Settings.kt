@@ -30,6 +30,7 @@ sealed class SettingKey<T>(val name: String) {
     data object ProxySsl : SettingKey<Boolean>("proxy_ssl")
 
     // Scrobbling
+    data object IsServerScrobblingEnabled : SettingKey<Boolean>("is_server_scrobbling_enabled")
     data object IsListenBrainzEnabled : SettingKey<Boolean>("is_listenbrainz_enabled")
     data object ListenBrainzToken : SettingKey<String>("listenbrainz_token")
     data object IsLastFmEnabled : SettingKey<Boolean>("is_lastfm_enabled")
@@ -126,6 +127,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
 
         is SettingKey.TokenExpiration -> getLongOrNull(key.name) as T?
         is SettingKey.DarkTheme, is SettingKey.UseSongColor, is SettingKey.UsePywal,
+        is SettingKey.IsServerScrobblingEnabled,
         is SettingKey.IsListenBrainzEnabled, is SettingKey.IsLastFmEnabled,
         is SettingKey.IsDiscordRpcEnabled, is SettingKey.HideOnClose,
         is SettingKey.IsProxyEnabled, is SettingKey.ProxySsl, is SettingKey.Ssl,

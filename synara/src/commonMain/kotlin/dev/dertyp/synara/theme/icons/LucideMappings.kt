@@ -83,4 +83,9 @@ object LucideMappings {
     @MapTo(SynaraIcons.Link) val Link = Lucide.Link
     @MapTo(SynaraIcons.Download) val Download = Lucide.Download
     @MapTo(SynaraIcons.Discovery) val Sparkles = Lucide.Sparkles
+    @MapTo(SynaraIcons.Radio) val Radio = Lucide.Radio
+    @MapTo(SynaraIcons.Collections) val LibraryBig = Lucide.LibraryBig
+    @MapTo(SynaraIcons.Stats) val ChartBar = Lucide.ChartBar
+    @MapTo(SynaraIcons.Users) val Users = Lucide.Users
+    @MapTo(SynaraIcons.Key) val KeyRound = Lucide.KeyRound
 }

@@ -31,8 +31,10 @@ import dev.dertyp.formatDate
 import dev.dertyp.services.IReleaseService
 import dev.dertyp.services.import.IImportService
 import dev.dertyp.services.import.ImportBackend
+import dev.dertyp.data.UserCapability
 import dev.dertyp.services.models.RecentRelease
 import dev.dertyp.synara.Config
+import dev.dertyp.synara.viewmodels.GlobalStateModel
 import dev.dertyp.synara.screens.ArtistScreen
 import dev.dertyp.synara.screens.ImportScreen
 import dev.dertyp.synara.ui.SynaraIcons
@@ -267,7 +269,15 @@ fun RecentReleaseDialog(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                val downloadableLinks by produceState(emptyList(), release.links) {
+                val globalState = koinInject<GlobalStateModel>()
+                val user by globalState.user.collectAsState()
+                val canImport = user?.hasCapability(UserCapability.IMPORT) == true
+
+                val downloadableLinks by produceState(emptyList(), release.links, canImport) {
+                    if (!canImport) {
+                        value = emptyList()
+                        return@produceState
+                    }
                     val results = mutableListOf<Pair<String, ImportBackend>>()
                     release.links.forEach { link ->
                         if (!link.contains("musicbrainz.org", ignoreCase = true)) {

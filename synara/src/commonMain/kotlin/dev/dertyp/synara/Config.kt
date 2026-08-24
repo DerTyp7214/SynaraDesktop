@@ -62,6 +62,9 @@ object Config : KoinComponent {
     val lightColorScheme: StateFlow<ColorScheme> = _lightColorScheme.asStateFlow()
 
     // Scrobbling
+    private val _isServerScrobblingEnabled = MutableStateFlow(settings.get(SettingKey.IsServerScrobblingEnabled, true))
+    val isServerScrobblingEnabled: StateFlow<Boolean> = _isServerScrobblingEnabled.asStateFlow()
+
     private val _isListenBrainzEnabled = MutableStateFlow(settings.get(SettingKey.IsListenBrainzEnabled, false))
     val isListenBrainzEnabled: StateFlow<Boolean> = _isListenBrainzEnabled.asStateFlow()
 
@@ -208,6 +211,11 @@ object Config : KoinComponent {
 
     fun setLightColorScheme(colorScheme: ColorScheme) {
         _lightColorScheme.value = colorScheme
+    }
+
+    fun setIsServerScrobblingEnabled(enabled: Boolean) {
+        _isServerScrobblingEnabled.value = enabled
+        settings.put(SettingKey.IsServerScrobblingEnabled, enabled)
     }
 
     fun setIsListenBrainzEnabled(enabled: Boolean) {

@@ -64,6 +64,23 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.3.0",
+                        date = "2026-08-24",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "**Radio**: endless stations seeded from your listen history or pure randomness, plus admin-curated **radio channels** with full channel editing."),
+                            Change(ChangeType.New, "**Collections**: group songs, albums, artists and playlists into server-side collections with in-collection search, custom covers and context-menu shortcuts."),
+                            Change(ChangeType.New, "**Listening Stats**: listen counts with period comparison, top songs/artists/albums, listen clock, streaks, discoveries and unmatched-track linking."),
+                            Change(ChangeType.New, "**Server scrobbling** with accurate played duration, offline queueing and a settings toggle."),
+                            Change(ChangeType.New, "**Lyrics search** mode on the search screen."),
+                            Change(ChangeType.New, "**User management** for admins: create users and assign capabilities."),
+                            Change(ChangeType.New, "**API keys** with scopes and **Subsonic credentials** in settings."),
+                            Change(ChangeType.New, "Custom cover upload for **user playlists**."),
+                            Change(ChangeType.Improved, "Connection setup now supports a **custom server path** and an explicit **SSL toggle**, and the server can be changed later from settings."),
+                            Change(ChangeType.Improved, "Capability-based UI gating: import, edit, delete and admin features are hidden when the account lacks the permission.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.2.0",
                         date = "2026-06-18",
                         isPrerelease = true,

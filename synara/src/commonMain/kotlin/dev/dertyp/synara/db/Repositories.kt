@@ -20,6 +20,14 @@ data class ScrobbleQueueEntry(
     val target: String
 )
 
+data class RawScrobbleQueueEntry(
+    val id: Long,
+    val userId: PlatformUUID,
+    val payload: String,
+    val timestamp: Long,
+    val target: String
+)
+
 interface RecentlyPlayedRepository {
     suspend fun insertSong(userId: PlatformUUID, song: UserSong, timestamp: Long)
     suspend fun insertAlbum(userId: PlatformUUID, album: Album, timestamp: Long)
@@ -45,10 +53,12 @@ interface UserRepository {
 
 interface ScrobbleQueueRepository {
     suspend fun insert(userId: PlatformUUID, song: UserSong, timestamp: Long, target: String)
+    suspend fun insertRaw(userId: PlatformUUID, songId: String, payload: String, timestamp: Long, target: String)
     suspend fun getAll(userId: PlatformUUID, target: String): List<ScrobbleQueueEntry>
-    suspend fun peek(userId: PlatformUUID, target: String): ScrobbleQueueEntry?
+    suspend fun getAllRaw(userId: PlatformUUID, target: String): List<RawScrobbleQueueEntry>
     suspend fun delete(id: Long)
     suspend fun getCount(userId: PlatformUUID, target: String): Long
+    suspend fun peek(userId: PlatformUUID, target: String): ScrobbleQueueEntry?
 }
 
 interface LocalHistoryRepository {

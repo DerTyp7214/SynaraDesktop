@@ -52,6 +52,14 @@ sealed class PlaybackSource {
     data object LikedSongs : PlaybackSource() {
         override val id: String = "liked_songs"
     }
+
+    @Serializable
+    data class Radio(
+        val sessionId: PlatformUUID,
+        val name: String? = null
+    ) : PlaybackSource() {
+        override val id: String = "radio_$sessionId"
+    }
 }
 
 fun PlaybackSource.toQueueSource(songService: ISongService): QueueSource? {
@@ -61,6 +69,7 @@ fun PlaybackSource.toQueueSource(songService: ISongService): QueueSource? {
         is PlaybackSource.Album -> AlbumQueueSource(songService, albumId)
         is PlaybackSource.Artist -> ArtistQueueSource(songService, artistId)
         is PlaybackSource.Playlist -> PlaylistQueueSource(songService, playlistId, true)
+        is PlaybackSource.Radio -> null
         PlaybackSource.Manual -> null
     }
 }

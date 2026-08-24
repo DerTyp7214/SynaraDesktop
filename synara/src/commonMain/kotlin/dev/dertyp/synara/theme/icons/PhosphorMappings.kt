@@ -84,4 +84,9 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.Link) val Link = PhIcons.Regular.Link
     @MapTo(SynaraIcons.Download) val DownloadSimple = PhIcons.Regular.DownloadSimple
     @MapTo(SynaraIcons.Discovery) val Sparkle = PhIcons.Regular.Sparkle
+    @MapTo(SynaraIcons.Radio) val Radio = PhIcons.Regular.Radio
+    @MapTo(SynaraIcons.Collections) val Folders = PhIcons.Regular.Folders
+    @MapTo(SynaraIcons.Stats) val ChartBar = PhIcons.Regular.ChartBar
+    @MapTo(SynaraIcons.Users) val Users = PhIcons.Regular.Users
+    @MapTo(SynaraIcons.Key) val Key = PhIcons.Regular.Key
 }

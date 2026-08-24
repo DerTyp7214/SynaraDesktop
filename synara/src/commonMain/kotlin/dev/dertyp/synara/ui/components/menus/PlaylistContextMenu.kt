@@ -21,6 +21,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.PlatformUUID
+import dev.dertyp.data.CollectionItemType
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
@@ -28,6 +29,7 @@ import dev.dertyp.synara.screens.SimilarSongsScreen
 import dev.dertyp.synara.services.IDownloadManager
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraMenu
+import dev.dertyp.synara.ui.components.dialogs.AddToCollectionDialog
 import dev.dertyp.synara.ui.components.dialogs.CreatePlaylistDialog
 import dev.dertyp.synara.ui.components.dialogs.PlaylistPickerDialog
 import dev.dertyp.synara.ui.components.dialogs.SimilarSongsDialog
@@ -35,6 +37,7 @@ import dev.dertyp.synara.ui.components.dialogs.SimilarSongsSeed
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.add_to_collection
 import synara.synara.generated.resources.add_to_playlist
 import synara.synara.generated.resources.add_to_queue
 import synara.synara.generated.resources.get_similar_songs
@@ -54,6 +57,7 @@ fun PlaylistContextMenu(
     var showPlaylistPickerDialog by remember { mutableStateOf(false) }
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     var showSimilarSongsDialog by remember { mutableStateOf(false) }
+    var showCollectionPickerDialog by remember { mutableStateOf(false) }
     val navigator = LocalNavigator.current
 
     SynaraMenu(
@@ -102,6 +106,15 @@ fun PlaylistContextMenu(
                 onDismissRequest()
             },
             leadingIcon = { Icon(SynaraIcons.AddToPlaylist.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+        )
+
+        DropdownMenuItem(
+            text = { Text(stringResource(Res.string.add_to_collection)) },
+            onClick = {
+                showCollectionPickerDialog = true
+                onDismissRequest()
+            },
+            leadingIcon = { Icon(SynaraIcons.Collections.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
 
         DropdownMenuItem(
@@ -156,6 +169,13 @@ fun PlaylistContextMenu(
             playerModel.createPlaylist(name, PlaybackQueue(source = PlaybackSource.Playlist(playlistId)))
         },
         onDismissRequest = { showCreatePlaylistDialog = false }
+    )
+
+    AddToCollectionDialog(
+        isOpen = showCollectionPickerDialog,
+        itemType = CollectionItemType.PLAYLIST,
+        itemId = playlistId,
+        onDismissRequest = { showCollectionPickerDialog = false }
     )
 
     SimilarSongsDialog(

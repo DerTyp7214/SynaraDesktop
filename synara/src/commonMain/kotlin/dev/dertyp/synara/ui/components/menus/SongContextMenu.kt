@@ -9,6 +9,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.LocalNavigator
+import dev.dertyp.data.CollectionItemType
 import dev.dertyp.data.UserCapability
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.player.PlaybackQueue
@@ -45,6 +46,7 @@ fun SongContextMenu(
     var showArtistListDialog by remember { mutableStateOf(false) }
     var showPlaylistPickerDialog by remember { mutableStateOf(false) }
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+    var showCollectionPickerDialog by remember { mutableStateOf(false) }
     var showSimilarSongsDialog by remember { mutableStateOf(false) }
     val navigator = LocalNavigator.current
     val user by globalState.user.collectAsState()
@@ -198,6 +200,21 @@ fun SongContextMenu(
             leadingIcon = {
                 Icon(
                     SynaraIcons.AddToPlaylist.get(),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        )
+
+        DropdownMenuItem(
+            text = { Text(stringResource(Res.string.add_to_collection)) },
+            onClick = {
+                showCollectionPickerDialog = true
+                onDismissRequest()
+            },
+            leadingIcon = {
+                Icon(
+                    SynaraIcons.Collections.get(),
                     contentDescription = null,
                     modifier = Modifier.size(20.dp)
                 )
@@ -391,6 +408,13 @@ fun SongContextMenu(
             playerModel.createPlaylist(name, PlaybackQueue(items = listOf(QueueEntry.Explicit(song))))
         },
         onDismissRequest = { showCreatePlaylistDialog = false }
+    )
+
+    AddToCollectionDialog(
+        isOpen = showCollectionPickerDialog,
+        itemType = CollectionItemType.SONG,
+        itemId = song.id,
+        onDismissRequest = { showCollectionPickerDialog = false }
     )
 
     SimilarSongsDialog(

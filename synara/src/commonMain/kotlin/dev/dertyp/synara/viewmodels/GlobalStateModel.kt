@@ -79,7 +79,17 @@ class GlobalStateModel(
 
         scrobblerService.registerScrobbler(LocalSongScrobbler::class)
         scrobblerService.registerScrobbler(RecentlyPlayedScrobbler::class)
-        
+
+        scope.launch(modelDispatcher) {
+            Config.isServerScrobblingEnabled.collectLatest { enabled ->
+                if (enabled) {
+                    scrobblerService.registerScrobbler(ServerScrobbler::class)
+                } else {
+                    scrobblerService.unregisterScrobbler(ServerScrobbler::class)
+                }
+            }
+        }
+
         scope.launch(modelDispatcher) {
             Config.isListenBrainzEnabled.collectLatest { enabled ->
                 if (enabled) {

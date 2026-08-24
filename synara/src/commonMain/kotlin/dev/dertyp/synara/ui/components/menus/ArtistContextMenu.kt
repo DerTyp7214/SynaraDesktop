@@ -9,6 +9,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.dertyp.data.Artist
+import dev.dertyp.data.CollectionItemType
 import dev.dertyp.data.UserCapability
 import dev.dertyp.services.IArtistService
 import dev.dertyp.synara.player.PlaybackQueue
@@ -17,6 +18,7 @@ import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.services.IDownloadManager
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraMenu
+import dev.dertyp.synara.ui.components.dialogs.AddToCollectionDialog
 import dev.dertyp.synara.ui.components.dialogs.MergeArtistDialog
 import dev.dertyp.synara.ui.components.dialogs.SetArtistGroupDialog
 import dev.dertyp.synara.ui.components.dialogs.SplitArtistDialog
@@ -45,6 +47,7 @@ fun ArtistContextMenu(
     var showMergeDialog by remember { mutableStateOf(false) }
     var showSplitDialog by remember { mutableStateOf(false) }
     var showSetGroupDialog by remember { mutableStateOf(false) }
+    var showCollectionPickerDialog by remember { mutableStateOf(false) }
 
     SynaraMenu(
         expanded = expanded,
@@ -93,6 +96,15 @@ fun ArtistContextMenu(
                 onDismissRequest()
             },
             leadingIcon = { Icon(SynaraIcons.PlayNext.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+        )
+
+        DropdownMenuItem(
+            text = { Text(stringResource(Res.string.add_to_collection)) },
+            onClick = {
+                showCollectionPickerDialog = true
+                onDismissRequest()
+            },
+            leadingIcon = { Icon(SynaraIcons.Collections.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
 
         downloadManager?.let { dm ->
@@ -209,5 +221,12 @@ fun ArtistContextMenu(
                 }
             }
         }
+    )
+
+    AddToCollectionDialog(
+        isOpen = showCollectionPickerDialog,
+        itemType = CollectionItemType.ARTIST,
+        itemId = artist.id,
+        onDismissRequest = { showCollectionPickerDialog = false }
     )
 }

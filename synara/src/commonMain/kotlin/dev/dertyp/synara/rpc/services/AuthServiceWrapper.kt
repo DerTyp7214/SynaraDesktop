@@ -12,4 +12,8 @@ class AuthServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
     override suspend fun refreshToken(refreshToken: String): AuthenticationResponse {
         return manager.getAuthService().refreshToken(refreshToken)
     }
+
+    override suspend fun createDeviceSession(userAgent: String): AuthenticationResponse {
+        return manager.getAuthService().createDeviceSession(userAgent)
+    }
 }

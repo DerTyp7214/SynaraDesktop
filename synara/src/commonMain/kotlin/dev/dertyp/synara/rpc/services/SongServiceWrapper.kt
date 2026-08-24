@@ -188,4 +188,12 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
     override suspend fun extendedMetadata(id: PlatformUUID): SongExtendedMetadata? {
         return manager.getService<ISongService>().extendedMetadata(id)
     }
+
+    override suspend fun updateSong(song: Song): UserSong? {
+        return manager.getService<ISongService>().updateSong(song)
+    }
+
+    override suspend fun exportFavouritesAsCsv(): String {
+        return manager.getService<ISongService>().exportFavouritesAsCsv()
+    }
 }

@@ -23,10 +23,10 @@ class SetupScreenModel(
         _testConnectionResult.value = TestConnectionResult.Idle
     }
 
-    suspend fun testConnection(host: String, port: Int, path: String = "/") {
+    suspend fun testConnection(host: String, port: Int, path: String = "/", useSsl: Boolean = true) {
         _testConnectionResult.value = TestConnectionResult.Loading
         try {
-            val result = rpcServiceManager.validateServer(host, port, path)
+            val result = rpcServiceManager.validateServer(host, port, path, useSsl)
             if (result.validated) {
                 _testConnectionResult.value = TestConnectionResult.Success("Connection successful! Server is healthy.")
                 lastHost = host
@@ -62,4 +62,5 @@ class SetupScreenModel(
     fun getHost(): String? = rpcServiceManager.host
     fun getPort(): Int? = rpcServiceManager.port
     fun getRpcPath(): String = rpcServiceManager.rpcPath
+    fun getSsl(): Boolean = rpcServiceManager.ssl
 }

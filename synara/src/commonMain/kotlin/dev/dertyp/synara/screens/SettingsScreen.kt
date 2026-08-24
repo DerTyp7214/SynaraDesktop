@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -22,7 +23,9 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -47,9 +50,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.LaunchedEffect
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.core.screen.ScreenKey
 import cafe.adriel.voyager.core.screen.uniqueScreenKey
+import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.synara.Config
@@ -67,12 +72,26 @@ import dev.dertyp.synara.ui.components.ColorPicker
 import dev.dertyp.synara.ui.components.SettingsCard
 import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.SynaraAlertDialog
+import dev.dertyp.synara.ui.components.dialogs.SynaraDialog
 import dev.dertyp.synara.viewmodels.GlobalStateModel
+import dev.dertyp.synara.viewmodels.SetupScreenModel
+import dev.dertyp.synara.viewmodels.TestConnectionResult
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import synara.synara.generated.resources.Res
 import synara.synara.generated.resources.account
+import synara.synara.generated.resources.administration
+import synara.synara.generated.resources.api_keys
+import synara.synara.generated.resources.host
+import synara.synara.generated.resources.port
+import synara.synara.generated.resources.save
+import synara.synara.generated.resources.server
+import synara.synara.generated.resources.server_edit
+import synara.synara.generated.resources.server_edit_warning
+import synara.synara.generated.resources.server_path
+import synara.synara.generated.resources.server_use_ssl
+import synara.synara.generated.resources.test_connection
 import synara.synara.generated.resources.audio
 import synara.synara.generated.resources.audio_buffer_count
 import synara.synara.generated.resources.audio_buffer_size
@@ -86,6 +105,7 @@ import synara.synara.generated.resources.detach
 import synara.synara.generated.resources.enable_discord_rpc
 import synara.synara.generated.resources.enable_lastfm
 import synara.synara.generated.resources.enable_listenbrainz
+import synara.synara.generated.resources.enable_server_scrobbling
 import synara.synara.generated.resources.enable_proxy
 import synara.synara.generated.resources.hide_on_close
 import synara.synara.generated.resources.icon_filled
@@ -114,6 +134,8 @@ import synara.synara.generated.resources.restart_required
 import synara.synara.generated.resources.scrobbling
 import synara.synara.generated.resources.settings
 import synara.synara.generated.resources.settings_scheduled_task_logs_title
+import synara.synara.generated.resources.subsonic_credential
+import synara.synara.generated.resources.user_management
 import synara.synara.generated.resources.show_performance_overlay
 import synara.synara.generated.resources.streaming_quality
 import synara.synara.generated.resources.system_default
@@ -149,6 +171,7 @@ class SettingsScreen : Screen {
         val proxyId by Config.proxyId.collectAsState()
         val proxySsl by Config.proxySsl.collectAsState()
 
+        val isServerScrobblingEnabled by Config.isServerScrobblingEnabled.collectAsState()
         val isListenBrainzEnabled by Config.isListenBrainzEnabled.collectAsState()
         val listenBrainzToken by Config.listenBrainzToken.collectAsState()
         val isLastFmEnabled by Config.isLastFmEnabled.collectAsState()
@@ -339,18 +362,52 @@ class SettingsScreen : Screen {
                         }
                     }
 
-                    SettingsCard(onClick = { navigator.push(ScheduledTaskLogsScreen()) }) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = stringResource(Res.string.settings_scheduled_task_logs_title),
-                                style = MaterialTheme.typography.titleMedium
-                            )
+                    val user by globalState.user.collectAsState()
+                    if (user?.isAdmin == true) {
+                        Text(
+                            text = stringResource(Res.string.administration),
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+
+                        SettingsCard(onClick = { navigator.push(ScheduledTaskLogsScreen()) }) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(Res.string.settings_scheduled_task_logs_title),
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            }
+                        }
+
+                        SettingsCard(onClick = { navigator.push(UserManagementScreen()) }) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(Res.string.user_management),
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Icon(
+                                    imageVector = SynaraIcons.Users.get(),
+                                    contentDescription = null
+                                )
+                            }
                         }
                     }
+
+                    Text(
+                        text = stringResource(Res.string.server),
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+
+                    ServerSection(rpcServiceManager)
 
                     Text(
                         text = stringResource(Res.string.proxy),
@@ -387,6 +444,12 @@ class SettingsScreen : Screen {
                         text = stringResource(Res.string.scrobbling),
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.padding(top = 8.dp)
+                    )
+
+                    SettingSwitch(
+                        title = stringResource(Res.string.enable_server_scrobbling),
+                        checked = isServerScrobblingEnabled,
+                        onCheckedChange = { Config.setIsServerScrobblingEnabled(it) }
                     )
 
                     SettingSwitch(
@@ -434,6 +497,36 @@ class SettingsScreen : Screen {
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.padding(top = 8.dp)
                     )
+
+                    SettingsCard(onClick = { navigator.push(ApiKeysScreen()) }) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.api_keys),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Icon(
+                                imageVector = SynaraIcons.Key.get(),
+                                contentDescription = null
+                            )
+                        }
+                    }
+
+                    SettingsCard(onClick = { navigator.push(SubsonicCredentialScreen()) }) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.subsonic_credential),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
+                    }
 
                     SettingsCard(onClick = { navigator.push(ChangelogScreen()) }) {
                         Row(
@@ -731,6 +824,196 @@ class SettingsScreen : Screen {
                 }
             }
         )
+    }
+
+    @Composable
+    private fun ServerSection(rpcServiceManager: RpcServiceManager) {
+        var showEditDialog by remember { mutableStateOf(false) }
+
+        val host = rpcServiceManager.host ?: ""
+        val port = rpcServiceManager.port
+        val path = rpcServiceManager.rpcPath.removeSuffix("/")
+        val ssl = rpcServiceManager.ssl
+
+        SettingsCard(onClick = { showEditDialog = true }) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = stringResource(Res.string.server_edit),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    if (host.isNotBlank()) {
+                        Text(
+                            text = "${if (ssl) "wss" else "ws"}://$host:${port ?: ""}$path",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = SynaraIcons.Edit.get(),
+                    contentDescription = stringResource(Res.string.server_edit)
+                )
+            }
+        }
+
+        if (showEditDialog) {
+            ServerEditDialog(onDismissRequest = { showEditDialog = false })
+        }
+    }
+
+    @Composable
+    private fun ServerEditDialog(onDismissRequest: () -> Unit) {
+        val screenModel = getScreenModel<SetupScreenModel>()
+        val scope = rememberCoroutineScope()
+        val testResult by screenModel.testConnectionResult.collectAsState()
+
+        var host by remember { mutableStateOf(screenModel.getHost() ?: "") }
+        var port by remember { mutableStateOf(screenModel.getPort()?.toString() ?: "") }
+        var path by remember { mutableStateOf(screenModel.getRpcPath()) }
+        var useSsl by remember { mutableStateOf(screenModel.getSsl()) }
+
+        LaunchedEffect(Unit) {
+            screenModel.resetTestConnectionResult()
+        }
+
+        SynaraDialog(
+            isOpen = true,
+            onDismissRequest = onDismissRequest
+        ) {
+            Surface(
+                shape = MaterialTheme.shapes.large,
+                tonalElevation = 6.dp,
+                modifier = Modifier.width(420.dp)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = stringResource(Res.string.server_edit),
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+
+                    InternalTextField(
+                        value = host,
+                        onValueChange = {
+                            host = it
+                            screenModel.resetTestConnectionResult()
+                        },
+                        label = { Text(stringResource(Res.string.host)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    InternalTextField(
+                        value = port,
+                        onValueChange = {
+                            port = it
+                            screenModel.resetTestConnectionResult()
+                        },
+                        label = { Text(stringResource(Res.string.port)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    InternalTextField(
+                        value = path,
+                        onValueChange = {
+                            path = it
+                            screenModel.resetTestConnectionResult()
+                        },
+                        label = { Text(stringResource(Res.string.server_path)) },
+                        placeholder = { Text("/") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.server_use_ssl),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Switch(
+                            checked = useSsl,
+                            onCheckedChange = {
+                                useSsl = it
+                                screenModel.resetTestConnectionResult()
+                            }
+                        )
+                    }
+
+                    when (val result = testResult) {
+                        is TestConnectionResult.Success -> Text(
+                            text = result.message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        is TestConnectionResult.Error -> Text(
+                            text = result.message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+
+                        else -> {}
+                    }
+
+                    Text(
+                        text = stringResource(Res.string.server_edit_warning),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(onClick = onDismissRequest) {
+                            Text(stringResource(Res.string.cancel))
+                        }
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    screenModel.testConnection(
+                                        host,
+                                        port.toIntOrNull() ?: 8080,
+                                        path,
+                                        useSsl
+                                    )
+                                }
+                            },
+                            enabled = testResult !is TestConnectionResult.Loading
+                        ) {
+                            if (testResult is TestConnectionResult.Loading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = LocalContentColor.current
+                                )
+                            } else {
+                                Text(stringResource(Res.string.test_connection))
+                            }
+                        }
+                        Button(
+                            onClick = {
+                                screenModel.setServer()
+                                onDismissRequest()
+                            },
+                            enabled = testResult is TestConnectionResult.Success
+                        ) {
+                            Text(stringResource(Res.string.save))
+                        }
+                    }
+                }
+            }
+        }
     }
 
     @Composable

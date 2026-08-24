@@ -224,6 +224,7 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `blurHash` | String? |  |
 | `musicbrainzId` | PlatformUUID? |  |
 | `isFollowed` | Boolean |  |
+| `creditedName` | String? |  |
 
 ### Genre
 

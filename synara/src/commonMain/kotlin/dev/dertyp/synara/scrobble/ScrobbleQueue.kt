@@ -2,6 +2,7 @@ package dev.dertyp.synara.scrobble
 
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.UserSong
+import dev.dertyp.synara.db.RawScrobbleQueueEntry
 import dev.dertyp.synara.db.ScrobbleQueueRepository
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.runBlocking
@@ -30,6 +31,26 @@ class ScrobbleQueue(
                 timestamp = timestamp,
                 target = target
             )
+        }
+    }
+
+    fun pushRaw(songId: String, payload: String, timestamp: Long, target: String) {
+        val userId = globalState.user.value?.id ?: return
+        runBlocking {
+            repository.insertRaw(
+                userId = userId,
+                songId = songId,
+                payload = payload,
+                timestamp = timestamp,
+                target = target
+            )
+        }
+    }
+
+    fun getAllRaw(target: String): List<RawScrobbleQueueEntry> {
+        val userId = globalState.user.value?.id ?: return emptyList()
+        return runBlocking {
+            repository.getAllRaw(userId, target)
         }
     }
 

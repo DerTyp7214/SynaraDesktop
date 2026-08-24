@@ -127,6 +127,13 @@ val appModule = module {
     factoryOf(::SearchPlaylistsViewModel)
     factoryOf(::ImportScreenModel)
     factoryOf(::DownloadsScreenModel)
+    factoryOf(::RadioScreenModel)
+    factoryOf(::CollectionsScreenModel)
+    factoryOf(::CollectionScreenModel)
+    factoryOf(::StatsScreenModel)
+    factoryOf(::UserManagementScreenModel)
+    factoryOf(::ApiKeysScreenModel)
+    factoryOf(::SubsonicCredentialScreenModel)
 
     singleOf(::AlbumServiceWrapper) bind IAlbumService::class
     singleOf(::AnimatedImageServiceWrapper) bind IAnimatedImageService::class
@@ -153,12 +160,20 @@ val appModule = module {
     singleOf(::SyncServiceWrapper) bind ISyncService::class
     singleOf(::UserPlaylistServiceWrapper) bind IUserPlaylistService::class
     singleOf(::UserServiceWrapper) bind IUserService::class
+    singleOf(::RadioServiceWrapper) bind IRadioService::class
+    singleOf(::RadioChannelServiceWrapper) bind IRadioChannelService::class
+    singleOf(::CollectionServiceWrapper) bind ICollectionService::class
+    singleOf(::ListeningStatsServiceWrapper) bind IListeningStatsService::class
+    singleOf(::ApiKeyServiceWrapper) bind IApiKeyService::class
+    singleOf(::SubsonicCredentialServiceWrapper) bind ISubsonicCredentialService::class
+    singleOf(::ScrobbleServiceWrapper) bind IScrobbleService::class
 
     singleOf(::LocalSongScrobbler)
     singleOf(::ListenBrainzScrobbler)
     singleOf(::LastFmScrobbler)
     singleOf(::DiscordScrobbler)
     singleOf(::RecentlyPlayedScrobbler)
+    singleOf(::ServerScrobbler)
 }
 
 fun initializeSynara() {

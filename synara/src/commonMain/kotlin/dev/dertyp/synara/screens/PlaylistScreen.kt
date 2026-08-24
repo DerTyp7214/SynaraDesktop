@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import dev.dertyp.synara.utils.pickImageBytes
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -244,6 +246,21 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                         Icon(SynaraIcons.Play.get(), contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(stringResource(Res.string.play))
+                    }
+
+                    if (state.isUserPlaylist) {
+                        val scope = rememberCoroutineScope()
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    val bytes = pickImageBytes() ?: return@launch
+                                    screenModel.setCover(bytes)
+                                }
+                            },
+                            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
+                        ) {
+                            Text(stringResource(Res.string.choose_image))
+                        }
                     }
                 }
             }

@@ -171,6 +171,24 @@ class ExposedScrobbleQueueRepository(private val json: Json) : ScrobbleQueueRepo
         }
     }
 
+    override suspend fun insertRaw(
+        userId: PlatformUUID,
+        songId: String,
+        payload: String,
+        timestamp: Long,
+        target: String
+    ) {
+        dbQuery {
+            ScrobbleQueue.insert {
+                it[ScrobbleQueue.userId] = userId
+                it[ScrobbleQueue.songId] = songId
+                it[ScrobbleQueue.timestamp] = timestamp
+                it[ScrobbleQueue.target] = target
+                it[ScrobbleQueue.payload] = payload
+            }
+        }
+    }
+
     override suspend fun getAll(userId: PlatformUUID, target: String): List<ScrobbleQueueEntry> {
         return dbQuery {
             ScrobbleQueue.selectAll()
@@ -181,6 +199,23 @@ class ExposedScrobbleQueueRepository(private val json: Json) : ScrobbleQueueRepo
                         it[ScrobbleQueue.id].value.toLong(),
                         it[ScrobbleQueue.userId].value,
                         json.decodeFromString<UserSong>(it[ScrobbleQueue.payload]),
+                        it[ScrobbleQueue.timestamp],
+                        it[ScrobbleQueue.target]
+                    )
+                }
+        }
+    }
+
+    override suspend fun getAllRaw(userId: PlatformUUID, target: String): List<RawScrobbleQueueEntry> {
+        return dbQuery {
+            ScrobbleQueue.selectAll()
+                .where { (ScrobbleQueue.userId eq userId) and (ScrobbleQueue.target eq target) }
+                .orderBy(ScrobbleQueue.timestamp, SortOrder.ASC)
+                .map {
+                    RawScrobbleQueueEntry(
+                        it[ScrobbleQueue.id].value.toLong(),
+                        it[ScrobbleQueue.userId].value,
+                        it[ScrobbleQueue.payload],
                         it[ScrobbleQueue.timestamp],
                         it[ScrobbleQueue.target]
                     )
