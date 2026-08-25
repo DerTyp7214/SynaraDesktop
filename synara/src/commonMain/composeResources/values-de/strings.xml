@@ -105,6 +105,7 @@
     <string name="stats_range_all_time">Gesamt</string>
     <string name="stats_listens">Wiedergaben</string>
     <string name="stats_vs_previous">ggü. vorherigem Zeitraum</string>
+    <string name="stats_listened_time">Hörzeit</string>
     <string name="stats_unique_songs">Songs</string>
     <string name="stats_unique_artists">Künstler</string>
     <string name="stats_unique_albums">Alben</string>

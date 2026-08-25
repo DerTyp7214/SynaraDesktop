@@ -30,6 +30,7 @@ import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SettingsCard
 import dev.dertyp.synara.ui.components.SynaraImage
+import dev.dertyp.synara.ui.components.formatListenedTime
 import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.viewmodels.StatsScreenModel
 import dev.dertyp.services.ISongService
@@ -109,17 +110,29 @@ class StatsScreen : Screen {
 
                     state.stats?.let { stats ->
                         item {
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(
+                                modifier = Modifier.height(IntrinsicSize.Max),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
                                 StatCard(
                                     modifier = Modifier.weight(1f),
                                     title = stringResource(Res.string.stats_listens),
                                     value = stats.listenCount.toString(),
                                     subtitle = stats.comparison?.percentChange?.let { change ->
-                                        val arrow = if (change >= 0) "▲" else "▼"
-                                        val formatted = (if (change >= 0) "+" else "") +
-                                                "${(change * 10).toInt() / 10.0}%"
-                                        "$arrow $formatted ${stringResource(Res.string.stats_vs_previous)}"
+                                        comparisonText(change)
                                     }
+                                )
+                                StatCard(
+                                    modifier = Modifier.weight(1f),
+                                    title = stringResource(Res.string.stats_listened_time),
+                                    value = formatListenedTime(stats.listenedMs),
+                                    subtitle = stats.comparison
+                                        ?.takeIf { it.previousListenedMs > 0 }
+                                        ?.let { comparison ->
+                                            val change = (stats.listenedMs - comparison.previousListenedMs) *
+                                                    100.0 / comparison.previousListenedMs
+                                            comparisonText(change)
+                                        }
                                 )
                                 StatCard(
                                     modifier = Modifier.weight(1f),
@@ -140,7 +153,10 @@ class StatsScreen : Screen {
                         }
 
                         item {
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(
+                                modifier = Modifier.height(IntrinsicSize.Max),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
                                 StatCard(
                                     modifier = Modifier.weight(1f),
                                     title = stringResource(Res.string.stats_current_streak),
@@ -214,6 +230,7 @@ class StatsScreen : Screen {
                                     subtitle = listOfNotNull(entry.artistName, entry.albumName)
                                         .joinToString(" · "),
                                     listenCount = entry.listenCount,
+                                    listenedMs = entry.listenedMs,
                                     onClick = entry.songId?.let { songId ->
                                         {
                                             scope.launch {
@@ -255,6 +272,7 @@ class StatsScreen : Screen {
                                     title = entry.name,
                                     subtitle = null,
                                     listenCount = entry.listenCount,
+                                    listenedMs = entry.listenedMs,
                                     onClick = entry.artistId?.let { artistId ->
                                         { navigator.push(ArtistScreen(artistId)) }
                                     }
@@ -279,6 +297,7 @@ class StatsScreen : Screen {
                                     title = entry.name,
                                     subtitle = null,
                                     listenCount = entry.listenCount,
+                                    listenedMs = entry.listenedMs,
                                     onClick = entry.albumId?.let { albumId ->
                                         { navigator.push(AlbumScreen(albumId)) }
                                     }
@@ -303,6 +322,7 @@ class StatsScreen : Screen {
                                     title = entry.title,
                                     subtitle = entry.artistName,
                                     listenCount = entry.listenCount,
+                                    listenedMs = entry.listenedMs,
                                     onClick = entry.songId?.let { songId ->
                                         {
                                             scope.launch {
@@ -322,6 +342,7 @@ class StatsScreen : Screen {
                                     title = entry.name,
                                     subtitle = null,
                                     listenCount = entry.listenCount,
+                                    listenedMs = entry.listenedMs,
                                     onClick = entry.artistId?.let { artistId ->
                                         { navigator.push(ArtistScreen(artistId)) }
                                     }
@@ -358,13 +379,20 @@ class StatsScreen : Screen {
     }
 
     @Composable
+    private fun comparisonText(change: Double): String {
+        val arrow = if (change >= 0) "▲" else "▼"
+        val formatted = (if (change >= 0) "+" else "") + "${(change * 10).toInt() / 10.0}%"
+        return "$arrow $formatted ${stringResource(Res.string.stats_vs_previous)}"
+    }
+
+    @Composable
     private fun StatCard(
         title: String,
         value: String,
         modifier: Modifier = Modifier,
         subtitle: String? = null
     ) {
-        SettingsCard(modifier = modifier) {
+        SettingsCard(modifier = modifier.fillMaxHeight()) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = title,
@@ -432,6 +460,7 @@ class StatsScreen : Screen {
         title: String,
         subtitle: String?,
         listenCount: Long,
+        listenedMs: Long = 0,
         onClick: (() -> Unit)? = null,
         trailing: (@Composable () -> Unit)? = null,
         imageShape: androidx.compose.ui.graphics.Shape = MaterialTheme.shapes.extraSmall
@@ -475,11 +504,20 @@ class StatsScreen : Screen {
                     )
                 }
             }
-            Text(
-                text = stringResource(Res.string.stats_listen_count, listenCount),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = stringResource(Res.string.stats_listen_count, listenCount),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (listenedMs > 0) {
+                    Text(
+                        text = formatListenedTime(listenedMs),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             trailing?.invoke()
         }
     }

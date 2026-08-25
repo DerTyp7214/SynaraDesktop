@@ -95,6 +95,7 @@ class ServerScrobbler(
 
     override suspend fun listenEnded(song: UserSong, msPlayed: Long) {
         if (!isEnabled) return
+        if (msPlayed < MIN_SCROBBLE_MS) return
         val listenedAt = currentTimeMillis() - msPlayed
         val request = ScrobbleRequest(
             songId = song.id,
@@ -133,5 +134,9 @@ class ServerScrobbler(
         } finally {
             isProcessing = false
         }
+    }
+
+    companion object {
+        const val MIN_SCROBBLE_MS = 3_000L
     }
 }

@@ -59,8 +59,8 @@ class UserPlaylistServiceWrapper(manager: RpcServiceManager) : BaseServiceWrappe
     override suspend fun addToPlaylist(
         id: PlatformUUID,
         songIds: List<Pair<Long, PlatformUUID>>
-    ): List<PlatformUUID> {
-        return manager.getService<IUserPlaylistService>().addToPlaylist(id, songIds)
+    ) {
+        manager.getService<IUserPlaylistService>().addToPlaylist(id, songIds)
     }
 
     override suspend fun addSongsToPlaylist(id: PlatformUUID, songIds: List<PlatformUUID>) {

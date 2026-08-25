@@ -105,6 +105,7 @@
     <string name="stats_range_all_time">All time</string>
     <string name="stats_listens">Listens</string>
     <string name="stats_vs_previous">vs. previous period</string>
+    <string name="stats_listened_time">Listening time</string>
     <string name="stats_unique_songs">Songs</string>
     <string name="stats_unique_artists">Artists</string>
     <string name="stats_unique_albums">Albums</string>

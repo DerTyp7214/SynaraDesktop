@@ -590,7 +590,8 @@ Listening statistics for a time range over the user's unified listen history, de
 | `timezone` | `String` | The timezone used for range boundaries. |
 | `rangeStart` | `Long` | Start of the range (epoch milliseconds, inclusive); 0 for ALL_TIME. |
 | `rangeEnd` | `Long` | End of the range (epoch milliseconds, exclusive). |
-| `listenCount` | `Long` | Deduplicated listen count in the range. |
+| `listenCount` | `Long` | Deduplicated listen count in the range. A play only counts when at least half of the song or at least 3 minutes were played; plays without a known played duration always count. |
+| `listenedMs` | `Long` | Total milliseconds listened in the range, including plays too short to count as a listen. Plays without a known played duration count the whole song duration. |
 | `comparison` | [RangeComparison](#devdertypdatarangecomparison)? | Comparison against the previous equivalent range, or null for ALL_TIME. |
 | `uniqueSongs` | `Int` | Distinct songs listened to in the range. |
 | `uniqueArtists` | `Int` | Distinct artists listened to in the range. |
@@ -851,6 +852,7 @@ Comparison of the current range's listen count against the previous equivalent r
 | `previousEnd` | `Long` | End of the previous range (epoch milliseconds, exclusive). |
 | `previousCount` | `Long` | Deduplicated listen count in the previous range. |
 | `percentChange` | `Double`? | Percent change of the current count relative to the previous count, or null if the previous range had no listens. |
+| `previousListenedMs` | `Long` | Total milliseconds listened in the previous range. |
 
 ### RecentListens <a name="devdertypdatarecentlistens"></a>
 A user's recently listened songs together with what they are currently playing.
@@ -1226,6 +1228,7 @@ An album ranked by listen count. Fallback entries for listens not matched to a l
 | `name` | `String` | The album name. |
 | `coverId` | `PlatformUUID`? | The album's cover image, or null if none. |
 | `listenCount` | `Long` | Deduplicated listen count in the range. |
+| `listenedMs` | `Long` | Total milliseconds listened to this album in the range, including plays too short to count as a listen. |
 
 ### TopArtistEntry <a name="devdertypdatatopartistentry"></a>
 An artist ranked by listen count. Fallback entries for listens not matched to a library artist carry a null artistId.
@@ -1236,6 +1239,7 @@ An artist ranked by listen count. Fallback entries for listens not matched to a 
 | `name` | `String` | The artist name. |
 | `imageId` | `PlatformUUID`? | The artist's image, or null if none. |
 | `listenCount` | `Long` | Deduplicated listen count in the range. |
+| `listenedMs` | `Long` | Total milliseconds listened to this artist in the range, including plays too short to count as a listen. |
 
 ### TopSongEntry <a name="devdertypdatatopsongentry"></a>
 A song ranked by listen count. Fallback entries for listens not matched to a library song carry a null songId.
@@ -1250,6 +1254,7 @@ A song ranked by listen count. Fallback entries for listens not matched to a lib
 | `listenCount` | `Long` | Deduplicated listen count in the range. |
 | `recordingMbid` | `PlatformUUID`? | The MusicBrainz recording MBID of an unmatched entry, or null. |
 | `recordingMsid` | `PlatformUUID`? | A representative ListenBrainz recording MSID of an unmatched entry, or null. When recordingMbid and recordingMsid are both null the entry cannot be linked. |
+| `listenedMs` | `Long` | Total milliseconds listened to this song in the range, including plays too short to count as a listen. |
 
 ### TranscodedVersion <a name="devdertypdatatranscodedversion"></a>
 Represents a transcoded version of a song.
@@ -2218,7 +2223,7 @@ Management of personal (user-created) playlists.
 | `byColor` | `creator` (`PlatformUUID`?): Optional creator ID to filter by.<br>`page` (`Int`): Page index.<br>`pageSize` (`Int`): Number of items per page.<br>`color` (`Int`): The target color in ARGB format.<br>`range` (`Int`): The allowed range (0-255). | [PaginatedResponse](#devdertypdatapaginatedresponse)<[UserPlaylist](#devdertypdatauserplaylist)> | - |  | Search for user playlists by color. |
 | `delete` | `id` (`PlatformUUID`): The playlist unique identifier. | `Boolean` | - |  | Delete a user playlist. |
 | `getOrAddPlaylist` | `userId` (`PlatformUUID`): The user ID who owns the playlist.<br>`customIdentifier` (`String`?): Optional unique string identifier from an external source.<br>`playlist` ([InsertablePlaylist](#devdertypdatainsertableplaylist)): The initial playlist data. | `PlatformUUID` | - |  | Create a new user playlist or retrieve an existing one by a custom identifier. |
-| `addToPlaylist` | `id` (`PlatformUUID`): The playlist unique identifier.<br>`songIds` (`List`<`Pair`<`Long`, `PlatformUUID`>>): Collection of song IDs and their added timestamps. | `List`<`PlatformUUID`> | - |  | Add songs to a user playlist. |
+| `addToPlaylist` | `id` (`PlatformUUID`): The playlist unique identifier.<br>`songIds` (`List`<`Pair`<`Long`, `PlatformUUID`>>): Collection of song IDs and their added timestamps. | `Unit` | - |  | Add songs to a user playlist. |
 | `addSongsToPlaylist` | `id` (`PlatformUUID`): The playlist unique identifier.<br>`songIds` (`List`<`PlatformUUID`>): Collection of song IDs to add. | `Unit` | - |  | Add songs to a user playlist. |
 | `addAlbumToPlaylist` | `id` (`PlatformUUID`): The playlist unique identifier.<br>`albumId` (`PlatformUUID`): The album unique identifier. | `Unit` | - |  | Add all songs of an album to a user playlist. |
 | `addPlaylistToPlaylist` | `id` (`PlatformUUID`): The target playlist unique identifier.<br>`sourcePlaylistId` (`PlatformUUID`): The source playlist unique identifier. | `Unit` | - |  | Add all songs of a playlist to a user playlist. |

@@ -64,6 +64,16 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.3.2",
+                        date = "2026-08-25",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Fixed, "Server scrobbles are now only submitted — and counted in your listening stats — when a song was played for at least **3 seconds**, so quick skips no longer show up as listens."),
+                            Change(ChangeType.New, "Listening stats now show your total **listening time** for the selected period (with a comparison to the previous period), plus the time spent on each top song, artist and album."),
+                            Change(ChangeType.Updated, "Synchronized application services with the latest server API definitions.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.3.1",
                         date = "2026-08-24",
                         isPrerelease = true,

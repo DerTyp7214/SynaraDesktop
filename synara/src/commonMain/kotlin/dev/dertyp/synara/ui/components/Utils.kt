@@ -11,6 +11,17 @@ fun formatDuration(durationMs: Long): String {
     }
 }
 
+fun formatListenedTime(durationMs: Long): String {
+    val totalMinutes = durationMs / 60_000
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return when {
+        hours > 0 -> "${hours}h ${minutes}m"
+        minutes > 0 -> "${minutes}m"
+        else -> "<1m"
+    }
+}
+
 fun formatFileSize(bytes: Long): String {
     val kb = bytes / 1024.0
     val mb = kb / 1024.0
