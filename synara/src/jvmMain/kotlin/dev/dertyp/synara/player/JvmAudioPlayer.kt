@@ -59,6 +59,7 @@ import org.lwjgl.openal.ALC10.alcCreateContext
 import org.lwjgl.openal.ALC10.alcDestroyContext
 import org.lwjgl.openal.ALC10.alcGetString
 import org.lwjgl.openal.ALC10.alcMakeContextCurrent
+import org.lwjgl.openal.EXTThreadLocalContext.alcSetThreadContext
 import org.lwjgl.openal.ALC10.alcOpenDevice
 import org.lwjgl.openal.ALC11
 import org.lwjgl.openal.ALUtil
@@ -79,6 +80,7 @@ class JvmAudioPlayer(
     
     private var device: Long = 0
     private var context: Long = 0
+    private var useThreadLocalContext = false
     private var sourceId: Int = 0
     private var numBuffers = settings.get(SettingKey.AudioBufferCount, 4)
     private var buffers: IntBuffer = BufferUtils.createIntBuffer(numBuffers)
@@ -196,7 +198,8 @@ class JvmAudioPlayer(
         context = alcCreateContext(device, attributes)
         if (context == 0L) throw RuntimeException("Failed to create OpenAL context")
         
-        if (!alcMakeContextCurrent(context)) {
+        useThreadLocalContext = deviceCaps.ALC_EXT_thread_local_context
+        if (!makeContextCurrent(context)) {
             throw RuntimeException("Failed to make OpenAL context current")
         }
         AL.createCapabilities(deviceCaps)
@@ -204,6 +207,9 @@ class JvmAudioPlayer(
         sourceId = alGenSources()
         alGenBuffers(buffers)
     }
+
+    private fun makeContextCurrent(ctx: Long): Boolean =
+        if (useThreadLocalContext) alcSetThreadContext(ctx) else alcMakeContextCurrent(ctx)
 
     override fun setOutputDevice(deviceSpecifier: String?) {
         if (_currentOutputDevice.value == deviceSpecifier) return
@@ -219,11 +225,11 @@ class JvmAudioPlayer(
             if (sourceId != 0) alDeleteSources(sourceId)
             if (buffers.get(0) != 0) alDeleteBuffers(buffers)
             if (context != 0L) {
-                alcMakeContextCurrent(0)
+                makeContextCurrent(0)
                 alcDestroyContext(context)
             }
             if (device != 0L) alcCloseDevice(device)
-            
+
             try {
                 initOpenAL()
                 if (currentSongId != null) {
@@ -347,7 +353,7 @@ class JvmAudioPlayer(
                 }
 
                 alSourcef(sourceId, AL_GAIN, _volume.value)
-                if (playImmediately) {
+                if (isDesiredPlaying) {
                     alSourcePlay(sourceId)
                     _isPlaying.value = true
                 } else {
@@ -460,7 +466,7 @@ class JvmAudioPlayer(
                 if (buffers.get(0) != 0) alDeleteBuffers(buffers)
 
                 if (context != 0L) {
-                    alcMakeContextCurrent(0)
+                    makeContextCurrent(0)
                     alcDestroyContext(context)
                 }
                 if (device != 0L) alcCloseDevice(device)

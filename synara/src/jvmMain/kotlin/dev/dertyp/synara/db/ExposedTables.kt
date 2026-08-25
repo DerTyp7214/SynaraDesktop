@@ -185,3 +185,13 @@ object LocalHistory : IntIdTable("localHistory") {
     val timestamp = long("timestamp")
     val payload = text("payload")
 }
+
+object SongGuessGames : IntIdTable("songGuessGame") {
+    val userId = reference("userId", DownloadedUsers.id, onDelete = ReferenceOption.CASCADE)
+    val playedAt = long("playedAt")
+    val score = integer("score")
+    val maxScore = integer("maxScore")
+    val rounds = integer("rounds")
+    val config = text("config")
+    val roundResults = text("roundResults")
+}

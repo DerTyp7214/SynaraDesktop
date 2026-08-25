@@ -89,4 +89,6 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.Stats) val ChartBar = PhIcons.Regular.ChartBar
     @MapTo(SynaraIcons.Users) val Users = PhIcons.Regular.Users
     @MapTo(SynaraIcons.Key) val Key = PhIcons.Regular.Key
+    @MapTo(SynaraIcons.Game) val GameController = PhIcons.Regular.GameController
+    @MapTo(SynaraIcons.Trophy) val Trophy = PhIcons.Regular.Trophy
 }

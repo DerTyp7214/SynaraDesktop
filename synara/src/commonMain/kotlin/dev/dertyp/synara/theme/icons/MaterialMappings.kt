@@ -89,4 +89,6 @@ object MaterialMappings {
     @MapTo(SynaraIcons.Stats) val Bar_chart = MaterialSymbols.Rounded.Bar_chart
     @MapTo(SynaraIcons.Users) val Group = MaterialSymbols.Rounded.Group
     @MapTo(SynaraIcons.Key) val Key = MaterialSymbols.Rounded.Key
+    @MapTo(SynaraIcons.Game) val Sports_esports = MaterialSymbols.Rounded.Sports_esports
+    @MapTo(SynaraIcons.Trophy) val Trophy = MaterialSymbols.Rounded.Trophy
 }

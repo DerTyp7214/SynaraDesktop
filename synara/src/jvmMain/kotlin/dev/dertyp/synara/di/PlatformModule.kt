@@ -15,7 +15,10 @@ import dev.dertyp.synara.db.LibraryRepository
 import dev.dertyp.synara.db.LocalHistoryRepository
 import dev.dertyp.synara.db.RecentlyPlayedRepository
 import dev.dertyp.synara.db.ScrobbleQueueRepository
+import dev.dertyp.synara.db.SongGuessRepository
+import dev.dertyp.synara.db.ExposedSongGuessRepository
 import dev.dertyp.synara.db.UserRepository
+import dev.dertyp.synara.game.GAME_AUDIO_PLAYER
 import dev.dertyp.synara.player.AudioPlayer
 import dev.dertyp.synara.player.ISynaraApi
 import dev.dertyp.synara.player.JvmAudioPlayer
@@ -35,6 +38,8 @@ import dev.dertyp.synara.utils.OSUtils
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.core.module.Module
+import org.koin.core.module.dsl.bind
+import org.koin.core.module.dsl.named
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.bind
 import org.koin.dsl.module
@@ -43,6 +48,7 @@ import java.io.File
 
 actual fun platformModule(): Module = module {
     singleOf(::JvmAudioPlayer) bind AudioPlayer::class
+    singleOf(::JvmAudioPlayer) { named(GAME_AUDIO_PLAYER); bind<AudioPlayer>() }
     singleOf(::JvmLocalStorageService) bind LocalStorageService::class
     singleOf(::JvmVideoFrameService) bind VideoFrameService::class
     singleOf(::DownloadManager) bind IDownloadManager::class
@@ -90,6 +96,7 @@ actual fun platformModule(): Module = module {
     singleOf(::ExposedLocalHistoryRepository) bind LocalHistoryRepository::class
     singleOf(::ExposedLibraryRepository) bind LibraryRepository::class
     singleOf(::ExposedDatabaseMigrationRepository) bind DatabaseMigrationRepository::class
+    singleOf(::ExposedSongGuessRepository) bind SongGuessRepository::class
 }
 
 actual fun platformInit() {

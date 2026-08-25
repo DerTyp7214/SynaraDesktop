@@ -64,6 +64,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.3.4",
+                        date = "2026-08-25",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "**Guess the Song**: a new Songless-style game tab. Listen to a snippet starting at 0.1 s and guess the song — every wrong guess or skip unlocks a longer snippet. Choose the pool (all songs, liked songs or one or more playlists), filter by artists, pick 5–20 rounds and whether snippets start at the song start or a random position. Scores are kept in a local leaderboard."),
+                            Change(ChangeType.Improved, "Game playback uses its own audio player, so it never touches your queue and is never scrobbled.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.3.3",
                         date = "2026-08-25",
                         isPrerelease = true,

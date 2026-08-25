@@ -12,6 +12,9 @@ import dev.dertyp.services.import.IImportService
 import dev.dertyp.services.metadata.IMetadataService
 import dev.dertyp.services.metadata.IMusicBrainzService
 import dev.dertyp.synara.BuildConfig
+import dev.dertyp.synara.game.GAME_AUDIO_PLAYER
+import dev.dertyp.synara.game.GameAudioPlayer
+import dev.dertyp.synara.game.SongGuessLeaderboard
 import dev.dertyp.synara.logging.StdoutLogPersistence
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.SongCache
@@ -44,6 +47,7 @@ import org.koin.core.context.startKoin
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
+import org.koin.core.qualifier.named
 import org.koin.dsl.bind
 import org.koin.dsl.module
 import kotlin.time.Duration.Companion.seconds
@@ -104,6 +108,8 @@ val appModule = module {
     singleOf(::TrayState)
     singleOf(::SnackbarManager)
     singleOf(::PerformanceMonitor)
+    singleOf(::SongGuessLeaderboard)
+    single { GameAudioPlayer(get(named(GAME_AUDIO_PLAYER))) }
 
     single<IDownloadManager> { StubDownloadManager() }
 
@@ -133,6 +139,7 @@ val appModule = module {
     factoryOf(::CollectionsScreenModel)
     factoryOf(::CollectionScreenModel)
     factoryOf(::StatsScreenModel)
+    factoryOf(::SongGuessScreenModel)
     factoryOf(::UserManagementScreenModel)
     factoryOf(::ApiKeysScreenModel)
     factoryOf(::SubsonicCredentialScreenModel)

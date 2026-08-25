@@ -299,6 +299,18 @@ class HomeScreen : Screen {
             Spacer(modifier = Modifier.height(8.dp))
 
             NavigationItem(
+                label = stringResource(Res.string.song_guess),
+                icon = SynaraIcons.Game.get(),
+                selected = navigator.lastItem is SongGuessScreen,
+                onClick = {
+                    if (navigator.lastItem !is SongGuessScreen) navigator.push(SongGuessScreen())
+                    onItemClick?.invoke()
+                }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            NavigationItem(
                 label = stringResource(Res.string.downloads),
                 icon = SynaraIcons.Download.get(),
                 selected = navigator.lastItem is DownloadsScreen,

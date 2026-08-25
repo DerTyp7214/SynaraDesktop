@@ -2,6 +2,7 @@ package dev.dertyp.synara.db
 
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.*
+import dev.dertyp.synara.game.LeaderboardEntry
 import kotlinx.coroutines.flow.Flow
 
 data class LocalHistoryEntry(
@@ -101,4 +102,10 @@ interface LibraryRepository {
 
 interface DatabaseMigrationRepository {
     suspend fun migrateUserIds(newUserId: PlatformUUID)
+}
+
+interface SongGuessRepository {
+    suspend fun insert(userId: PlatformUUID, entry: LeaderboardEntry): LeaderboardEntry
+    suspend fun getAll(userId: PlatformUUID): List<LeaderboardEntry>
+    suspend fun clear(userId: PlatformUUID)
 }

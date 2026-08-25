@@ -5,6 +5,7 @@ import dev.dertyp.data.*
 import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
+import dev.dertyp.synara.game.LeaderboardEntry
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.core.*
@@ -767,4 +768,41 @@ private fun getOrCreateGenre(genre: Genre): PlatformUUID {
         it[name] = genre.name
     }
     return genre.id
+}
+
+class ExposedSongGuessRepository(private val json: Json) : SongGuessRepository {
+    override suspend fun insert(userId: PlatformUUID, entry: LeaderboardEntry): LeaderboardEntry {
+        val id = dbQuery {
+            SongGuessGames.insertAndGetId {
+                it[SongGuessGames.userId] = userId
+                it[playedAt] = entry.playedAt
+                it[score] = entry.score
+                it[maxScore] = entry.maxScore
+                it[rounds] = entry.config.rounds
+                it[config] = json.encodeToString(entry.config)
+                it[roundResults] = json.encodeToString(entry.roundResults)
+            }
+        }
+        return entry.copy(id = id.value.toLong())
+    }
+
+    override suspend fun getAll(userId: PlatformUUID): List<LeaderboardEntry> = dbQuery {
+        SongGuessGames.selectAll()
+            .where { SongGuessGames.userId eq userId }
+            .orderBy(SongGuessGames.score to SortOrder.DESC, SongGuessGames.playedAt to SortOrder.DESC)
+            .map {
+                LeaderboardEntry(
+                    id = it[SongGuessGames.id].value.toLong(),
+                    playedAt = it[SongGuessGames.playedAt],
+                    score = it[SongGuessGames.score],
+                    maxScore = it[SongGuessGames.maxScore],
+                    config = json.decodeFromString(it[SongGuessGames.config]),
+                    roundResults = json.decodeFromString(it[SongGuessGames.roundResults])
+                )
+            }
+    }
+
+    override suspend fun clear(userId: PlatformUUID) {
+        dbQuery { SongGuessGames.deleteWhere { SongGuessGames.userId eq userId } }
+    }
 }

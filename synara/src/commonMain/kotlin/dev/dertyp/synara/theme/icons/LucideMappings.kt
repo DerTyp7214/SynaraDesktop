@@ -88,4 +88,6 @@ object LucideMappings {
     @MapTo(SynaraIcons.Stats) val ChartBar = Lucide.ChartBar
     @MapTo(SynaraIcons.Users) val Users = Lucide.Users
     @MapTo(SynaraIcons.Key) val KeyRound = Lucide.KeyRound
+    @MapTo(SynaraIcons.Game) val Gamepad = Lucide.Gamepad
+    @MapTo(SynaraIcons.Trophy) val Trophy = Lucide.Trophy
 }
