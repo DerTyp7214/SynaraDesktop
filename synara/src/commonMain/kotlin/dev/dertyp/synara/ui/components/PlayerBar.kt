@@ -85,7 +85,8 @@ fun PlayerBar(
     val liveBitRate by playerModel.bitRate.collectAsState()
 
     val scrobbledFor by scrobblerService.scrobbledFor.collectAsState()
-    val triggeredSong by scrobblerService.triggeredSong.collectAsState()
+    val triggeredListen by scrobblerService.triggeredSong.collectAsState()
+    val triggeredSong = triggeredListen?.song
 
     val isExpanded by globalState.isPlayerExpanded.collectAsState()
     val windowActions = LocalWindowActions.current

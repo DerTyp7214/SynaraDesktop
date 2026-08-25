@@ -1,6 +1,5 @@
 package dev.dertyp.synara.scrobble
 
-import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
 import dev.dertyp.synara.db.RecentlyPlayedRepository
@@ -19,9 +18,9 @@ class RecentlyPlayedScrobbler(
 
     private val globalState: GlobalStateModel by inject()
 
-    override suspend fun triggered(song: UserSong) {
+    override suspend fun triggered(song: UserSong, listenedAt: Long) {
         val userId = globalState.user.value?.id ?: return
-        val timestamp = currentTimeMillis()
+        val timestamp = listenedAt
 
         repository.insertSong(userId, song, timestamp)
 

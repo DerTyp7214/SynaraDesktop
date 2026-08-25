@@ -64,6 +64,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.3.3",
+                        date = "2026-08-25",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Fixed, "Server, **Last.fm** and **ListenBrainz** scrobbles of the same listen now share one identical timestamp — the moment the song started playing — instead of each service stamping its own submission time.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.3.2",
                         date = "2026-08-25",
                         isPrerelease = true,

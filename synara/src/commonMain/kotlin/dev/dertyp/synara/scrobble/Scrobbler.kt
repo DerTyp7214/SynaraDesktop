@@ -1,5 +1,6 @@
 package dev.dertyp.synara.scrobble
 
+import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
@@ -54,6 +55,9 @@ class ScrobbleTimer(private val scope: CoroutineScope) {
     }
 }
 
+data class TriggeredListen(val song: UserSong, val listenedAt: Long)
+data class ListenEnded(val song: UserSong, val msPlayed: Long, val listenedAt: Long)
+
 class ScrobblerService(
     private val playerModel: PlayerModel,
     private val logger: Logger,
@@ -67,8 +71,10 @@ class ScrobblerService(
 
     private val scrobblers = mutableListOf<BaseScrobbler>()
 
-    private val _triggeredSong = MutableStateFlow<UserSong?>(null)
-    val triggeredSong: StateFlow<UserSong?> = _triggeredSong
+    private val _triggeredSong = MutableStateFlow<TriggeredListen?>(null)
+    val triggeredSong: StateFlow<TriggeredListen?> = _triggeredSong
+
+    private var listenStartedAt: Long = 0L
 
     private val _newSong = MutableStateFlow<UserSong?>(null)
     val newSong: StateFlow<UserSong?> = _newSong
@@ -79,8 +85,8 @@ class ScrobblerService(
     private val _resetTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val resetTrigger: SharedFlow<Unit> = _resetTrigger
 
-    private val _listenEnded = MutableSharedFlow<Pair<UserSong, Long>>(extraBufferCapacity = 8)
-    val listenEnded: SharedFlow<Pair<UserSong, Long>> = _listenEnded
+    private val _listenEnded = MutableSharedFlow<ListenEnded>(extraBufferCapacity = 8)
+    val listenEnded: SharedFlow<ListenEnded> = _listenEnded
 
     fun start() {
         if (isRunning) return
@@ -94,9 +100,10 @@ class ScrobblerService(
                     val previousSong = _newSong.value
                     val msPlayed = scrobblerTimer.time.value * 1000L
                     if (previousSong != null && msPlayed > 0) {
-                        _listenEnded.emit(previousSong to msPlayed)
+                        _listenEnded.emit(ListenEnded(previousSong, msPlayed, listenStartedAt))
                     }
                     if (song != null) {
+                        listenStartedAt = currentTimeMillis()
                         scrobblerTimer.reset()
                         scrobblers.forEach { it.resetStatus() }
                         _resetTrigger.emit(Unit)
@@ -115,9 +122,9 @@ class ScrobblerService(
                         (newSong.value?.duration ?: Long.MAX_VALUE).milliseconds
                     )
                 }
-                .filter { _triggeredSong.value?.id != newSong.value?.id }
+                .filter { _triggeredSong.value?.song?.id != newSong.value?.id }
                 .collectLatest {
-                    _triggeredSong.value = newSong.value
+                    _triggeredSong.value = newSong.value?.let { TriggeredListen(it, listenStartedAt) }
                 }
         }
         jobs += scope.launch {
@@ -229,9 +236,9 @@ abstract class BaseScrobbler : KoinComponent {
         if (isRunning) return
         isRunning = true
         jobs += scope.launch {
-            scrobblerService.triggeredSong.collectLatest { song ->
-                if (song != null) try {
-                    triggered(song)
+            scrobblerService.triggeredSong.collectLatest { listen ->
+                if (listen != null) try {
+                    triggered(listen.song, listen.listenedAt)
                 } catch (e: Exception) {
                     logger.error(
                         LogTag.SCROBBLER,
@@ -260,9 +267,9 @@ abstract class BaseScrobbler : KoinComponent {
             }
         }
         jobs += scope.launch {
-            scrobblerService.listenEnded.collect { (song, msPlayed) ->
+            scrobblerService.listenEnded.collect { (song, msPlayed, listenedAt) ->
                 try {
-                    listenEnded(song, msPlayed)
+                    listenEnded(song, msPlayed, listenedAt)
                 } catch (e: Exception) {
                     logger.error(
                         LogTag.SCROBBLER,
@@ -289,8 +296,8 @@ abstract class BaseScrobbler : KoinComponent {
     }
 
     open suspend fun newSong(song: UserSong?) {}
-    open suspend fun triggered(song: UserSong) {}
-    open suspend fun listenEnded(song: UserSong, msPlayed: Long) {}
+    open suspend fun triggered(song: UserSong, listenedAt: Long) {}
+    open suspend fun listenEnded(song: UserSong, msPlayed: Long, listenedAt: Long) {}
     open suspend fun reset() {}
     open fun onStop() {}
 }

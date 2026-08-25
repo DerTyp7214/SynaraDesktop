@@ -115,9 +115,9 @@ class ListenBrainzScrobbler(
         if (song != null) submitListen(song, ListenType.PLAYING_NOW)
     }
 
-    override suspend fun triggered(song: UserSong) {
+    override suspend fun triggered(song: UserSong, listenedAt: Long) {
         updateStatus(ScrobbleStatus.QUEUED)
-        submitListen(song, ListenType.SINGLE, currentTimeMillis() / 1000)
+        submitListen(song, ListenType.SINGLE, listenedAt / 1000)
     }
 
     private suspend fun submitListen(

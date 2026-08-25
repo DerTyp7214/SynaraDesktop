@@ -96,9 +96,9 @@ class LastFmScrobbler(
         if (song != null) submitListen(song, true)
     }
 
-    override suspend fun triggered(song: UserSong) {
+    override suspend fun triggered(song: UserSong, listenedAt: Long) {
         updateStatus(ScrobbleStatus.QUEUED)
-        submitListen(song, false, currentTimeMillis() / 1000)
+        submitListen(song, false, listenedAt / 1000)
     }
 
     suspend fun getMobileSession(username: String, password: String): LastFmSession? {

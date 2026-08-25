@@ -1,7 +1,6 @@
 package dev.dertyp.synara.scrobble
 
 import androidx.compose.ui.graphics.Color
-import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
 import dev.dertyp.synara.db.LocalHistoryRepository
@@ -44,13 +43,13 @@ class LocalSongScrobbler(
         }
     }
 
-    override suspend fun triggered(song: UserSong) {
+    override suspend fun triggered(song: UserSong, listenedAt: Long) {
         val userId = globalState.user.value?.id ?: return
         logger.info(LogTag.SCROBBLER, "Local scrobble triggered for ${song.title}")
         repository.insert(
             userId = userId,
             song = song,
-            timestamp = currentTimeMillis()
+            timestamp = listenedAt
         )
 
         currentColor.emit(Color(0xFF87F487))

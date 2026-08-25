@@ -1,6 +1,5 @@
 package dev.dertyp.synara.scrobble
 
-import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.ScrobbleRequest
 import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
@@ -88,15 +87,14 @@ class ServerScrobbler(
         }
     }
 
-    override suspend fun triggered(song: UserSong) {
+    override suspend fun triggered(song: UserSong, listenedAt: Long) {
         if (!isEnabled) return
         updateStatus(ScrobbleStatus.SCROBBLED)
     }
 
-    override suspend fun listenEnded(song: UserSong, msPlayed: Long) {
+    override suspend fun listenEnded(song: UserSong, msPlayed: Long, listenedAt: Long) {
         if (!isEnabled) return
         if (msPlayed < MIN_SCROBBLE_MS) return
-        val listenedAt = currentTimeMillis() - msPlayed
         val request = ScrobbleRequest(
             songId = song.id,
             listenedAt = listenedAt,
