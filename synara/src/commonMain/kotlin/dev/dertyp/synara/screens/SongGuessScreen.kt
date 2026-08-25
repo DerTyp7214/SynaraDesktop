@@ -27,6 +27,7 @@ import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SettingsCard
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.dialogs.SynaraAlertDialog
+import dev.dertyp.synara.ui.components.player.PlayerProgressBar
 import dev.dertyp.synara.viewmodels.SongGuessScreenModel
 import dev.dertyp.synara.viewmodels.SongGuessScreenModel.Phase
 import org.jetbrains.compose.resources.stringResource
@@ -483,10 +484,57 @@ class SongGuessScreen : Screen {
                     }
                 }
                 Spacer(Modifier.height(16.dp))
+                RevealPlayback(screenModel, state)
+                Spacer(Modifier.height(16.dp))
                 Button(onClick = { screenModel.nextRound() }, modifier = Modifier.fillMaxWidth()) {
                     Text(if (isLast) stringResource(Res.string.song_guess_finish) else stringResource(Res.string.song_guess_next))
                 }
             }
+        }
+    }
+
+    @Composable
+    private fun RevealPlayback(screenModel: SongGuessScreenModel, state: SongGuessScreenModel.SongGuessState) {
+        val duration = state.currentSong?.duration ?: 0L
+        var isSeeking by remember { mutableStateOf(false) }
+        var seekPosition by remember { mutableLongStateOf(0L) }
+        var isWaitingForPosition by remember { mutableStateOf(false) }
+
+        val shownPosition = if (isSeeking || isWaitingForPosition) seekPosition else state.revealPosition
+        LaunchedEffect(state.revealPosition, isWaitingForPosition) {
+            if (isWaitingForPosition && kotlin.math.abs(state.revealPosition - seekPosition) < 2_000L) {
+                isWaitingForPosition = false
+            }
+        }
+        LaunchedEffect(isWaitingForPosition) {
+            if (isWaitingForPosition) {
+                kotlinx.coroutines.delay(3_000)
+                isWaitingForPosition = false
+            }
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilledIconButton(onClick = { screenModel.toggleRevealPlayback() }, modifier = Modifier.size(56.dp)) {
+                Icon(
+                    if (state.revealIsPlaying) SynaraIcons.Pause.get() else SynaraIcons.Play.get(),
+                    contentDescription = stringResource(Res.string.song_guess_play_snippet)
+                )
+            }
+            PlayerProgressBar(
+                currentPosition = shownPosition,
+                duration = duration,
+                currentSongExists = state.currentSong != null,
+                onSeek = {
+                    isSeeking = true
+                    seekPosition = (it * duration).toLong()
+                },
+                onSeekFinished = {
+                    screenModel.seekReveal(seekPosition)
+                    isSeeking = false
+                    isWaitingForPosition = true
+                },
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 

@@ -64,6 +64,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.3.5",
+                        date = "2026-08-25",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "**Guess the Song**: the revealed song now plays on the result screen, with a play/pause button and a seekbar over the whole track."),
+                            Change(ChangeType.Improved, "**Guess the Song**: a guess is accepted when title and artist match, even if your library contains the song more than once (e.g. remastered or single versions).")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.3.4",
                         date = "2026-08-25",
                         isPrerelease = true,

@@ -3,7 +3,9 @@ package dev.dertyp.synara.viewmodels
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import dev.dertyp.PlatformUUID
+import dev.dertyp.core.cleanTitle
 import dev.dertyp.core.joinArtists
+import dev.dertyp.core.stripAccents
 import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.Artist
 import dev.dertyp.data.UserPlaylist
@@ -74,6 +76,8 @@ class SongGuessScreenModel(
         val roundResults: List<RoundResult> = emptyList(),
         val score: Int = 0,
         val lastRoundPoints: Int = 0,
+        val revealPosition: Long = 0L,
+        val revealIsPlaying: Boolean = false,
 
         val playlistNames: Map<PlatformUUID, String> = emptyMap(),
         val artistNames: Map<PlatformUUID, String> = emptyMap(),
@@ -84,6 +88,7 @@ class SongGuessScreenModel(
 
     private var pool: SongPool? = null
     private var snippetJob: Job? = null
+    private var revealJob: Job? = null
     private var guessSearchJob: Job? = null
     private var artistSearchJob: Job? = null
     private val resolvedIds = mutableSetOf<PlatformUUID>()
@@ -270,12 +275,19 @@ class SongGuessScreenModel(
         val s = state.value
         val guess = s.selectedGuess ?: return
         val song = s.currentSong ?: return
-        if (guess.id == song.id) {
+        if (matches(guess, song)) {
             endRound(solved = true)
         } else {
             wrongAttempt()
         }
     }
+
+    private fun String.matchKey() = cleanTitle().stripAccents().lowercase().trim()
+
+    private fun matches(guess: UserSong, song: UserSong): Boolean =
+        guess.id == song.id ||
+            (guess.title.matchKey() == song.title.matchKey() &&
+                guess.artists.joinArtists().matchKey() == song.artists.joinArtists().matchKey())
 
     fun skip() {
         if (state.value.phase != Phase.PLAYING) return
@@ -313,14 +325,46 @@ class SongGuessScreenModel(
                 phase = Phase.REVEAL,
                 roundResults = it.roundResults + result,
                 score = it.score + points,
-                lastRoundPoints = points
+                lastRoundPoints = points,
+                revealPosition = it.snippetOffsetMs,
+                revealIsPlaying = false
             )
         }
+        startReveal()
+    }
+
+    // ---------------------------------------------------------------- reveal playback
+
+    private fun startReveal() {
+        revealJob?.cancel()
+        revealJob = screenModelScope.launch(dispatchers.default) {
+            player.play()
+            launch { player.currentPosition.collect { pos -> mutableState.update { it.copy(revealPosition = pos) } } }
+            launch { player.isPlaying.collect { playing -> mutableState.update { it.copy(revealIsPlaying = playing) } } }
+        }
+    }
+
+    private fun stopReveal() {
+        revealJob?.cancel()
+        revealJob = null
+        player.pause()
+        mutableState.update { it.copy(revealIsPlaying = false, revealPosition = 0L) }
+    }
+
+    fun toggleRevealPlayback() {
+        if (state.value.phase != Phase.REVEAL) return
+        if (player.isPlaying.value) player.pause() else player.play()
+    }
+
+    fun seekReveal(positionMs: Long) {
+        if (state.value.phase != Phase.REVEAL) return
+        screenModelScope.launch(dispatchers.io) { player.seekTo(positionMs) }
     }
 
     fun nextRound() {
         val s = state.value
         if (s.phase != Phase.REVEAL) return
+        stopReveal()
         if (s.roundIndex + 1 >= s.config.rounds) {
             screenModelScope.launch(dispatchers.io) { finishGame(null) }
         } else {
@@ -337,6 +381,7 @@ class SongGuessScreenModel(
 
     private fun finishGame(error: String?) {
         stopSnippet()
+        stopReveal()
         player.stop()
         val s = state.value
         if (s.roundResults.isNotEmpty()) {
@@ -355,6 +400,7 @@ class SongGuessScreenModel(
 
     fun abortGame() {
         stopSnippet()
+        stopReveal()
         player.stop()
         pool = null
         mutableState.update {
@@ -395,6 +441,7 @@ class SongGuessScreenModel(
 
     override fun onDispose() {
         snippetJob?.cancel()
+        revealJob?.cancel()
         player.stop()
         super.onDispose()
     }
