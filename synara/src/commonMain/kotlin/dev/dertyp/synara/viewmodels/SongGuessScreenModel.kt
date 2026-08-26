@@ -23,6 +23,7 @@ import dev.dertyp.synara.game.PoolSource
 import dev.dertyp.synara.game.RANDOM_OFFSET_TAIL_MS
 import dev.dertyp.synara.game.RoundResult
 import dev.dertyp.synara.game.SNIPPET_LADDER_MS
+import dev.dertyp.synara.game.SavedGame
 import dev.dertyp.synara.game.SnippetStart
 import dev.dertyp.synara.game.SongGuessLeaderboard
 import dev.dertyp.synara.game.pointsForAttempt
@@ -96,6 +97,70 @@ class SongGuessScreenModel(
     init {
         screenModelScope.launch(dispatchers.io) {
             leaderboard.entries.collect { resolveNames(it) }
+        }
+        screenModelScope.launch(dispatchers.io) { restoreGame() }
+    }
+
+    // ---------------------------------------------------------------- persistence
+
+    private fun persist() {
+        val s = state.value
+        val song = s.currentSong ?: return
+        if (s.phase != Phase.PLAYING && s.phase != Phase.REVEAL) return
+        leaderboard.saveGame(
+            SavedGame(
+                config = s.config,
+                roundIndex = s.roundIndex,
+                attempt = s.attempt,
+                score = s.score,
+                roundResults = s.roundResults,
+                currentSongId = song.id,
+                snippetOffsetMs = s.snippetOffsetMs,
+                inReveal = s.phase == Phase.REVEAL
+            )
+        )
+    }
+
+    private suspend fun restoreGame() {
+        val saved = leaderboard.loadGame() ?: return
+        if (state.value.phase != Phase.SETUP) return
+        mutableState.update { it.copy(phase = Phase.STARTING, config = saved.config, error = null) }
+        try {
+            rpcServiceManager.awaitAuthentication()
+            val song = songService.byId(saved.currentSongId)
+            if (song == null) {
+                leaderboard.clearGame()
+                mutableState.update { it.copy(phase = Phase.SETUP, error = ERROR_NOT_ENOUGH_SONGS) }
+                return
+            }
+            val used = saved.roundResults.map { it.songId }.toSet() + song.id
+            val artists = if (saved.config.artistIds.isEmpty()) emptyList()
+            else artistService.byIds(saved.config.artistIds)
+            pool = SongPool(saved.config, used)
+            playerModel.pause()
+            player.setVolume(playerModel.volume.value)
+            player.stop()
+            player.load(song.id, playImmediately = false)
+            if (saved.snippetOffsetMs > 0L) player.seekTo(saved.snippetOffsetMs)
+            mutableState.update {
+                it.copy(
+                    phase = if (saved.inReveal) Phase.REVEAL else Phase.PLAYING,
+                    selectedArtists = artists,
+                    roundIndex = saved.roundIndex,
+                    attempt = saved.attempt,
+                    score = saved.score,
+                    roundResults = saved.roundResults,
+                    lastRoundPoints = saved.roundResults.lastOrNull()?.points ?: 0,
+                    currentSong = song,
+                    snippetOffsetMs = saved.snippetOffsetMs,
+                    guessQuery = "", suggestions = emptyList(), selectedGuess = null, lastGuessWrong = false,
+                    isSnippetPlaying = false, snippetProgress = 0f,
+                    revealPosition = saved.snippetOffsetMs, revealIsPlaying = false
+                )
+            }
+            if (saved.inReveal) startReveal()
+        } catch (e: Exception) {
+            mutableState.update { it.copy(phase = Phase.SETUP, error = e.message ?: "Unknown error") }
         }
     }
 
@@ -215,6 +280,7 @@ class SongGuessScreenModel(
                 isSnippetPlaying = false, snippetProgress = 0f
             )
         }
+        persist()
     }
 
     fun playSnippet() {
@@ -303,6 +369,7 @@ class SongGuessScreenModel(
             mutableState.update {
                 it.copy(attempt = next, lastGuessWrong = true, guessQuery = "", selectedGuess = null, suggestions = emptyList())
             }
+            persist()
         }
     }
 
@@ -330,6 +397,7 @@ class SongGuessScreenModel(
                 revealIsPlaying = false
             )
         }
+        persist()
         startReveal()
     }
 
@@ -396,6 +464,7 @@ class SongGuessScreenModel(
             )
         }
         mutableState.update { it.copy(phase = Phase.FINISHED, currentSong = null, error = error) }
+        leaderboard.clearGame()
     }
 
     fun abortGame() {
@@ -403,6 +472,7 @@ class SongGuessScreenModel(
         stopReveal()
         player.stop()
         pool = null
+        leaderboard.clearGame()
         mutableState.update {
             it.copy(phase = Phase.SETUP, currentSong = null, roundResults = emptyList(), score = 0, error = null)
         }
@@ -448,9 +518,9 @@ class SongGuessScreenModel(
 
     // ---------------------------------------------------------------- pool
 
-    private inner class SongPool(private val config: GameConfig) {
+    private inner class SongPool(private val config: GameConfig, initialUsed: Set<PlatformUUID> = emptySet()) {
         private val explicit = true
-        private val used = mutableSetOf<PlatformUUID>()
+        private val used = initialUsed.toMutableSet()
         private val totals = mutableMapOf<PlatformUUID?, Int>()
 
         private val buckets: List<PlatformUUID?> = when {

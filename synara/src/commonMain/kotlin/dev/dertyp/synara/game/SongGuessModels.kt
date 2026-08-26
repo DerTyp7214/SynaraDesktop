@@ -49,6 +49,18 @@ data class RoundResult(
     val points: Int,
 )
 
+@Serializable
+data class SavedGame(
+    val config: GameConfig,
+    val roundIndex: Int,
+    val attempt: Int,
+    val score: Int,
+    val roundResults: List<RoundResult>,
+    val currentSongId: PlatformUUID,
+    val snippetOffsetMs: Long,
+    val inReveal: Boolean,
+)
+
 data class LeaderboardEntry(
     val id: Long = 0L,
     val playedAt: Long,

@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
@@ -52,6 +54,40 @@ class SongGuessLeaderboard(
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    // ---------------------------------------------------------------- saved game
+
+    fun saveGame(game: SavedGame) {
+        val userId = userId ?: return
+        scope.launch {
+            try {
+                repository.saveGame(userId, game)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun clearGame() {
+        val userId = userId ?: return
+        scope.launch {
+            try {
+                repository.clearGame(userId)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    suspend fun loadGame(): SavedGame? {
+        val userId = globalState.user.filterNotNull().first().id
+        return try {
+            repository.loadGame(userId)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
     }
 

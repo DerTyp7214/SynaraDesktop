@@ -195,3 +195,10 @@ object SongGuessGames : IntIdTable("songGuessGame") {
     val config = text("config")
     val roundResults = text("roundResults")
 }
+
+object SongGuessSavedGames : Table("songGuessSavedGame") {
+    val userId = reference("userId", DownloadedUsers.id, onDelete = ReferenceOption.CASCADE)
+    val updatedAt = long("updatedAt")
+    val state = text("state")
+    override val primaryKey = PrimaryKey(userId)
+}

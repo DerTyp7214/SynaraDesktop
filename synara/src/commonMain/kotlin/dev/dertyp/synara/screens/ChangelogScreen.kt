@@ -64,6 +64,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.3.6",
+                        date = "2026-08-26",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "**Guess the Song**: a running game is now saved after every round and attempt, so you can close the app (or leave the tab) and pick up exactly where you left off — same round, attempt, score and snippet position."),
+                            Change(ChangeType.Improved, "**Guess the Song**: giving up or finishing a game clears the saved state; if the saved song is no longer in your library the game returns to setup.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.3.5",
                         date = "2026-08-25",
                         isPrerelease = true,

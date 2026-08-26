@@ -6,6 +6,7 @@ import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
 import dev.dertyp.synara.game.LeaderboardEntry
+import dev.dertyp.synara.game.SavedGame
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.core.*
@@ -804,5 +805,26 @@ class ExposedSongGuessRepository(private val json: Json) : SongGuessRepository {
 
     override suspend fun clear(userId: PlatformUUID) {
         dbQuery { SongGuessGames.deleteWhere { SongGuessGames.userId eq userId } }
+    }
+
+    override suspend fun saveGame(userId: PlatformUUID, game: SavedGame) {
+        dbQuery {
+            SongGuessSavedGames.upsert(SongGuessSavedGames.userId) {
+                it[SongGuessSavedGames.userId] = userId
+                it[updatedAt] = currentTimeMillis()
+                it[state] = json.encodeToString(game)
+            }
+        }
+    }
+
+    override suspend fun loadGame(userId: PlatformUUID): SavedGame? = dbQuery {
+        SongGuessSavedGames.selectAll()
+            .where { SongGuessSavedGames.userId eq userId }
+            .firstOrNull()
+            ?.let { json.decodeFromString<SavedGame>(it[SongGuessSavedGames.state]) }
+    }
+
+    override suspend fun clearGame(userId: PlatformUUID) {
+        dbQuery { SongGuessSavedGames.deleteWhere { SongGuessSavedGames.userId eq userId } }
     }
 }
