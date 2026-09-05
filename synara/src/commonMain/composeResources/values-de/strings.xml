@@ -30,7 +30,6 @@
     <string name="refresh_playlists">Playlisten aktualisieren</string>
     <string name="dark_mode">Dunkler Modus</string>
     <string name="connect_to_server">Mit Synara-Server verbinden</string>
-    <string name="login_button">Anmelden</string>
     <string name="test_connection">Verbindung testen</string>
     <string name="next">Weiter</string>
     <string name="language">Sprache</string>
@@ -102,6 +101,9 @@
     <string name="stats_range_week">Woche</string>
     <string name="stats_range_month">Monat</string>
     <string name="stats_range_year">Jahr</string>
+    <string name="stats_range_last_week">Letzte Woche</string>
+    <string name="stats_range_last_month">Letzter Monat</string>
+    <string name="stats_range_last_year">Letztes Jahr</string>
     <string name="stats_range_all_time">Gesamt</string>
     <string name="stats_listens">Wiedergaben</string>
     <string name="stats_vs_previous">ggü. vorherigem Zeitraum</string>
@@ -214,7 +216,6 @@
     <string name="play_next">Als nächstes spielen</string>
     <string name="playing_next_item">Spiele **%1$s** als Nächstes</string>
     <string name="menu_download">Herunterladen</string>
-    <string name="menu_import">Importieren</string>
     <string name="playlist">Playlist</string>
 
     <!-- General -->
@@ -317,6 +318,15 @@
     <string name="particle_count">Partikel-Anzahl</string>
     <string name="particle_fps">Partikel-FPS</string>
 
+    <!-- Proxy -->
+    <string name="proxy">Proxy</string>
+    <string name="enable_proxy">Proxy verwenden</string>
+    <string name="enable_proxy_summary">Proxy des Servers statt direkter Verbindung verwenden</string>
+    <string name="proxy_host">Proxy-Host</string>
+    <string name="proxy_port">Proxy-Port</string>
+    <string name="proxy_id">Proxy-ID</string>
+    <string name="proxy_ssl">SSL für Proxy verwenden</string>
+
     <!-- Album Versions -->
     <string name="album_versions">Albumversionen</string>
     <string name="other_versions">Andere Versionen (%1$d)</string>
@@ -367,12 +377,6 @@
     <string name="release_type_other">Andere</string>
     <string name="release_type_unknown">Unbekannt</string>
     <string name="menu_import_external">Von externer Quelle importieren</string>
-    <string name="importer_title">Importer</string>
-    <string name="importer_login_required">Anmeldung erforderlich</string>
-    <string name="importer_login_instructions">Du musst Synara autorisieren, um von dieser Quelle zu importieren.</string>
-    <string name="importer_url_label">URL (Titel, Album, Playlist, Interpret, Mix)</string>
-    <string name="importer_logs_label">Logs</string>
-    <string name="sync_favorites">Favoriten synchronisieren</string>
     <string name="search_external">Externe Suche</string>
     <string name="external_search_title">Externe Suche</string>
     <string name="account">Konto</string>
@@ -514,4 +518,60 @@
     <string name="song_guess_artists_count">%1$d Künstler</string>
     <string name="song_guess_playlists_count">%1$d Playlists</string>
     <string name="song_guess_unknown">Unbekannt</string>
+    <string name="listen_backup_title">Listen-Backup</string>
+    <string name="listen_backup_enabled">Backup aktivieren</string>
+    <string name="listen_backup_url">Empfänger-URL</string>
+    <string name="listen_backup_key">API-Schlüssel</string>
+    <string name="listen_backup_key_hint">Es ist ein Schlüssel gespeichert. Leer lassen, um ihn zu behalten.</string>
+    <string name="listen_backup_batch_size">Batch-Größe</string>
+    <string name="listen_backup_status_title">Status</string>
+    <string name="listen_backup_last_sync">Letzte Synchronisierung: %1$s</string>
+    <string name="listen_backup_never_synced">Noch nie synchronisiert</string>
+    <string name="listen_backup_synced_count">%1$d Wiedergaben beim letzten Lauf gesendet</string>
+    <string name="listen_backup_pending_count">%1$d Wiedergaben ausstehend</string>
+    <string name="listen_backup_last_error">Letzter Fehler: %1$s</string>
+    <string name="listen_backup_server_id">Server-ID: %1$s</string>
+    <string name="listen_backup_test_connection">Verbindung testen</string>
+    <string name="listen_backup_test_ok">Verbindung erfolgreich</string>
+    <string name="listen_backup_test_ok_with_count">Verbindung erfolgreich · %1$d Wiedergaben beim Empfänger gespeichert</string>
+    <string name="listen_backup_test_failed">Verbindung fehlgeschlagen</string>
+    <string name="listen_backup_test_failed_with_message">Verbindung fehlgeschlagen: %1$s</string>
+    <string name="listen_backup_sync_now">Jetzt synchronisieren</string>
+    <string name="listen_backup_sync_success">Synchronisierung abgeschlossen</string>
+    <string name="listen_backup_reset_cursor">Cursor zurücksetzen</string>
+    <string name="listen_backup_reset_cursor_confirm">Sync-Cursor zurücksetzen? Beim nächsten Lauf werden alle lokalen Wiedergaben erneut gesendet.</string>
+    <string name="listen_backup_reset_success">Cursor zurückgesetzt</string>
+    <string name="listen_backup_save_success">Konfiguration gespeichert</string>
+    <string name="metadata_codec">Codec</string>
+    <string name="metadata_channels">Kanäle</string>
+    <string name="audio_channels_mono">Mono</string>
+    <string name="audio_channels_stereo">Stereo</string>
+    <string name="audio_channels_count">%1$d Kan.</string>
+    <string name="stats_period_this">Aktuell</string>
+    <string name="stats_period_last">Letzte</string>
+    <string name="stats_order_listens">Wiedergaben</string>
+    <string name="stats_order_time">Zeit</string>
+    <string name="auth_failure_refresh_rejected">Deine Sitzung wurde vom Server abgelehnt. Bitte melde dich erneut an.</string>
+    <string name="auth_failure_generic">Du wurdest abgemeldet. Bitte melde dich erneut an.</string>
+    <string name="connection_offline_banner">Server nicht erreichbar. Wird im Hintergrund erneut versucht…</string>
+    <string name="connection_ssl_override_banner">Diese Sitzung ist auf eine unverschlüsselte Verbindung zurückgefallen, da die sichere Verbindung fehlgeschlagen ist.</string>
+    <string name="connection_retry_secure">Sichere Verbindung erneut versuchen</string>
+    <string name="connection_banner_dismiss">Schließen</string>
+    <string name="settings_server_api_version">API-Version: Server %1$s · Client %2$s</string>
+    <string name="settings_server_ui_schema_version">UI-Schema-Version: %1$s</string>
+    <string name="settings_connection_state_secure">Verbindung: Sicher (TLS)</string>
+    <string name="settings_connection_state_plaintext">Verbindung: Unverschlüsselt</string>
+    <string name="settings_connection_state_plaintext_override">Verbindung: Unverschlüsselt (diese Sitzung ist von TLS zurückgefallen)</string>
+    <string name="settings_value_pending">wird geladen…</string>
+    <string name="ui_server_retry">Erneut versuchen</string>
+    <string name="ui_server_confirm">Bestätigen</string>
+    <string name="ui_server_load_failed">Dieser Inhalt konnte nicht geladen werden.</string>
+    <string name="ui_server_unsupported_component">Dieses Element wird von dieser App-Version nicht unterstützt.</string>
+    <string name="ui_server_choose_handler">Aktion wählen</string>
+    <string name="home_cards_title">Karten</string>
+    <string name="home_cards_edit">Karten anpassen</string>
+    <string name="home_cards_pinned">Angeheftet</string>
+    <string name="home_cards_available">Verfügbar</string>
+    <string name="move_up">Nach oben</string>
+    <string name="move_down">Nach unten</string>
 </resources>

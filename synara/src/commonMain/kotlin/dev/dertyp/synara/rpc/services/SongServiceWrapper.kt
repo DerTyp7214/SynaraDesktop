@@ -149,6 +149,14 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
         return manager.getService<ISongService>().getStreamSize(id)
     }
 
+    override fun streamSongAtmos(id: PlatformUUID, offset: Long, chunkSize: Int): Flow<ByteArray>? {
+        return manager.getService<ISongService>().streamSongAtmos(id, offset, chunkSize)
+    }
+
+    override suspend fun getAtmosStreamSize(id: PlatformUUID): Long {
+        return manager.getService<ISongService>().getAtmosStreamSize(id)
+    }
+
     override suspend fun getDownloadSize(id: PlatformUUID, quality: Int, force: Boolean, format: AudioFormat): Long {
         return manager.getService<ISongService>().getDownloadSize(id, quality, force, format)
     }

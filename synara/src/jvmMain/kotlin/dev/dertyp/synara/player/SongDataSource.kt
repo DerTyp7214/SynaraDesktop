@@ -3,18 +3,22 @@ package dev.dertyp.synara.player
 import com.russhwolf.settings.Settings
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.UserSong
+import dev.dertyp.data.effectiveAudio
 import dev.dertyp.services.ISongService
 import dev.dertyp.synara.player.audio.AiffHeader
+import dev.dertyp.synara.player.audio.OpusHead
 import dev.dertyp.synara.player.audio.PcmHeader
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
 import io.github.jaredmdobson.concentus.OpusDecoder
+import io.github.jaredmdobson.concentus.OpusMSDecoder
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
@@ -189,8 +193,16 @@ class SongDataSource(
         val sampleRate: Int,
         val bitsPerSample: Int,
         val channels: Int,
+        val startMs: Long,
         val pcmFlow: Flow<ShortBuffer>
     )
+
+    private fun effectiveStartMs(song: UserSong, positionMs: Long): Long {
+        if (positionMs > 0) return positionMs
+        val lead = song.audioStartMs ?: return 0L
+        if (lead <= 0) return 0L
+        return if (song.duration > 0) lead.coerceAtMost(song.duration - 1) else lead
+    }
 
     private data class PlaybackInfo(
         val sampleRate: Int,
@@ -205,9 +217,10 @@ class SongDataSource(
     ): PlaybackSession? {
         val song = getSong(songId) ?: return null
         val metadata = getMetadata(songId) ?: return null
+        val startMs = effectiveStartMs(song, positionMs)
 
         PcmHeader.decode(metadata)?.let { pcmHeader ->
-            return createPcmPlaybackSession(song, songId, pcmHeader, positionMs, sessionScope)
+            return createPcmPlaybackSession(song, songId, pcmHeader, startMs, sessionScope)
         }
 
         val totalDuration = song.duration
@@ -215,16 +228,19 @@ class SongDataSource(
 
         val quality = settings.get(SettingKey.StreamingQuality, 0)
 
-        val byteOffset = if (positionMs > 0 && totalDuration > 0) {
+        val byteOffset = if (startMs > 0 && totalDuration > 0) {
+            val knownSize = song.effectiveAudio?.fileSize ?: 0L
             val fileSize = if (quality == 0) {
-                if (song.fileSize > 0) song.fileSize else songService.getStreamSize(songId)
+                if (knownSize > 0) knownSize else songService.getStreamSize(songId)
             } else {
                 val size = songService.getDownloadSize(songId, quality, force = false)
-                if (size > 0) size else song.fileSize
+                if (size > 0) size
+                else if (knownSize > 0) knownSize
+                else songService.getStreamSize(songId)
             }
             val audioDataSize = fileSize - mSize
             if (audioDataSize > 0) {
-                mSize + (positionMs.toDouble() / totalDuration * audioDataSize).toLong()
+                mSize + (startMs.toDouble() / totalDuration * audioDataSize).toLong()
             } else 0L
         } else 0L
 
@@ -335,8 +351,8 @@ class SongDataSource(
                 } else {
                     val ogg = OggFile(stream)
                     val reader = ogg.getPacketReader()
-                    var info: OpusInfo? = null
-                    var decoder: OpusDecoder? = null
+                    var opus: OpusStream? = null
+                    var accumulator: PcmAccumulator? = null
 
                     if (byteOffset > 0) {
                         val metaOgg = OggFile(metadata.inputStream())
@@ -345,97 +361,40 @@ class SongDataSource(
                         while (metaPacket != null) {
                             val opusPacket = OpusPacketFactory.create(metaPacket)
                             if (opusPacket is OpusInfo) {
-                                info = opusPacket
-                                decoder = OpusDecoder(48000, opusPacket.numChannels)
-                                infoDeferred.complete(
-                                    PlaybackInfo(
-                                        48000,
-                                        opusPacket.numChannels,
-                                        16
-                                    )
-                                )
+                                val head = OpusHead.parse(opusPacket.data)
+                                if (head != null) {
+                                    opus = OpusStream(head, applyPreSkip = false)
+                                    accumulator = PcmAccumulator(head.channels, pcmChannel)
+                                    infoDeferred.complete(PlaybackInfo(48000, head.channels, 16))
+                                }
                                 break
                             }
                             metaPacket = metaReader.getNextPacket()
                         }
                     }
 
-                    val samplesToBuffer = 48000 / 5
-                    var bufferedSamples = 0
-                    var buffer: ShortArray? = null
-                    if (info != null) {
-                        buffer = ShortArray(samplesToBuffer * info.numChannels)
-                    }
-
                     var packet = reader.getNextPacket()
                     while (packet != null) {
                         when (val opusPacket = OpusPacketFactory.create(packet)) {
                             is OpusInfo -> {
-                                if (info == null) {
-                                    info = opusPacket
-                                    decoder = OpusDecoder(48000, opusPacket.numChannels)
-                                    infoDeferred.complete(
-                                        PlaybackInfo(
-                                            48000,
-                                            opusPacket.numChannels,
-                                            16
-                                        )
-                                    )
-                                    buffer = ShortArray(samplesToBuffer * opusPacket.numChannels)
+                                if (opus == null) {
+                                    val head = OpusHead.parse(opusPacket.data)
+                                    if (head != null) {
+                                        opus = OpusStream(head, applyPreSkip = byteOffset == 0L)
+                                        accumulator = PcmAccumulator(head.channels, pcmChannel)
+                                        infoDeferred.complete(PlaybackInfo(48000, head.channels, 16))
+                                    }
                                 }
                             }
                             is OpusTags -> {}
                             else -> {
-                                val currentDecoder = decoder
-                                val currentInfo = info
-                                if (currentDecoder != null && currentInfo != null) {
-                                    if (buffer == null) {
-                                        buffer = ShortArray(samplesToBuffer * currentInfo.numChannels)
-                                    }
-                                    val data = packet.data
-                                    if (data.isNotEmpty()) {
-                                        val maxSamplesPerChannel = 5760
-                                        val pcm = ShortArray(maxSamplesPerChannel * currentInfo.numChannels)
-                                        val decodedSamplesPerChannel = currentDecoder.decode(
-                                            data, 0, data.size,
-                                            pcm, 0, maxSamplesPerChannel, false
-                                        )
-
-                                        if (decodedSamplesPerChannel > 0) {
-                                            val samplesWithChannels =
-                                                decodedSamplesPerChannel * currentInfo.numChannels
-
-                                            if (samplesWithChannels > buffer.size) {
-                                                if (bufferedSamples > 0) {
-                                                    val shortBuffer =
-                                                        BufferUtils.createShortBuffer(bufferedSamples)
-                                                    shortBuffer.put(buffer, 0, bufferedSamples)
-                                                    pcmChannel.send(shortBuffer.flip())
-                                                    bufferedSamples = 0
-                                                }
-                                                val shortBuffer =
-                                                    BufferUtils.createShortBuffer(samplesWithChannels)
-                                                shortBuffer.put(pcm, 0, samplesWithChannels)
-                                                pcmChannel.send(shortBuffer.flip())
-                                            } else {
-                                                if (bufferedSamples + samplesWithChannels > buffer.size) {
-                                                    val shortBuffer =
-                                                        BufferUtils.createShortBuffer(bufferedSamples)
-                                                    shortBuffer.put(buffer, 0, bufferedSamples)
-                                                    pcmChannel.send(shortBuffer.flip())
-                                                    bufferedSamples = 0
-                                                }
-
-                                                System.arraycopy(
-                                                    pcm,
-                                                    0,
-                                                    buffer,
-                                                    bufferedSamples,
-                                                    samplesWithChannels
-                                                )
-                                                bufferedSamples += samplesWithChannels
-                                            }
-                                        }
+                                val currentStream = opus
+                                val currentAccumulator = accumulator
+                                val data = packet.data
+                                if (currentStream != null && currentAccumulator != null && data.isNotEmpty()) {
+                                    val decodedShorts = currentStream.decode(data)
+                                    if (decodedShorts > 0) {
+                                        currentAccumulator.append(currentStream.output, decodedShorts)
                                     }
                                 }
                             }
@@ -443,11 +402,7 @@ class SongDataSource(
                         packet = reader.getNextPacket()
                     }
 
-                    if (bufferedSamples > 0 && buffer != null) {
-                        val shortBuffer = BufferUtils.createShortBuffer(bufferedSamples)
-                        shortBuffer.put(buffer, 0, bufferedSamples)
-                        pcmChannel.send(shortBuffer.flip())
-                    }
+                    accumulator?.flush()
                 }
             } catch (e: Exception) {
                 if (e !is CancellationException) {
@@ -467,6 +422,7 @@ class SongDataSource(
                 sampleRate = info.sampleRate,
                 bitsPerSample = info.bitsPerSample,
                 channels = info.channels,
+                startMs = startMs,
                 pcmFlow = flow {
                     for (buffer in pcmChannel) {
                         emit(buffer)
@@ -548,6 +504,7 @@ class SongDataSource(
             sampleRate = header.sampleRate,
             bitsPerSample = header.bitsPerSample,
             channels = header.channels,
+            startMs = positionMs,
             pcmFlow = flow {
                 for (buffer in pcmChannel) {
                     emit(buffer)
@@ -619,6 +576,97 @@ class SongDataSource(
         }
 
         return shortBuffer.flip()
+    }
+
+    private class OpusStream(head: OpusHead, applyPreSkip: Boolean) {
+        val channels = head.channels
+        val output = ShortArray(MAX_PACKET_FRAMES * head.channels)
+
+        private val order = head.nativeChannelOrder
+        private val scratch = ShortArray(MAX_PACKET_FRAMES * head.channels)
+        private val singleStream = if (head.isMultistream) null else OpusDecoder(48000, head.channels)
+        private val multiStream = if (head.isMultistream) {
+            OpusMSDecoder.create(
+                48000,
+                head.channels,
+                head.streamCount,
+                head.coupledStreamCount,
+                head.channelMapping
+            )
+        } else null
+
+        private var remainingPreSkip = if (applyPreSkip) head.preSkip else 0
+
+        init {
+            singleStream?.setGain(head.outputGain)
+            multiStream?.setGain(head.outputGain)
+        }
+
+        fun decode(data: ByteArray): Int {
+            val frames = multiStream?.decodeMultistream(data, 0, data.size, scratch, 0, MAX_PACKET_FRAMES, 0)
+                ?: singleStream?.decode(data, 0, data.size, scratch, 0, MAX_PACKET_FRAMES, false)
+                ?: 0
+            if (frames <= 0) return 0
+
+            val skipped = min(remainingPreSkip, frames)
+            remainingPreSkip -= skipped
+            val kept = frames - skipped
+            if (kept <= 0) return 0
+
+            val currentOrder = order
+            if (currentOrder == null) {
+                System.arraycopy(scratch, skipped * channels, output, 0, kept * channels)
+            } else {
+                for (frame in 0 until kept) {
+                    val source = (skipped + frame) * channels
+                    val target = frame * channels
+                    for (channel in 0 until channels) {
+                        output[target + channel] = scratch[source + currentOrder[channel]]
+                    }
+                }
+            }
+            return kept * channels
+        }
+
+        companion object {
+            private const val MAX_PACKET_FRAMES = 5760
+        }
+    }
+
+    private class PcmAccumulator(
+        channels: Int,
+        private val target: SendChannel<ShortBuffer>
+    ) {
+        private val buffer = ShortArray(FRAMES_PER_CHUNK * channels)
+        private var count = 0
+
+        suspend fun append(data: ShortArray, length: Int) {
+            if (length <= 0) return
+            if (length > buffer.size) {
+                flush()
+                send(data, length)
+                return
+            }
+            if (count + length > buffer.size) flush()
+            System.arraycopy(data, 0, buffer, count, length)
+            count += length
+        }
+
+        suspend fun flush() {
+            if (count <= 0) return
+            send(buffer, count)
+            count = 0
+        }
+
+        private suspend fun send(data: ShortArray, length: Int) {
+            val shortBuffer = BufferUtils.createShortBuffer(length)
+            shortBuffer.put(data, 0, length)
+            target.send(shortBuffer.flip())
+        }
+
+        companion object {
+            private const val FRAMES_PER_CHUNK = 48000 / 5
+        }
     }
 
     private class FlowInputStream(

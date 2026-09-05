@@ -32,8 +32,11 @@ import dev.dertyp.synara.player.QueueEntry
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraImage
+import dev.dertyp.synara.ui.server.UiSlot
 import dev.dertyp.synara.utils.pickImageBytes
 import dev.dertyp.synara.viewmodels.CollectionScreenModel
+import dev.dertyp.ui.UiContext
+import dev.dertyp.ui.UiSlots
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
@@ -296,6 +299,14 @@ data class CollectionScreen(val collectionId: PlatformUUID) : Screen {
                                 }
                             }
                         }
+                    }
+
+                    item {
+                        UiSlot(
+                            slot = UiSlots.COLLECTION_DETAIL,
+                            context = UiContext(entityId = collectionId),
+                            modifier = Modifier.padding(top = 16.dp),
+                        )
                     }
                 }
 

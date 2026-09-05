@@ -29,7 +29,11 @@ import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.dialogs.FullscreenImageDialog
 import dev.dertyp.synara.ui.components.menus.PlaylistContextMenu
+import dev.dertyp.synara.ui.server.UiSlot
 import dev.dertyp.synara.viewmodels.PlaylistScreenModel
+import dev.dertyp.ui.UiContext
+import dev.dertyp.ui.UiEntityType
+import dev.dertyp.ui.UiSlots
 import org.jetbrains.compose.resources.stringResource
 import org.koin.core.parameter.parametersOf
 import synara.synara.generated.resources.*
@@ -182,6 +186,16 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                         ) {
                             CircularProgressIndicator(modifier = Modifier.size(32.dp))
                         }
+                    }
+                }
+
+                if (state.isUserPlaylist) {
+                    item {
+                        UiSlot(
+                            slot = UiSlots.PLAYLIST_DETAIL,
+                            context = UiContext(entityType = UiEntityType.PLAYLIST, entityId = playlistId),
+                            modifier = Modifier.padding(top = 16.dp),
+                        )
                     }
                 }
             }

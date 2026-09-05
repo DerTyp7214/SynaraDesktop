@@ -66,6 +66,9 @@ class PlayerModel(
     private var originalQueue: List<QueueEntry> = emptyList()
     private var setSourceJob: Job? = null
 
+    private val _seekEvents = MutableSharedFlow<Long>(extraBufferCapacity = 8)
+    val seekEvents: SharedFlow<Long> = _seekEvents.asSharedFlow()
+
     private val _currentSource = MutableStateFlow<PlaybackSource?>(null)
     val currentSource: StateFlow<PlaybackSource?> = _currentSource.asStateFlow()
 
@@ -744,6 +747,7 @@ class PlayerModel(
 
     fun seekTo(positionMs: Long) {
         audioPlayer.seekTo(positionMs)
+        _seekEvents.tryEmit(positionMs)
     }
 
     fun setVolume(value: Float) {

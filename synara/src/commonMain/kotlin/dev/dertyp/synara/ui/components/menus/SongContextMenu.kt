@@ -9,6 +9,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.LocalNavigator
+import dev.dertyp.PlatformUUID
+import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.CollectionItemType
 import dev.dertyp.data.UserCapability
 import dev.dertyp.data.UserSong
@@ -19,12 +21,27 @@ import dev.dertyp.synara.screens.AlbumScreen
 import dev.dertyp.synara.screens.ArtistScreen
 import dev.dertyp.synara.screens.MetadataEditScreen
 import dev.dertyp.synara.screens.SimilarSongsScreen
+import dev.dertyp.services.IUiService
 import dev.dertyp.synara.services.DownloadStatus
 import dev.dertyp.synara.services.IDownloadManager
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.*
+import dev.dertyp.synara.ui.server.UiEntry
+import dev.dertyp.synara.ui.server.UiHostOverlays
+import dev.dertyp.synara.ui.server.UiIconView
+import dev.dertyp.synara.ui.server.UiOpenMenuContent
+import dev.dertyp.synara.ui.server.asEntry
+import dev.dertyp.synara.ui.server.isServerUiAvailable
+import dev.dertyp.synara.ui.server.rememberUiHost
 import dev.dertyp.synara.viewmodels.GlobalStateModel
+import dev.dertyp.ui.UiAction
+import dev.dertyp.ui.UiComponent
+import dev.dertyp.ui.UiContext
+import dev.dertyp.ui.UiEntityType
+import dev.dertyp.ui.UiRender
+import dev.dertyp.ui.UiSlots
+import kotlinx.coroutines.CancellationException
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import synara.synara.generated.resources.*
@@ -351,6 +368,8 @@ fun SongContextMenu(
             }
         )
 
+        SongMenuUiExtras(song = song, onDismissRequest = onDismissRequest)
+
         Spacer(modifier = Modifier.height(8.dp))
 
         if (user?.hasCapability(UserCapability.DELETE) == true) {
@@ -424,5 +443,103 @@ fun SongContextMenu(
             navigator?.push(SimilarSongsScreen(SimilarSongsSeed.Songs(listOf(song.id), song.title), criterion, limit))
         },
         onDismissRequest = { showSimilarSongsDialog = false }
+    )
+}
+
+private data class CachedSongMenu(val at: Long, val items: List<UiRender>)
+
+private val songMenuCache = object : LinkedHashMap<PlatformUUID, CachedSongMenu>(16, 0.75f, true) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<PlatformUUID, CachedSongMenu>?): Boolean = size > 32
+}
+
+private const val SONG_MENU_CACHE_MS = 30_000L
+
+private suspend fun loadSongMenu(uiService: IUiService, songId: PlatformUUID): List<UiRender> {
+    val now = currentTimeMillis()
+    synchronized(songMenuCache) {
+        songMenuCache[songId]?.takeIf { now - it.at < SONG_MENU_CACHE_MS }?.let { return it.items }
+    }
+    val items = try {
+        uiService.renderSlot(UiSlots.SONG_MENU, UiContext(UiEntityType.SONG, songId)).items
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Throwable) {
+        emptyList()
+    }
+    synchronized(songMenuCache) { songMenuCache[songId] = CachedSongMenu(now, items) }
+    return items
+}
+
+private fun songMenuEntries(node: UiComponent): List<UiEntry> = when (node) {
+    is UiComponent.Text -> listOf(UiEntry(node.text, icon = null, action = null, enabled = false))
+    is UiComponent.Column -> node.children.flatMap { songMenuEntries(it) }
+    is UiComponent.Row -> node.children.flatMap { songMenuEntries(it) }
+    is UiComponent.Card -> node.children.flatMap { songMenuEntries(it) }
+    is UiComponent.Section -> node.children.flatMap { songMenuEntries(it) }
+    else -> node.asEntry()?.takeIf { it.action != null }?.let { listOf(it) } ?: emptyList()
+}
+
+@Composable
+private fun SongMenuUiExtras(
+    song: UserSong,
+    onDismissRequest: () -> Unit,
+    uiService: IUiService = koinInject(),
+) {
+    if (!isServerUiAvailable()) return
+
+    var loaded by remember(song.id) { mutableStateOf<List<UiRender>?>(null) }
+    LaunchedEffect(song.id) {
+        loaded = loadSongMenu(uiService, song.id)
+    }
+    val items = loaded ?: return
+
+    val context = remember(song.id) { UiContext(entityType = UiEntityType.SONG, entityId = song.id) }
+    val host = rememberUiHost("songMenu.${song.id}", context)
+    var submenu by remember(song.id) { mutableStateOf<UiAction.OpenMenu?>(null) }
+    val entries = remember(items) { items.flatMap { songMenuEntries(it.root) } }
+    if (entries.isEmpty()) return
+
+    HorizontalDivider()
+
+    entries.forEach { entry ->
+        val destructive = entry.destructive
+        DropdownMenuItem(
+            text = { Text(entry.title) },
+            enabled = entry.enabled,
+            onClick = {
+                val action = entry.action
+                if (action is UiAction.OpenMenu) {
+                    submenu = action
+                } else if (action != null) {
+                    onDismissRequest()
+                    host.dispatch(action)
+                }
+            },
+            leadingIcon = entry.icon?.let { icon ->
+                {
+                    UiIconView(
+                        icon,
+                        size = 20.dp,
+                        tint = if (destructive) MaterialTheme.colorScheme.error else LocalContentColor.current
+                    )
+                }
+            },
+            colors = if (destructive) MenuDefaults.itemColors(
+                textColor = MaterialTheme.colorScheme.error,
+                leadingIconColor = MaterialTheme.colorScheme.error
+            ) else MenuDefaults.itemColors()
+        )
+    }
+
+    UiHostOverlays(host)
+
+    UiOpenMenuContent(
+        menu = submenu,
+        host = host,
+        onDismiss = { submenu = null },
+        onItemDispatched = {
+            submenu = null
+            onDismissRequest()
+        },
     )
 }

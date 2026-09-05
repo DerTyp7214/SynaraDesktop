@@ -37,17 +37,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.synara.InternalTextField
+import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.viewmodels.LoginResult
 import dev.dertyp.synara.viewmodels.LoginScreenModel
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.auth_failure_generic
+import synara.synara.generated.resources.auth_failure_refresh_rejected
 import synara.synara.generated.resources.back
 import synara.synara.generated.resources.login
 import synara.synara.generated.resources.password
@@ -58,7 +63,9 @@ class LoginScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val screenModel = getScreenModel<LoginScreenModel>()
+        val rpcServiceManager = koinInject<RpcServiceManager>()
         val loginResult by screenModel.loginResult.collectAsState()
+        val authFailureReason by rpcServiceManager.authFailureReason.collectAsState()
         val focusManager = LocalFocusManager.current
 
         var username by remember { mutableStateOf("") }
@@ -66,6 +73,12 @@ class LoginScreen : Screen {
 
         LaunchedEffect(Unit) {
             screenModel.reset()
+        }
+
+        LaunchedEffect(loginResult) {
+            if (loginResult is LoginResult.Success) {
+                rpcServiceManager.clearAuthFailureReason()
+            }
         }
 
         Scaffold(
@@ -110,6 +123,21 @@ class LoginScreen : Screen {
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(bottom = 32.dp)
                         )
+
+                        if (authFailureReason != null) {
+                            Text(
+                                text = stringResource(
+                                    when (authFailureReason) {
+                                        RpcServiceManager.AuthFailureReason.RefreshRejected -> Res.string.auth_failure_refresh_rejected
+                                        else -> Res.string.auth_failure_generic
+                                    }
+                                ),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
+                            )
+                        }
 
                         InternalTextField(
                             value = username,

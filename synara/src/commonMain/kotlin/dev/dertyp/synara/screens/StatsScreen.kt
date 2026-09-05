@@ -23,7 +23,7 @@ import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.PlatformUUID
-import dev.dertyp.data.StatsRange
+import dev.dertyp.data.TopOrder
 import dev.dertyp.data.TopSongEntry
 import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.player.PlayerModel
@@ -32,7 +32,10 @@ import dev.dertyp.synara.ui.components.SettingsCard
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.formatListenedTime
 import dev.dertyp.synara.ui.models.SnackbarManager
+import dev.dertyp.synara.viewmodels.StatsPeriod
 import dev.dertyp.synara.viewmodels.StatsScreenModel
+import dev.dertyp.synara.viewmodels.isLastPeriod
+import dev.dertyp.synara.viewmodels.toPeriod
 import dev.dertyp.services.ISongService
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.getString
@@ -72,25 +75,72 @@ class StatsScreen : Screen {
                     }
 
                     item {
-                        SingleChoiceSegmentedButtonRow {
-                            StatsRange.entries.forEachIndexed { index, range ->
-                                SegmentedButton(
-                                    selected = state.selectedRange == range,
-                                    onClick = { screenModel.load(range) },
-                                    shape = SegmentedButtonDefaults.itemShape(
-                                        index = index,
-                                        count = StatsRange.entries.size
-                                    )
-                                ) {
-                                    Text(
-                                        when (range) {
-                                            StatsRange.DAY -> stringResource(Res.string.stats_range_day)
-                                            StatsRange.WEEK -> stringResource(Res.string.stats_range_week)
-                                            StatsRange.MONTH -> stringResource(Res.string.stats_range_month)
-                                            StatsRange.YEAR -> stringResource(Res.string.stats_range_year)
-                                            StatsRange.ALL_TIME -> stringResource(Res.string.stats_range_all_time)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                                val periods = StatsPeriod.entries
+                                val selectedPeriod = state.selectedRange.toPeriod()
+                                periods.forEachIndexed { index, period ->
+                                    SegmentedButton(
+                                        selected = selectedPeriod == period,
+                                        onClick = { screenModel.selectPeriod(period) },
+                                        shape = SegmentedButtonDefaults.itemShape(
+                                            index = index,
+                                            count = periods.size
+                                        )
+                                    ) {
+                                        Text(
+                                            when (period) {
+                                                StatsPeriod.DAY -> stringResource(Res.string.stats_range_day)
+                                                StatsPeriod.WEEK -> stringResource(Res.string.stats_range_week)
+                                                StatsPeriod.MONTH -> stringResource(Res.string.stats_range_month)
+                                                StatsPeriod.YEAR -> stringResource(Res.string.stats_range_year)
+                                                StatsPeriod.ALL_TIME -> stringResource(Res.string.stats_range_all_time)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val selectedPeriod = state.selectedRange.toPeriod()
+                                val isLast = state.selectedRange.isLastPeriod()
+                                SingleChoiceSegmentedButtonRow(modifier = Modifier.weight(1f)) {
+                                    listOf(false, true).forEachIndexed { index, last ->
+                                        SegmentedButton(
+                                            selected = isLast == last,
+                                            enabled = selectedPeriod.supportsLast,
+                                            onClick = { screenModel.setLast(last) },
+                                            shape = SegmentedButtonDefaults.itemShape(index = index, count = 2)
+                                        ) {
+                                            Text(
+                                                if (last) stringResource(Res.string.stats_period_last)
+                                                else stringResource(Res.string.stats_period_this)
+                                            )
                                         }
-                                    )
+                                    }
+                                }
+
+                                SingleChoiceSegmentedButtonRow {
+                                    TopOrder.entries.forEachIndexed { index, order ->
+                                        SegmentedButton(
+                                            selected = state.topOrder == order,
+                                            onClick = { screenModel.setTopOrder(order) },
+                                            shape = SegmentedButtonDefaults.itemShape(
+                                                index = index,
+                                                count = TopOrder.entries.size
+                                            )
+                                        ) {
+                                            Text(
+                                                when (order) {
+                                                    TopOrder.LISTEN_COUNT -> stringResource(Res.string.stats_order_listens)
+                                                    TopOrder.LISTENED_MS -> stringResource(Res.string.stats_order_time)
+                                                }
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

@@ -2,7 +2,9 @@ package dev.dertyp.synara.player
 
 import com.russhwolf.settings.Settings
 import dev.dertyp.PlatformUUID
+import dev.dertyp.data.effectiveAudio
 import dev.dertyp.services.ISongService
+import dev.dertyp.synara.player.audio.MonoMix
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.getOrNull
@@ -33,6 +35,8 @@ import org.lwjgl.openal.AL10.AL_CHANNELS
 import org.lwjgl.openal.AL10.AL_FORMAT_MONO16
 import org.lwjgl.openal.AL10.AL_FORMAT_STEREO16
 import org.lwjgl.openal.AL10.AL_GAIN
+import org.lwjgl.openal.AL10.AL_MAX_GAIN
+import org.lwjgl.openal.AL10.AL_NO_ERROR
 import org.lwjgl.openal.AL10.AL_PAUSED
 import org.lwjgl.openal.AL10.AL_PLAYING
 import org.lwjgl.openal.AL10.AL_SIZE
@@ -43,7 +47,9 @@ import org.lwjgl.openal.AL10.alDeleteSources
 import org.lwjgl.openal.AL10.alGenBuffers
 import org.lwjgl.openal.AL10.alGenSources
 import org.lwjgl.openal.AL10.alGetBufferi
+import org.lwjgl.openal.AL10.alGetError
 import org.lwjgl.openal.AL10.alGetSourcei
+import org.lwjgl.openal.AL10.alIsExtensionPresent
 import org.lwjgl.openal.AL10.alSourcePause
 import org.lwjgl.openal.AL10.alSourcePlay
 import org.lwjgl.openal.AL10.alSourceQueueBuffers
@@ -63,6 +69,10 @@ import org.lwjgl.openal.EXTThreadLocalContext.alcSetThreadContext
 import org.lwjgl.openal.ALC10.alcOpenDevice
 import org.lwjgl.openal.ALC11
 import org.lwjgl.openal.ALUtil
+import org.lwjgl.openal.EXTMCFormats.AL_FORMAT_51CHN16
+import org.lwjgl.openal.EXTMCFormats.AL_FORMAT_61CHN16
+import org.lwjgl.openal.EXTMCFormats.AL_FORMAT_71CHN16
+import org.lwjgl.openal.EXTMCFormats.AL_FORMAT_QUAD16
 import java.nio.ByteBuffer
 import java.nio.IntBuffer
 import java.nio.ShortBuffer
@@ -81,6 +91,8 @@ class JvmAudioPlayer(
     private var device: Long = 0
     private var context: Long = 0
     private var useThreadLocalContext = false
+    private var supportsMultiChannelFormats = false
+    private var loudnessCompensation = 1.0f
     private var sourceId: Int = 0
     private var numBuffers = settings.get(SettingKey.AudioBufferCount, 4)
     private var buffers: IntBuffer = BufferUtils.createIntBuffer(numBuffers)
@@ -202,10 +214,24 @@ class JvmAudioPlayer(
         if (!makeContextCurrent(context)) {
             throw RuntimeException("Failed to make OpenAL context current")
         }
-        AL.createCapabilities(deviceCaps)
+        val alCaps = AL.createCapabilities(deviceCaps)
+        supportsMultiChannelFormats =
+            alCaps.AL_EXT_MCFORMATS || alIsExtensionPresent("AL_EXT_MCFORMATS")
 
         sourceId = alGenSources()
+        alSourcef(sourceId, AL_MAX_GAIN, MAX_SOURCE_GAIN)
+        alGetError()
         alGenBuffers(buffers)
+    }
+
+    private fun nativeFormatFor(channels: Int): Int? = when (channels) {
+        1 -> AL_FORMAT_MONO16
+        2 -> AL_FORMAT_STEREO16
+        4 -> if (supportsMultiChannelFormats) AL_FORMAT_QUAD16 else null
+        6 -> if (supportsMultiChannelFormats) AL_FORMAT_51CHN16 else null
+        7 -> if (supportsMultiChannelFormats) AL_FORMAT_61CHN16 else null
+        8 -> if (supportsMultiChannelFormats) AL_FORMAT_71CHN16 else null
+        else -> null
     }
 
     private fun makeContextCurrent(ctx: Long): Boolean =
@@ -300,7 +326,7 @@ class JvmAudioPlayer(
         _volume.value = volume
         scope.launch {
             if (sourceId != 0) {
-                alSourcef(sourceId, AL_GAIN, volume)
+                alSourcef(sourceId, AL_GAIN, volume * loudnessCompensation)
             }
         }
     }
@@ -322,37 +348,62 @@ class JvmAudioPlayer(
                     println("Failed to create playback session for $songId (unsupported or unreadable audio stream)")
                     return@launch
                 }
+                val sampleRate = session.sampleRate
+                val channels = session.channels
+                loudnessCompensation = MonoMix.loudnessCompensation(channels).toFloat()
+                val alFormat = nativeFormatFor(channels) ?: run {
+                    val reason = if (supportsMultiChannelFormats) "unsupported channel count"
+                    else "AL_EXT_MCFORMATS unavailable"
+                    println("Failed to play $songId: no OpenAL format for $channels channels ($reason)")
+                    return@launch
+                }
+
                 _duration.value = session.song.duration
                 _sampleRate.value = session.sampleRate
                 _bitsPerSample.value = session.bitsPerSample
-                _bitRate.value = session.song.bitRate
+                _bitRate.value = session.song.effectiveAudio?.bitRate ?: 0L
+                if (session.startMs != startTimeMs) {
+                    _currentPosition.value = session.startMs
+                }
 
-                val sampleRate = session.sampleRate
-                val channels = session.channels
-                val alFormat = if (channels == 1) AL_FORMAT_MONO16 else AL_FORMAT_STEREO16
-                var totalSamplesPlayedBase = (startTimeMs * sampleRate) / 1000
+                var totalSamplesPlayedBase = (session.startMs * sampleRate) / 1000
 
                 val fftQueue = ArrayDeque<Pair<Long, FloatArray>>()
                 var totalSamplesQueued = totalSamplesPlayedBase
+
+                var uploadFailed = false
+
+                fun queueBuffer(bufferId: Int, pcm: ShortBuffer) {
+                    alGetError()
+                    alBufferData(bufferId, alFormat, pcm, sampleRate)
+                    if (alGetError() != AL_NO_ERROR) {
+                        uploadFailed = true
+                        println("OpenAL rejected a $channels channel buffer for $songId")
+                        return
+                    }
+                    alSourceQueueBuffers(sourceId, bufferId)
+                }
+
+                fun enqueueFft(pcm: ShortBuffer): Int {
+                    val framesInThisBuffer = pcm.remaining() / channels
+                    val fftStepFrames = 256
+                    for (offset in 0 until framesInThisBuffer step fftStepFrames) {
+                        val mags = processFftAt(pcm, channels, offset)
+                        fftQueue.add((totalSamplesQueued + offset) to mags)
+                    }
+                    return framesInThisBuffer
+                }
 
                 val pcmChannel = session.pcmFlow.produceIn(this)
 
                 for (i in 0 until numBuffers) {
                     val buffer = pcmChannel.receiveCatching().getOrNull() ?: break
-                    val samplesInThisBuffer = buffer.remaining() / channels
-
-                    val fftStepSamples = 256
-                    for (offset in 0 until samplesInThisBuffer step fftStepSamples) {
-                        val mags = processFftAt(buffer, channels, offset)
-                        fftQueue.add((totalSamplesQueued + offset) to mags)
-                    }
-                    totalSamplesQueued += samplesInThisBuffer
-                    
-                    alBufferData(buffers.get(i), alFormat, buffer, sampleRate)
-                    alSourceQueueBuffers(sourceId, buffers.get(i))
+                    totalSamplesQueued += enqueueFft(buffer)
+                    queueBuffer(buffers.get(i), buffer)
+                    if (uploadFailed) break
                 }
 
-                alSourcef(sourceId, AL_GAIN, _volume.value)
+                alSourcef(sourceId, AL_GAIN, _volume.value * loudnessCompensation)
                 if (isDesiredPlaying) {
                     alSourcePlay(sourceId)
                     _isPlaying.value = true
@@ -369,22 +420,18 @@ class JvmAudioPlayer(
                         val size = alGetBufferi(bufferId, AL_SIZE)
                         val bChannels = alGetBufferi(bufferId, AL_CHANNELS)
                         val bBits = alGetBufferi(bufferId, AL_BITS)
-                        totalSamplesPlayedBase += size / (bChannels * bBits / 8)
+                        val bytesPerFrame = (bChannels * bBits / 8).coerceAtLeast(1)
+                        totalSamplesPlayedBase += size / bytesPerFrame
 
                         val pcmData = pcmChannel.receiveCatching().getOrNull()
                         if (pcmData != null) {
-                            val samplesInThisBuffer = pcmData.remaining() / channels
-                            val fftStepSamples = 256
-                            for (offset in 0 until samplesInThisBuffer step fftStepSamples) {
-                                val mags = processFftAt(pcmData, channels, offset)
-                                fftQueue.add((totalSamplesQueued + offset) to mags)
-                            }
-                            totalSamplesQueued += samplesInThisBuffer
-                            
-                            alBufferData(bufferId, alFormat, pcmData, sampleRate)
-                            alSourceQueueBuffers(sourceId, bufferId)
+                            totalSamplesQueued += enqueueFft(pcmData)
+                            queueBuffer(bufferId, pcmData)
+                            if (uploadFailed) break
                         }
                     }
+
+                    if (uploadFailed) break
 
                     if (_isPlaying.value) {
                         val state = alGetSourcei(sourceId, AL_SOURCE_STATE)
@@ -439,20 +486,26 @@ class JvmAudioPlayer(
         }
     }
 
-    private fun processFftAt(buffer: ShortBuffer, channels: Int, sampleOffset: Int): FloatArray {
-        val fftSize = 1024 // Matching FftAnalyzer's default bufferSize
+    private fun processFftAt(buffer: ShortBuffer, channels: Int, frameOffset: Int): FloatArray {
+        val fftSize = 1024
         val pcm = ShortArray(fftSize)
-        val startPos = buffer.position() + (sampleOffset * channels)
-        val samplesInFullBuffer = buffer.remaining() / channels
-        val samplesToRead = (samplesInFullBuffer - sampleOffset).coerceAtMost(fftSize)
-        
-        for (i in 0 until samplesToRead) {
-            if (channels == 2) {
-                val left = buffer.get(startPos + i * 2)
-                val right = buffer.get(startPos + i * 2 + 1)
-                pcm[i] = ((left.toInt() + right.toInt()) / 2).toShort()
-            } else {
+        val startPos = buffer.position() + (frameOffset * channels)
+        val framesInFullBuffer = buffer.remaining() / channels
+        val framesToRead = (framesInFullBuffer - frameOffset).coerceAtMost(fftSize)
+
+        if (channels == 1) {
+            for (i in 0 until framesToRead) {
                 pcm[i] = buffer.get(startPos + i)
+            }
+        } else {
+            val weights = MonoMix.coefficients(channels)
+            for (i in 0 until framesToRead) {
+                val offset = startPos + i * channels
+                var sum = 0.0
+                for (channel in 0 until channels) {
+                    sum += buffer.get(offset + channel) * weights[channel]
+                }
+                pcm[i] = MonoMix.toPcm16(sum)
             }
         }
         return fftAnalyzer.getMagnitudes(pcm)
@@ -475,5 +528,9 @@ class JvmAudioPlayer(
             audioDispatcher.close()
             scope.cancel()
         }
+    }
+
+    companion object {
+        private const val MAX_SOURCE_GAIN = 4f
     }
 }

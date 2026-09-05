@@ -69,11 +69,14 @@ import dev.dertyp.synara.ui.LocalIconPack
 import dev.dertyp.synara.ui.SynaraIconStyle
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.ColorPicker
+import dev.dertyp.synara.ui.components.ServerVersionInfo
 import dev.dertyp.synara.ui.components.SettingsCard
 import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.SynaraAlertDialog
 import dev.dertyp.synara.ui.components.dialogs.SynaraDialog
+import dev.dertyp.synara.ui.server.UiSettingsSlot
 import dev.dertyp.synara.viewmodels.GlobalStateModel
+import dev.dertyp.ui.UiSlots
 import dev.dertyp.synara.viewmodels.SetupScreenModel
 import dev.dertyp.synara.viewmodels.TestConnectionResult
 import kotlinx.coroutines.launch
@@ -123,6 +126,7 @@ import synara.synara.generated.resources.lastfm_password
 import synara.synara.generated.resources.lastfm_shared_secret
 import synara.synara.generated.resources.lastfm_username
 import synara.synara.generated.resources.light_theme_color
+import synara.synara.generated.resources.listen_backup_title
 import synara.synara.generated.resources.listenbrainz_token
 import synara.synara.generated.resources.login
 import synara.synara.generated.resources.logout
@@ -399,6 +403,25 @@ class SettingsScreen : Screen {
                                 )
                             }
                         }
+
+                        SettingsCard(onClick = { navigator.push(ListenBackupScreen()) }) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(Res.string.listen_backup_title),
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Icon(
+                                    imageVector = SynaraIcons.Sync.get(),
+                                    contentDescription = null
+                                )
+                            }
+                        }
+
+                        UiSettingsSlot(UiSlots.ADMIN_DASHBOARD)
                     }
 
                     Text(
@@ -408,6 +431,8 @@ class SettingsScreen : Screen {
                     )
 
                     ServerSection(rpcServiceManager)
+
+                    ServerVersionInfo(rpcServiceManager)
 
                     Text(
                         text = stringResource(Res.string.proxy),
@@ -554,6 +579,8 @@ class SettingsScreen : Screen {
                             )
                         }
                     }
+
+                    UiSettingsSlot(UiSlots.SETTINGS)
 
                     if (IS_DEBUG) {
                         Button(

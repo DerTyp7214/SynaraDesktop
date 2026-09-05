@@ -226,12 +226,30 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `isFollowed` | Boolean |  |
 | `creditedName` | String? |  |
 
+### AudioInfo
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `codec` | String |  |
+| `sampleRate` | Int |  |
+| `bitsPerSample` | Int |  |
+| `bitRate` | Long |  |
+| `fileSize` | Long |  |
+| `channels` | Int |  |
+
 ### Genre
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
 | `id` | PlatformUUID |  |
 | `name` | String |  |
+
+### ImageSource
+
+| Value | Description |
+| :--- | :--- |
+| `USER` |  |
+| `GENERATED` |  |
 
 ### SearchFilter
 
@@ -288,6 +306,7 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `description` | String |  |
 | `origin` | String? |  |
 | `modifiedAt` | PlatformDate? |  |
+| `imageSource` | [ImageSource](#imagesource)? |  |
 
 ### UserPlaylistSong
 
@@ -314,10 +333,12 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `trackNumber` | Int |  |
 | `discNumber` | Int |  |
 | `copyright` | String |  |
-| `sampleRate` | Int |  |
-| `bitsPerSample` | Int |  |
-| `bitRate` | Long |  |
-| `fileSize` | Long |  |
+| `audio` | [AudioInfo](#audioinfo)? |  |
+| `atmos` | [AudioInfo](#audioinfo)? |  |
+| `sampleRate` | Int? |  |
+| `bitsPerSample` | Int? |  |
+| `bitRate` | Long? |  |
+| `fileSize` | Long? |  |
 | `coverId` | PlatformUUID? |  |
 | `blurHash` | String? |  |
 | `musicBrainzId` | PlatformUUID? |  |
@@ -326,6 +347,9 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `animatedCoverId` | PlatformUUID? |  |
 | `animatedCoverImageId` | PlatformUUID? |  |
 | `animatedCoverBlurHash` | String? |  |
+| `audioStartMs` | Long? |  |
+| `atmosPath` | String? |  |
+| `atmosVariantPath` | String? |  |
 | `isFavourite` | Boolean? |  |
 | `userSongCreatedAt` | PlatformDate? |  |
 | `userSongUpdatedAt` | PlatformDate? |  |

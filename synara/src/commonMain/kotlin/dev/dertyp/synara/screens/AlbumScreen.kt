@@ -30,7 +30,11 @@ import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.dialogs.AlbumVersionsDialog
 import dev.dertyp.synara.ui.components.dialogs.FullscreenImageDialog
 import dev.dertyp.synara.ui.components.menus.AlbumContextMenu
+import dev.dertyp.synara.ui.server.UiSlot
 import dev.dertyp.synara.viewmodels.AlbumScreenModel
+import dev.dertyp.ui.UiContext
+import dev.dertyp.ui.UiEntityType
+import dev.dertyp.ui.UiSlots
 import org.jetbrains.compose.resources.stringResource
 import org.koin.core.parameter.parametersOf
 import synara.synara.generated.resources.*
@@ -130,6 +134,14 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
                                     onPlayNext = { screenModel.playNext(song) }
                                 )
                             }
+                        }
+
+                        item {
+                            UiSlot(
+                                slot = UiSlots.ALBUM_DETAIL,
+                                context = UiContext(entityType = UiEntityType.ALBUM, entityId = albumId),
+                                modifier = Modifier.padding(top = 16.dp),
+                            )
                         }
                     }
 

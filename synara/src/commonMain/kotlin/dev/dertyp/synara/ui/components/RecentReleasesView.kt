@@ -29,17 +29,20 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.data.ReleaseType
 import dev.dertyp.formatDate
 import dev.dertyp.services.IReleaseService
-import dev.dertyp.services.import.IImportService
-import dev.dertyp.services.import.ImportBackend
+import dev.dertyp.services.IUiService
 import dev.dertyp.data.UserCapability
 import dev.dertyp.services.models.RecentRelease
 import dev.dertyp.synara.Config
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import dev.dertyp.synara.screens.ArtistScreen
-import dev.dertyp.synara.screens.ImportScreen
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.dialogs.SynaraDialog
-import kotlinx.coroutines.launch
+import dev.dertyp.synara.ui.server.UiHost
+import dev.dertyp.synara.ui.server.UiHostOverlays
+import dev.dertyp.synara.ui.server.rememberUiHost
+import dev.dertyp.ui.IntakeItem
+import dev.dertyp.ui.UiAction
+import dev.dertyp.ui.UiHookHandler
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import synara.synara.generated.resources.*
@@ -48,12 +51,13 @@ import synara.synara.generated.resources.*
 fun RecentReleasesView(
     modifier: Modifier = Modifier,
     releaseService: IReleaseService = koinInject(),
-    importService: IImportService = koinInject()
+    uiService: IUiService = koinInject()
 ) {
     var releases by remember { mutableStateOf(emptyList<RecentRelease>()) }
     var selectedRelease by remember { mutableStateOf<RecentRelease?>(null) }
     var isExpanded by remember { mutableStateOf(false) }
 
+    val host = rememberUiHost("recentReleases")
     val lastSeenRecentReleaseId by Config.lastSeenRecentReleaseId.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -151,10 +155,13 @@ fun RecentReleasesView(
     selectedRelease?.let { release ->
         RecentReleaseDialog(
             release = release,
-            importService = importService,
+            uiService = uiService,
+            host = host,
             onDismissRequest = { selectedRelease = null }
         )
     }
+
+    UiHostOverlays(host)
 }
 
 @Composable
@@ -211,11 +218,11 @@ fun RecentReleaseCard(
 @Composable
 fun RecentReleaseDialog(
     release: RecentRelease,
-    importService: IImportService,
+    uiService: IUiService,
+    host: UiHost,
     onDismissRequest: () -> Unit
 ) {
     val uriHandler = LocalUriHandler.current
-    val scope = rememberCoroutineScope()
     val navigator = LocalNavigator.current
 
     SynaraDialog(
@@ -273,18 +280,18 @@ fun RecentReleaseDialog(
                 val user by globalState.user.collectAsState()
                 val canImport = user?.hasCapability(UserCapability.IMPORT) == true
 
-                val downloadableLinks by produceState(emptyList(), release.links, canImport) {
+                val handlerLinks by produceState(emptyList<Pair<String, UiHookHandler>>(), release.links, canImport) {
                     if (!canImport) {
                         value = emptyList()
                         return@produceState
                     }
-                    val results = mutableListOf<Pair<String, ImportBackend>>()
+                    val results = mutableListOf<Pair<String, UiHookHandler>>()
                     release.links.forEach { link ->
                         if (!link.contains("musicbrainz.org", ignoreCase = true)) {
                             try {
-                                val importer = importService.getImporterForUrl(link)
-                                if (importer != null) {
-                                    results.add(link to importer)
+                                val handler = uiService.resolveIntake(listOf(IntakeItem.Url(link))).firstOrNull()
+                                if (handler != null) {
+                                    results.add(link to handler)
                                 }
                             } catch (_: Exception) {
                             }
@@ -293,11 +300,11 @@ fun RecentReleaseDialog(
                     value = results
                 }
 
-                val otherLinks = remember(release.links, downloadableLinks) {
-                    val downloadableUrls = downloadableLinks.map { it.first }.toSet()
+                val otherLinks = remember(release.links, handlerLinks) {
+                    val handledUrls = handlerLinks.map { it.first }.toSet()
                     release.links.filter {
                         !it.contains("musicbrainz.org", ignoreCase = true) &&
-                                it !in downloadableUrls
+                                it !in handledUrls
                     }
                 }
 
@@ -309,22 +316,15 @@ fun RecentReleaseDialog(
                         .heightIn(max = 300.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(downloadableLinks) { (link, importer) ->
+                    items(handlerLinks) { (link, handler) ->
                         Button(
                             onClick = {
-                                scope.launch {
-                                    importService.importUrls(listOf(link))
-                                    onDismissRequest()
-                                    navigator?.push(ImportScreen())
-                                }
+                                host.dispatch(UiAction.Intake(listOf(IntakeItem.Url(link)), resolverId = handler.contributionId))
+                                onDismissRequest()
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            val label = when (importer.id) {
-                                "youtube" -> "YouTube"
-                                else -> importer.id.replaceFirstChar { it.uppercase() }
-                            }
-                            Text(stringResource(Res.string.menu_import) + " ($label)")
+                            Text(handler.title)
                         }
                     }
 

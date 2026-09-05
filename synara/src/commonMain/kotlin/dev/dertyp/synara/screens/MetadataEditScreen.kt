@@ -21,6 +21,7 @@ import dev.dertyp.core.joinArtists
 import dev.dertyp.data.Artist
 import dev.dertyp.data.MusicBrainzRecording
 import dev.dertyp.data.UserSong
+import dev.dertyp.data.effectiveAudio
 import dev.dertyp.services.ISongService
 import dev.dertyp.synara.scrobble.MusicBrainzService
 import dev.dertyp.synara.ui.SynaraIcons
@@ -28,6 +29,7 @@ import dev.dertyp.synara.ui.components.dialogs.EditSongArtistsDialog
 import dev.dertyp.synara.ui.components.dialogs.LyricsEditDialog
 import dev.dertyp.synara.ui.components.dialogs.MusicBrainzSearchDialog
 import dev.dertyp.synara.ui.components.formatDuration
+import dev.dertyp.synara.ui.components.formatFileSize
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
@@ -301,13 +303,14 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
                                     stringResource(Res.string.metadata_track_disc),
                                     "${song?.trackNumber ?: 0} / ${song?.discNumber ?: 0}"
                                 )
+                                val audio = song?.effectiveAudio
                                 InfoItem(
                                     stringResource(Res.string.metadata_quality),
-                                    "${(song?.sampleRate ?: 0) / 1000}kHz / ${song?.bitsPerSample ?: 0}bit / ${song?.bitRate ?: 0}kbps"
+                                    "${(audio?.sampleRate ?: 0) / 1000}kHz / ${audio?.bitsPerSample ?: 0}bit / ${audio?.bitRate ?: 0}kbps"
                                 )
                                 InfoItem(
                                     stringResource(Res.string.metadata_file_size),
-                                    formatFileSize(song?.fileSize ?: 0L)
+                                    formatFileSize(audio?.fileSize ?: 0L)
                                 )
                                 InfoItem(
                                     stringResource(Res.string.metadata_path),
@@ -386,18 +389,6 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
                 text = value,
                 style = MaterialTheme.typography.bodyMedium
             )
-        }
-    }
-
-    private fun formatFileSize(bytes: Long): String {
-        val kb = bytes / 1024.0
-        val mb = kb / 1024.0
-        val gb = mb / 1024.0
-        return when {
-            gb >= 1 -> "${"%.2f".format(gb)} GB"
-            mb >= 1 -> "${"%.2f".format(mb)} MB"
-            kb >= 1 -> "${"%.2f".format(kb)} KB"
-            else -> "$bytes Bytes"
         }
     }
 }

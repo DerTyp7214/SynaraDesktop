@@ -1,6 +1,7 @@
 package dev.dertyp.synara
 
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
@@ -10,6 +11,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draganddrop.DragAndDropEvent
+import androidx.compose.ui.draganddrop.DragAndDropTarget
+import androidx.compose.ui.draganddrop.DragData
+import androidx.compose.ui.draganddrop.dragData
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
@@ -19,6 +24,7 @@ import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.transitions.SlideTransition
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
+import dev.dertyp.core.isURL
 import dev.dertyp.currentTimeMillis
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.screens.HomeScreen
@@ -28,9 +34,12 @@ import dev.dertyp.synara.screens.TaskManagerScreen
 import dev.dertyp.synara.theme.SynaraTheme
 import dev.dertyp.synara.ui.DetachedWindow
 import dev.dertyp.synara.ui.LocalWindowActions
+import dev.dertyp.synara.ui.components.ConnectionBanners
 import dev.dertyp.synara.ui.components.LocalHazeState
 import dev.dertyp.synara.ui.components.PerformanceOverlay
+import dev.dertyp.synara.ui.server.rememberUiShareHookDispatcher
 import dev.dertyp.synara.viewmodels.GlobalStateModel
+import dev.dertyp.ui.UiHookEvent
 import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
 import kotlin.time.Duration.Companion.seconds
@@ -114,9 +123,40 @@ fun SynaraView() {
                         }
                     }
 
-                    SlideTransition(
-                        navigator = navigator,
-                        modifier = Modifier.blur(blur)
+                    val shareHookDispatch = rememberUiShareHookDispatcher()
+                    val dropTarget = remember(shareHookDispatch) {
+                        object : DragAndDropTarget {
+                            override fun onDrop(event: DragAndDropEvent): Boolean {
+                                val text = (event.dragData() as? DragData.Text)?.readText()?.trim()
+                                if (text.isNullOrEmpty()) return false
+                                shareHookDispatch(
+                                    if (text.isURL()) UiHookEvent.ShareUrl(text) else UiHookEvent.ShareText(text)
+                                )
+                                return true
+                            }
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .let {
+                                if (connectionState == RpcServiceManager.ConnectionState.Authenticated) {
+                                    it.dragAndDropTarget(shouldStartDragAndDrop = { true }, target = dropTarget)
+                                } else it
+                            }
+                    ) {
+                        SlideTransition(
+                            navigator = navigator,
+                            modifier = Modifier.blur(blur)
+                        )
+                    }
+                }
+
+                if (connectionState == RpcServiceManager.ConnectionState.Authenticated) {
+                    ConnectionBanners(
+                        rpcServiceManager = rpcServiceManager,
+                        modifier = Modifier.align(Alignment.TopCenter)
                     )
                 }
 

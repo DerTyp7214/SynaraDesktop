@@ -67,7 +67,7 @@ class HomeScreenModel(
 
     fun logout() {
         screenModelScope.launch(modelDispatcher) {
-            rpcServiceManager.handleAuthFailure()
+            rpcServiceManager.handleAuthFailure(null)
         }
     }
 

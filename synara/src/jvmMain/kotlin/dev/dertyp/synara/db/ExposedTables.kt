@@ -33,10 +33,13 @@ object DownloadedSongs : UUIDTable("song") {
     val trackNumber = integer("trackNumber").default(1)
     val discNumber = integer("discNumber").default(1)
     val copyright = text("copyright").default("")
+    val codec = text("codec").default("")
     val sampleRate = integer("sampleRate").default(0)
     val bitsPerSample = integer("bitsPerSample").default(0)
     val bitRate = long("bitRate").default(0)
     val fileSize = long("fileSize").default(0)
+    val channels = integer("channels").default(0)
+    val audioStartMs = long("audioStartMs").nullable()
     val inserted = long("inserted").default(0L)
 
     // UserSong fields

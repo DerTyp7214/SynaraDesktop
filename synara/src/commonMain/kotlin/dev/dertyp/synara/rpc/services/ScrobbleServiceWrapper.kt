@@ -1,6 +1,7 @@
 package dev.dertyp.synara.rpc.services
 
 import dev.dertyp.PlatformUUID
+import dev.dertyp.data.PlaybackReport
 import dev.dertyp.data.RecentListens
 import dev.dertyp.data.ScrobbleRequest
 import dev.dertyp.services.IScrobbleService
@@ -10,6 +11,10 @@ import kotlinx.coroutines.flow.Flow
 class ScrobbleServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manager), IScrobbleService {
     override suspend fun nowPlaying(songId: PlatformUUID) {
         manager.getService<IScrobbleService>().nowPlaying(songId)
+    }
+
+    override suspend fun reportPlayback(report: PlaybackReport): Long {
+        return manager.getService<IScrobbleService>().reportPlayback(report)
     }
 
     override suspend fun clearNowPlaying() {

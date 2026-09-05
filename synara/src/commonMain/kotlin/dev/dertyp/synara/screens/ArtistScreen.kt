@@ -29,7 +29,11 @@ import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.*
 import dev.dertyp.synara.ui.components.dialogs.FullscreenImageDialog
 import dev.dertyp.synara.ui.components.menus.ArtistContextMenu
+import dev.dertyp.synara.ui.server.UiSlot
 import dev.dertyp.synara.viewmodels.ArtistScreenModel
+import dev.dertyp.ui.UiContext
+import dev.dertyp.ui.UiEntityType
+import dev.dertyp.ui.UiSlots
 import org.jetbrains.compose.resources.stringResource
 import org.koin.core.parameter.parametersOf
 import synara.synara.generated.resources.*
@@ -201,6 +205,14 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
                                         onClick = { navigator?.push(AlbumScreen(album.id)) }
                                     )
                                 }
+                            }
+
+                            item {
+                                UiSlot(
+                                    slot = UiSlots.ARTIST_DETAIL,
+                                    context = UiContext(entityType = UiEntityType.ARTIST, entityId = artistId),
+                                    modifier = Modifier.padding(top = 16.dp),
+                                )
                             }
                         }
 

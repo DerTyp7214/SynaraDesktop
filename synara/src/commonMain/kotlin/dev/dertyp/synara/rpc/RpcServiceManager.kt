@@ -3,6 +3,8 @@ package dev.dertyp.synara.rpc
 import com.russhwolf.settings.Settings
 import dev.dertyp.data.AuthenticationResponse
 import dev.dertyp.ioDispatcher
+import dev.dertyp.logging.LogTag
+import dev.dertyp.logging.Logger
 import dev.dertyp.rpc.BaseRpcServiceManager
 import dev.dertyp.services.IUserService
 import dev.dertyp.synara.Config
@@ -23,6 +25,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.reflect.KClass
@@ -40,8 +43,18 @@ class RpcServiceManager(
         Authenticated
     }
 
+    enum class AuthFailureReason {
+        RefreshRejected,
+        Other
+    }
+
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Loading)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
+
+    private val _authFailureReason = MutableStateFlow<AuthFailureReason?>(null)
+    val authFailureReason: StateFlow<AuthFailureReason?> = _authFailureReason.asStateFlow()
+
+    private val logger: Logger by inject()
 
     private var isUsingFallback = false
     private var hasFetchedProxyInfo = false
@@ -81,7 +94,19 @@ class RpcServiceManager(
             }
         }
         scope.launch {
+            connectionState.collect { state ->
+                if (state == ConnectionState.Authenticated) ensureHandshake()
+            }
+        }
+        scope.launch {
             refreshConnectionState()
+        }
+    }
+
+    private suspend fun ensureHandshake() {
+        if (handshake.value != null) return
+        if (fetchHandshake() == null) {
+            logger.warning(LogTag.RPC, "Failed to fetch handshake, server UI stays unavailable")
         }
     }
 
@@ -100,6 +125,13 @@ class RpcServiceManager(
     var rpcPath: String
         get() = settings.get(SettingKey.RpcPath, "/")
         private set(value) = settings.put(SettingKey.RpcPath, value)
+
+    override val sslConfirmed: Boolean
+        get() = settings.get(SettingKey.SslConfirmed, false)
+
+    override suspend fun setSslConfirmed(value: Boolean) {
+        settings.put(SettingKey.SslConfirmed, value)
+    }
 
     private var storedAuthToken: String?
         get() = settings.getOrNull(SettingKey.AuthToken)
@@ -134,9 +166,10 @@ class RpcServiceManager(
         }
 
     override suspend fun getRpcUrl(): String? {
+        val sslAllowed = sessionSslOverride.value != false
         val h = host
         val p = port
-        val s = ssl
+        val s = ssl && sslAllowed
         val path = rpcPath.removeSuffix("/")
         val base = if (h != null && p != null) {
             val scheme = if (s) "wss://" else "ws://"
@@ -146,7 +179,7 @@ class RpcServiceManager(
         val ph = settings.getOrNull(SettingKey.ProxyHost)
         val pp = settings.getOrNull(SettingKey.ProxyPort)
         val pi = settings.getOrNull(SettingKey.ProxyId)
-        val ps = settings.get(SettingKey.ProxySsl, false)
+        val ps = settings.get(SettingKey.ProxySsl, false) && sslAllowed
         val proxy = if (ph != null && pp != null) {
             val scheme = if (ps) "wss://" else "ws://"
             "$scheme$ph:$pp${pi?.let { "/$it" } ?: ""}"
@@ -163,7 +196,10 @@ class RpcServiceManager(
         this.port = port
         this.ssl = ssl
         this.rpcPath = path
+        setSslConfirmed(false)
     }
+
+    override fun uiLocale(): String? = Config.language.value
 
     override fun onServerUnreachable() {
         isUsingFallback = !isUsingFallback
@@ -204,10 +240,19 @@ class RpcServiceManager(
         authUpdates.emit(Unit)
     }
 
-    public override suspend fun handleAuthFailure() {
+    public override suspend fun handleAuthFailure(reason: Throwable?) {
+        _authFailureReason.value = if (reason != null && isRefreshRejected(reason)) {
+            AuthFailureReason.RefreshRejected
+        } else {
+            AuthFailureReason.Other
+        }
         clearAuth()
         clear()
         _connectionState.value = ConnectionState.LoginRequired
+    }
+
+    fun clearAuthFailureReason() {
+        _authFailureReason.value = null
     }
 
     fun logout() {
@@ -230,7 +275,9 @@ class RpcServiceManager(
         this.ssl = ssl
         this.rpcPath = path
         hasFetchedProxyInfo = false
+        resetSslSession()
         scope.launch {
+            setSslConfirmed(false)
             clearAuth()
             clear()
             refreshConnectionState()
@@ -239,6 +286,7 @@ class RpcServiceManager(
 
     fun resetToSetup() {
         hasFetchedProxyInfo = false
+        resetHandshake()
         scope.launch {
             clearAuth()
             clear()
@@ -340,6 +388,7 @@ class RpcServiceManager(
                     launch { fetchProxyInfo() }
                 }
                 clear()
+                if (isAuthenticated()) ensureHandshake()
                 return@launch
             }
 

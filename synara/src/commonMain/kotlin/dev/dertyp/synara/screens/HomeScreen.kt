@@ -30,7 +30,6 @@ import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.transitions.SlideTransition
 import dev.dertyp.data.ServerStats
-import dev.dertyp.data.UserCapability
 import dev.dertyp.data.UserPlaylist
 import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.Config
@@ -39,10 +38,26 @@ import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.theme.isAppDark
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.*
+import dev.dertyp.synara.ui.components.home.UiHomeCardsEditButton
+import dev.dertyp.synara.ui.components.home.UiHomeCardsSection
 import dev.dertyp.synara.ui.components.menus.PlaylistContextMenu
 import dev.dertyp.synara.ui.models.AnnotatedSnackbarVisuals
 import dev.dertyp.synara.ui.models.SnackbarManager
+import dev.dertyp.synara.ui.server.UiHost
+import dev.dertyp.synara.ui.server.UiHostOverlays
+import dev.dertyp.synara.ui.server.UiIconView
+import dev.dertyp.synara.ui.server.UiPageScreen
+import dev.dertyp.synara.ui.server.UiRenderer
+import dev.dertyp.synara.ui.server.UiSlot
+import dev.dertyp.synara.ui.server.asEntry
+import dev.dertyp.synara.ui.server.rememberSlotRenders
+import dev.dertyp.synara.ui.server.rememberUiHost
+import dev.dertyp.synara.viewmodels.HomeCardsModel
 import dev.dertyp.synara.viewmodels.HomeScreenModel
+import dev.dertyp.ui.UiAction
+import dev.dertyp.ui.UiComponent
+import dev.dertyp.ui.UiContext
+import dev.dertyp.ui.UiSlots
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
@@ -216,7 +231,6 @@ class HomeScreen : Screen {
     ) {
         val playlists by screenModel.globalState.userPlaylists.collectAsState()
         val isRefreshing by screenModel.globalState.isRefreshingPlaylists.collectAsState()
-        val user by screenModel.globalState.user.collectAsState()
 
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -322,19 +336,7 @@ class HomeScreen : Screen {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            if (user?.hasCapability(UserCapability.IMPORT) == true) {
-                NavigationItem(
-                    label = stringResource(Res.string.importer_title),
-                    icon = SynaraIcons.Upload.get(),
-                    selected = navigator.lastItem is ImportScreen,
-                    onClick = {
-                        if (navigator.lastItem !is ImportScreen) navigator.push(ImportScreen())
-                        onItemClick?.invoke()
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-            }
+            LibrarySlotItems(navigator = navigator, onItemClick = onItemClick)
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -399,6 +401,21 @@ class HomeScreen : Screen {
         selected: Boolean,
         onClick: () -> Unit
     ) {
+        NavigationItem(
+            label = label,
+            selected = selected,
+            onClick = onClick,
+            icon = { Icon(icon, null, Modifier.size(20.dp)) }
+        )
+    }
+
+    @Composable
+    private fun NavigationItem(
+        label: String,
+        selected: Boolean,
+        onClick: () -> Unit,
+        icon: @Composable () -> Unit
+    ) {
         val interactionSource = remember { MutableInteractionSource() }
         val isHovered by interactionSource.collectIsHoveredAsState()
 
@@ -428,12 +445,7 @@ class HomeScreen : Screen {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(20.dp)
-                )
+                Box(modifier = Modifier.size(20.dp), contentAlignment = Alignment.Center) { icon() }
                 Text(
                     text = label,
                     style = MaterialTheme.typography.bodyMedium,
@@ -442,6 +454,57 @@ class HomeScreen : Screen {
                 )
             }
         }
+    }
+
+    @Composable
+    private fun LibrarySlotItems(
+        navigator: Navigator,
+        onItemClick: (() -> Unit)?,
+    ) {
+        val context = remember { UiContext() }
+        val slotRenders = rememberSlotRenders(UiSlots.LIBRARY, context)
+        if (slotRenders.items.isEmpty()) return
+
+        val host = rememberUiHost("library", context, onRefresh = slotRenders.refresh)
+
+        slotRenders.items.forEach { render ->
+            key(render.contributionId) {
+                LibrarySlotItem(render.root, navigator, host, onItemClick)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+
+        UiHostOverlays(host)
+    }
+
+    @Composable
+    private fun LibrarySlotItem(
+        component: UiComponent,
+        navigator: Navigator,
+        host: UiHost,
+        onItemClick: (() -> Unit)?,
+    ) {
+        val entry = component.asEntry()
+        if (entry == null) {
+            UiRenderer(component, host)
+            return
+        }
+
+        val selected = (entry.action as? UiAction.OpenPage)?.let { openPage ->
+            (navigator.lastItem as? UiPageScreen)?.pageId == openPage.pageId
+        } ?: false
+
+        NavigationItem(
+            label = entry.title,
+            selected = selected,
+            onClick = {
+                if (entry.enabled) {
+                    entry.action?.let { host.dispatch(it) }
+                    onItemClick?.invoke()
+                }
+            },
+            icon = { entry.icon?.let { UiIconView(it, size = 20.dp) } }
+        )
     }
 
     @OptIn(ExperimentalFoundationApi::class)
@@ -562,7 +625,7 @@ class HomeScreen : Screen {
                     modifier = Modifier
                         .weight(1f)
                         .height(52.dp),
-                    leadingIcon = { 
+                    leadingIcon = {
                         Icon(
                             SynaraIcons.Search.get(), 
                             contentDescription = null,
@@ -612,6 +675,7 @@ private class DashboardScreen : Screen {
     @Composable
     override fun Content() {
         val screenModel = getScreenModel<HomeScreenModel>()
+        val homeCardsModel = getScreenModel<HomeCardsModel>()
         val playerModel = koinInject<PlayerModel>()
         val navigator = LocalNavigator.currentOrThrow
         val stats by screenModel.serverStats.collectAsState()
@@ -643,11 +707,17 @@ private class DashboardScreen : Screen {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item {
-                    Text(
-                        text = stringResource(Res.string.dashboard),
-                        style = MaterialTheme.typography.headlineLarge,
-                        modifier = Modifier.padding(bottom = 24.dp)
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.dashboard),
+                            style = MaterialTheme.typography.headlineLarge
+                        )
+                        UiHomeCardsEditButton(homeCardsModel)
+                    }
                 }
 
                 item {
@@ -746,6 +816,14 @@ private class DashboardScreen : Screen {
                             }
                         }
                     }
+                }
+
+                item {
+                    UiHomeCardsSection(homeCardsModel, modifier = Modifier.padding(top = 24.dp))
+                }
+
+                item {
+                    UiSlot(UiSlots.HOME, modifier = Modifier.padding(top = 24.dp))
                 }
             }
 

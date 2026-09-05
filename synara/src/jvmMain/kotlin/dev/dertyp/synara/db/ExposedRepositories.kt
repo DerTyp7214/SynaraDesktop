@@ -2,6 +2,7 @@ package dev.dertyp.synara.db
 
 import dev.dertyp.*
 import dev.dertyp.data.*
+import dev.dertyp.data.effectiveAudio
 import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
@@ -574,10 +575,15 @@ private fun mapRowToUserSong(row: ResultRow): UserSong {
         trackNumber = row[DownloadedSongs.trackNumber],
         discNumber = row[DownloadedSongs.discNumber],
         copyright = row[DownloadedSongs.copyright],
-        sampleRate = row[DownloadedSongs.sampleRate],
-        bitsPerSample = row[DownloadedSongs.bitsPerSample],
-        bitRate = row[DownloadedSongs.bitRate],
-        fileSize = row[DownloadedSongs.fileSize],
+        audio = AudioInfo(
+            codec = row[DownloadedSongs.codec],
+            sampleRate = row[DownloadedSongs.sampleRate],
+            bitsPerSample = row[DownloadedSongs.bitsPerSample],
+            bitRate = row[DownloadedSongs.bitRate],
+            fileSize = row[DownloadedSongs.fileSize],
+            channels = row[DownloadedSongs.channels],
+        ),
+        audioStartMs = row[DownloadedSongs.audioStartMs],
         coverId = row[DownloadedSongs.cover]?.value,
         musicBrainzId = row[DownloadedSongs.musicBrainzId],
         genres = genres,
@@ -672,10 +678,14 @@ private fun saveSongMetadataInternal(song: UserSong, explicitlySaved: Boolean) {
         it[trackNumber] = song.trackNumber
         it[discNumber] = song.discNumber
         it[copyright] = song.copyright
-        it[sampleRate] = song.sampleRate
-        it[bitsPerSample] = song.bitsPerSample
-        it[bitRate] = song.bitRate
-        it[fileSize] = song.fileSize
+        val songAudio = song.effectiveAudio
+        it[codec] = songAudio?.codec ?: ""
+        it[sampleRate] = songAudio?.sampleRate ?: 0
+        it[bitsPerSample] = songAudio?.bitsPerSample ?: 0
+        it[bitRate] = songAudio?.bitRate ?: 0L
+        it[fileSize] = songAudio?.fileSize ?: 0L
+        it[channels] = songAudio?.channels ?: 0
+        it[audioStartMs] = song.audioStartMs
         it[cover] = song.coverId
         it[musicBrainzId] = song.musicBrainzId
         if (explicitlySaved) it[DownloadedSongs.explicitlySaved] = true

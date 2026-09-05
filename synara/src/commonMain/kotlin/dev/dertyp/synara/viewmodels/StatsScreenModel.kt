@@ -7,6 +7,7 @@ import dev.dertyp.data.LinkUnmatchedTrackRequest
 import dev.dertyp.data.LinkUnmatchedTrackResult
 import dev.dertyp.data.ListeningStats
 import dev.dertyp.data.StatsRange
+import dev.dertyp.data.TopOrder
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.IListeningStatsService
 import dev.dertyp.services.ISongService
@@ -19,6 +20,29 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
+enum class StatsPeriod(val supportsLast: Boolean) {
+    DAY(false), WEEK(true), MONTH(true), YEAR(true), ALL_TIME(false)
+}
+
+fun StatsRange.toPeriod(): StatsPeriod = when (this) {
+    StatsRange.DAY -> StatsPeriod.DAY
+    StatsRange.WEEK, StatsRange.LAST_WEEK -> StatsPeriod.WEEK
+    StatsRange.MONTH, StatsRange.LAST_MONTH -> StatsPeriod.MONTH
+    StatsRange.YEAR, StatsRange.LAST_YEAR -> StatsPeriod.YEAR
+    StatsRange.ALL_TIME -> StatsPeriod.ALL_TIME
+}
+
+fun StatsRange.isLastPeriod(): Boolean =
+    this == StatsRange.LAST_WEEK || this == StatsRange.LAST_MONTH || this == StatsRange.LAST_YEAR
+
+fun StatsPeriod.toRange(last: Boolean): StatsRange = when (this) {
+    StatsPeriod.DAY -> StatsRange.DAY
+    StatsPeriod.WEEK -> if (last) StatsRange.LAST_WEEK else StatsRange.WEEK
+    StatsPeriod.MONTH -> if (last) StatsRange.LAST_MONTH else StatsRange.MONTH
+    StatsPeriod.YEAR -> if (last) StatsRange.LAST_YEAR else StatsRange.YEAR
+    StatsPeriod.ALL_TIME -> StatsRange.ALL_TIME
+}
+
 class StatsScreenModel(
     private val listeningStatsService: IListeningStatsService,
     private val songService: ISongService,
@@ -29,21 +53,22 @@ class StatsScreenModel(
     data class StatsState(
         val stats: ListeningStats? = null,
         val selectedRange: StatsRange = StatsRange.WEEK,
+        val topOrder: TopOrder = TopOrder.LISTEN_COUNT,
         val isLoading: Boolean = false,
         val error: String? = null,
         val linkSearchResults: List<UserSong> = emptyList(),
     )
 
     init {
-        load(StatsRange.WEEK)
+        load(StatsRange.WEEK, TopOrder.LISTEN_COUNT)
     }
 
-    fun load(range: StatsRange) {
+    fun load(range: StatsRange, topOrder: TopOrder = state.value.topOrder) {
         screenModelScope.launch(dispatchers.io) {
-            mutableState.update { it.copy(selectedRange = range, isLoading = true, error = null) }
+            mutableState.update { it.copy(selectedRange = range, topOrder = topOrder, isLoading = true, error = null) }
             try {
                 rpcServiceManager.awaitAuthentication()
-                val stats = listeningStatsService.getStats(range, currentTimezoneId(), topLimit = 50)
+                val stats = listeningStatsService.getStats(range, currentTimezoneId(), topLimit = 50, topOrder = topOrder)
                 mutableState.update { it.copy(stats = stats, isLoading = false) }
             } catch (e: Exception) {
                 mutableState.update { it.copy(isLoading = false, error = e.message ?: "Unknown error") }
@@ -51,7 +76,22 @@ class StatsScreenModel(
         }
     }
 
-    fun reload() = load(state.value.selectedRange)
+    fun reload() = load(state.value.selectedRange, state.value.topOrder)
+
+    fun selectPeriod(period: StatsPeriod) {
+        val last = period.supportsLast && state.value.selectedRange.isLastPeriod()
+        load(period.toRange(last))
+    }
+
+    fun setLast(last: Boolean) {
+        val period = state.value.selectedRange.toPeriod()
+        if (!period.supportsLast) return
+        load(period.toRange(last))
+    }
+
+    fun setTopOrder(order: TopOrder) {
+        load(state.value.selectedRange, order)
+    }
 
     private var linkSearchJob: Job? = null
 

@@ -64,6 +64,25 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.4.0",
+                        date = "2026-09-05",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "**Server-driven UI**: settings pages, home cards, library entries, song menu actions and detail-screen cards provided by the server and its plugins now render in the app."),
+                            Change(ChangeType.New, "**Home cards** can be pinned, unpinned and reordered from the edit button on the dashboard."),
+                            Change(ChangeType.New, "**Playback reporting**: play, pause, seek and a periodic heartbeat are reported to the server with a synchronized clock, so server features can follow your current position."),
+                            Change(ChangeType.New, "**Multichannel playback**: 5.1 and 7.1 FLAC, WAV, AIFF and Opus songs now play in their native channel layout through OpenAL, with loudness compensation so they match stereo material; the visualizer follows all channels."),
+                            Change(ChangeType.New, "**Listen backup** admin screen to configure, test and trigger the server's listen backup."),
+                            Change(ChangeType.New, "Listening stats can show the **last** week, month or year and rank top lists by **time listened** instead of listen count."),
+                            Change(ChangeType.New, "Links in recent releases open through the server's intake handlers, and URLs or text dropped onto the window are offered to the server's share handlers."),
+                            Change(ChangeType.Improved, "Song info shows the **codec and channel layout**; audio details come from the server's new audio info and work for downloaded songs too."),
+                            Change(ChangeType.Improved, "Connection state is visible: a banner when the server is unreachable or the session fell back to an unencrypted connection (with a retry), the reason on the login screen after a forced logout, and server API and UI schema versions in the server settings."),
+                            Change(ChangeType.Fixed, "Opus playback honours the encoder's pre-skip and output gain."),
+                            Change(ChangeType.Removed, "The built-in importer screen; importing is now served by the server through the library entry and intake handlers."),
+                            Change(ChangeType.Updated, "Synchronized with the latest server API (**v5**), including the UI schema header sent on every request.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.3.6",
                         date = "2026-08-26",
                         isPrerelease = true,

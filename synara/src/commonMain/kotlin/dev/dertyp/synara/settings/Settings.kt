@@ -7,6 +7,7 @@ sealed class SettingKey<T>(val name: String) {
     data object Host : SettingKey<String>("host")
     data object Port : SettingKey<Int>("port")
     data object Ssl : SettingKey<Boolean>("ssl")
+    data object SslConfirmed : SettingKey<Boolean>("ssl_confirmed")
     data object RpcPath : SettingKey<String>("rpc_path")
     data object AuthToken : SettingKey<String>("auth_token")
     data object RefreshToken : SettingKey<String>("refresh_token")
@@ -131,6 +132,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.IsListenBrainzEnabled, is SettingKey.IsLastFmEnabled,
         is SettingKey.IsDiscordRpcEnabled, is SettingKey.HideOnClose,
         is SettingKey.IsProxyEnabled, is SettingKey.ProxySsl, is SettingKey.Ssl,
+        is SettingKey.SslConfirmed,
         is SettingKey.NeedsUserIdMigration, is SettingKey.IconFilled,
         is SettingKey.DownloadFavorites, is SettingKey.ShowRemainingTime,
         is SettingKey.ShowPerformanceOverlay -> getBooleanOrNull(key.name) as T?

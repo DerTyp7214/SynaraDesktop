@@ -14,6 +14,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.dertyp.core.joinArtists
 import dev.dertyp.data.UserSong
+import dev.dertyp.data.effectiveAudio
+import dev.dertyp.synara.ui.components.channelLabel
 import dev.dertyp.synara.ui.components.formatFileSize
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.*
@@ -52,13 +54,22 @@ fun SongInfoDialog(
                     "${song.trackNumber} / ${song.discNumber}"
                 )
                 InfoItem(stringResource(Res.string.metadata_copyright), song.copyright.ifBlank { "-" })
+                val audio = song.effectiveAudio
                 InfoItem(
                     stringResource(Res.string.metadata_quality),
-                    "${song.sampleRate / 1000}kHz / ${song.bitsPerSample}bit / ${song.bitRate}kbps"
+                    "${(audio?.sampleRate ?: 0) / 1000}kHz / ${audio?.bitsPerSample ?: 0}bit / ${audio?.bitRate ?: 0}kbps"
+                )
+                InfoItem(
+                    stringResource(Res.string.metadata_codec),
+                    audio?.codec?.ifBlank { null }?.uppercase() ?: "-"
+                )
+                InfoItem(
+                    stringResource(Res.string.metadata_channels),
+                    channelLabel(audio?.channels ?: 0)
                 )
                 InfoItem(
                     stringResource(Res.string.metadata_file_size),
-                    formatFileSize(song.fileSize)
+                    formatFileSize(audio?.fileSize ?: 0L)
                 )
                 InfoItem(stringResource(Res.string.metadata_url), song.originalUrl.ifBlank { "-" })
             }

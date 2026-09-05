@@ -18,9 +18,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.dertyp.core.cleanTitle
 import dev.dertyp.data.UserSong
+import dev.dertyp.data.effectiveAudio
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.ArtistsText
 import dev.dertyp.synara.ui.components.SynaraImage
+import dev.dertyp.synara.ui.components.channelLabel
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.*
@@ -101,11 +103,18 @@ fun SongInfoSection(
                 }
 
                 song?.let { s ->
-                    val bitRate = if (liveBitRate > 0) liveBitRate else s.bitRate
-                    val sampleRate = if (liveSampleRate > 0) liveSampleRate.toLong() else s.sampleRate.toLong()
-                    val bits = if (liveBitsPerSample > 0) liveBitsPerSample else s.bitsPerSample
+                    val audio = s.effectiveAudio
+                    val bitRate = if (liveBitRate > 0) liveBitRate else (audio?.bitRate ?: 0L)
+                    val sampleRate =
+                        if (liveSampleRate > 0) liveSampleRate.toLong() else (audio?.sampleRate ?: 0).toLong()
+                    val bits = if (liveBitsPerSample > 0) liveBitsPerSample else (audio?.bitsPerSample ?: 0)
+                    val codec = audio?.codec.orEmpty()
+                    val channels = audio?.channels ?: 0
+                    val channelText = if (channels > 0) channelLabel(channels) else ""
 
-                    if (bitRate > 0 || sampleRate > 0 || s.musicBrainzId != null) {
+                    if (bitRate > 0 || sampleRate > 0 || codec.isNotBlank() || channels > 0 ||
+                        s.musicBrainzId != null
+                    ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (s.musicBrainzId != null) {
                                 Icon(
@@ -118,16 +127,24 @@ fun SongInfoSection(
                                 )
                             }
 
-                            if (bitRate > 0 || sampleRate > 0) {
+                            if (bitRate > 0 || sampleRate > 0 || codec.isNotBlank() || channelText.isNotEmpty()) {
                                 Text(
                                     text = buildString {
+                                        if (codec.isNotBlank()) append(codec.uppercase())
+                                        if (isNotEmpty() && bitRate > 0) append(" • ")
                                         if (bitRate > 0) append("$bitRate kbps")
-                                        if (bitRate > 0 && (bits > 0 || sampleRate > 0)) append(" • ")
-                                        if (bits > 0) append("$bits bit")
-                                        if (bits > 0 && sampleRate > 0) append(" • ")
+                                        if (bits > 0) {
+                                            if (isNotEmpty()) append(" • ")
+                                            append("$bits bit")
+                                        }
                                         if (sampleRate > 0) {
+                                            if (isNotEmpty()) append(" • ")
                                             if (sampleRate > 1000) append("${sampleRate / 1000.0} kHz")
                                             else append("$sampleRate kHz")
+                                        }
+                                        if (channelText.isNotEmpty()) {
+                                            if (isNotEmpty()) append(" • ")
+                                            append(channelText)
                                         }
                                     },
                                     style = MaterialTheme.typography.labelSmall.copy(

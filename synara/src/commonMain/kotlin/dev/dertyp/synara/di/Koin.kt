@@ -5,13 +5,14 @@ import dev.dertyp.getPlatformName
 import dev.dertyp.logging.BaseLogger
 import dev.dertyp.logging.Logger
 import dev.dertyp.rpc.apiVersionHeader
+import dev.dertyp.rpc.uiHeaders
 import dev.dertyp.serializers.AppCbor
 import dev.dertyp.serializers.AppJson
 import dev.dertyp.services.*
-import dev.dertyp.services.import.IImportService
 import dev.dertyp.services.metadata.IMetadataService
 import dev.dertyp.services.metadata.IMusicBrainzService
 import dev.dertyp.synara.BuildConfig
+import dev.dertyp.synara.Config
 import dev.dertyp.synara.game.GAME_AUDIO_PLAYER
 import dev.dertyp.synara.game.GameAudioPlayer
 import dev.dertyp.synara.game.SongGuessLeaderboard
@@ -19,6 +20,7 @@ import dev.dertyp.synara.logging.StdoutLogPersistence
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.SongCache
 import dev.dertyp.synara.rpc.RpcServiceManager
+import dev.dertyp.synara.rpc.ServerClock
 import dev.dertyp.synara.rpc.services.*
 import dev.dertyp.synara.scrobble.*
 import dev.dertyp.synara.services.IDownloadManager
@@ -69,6 +71,7 @@ private fun buildHttpClient(cbor: Cbor, json: Json): HttpClient {
         install(DefaultRequest) {
             //header(SynaraPackHeader, "true")
             apiVersionHeader()
+            uiHeaders(Config.language.value)
         }
         install(Krpc) {
             serialization {
@@ -116,10 +119,12 @@ val appModule = module {
     factoryOf(::SetupScreenModel)
     factoryOf(::LoginScreenModel)
     factoryOf(::HomeScreenModel)
+    factoryOf(::HomeCardsModel)
     factoryOf(::SearchScreenModel)
     factoryOf(::LikedSongsScreenModel)
     factoryOf(::AllSongsScreenModel)
     factoryOf(::SessionsScreenModel)
+    factoryOf(::ListenBackupScreenModel)
 
     factoryOf(::ArtistScreenModel)
     factoryOf(::ArtistSongsScreenModel)
@@ -133,7 +138,6 @@ val appModule = module {
     factoryOf(::SearchArtistsViewModel)
     factoryOf(::SearchAlbumsViewModel)
     factoryOf(::SearchPlaylistsViewModel)
-    factoryOf(::ImportScreenModel)
     factoryOf(::DownloadsScreenModel)
     factoryOf(::RadioScreenModel)
     factoryOf(::CollectionsScreenModel)
@@ -151,7 +155,6 @@ val appModule = module {
     singleOf(::AuthServiceWrapper) bind IAuthService::class
     singleOf(::CustomAudioServiceWrapper) bind ICustomAudioService::class
     singleOf(::DiscoveryServiceWrapper) bind IDiscoveryService::class
-    singleOf(::ImportServiceWrapper) bind IImportService::class
     singleOf(::FavSyncServiceWrapper) bind IFavSyncService::class
     singleOf(::ImageServiceWrapper) bind IImageService::class
     singleOf(::LyricsSearchWrapper) bind ILyricsSearch::class
@@ -176,6 +179,12 @@ val appModule = module {
     singleOf(::ApiKeyServiceWrapper) bind IApiKeyService::class
     singleOf(::SubsonicCredentialServiceWrapper) bind ISubsonicCredentialService::class
     singleOf(::ScrobbleServiceWrapper) bind IScrobbleService::class
+    singleOf(::ServerClock)
+
+    singleOf(::UiServiceWrapper) bind IUiService::class
+    singleOf(::HueServiceWrapper) bind IHueService::class
+    singleOf(::CoverGenerationServiceWrapper) bind ICoverGenerationService::class
+    singleOf(::ListenBackupServiceWrapper) bind IListenBackupService::class
 
     singleOf(::LocalSongScrobbler)
     singleOf(::ListenBrainzScrobbler)
