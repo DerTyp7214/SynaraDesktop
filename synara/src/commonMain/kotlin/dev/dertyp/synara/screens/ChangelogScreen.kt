@@ -64,6 +64,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.4.1",
+                        date = "2026-09-06",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Improved, "Share handlers are identified by their **id** instead of their title."),
+                            Change(ChangeType.Updated, "Synchronized with the latest server API.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.4.0",
                         date = "2026-09-05",
                         isPrerelease = true,

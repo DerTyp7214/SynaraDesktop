@@ -43,6 +43,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -168,21 +169,23 @@ fun UiOpenMenuContent(
             )
         }
         current?.items?.forEach { item ->
-            DropdownMenuItem(
-                text = { Text(item.label, color = item.tone.contentColor()) },
-                enabled = item.enabled,
-                leadingIcon = item.icon?.let { icon -> { UiIconView(icon, tint = item.tone.contentColor()) } },
-                onClick = {
-                    val next = item.action
-                    if (next is UiAction.OpenMenu) {
-                        stack = stack + next
-                    } else {
-                        stack = emptyList()
-                        onItemDispatched()
-                        host.dispatch(next, form.bindingFor(next))
-                    }
-                },
-            )
+            key(item.id ?: item.label) {
+                DropdownMenuItem(
+                    text = { Text(item.label, color = item.tone.contentColor()) },
+                    enabled = item.enabled,
+                    leadingIcon = item.icon?.let { icon -> { UiIconView(icon, tint = item.tone.contentColor()) } },
+                    onClick = {
+                        val next = item.action
+                        if (next is UiAction.OpenMenu) {
+                            stack = stack + next
+                        } else {
+                            stack = emptyList()
+                            onItemDispatched()
+                            host.dispatch(next, form.bindingFor(next))
+                        }
+                    },
+                )
+            }
         }
     }
 }

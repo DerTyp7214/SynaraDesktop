@@ -319,7 +319,7 @@ fun RecentReleaseDialog(
                     items(handlerLinks) { (link, handler) ->
                         Button(
                             onClick = {
-                                host.dispatch(UiAction.Intake(listOf(IntakeItem.Url(link)), resolverId = handler.contributionId))
+                                host.dispatch(UiAction.Intake(listOf(IntakeItem.Url(link)), resolverId = handler.id))
                                 onDismissRequest()
                             },
                             modifier = Modifier.fillMaxWidth()

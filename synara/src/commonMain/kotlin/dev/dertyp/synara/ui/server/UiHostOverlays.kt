@@ -22,6 +22,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -75,16 +76,18 @@ fun UiHostOverlays(host: DefaultUiHost) {
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 choice?.handlers?.forEach { handler ->
-                    ListItem(
-                        modifier = Modifier.fillMaxWidth().clickable {
-                            host.pendingChoice = null
-                            host.dispatch(handler.action.withConfirmText(handler.confirmText))
-                        },
-                        headlineContent = { Text(handler.title) },
-                        supportingContent = handler.description?.let { { Text(it) } },
-                        leadingContent = handler.icon?.let { { UiIconView(it) } },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    )
+                    key(handler.id) {
+                        ListItem(
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                host.pendingChoice = null
+                                host.dispatch(handler.action.withConfirmText(handler.confirmText))
+                            },
+                            headlineContent = { Text(handler.title) },
+                            supportingContent = handler.description?.let { { Text(it) } },
+                            leadingContent = handler.icon?.let { { UiIconView(it) } },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        )
+                    }
                 }
             }
         },
