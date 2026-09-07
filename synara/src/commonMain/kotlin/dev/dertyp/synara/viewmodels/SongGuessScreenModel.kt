@@ -23,6 +23,7 @@ import dev.dertyp.synara.game.PoolSource
 import dev.dertyp.synara.game.RANDOM_OFFSET_TAIL_MS
 import dev.dertyp.synara.game.RoundResult
 import dev.dertyp.synara.game.SNIPPET_LADDER_MS
+import dev.dertyp.synara.game.audioStartFloorMs
 import dev.dertyp.synara.game.SavedGame
 import dev.dertyp.synara.game.SnippetStart
 import dev.dertyp.synara.game.SongGuessLeaderboard
@@ -263,13 +264,14 @@ class SongGuessScreenModel(
             finishGame(ERROR_NOT_ENOUGH_SONGS)
             return
         }
-        val offset = when (config.snippetStart) {
+        val candidate = when (config.snippetStart) {
             SnippetStart.SONG_START -> 0L
             SnippetStart.RANDOM -> {
                 val max = (song.duration - RANDOM_OFFSET_TAIL_MS).coerceAtLeast(0L)
                 if (max <= 0L) 0L else Random.nextLong(0L, max)
             }
         }
+        val offset = maxOf(candidate, audioStartFloorMs(song.audioStartMs))
         player.stop()
         player.load(song.id, playImmediately = false)
         if (offset > 0L) player.seekTo(offset)

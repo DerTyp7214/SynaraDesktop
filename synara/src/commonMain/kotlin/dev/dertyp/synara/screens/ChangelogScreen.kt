@@ -64,6 +64,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.4.2",
+                        date = "2026-09-07",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Fixed, "Songs no longer start a moment late: the leading-silence offset is only used by **Guess the Song**."),
+                            Change(ChangeType.Improved, "Seeking within the first seconds of a song is sample-accurate.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.4.1",
                         date = "2026-09-06",
                         isPrerelease = true,

@@ -17,10 +17,12 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -43,6 +45,9 @@ import java.nio.ShortBuffer
 import java.util.ArrayDeque
 import kotlin.math.min
 import kotlin.time.Duration.Companion.seconds
+
+/** Seek offsets up to this are decoded from the file start and trimmed sample-accurately. */
+private const val EXACT_SEEK_MAX_MS = 5_000L
 
 class SongDataSource(
     private val songService: ISongService,
@@ -197,13 +202,6 @@ class SongDataSource(
         val pcmFlow: Flow<ShortBuffer>
     )
 
-    private fun effectiveStartMs(song: UserSong, positionMs: Long): Long {
-        if (positionMs > 0) return positionMs
-        val lead = song.audioStartMs ?: return 0L
-        if (lead <= 0) return 0L
-        return if (song.duration > 0) lead.coerceAtMost(song.duration - 1) else lead
-    }
-
     private data class PlaybackInfo(
         val sampleRate: Int,
         val channels: Int,
@@ -217,7 +215,7 @@ class SongDataSource(
     ): PlaybackSession? {
         val song = getSong(songId) ?: return null
         val metadata = getMetadata(songId) ?: return null
-        val startMs = effectiveStartMs(song, positionMs)
+        val startMs = positionMs.coerceAtLeast(0L)
 
         PcmHeader.decode(metadata)?.let { pcmHeader ->
             return createPcmPlaybackSession(song, songId, pcmHeader, startMs, sessionScope)
@@ -228,7 +226,12 @@ class SongDataSource(
 
         val quality = settings.get(SettingKey.StreamingQuality, 0)
 
-        val byteOffset = if (startMs > 0 && totalDuration > 0) {
+        // Small offsets are decoded from the file start and trimmed at the PCM level, which is
+        // sample-accurate; the byte-offset estimate below assumes a constant bitrate and can land
+        // noticeably late on VBR streams.
+        val exactSeek = startMs in 1..EXACT_SEEK_MAX_MS
+
+        val byteOffset = if (startMs > 0 && totalDuration > 0 && !exactSeek) {
             val knownSize = song.effectiveAudio?.fileSize ?: 0L
             val fileSize = if (quality == 0) {
                 if (knownSize > 0) knownSize else songService.getStreamSize(songId)
@@ -325,7 +328,8 @@ class SongDataSource(
         val pcmChannel = Channel<ShortBuffer>(Channel.BUFFERED)
         val infoDeferred = CompletableDeferred<PlaybackInfo>()
 
-        sessionScope.launch(Dispatchers.IO) {
+        val decoderJob = sessionScope.launch(Dispatchers.IO) {
+            val decoderJob = coroutineContext.job
             try {
                 if (!isOgg) {
                     val decoder = FLACDecoder(stream)
@@ -341,10 +345,10 @@ class SongDataSource(
                         }
 
                         override fun processPCM(pcm: ByteData) {
-                            val info = runBlocking { infoDeferred.await() }
+                            val info = runBlocking(decoderJob) { infoDeferred.await() }
                             val shortBuffer =
                                 convertToShortBuffer(pcm.data, pcm.len, info.bitsPerSample)
-                            runBlocking { pcmChannel.send(shortBuffer) }
+                            runBlocking(decoderJob) { pcmChannel.send(shortBuffer) }
                         }
                     })
                     decoder.decode()
@@ -405,7 +409,7 @@ class SongDataSource(
                     accumulator?.flush()
                 }
             } catch (e: Exception) {
-                if (e !is CancellationException) {
+                if (e !is CancellationException && isActive) {
                     println("Decoder error for $songId: ${e.message}")
                     if (infoDeferred.isActive) infoDeferred.completeExceptionally(e)
                 }
@@ -417,6 +421,7 @@ class SongDataSource(
 
         return try {
             val info = withTimeout(5.seconds) { infoDeferred.await() }
+            val skipFrames = if (exactSeek) startMs * info.sampleRate / 1000 else 0L
             PlaybackSession(
                 song = song,
                 sampleRate = info.sampleRate,
@@ -424,12 +429,28 @@ class SongDataSource(
                 channels = info.channels,
                 startMs = startMs,
                 pcmFlow = flow {
-                    for (buffer in pcmChannel) {
-                        emit(buffer)
+                    var remainingSkip = skipFrames
+                    try {
+                        for (buffer in pcmChannel) {
+                            if (remainingSkip > 0) {
+                                val channels = info.channels.coerceAtLeast(1)
+                                val frames = buffer.remaining() / channels
+                                val drop = min(remainingSkip, frames.toLong()).toInt()
+                                buffer.position(buffer.position() + drop * channels)
+                                remainingSkip -= drop
+                                if (!buffer.hasRemaining()) continue
+                            }
+                            emit(buffer)
+                        }
+                    } finally {
+                        pcmChannel.cancel()
                     }
                 }
             )
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            pcmChannel.cancel()
+            decoderJob.cancel()
+            if (e is CancellationException) throw e
             null
         }
     }
@@ -490,7 +511,7 @@ class SongDataSource(
                     if (read < want) break
                 }
             } catch (e: Exception) {
-                if (e !is CancellationException) {
+                if (e !is CancellationException && isActive) {
                     println("PCM decoder error for $songId: ${e.message}")
                 }
             } finally {
@@ -506,8 +527,12 @@ class SongDataSource(
             channels = header.channels,
             startMs = positionMs,
             pcmFlow = flow {
-                for (buffer in pcmChannel) {
-                    emit(buffer)
+                try {
+                    for (buffer in pcmChannel) {
+                        emit(buffer)
+                    }
+                } finally {
+                    pcmChannel.cancel()
                 }
             }
         )
@@ -683,8 +708,10 @@ class SongDataSource(
                     if (isClosed) throw CancellationException()
                     channel.send(it)
                 }
+                channel.close()
+            } catch (_: CancellationException) {
+                channel.cancel()
             } catch (_: Exception) {
-            } finally {
                 channel.close()
             }
         }

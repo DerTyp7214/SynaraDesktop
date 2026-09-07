@@ -15,6 +15,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -343,7 +344,7 @@ class JvmAudioPlayer(
 
         playerJob = scope.launch {
             try {
-                val session = dataSource.createPlaybackSession(songId, startTimeMs, scope)
+                val session = dataSource.createPlaybackSession(songId, startTimeMs, this)
                 if (session == null) {
                     println("Failed to create playback session for $songId (unsupported or unreadable audio stream)")
                     return@launch
@@ -362,9 +363,6 @@ class JvmAudioPlayer(
                 _sampleRate.value = session.sampleRate
                 _bitsPerSample.value = session.bitsPerSample
                 _bitRate.value = session.song.effectiveAudio?.bitRate ?: 0L
-                if (session.startMs != startTimeMs) {
-                    _currentPosition.value = session.startMs
-                }
 
                 var totalSamplesPlayedBase = (session.startMs * sampleRate) / 1000
 
@@ -480,6 +478,7 @@ class JvmAudioPlayer(
                     e.printStackTrace()
                 }
             } finally {
+                coroutineContext.cancelChildren()
                 _isPlaying.value = false
                 fftAnalyzer.updateData(FloatArray(fftAnalyzer.fftData.value.size))
             }
