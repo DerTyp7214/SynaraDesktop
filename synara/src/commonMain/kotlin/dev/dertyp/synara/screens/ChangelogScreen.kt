@@ -64,6 +64,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.4.3",
+                        date = "2026-09-07",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Fixed, "Pausing clears the server's **now playing** state after a short grace period, matching the mobile apps; the paused position is still reported.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.4.2",
                         date = "2026-09-07",
                         isPrerelease = true,

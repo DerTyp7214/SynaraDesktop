@@ -82,8 +82,13 @@ class ServerScrobbler(
             playerModel.isPlaying
                 .drop(1)
                 .collectLatest { playing ->
-                    if (currentSong != null && isEnabled) triggerReport(playing)
                     updateHeartbeat(playing)
+                    if (currentSong == null || !isEnabled) return@collectLatest
+                    triggerReport(playing)
+                    if (!playing) {
+                        delay(PAUSE_CLEAR_GRACE)
+                        if (isEnabled) clearNowPlaying()
+                    }
                 }
         }
         this += scope.launch {
@@ -143,19 +148,23 @@ class ServerScrobbler(
         }
     }
 
+    private suspend fun clearNowPlaying() {
+        try {
+            scrobbleService.clearNowPlaying()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warning(LogTag.SCROBBLER, "Failed to clear now playing on server", e)
+        }
+    }
+
     override suspend fun newSong(song: UserSong?) {
         currentSong = song
         if (!isEnabled) return
 
         val playing = playerModel.isPlaying.value
         if (song == null || !playing) {
-            try {
-                scrobbleService.clearNowPlaying()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warning(LogTag.SCROBBLER, "Failed to clear now playing on server", e)
-            }
+            clearNowPlaying()
             updateHeartbeat(false)
             return
         }
@@ -214,6 +223,7 @@ class ServerScrobbler(
     companion object {
         const val MIN_SCROBBLE_MS = 3_000L
         private val HEARTBEAT_INTERVAL = 10.seconds
+        private val PAUSE_CLEAR_GRACE = 1.seconds
         private val COALESCE_WINDOW = 150.milliseconds
     }
 }
