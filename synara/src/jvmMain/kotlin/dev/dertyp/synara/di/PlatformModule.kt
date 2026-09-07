@@ -35,8 +35,11 @@ import dev.dertyp.synara.services.JvmVideoFrameService
 import dev.dertyp.synara.services.LocalStorageService
 import dev.dertyp.synara.services.VideoFrameService
 import dev.dertyp.synara.utils.OSUtils
+import dev.dertyp.synara.utils.SynaraDispatchers
 import org.flywaydb.core.Flyway
+import org.jetbrains.exposed.v1.core.DatabaseConfig
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.named
@@ -70,7 +73,11 @@ actual fun platformModule(): Module = module {
         val config = HikariConfig().apply {
             this.jdbcUrl = jdbcUrl
             driverClassName = "org.sqlite.JDBC"
+            poolName = "SynaraSQLite"
             maximumPoolSize = 4
+            minimumIdle = 1
+            connectionTimeout = 10_000
+            leakDetectionThreshold = 10_000
             addDataSourceProperty("journal_mode", "WAL")
             addDataSourceProperty("busy_timeout", "5000")
         }
@@ -79,7 +86,7 @@ actual fun platformModule(): Module = module {
 
     single<Database> {
         val dataSource = get<HikariDataSource>()
-        
+
         Flyway.configure()
             .dataSource(dataSource)
             .locations("classpath:db/migration", "classpath:dev/dertyp/synara/db/migration")
@@ -87,7 +94,11 @@ actual fun platformModule(): Module = module {
             .load()
             .migrate()
 
-        Database.connect(dataSource)
+        val dispatchers = get<SynaraDispatchers>()
+        Database.connect(
+            datasource = dataSource,
+            databaseConfig = DatabaseConfig { dispatcher = dispatchers.database }
+        ).also { TransactionManager.defaultDatabase = it }
     }
 
     singleOf(::ExposedRecentlyPlayedRepository) bind RecentlyPlayedRepository::class

@@ -34,7 +34,13 @@ interface RecentlyPlayedRepository {
     suspend fun insertSong(userId: PlatformUUID, song: UserSong, timestamp: Long)
     suspend fun insertAlbum(userId: PlatformUUID, album: Album, timestamp: Long)
     suspend fun insertArtist(userId: PlatformUUID, artist: Artist, timestamp: Long)
-    
+
+    suspend fun insertListen(userId: PlatformUUID, song: UserSong, timestamp: Long) {
+        insertSong(userId, song, timestamp)
+        song.album?.let { insertAlbum(userId, it, timestamp) }
+        song.artists.forEach { insertArtist(userId, it, timestamp) }
+    }
+
     suspend fun getSongs(userId: PlatformUUID, limit: Long): List<UserSong>
     suspend fun getAlbums(userId: PlatformUUID, limit: Long): List<Album>
     suspend fun getArtists(userId: PlatformUUID, limit: Long): List<Artist>
@@ -68,6 +74,13 @@ interface LocalHistoryRepository {
     suspend fun get(userId: PlatformUUID, limit: Long): List<LocalHistoryEntry>
 }
 
+data class SavedLibraryIds(
+    val songs: Set<PlatformUUID>,
+    val albums: Set<PlatformUUID>,
+    val artists: Set<PlatformUUID>,
+    val playlists: Set<PlatformUUID>
+)
+
 interface LibraryRepository {
     suspend fun saveSongMetadata(song: UserSong, explicitlySaved: Boolean)
     suspend fun saveAlbumMetadata(album: Album, explicitlySaved: Boolean)
@@ -75,6 +88,7 @@ interface LibraryRepository {
     suspend fun savePlaylistMetadata(playlist: UserPlaylist, explicitlySaved: Boolean)
     
     suspend fun addSongToPlaylist(playlistId: PlatformUUID, songId: PlatformUUID)
+    suspend fun addSongsToPlaylist(playlistId: PlatformUUID, songIds: List<PlatformUUID>)
     suspend fun removeSongFromPlaylist(playlistId: PlatformUUID, songId: PlatformUUID)
     suspend fun getPlaylistSongs(playlistId: PlatformUUID): List<PlatformUUID>
 
@@ -87,6 +101,8 @@ interface LibraryRepository {
     suspend fun isAlbumSaved(id: PlatformUUID, explicitlySavedOnly: Boolean): Boolean
     suspend fun isArtistSaved(id: PlatformUUID, explicitlySavedOnly: Boolean): Boolean
     suspend fun isPlaylistSaved(id: PlatformUUID, explicitlySavedOnly: Boolean): Boolean
+
+    suspend fun getExplicitlySavedIds(): SavedLibraryIds
 
     suspend fun deleteSong(id: PlatformUUID)
     suspend fun deleteAlbum(id: PlatformUUID)

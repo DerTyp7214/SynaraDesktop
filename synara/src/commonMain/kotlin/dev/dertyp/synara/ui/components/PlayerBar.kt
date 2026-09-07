@@ -6,6 +6,8 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -717,7 +719,8 @@ private fun LargeCover(
 fun VolumeControl(
     volume: Float,
     onVolumeChange: (Float) -> Unit,
-    isCompact: Boolean
+    isCompact: Boolean,
+    expandedSliderWidth: Dp = 200.dp
 ) {
     var isHovered by remember { mutableStateOf(false) }
     var isPopupHovered by remember { mutableStateOf(false) }
@@ -731,6 +734,14 @@ fun VolumeControl(
     }
 
     val density = LocalDensity.current
+
+    val sliderInteraction = remember { MutableInteractionSource() }
+    val isDragging by sliderInteraction.collectIsDraggedAsState()
+    val sliderWidth by animateDpAsState(
+        targetValue = if (isHovered || isDragging) expandedSliderWidth else 100.dp,
+        animationSpec = tween(200),
+        label = "volumeSliderWidth"
+    )
 
     LaunchedEffect(isHovered, isPopupHovered) {
         if (isHovered || isPopupHovered) {
@@ -776,7 +787,8 @@ fun VolumeControl(
                 Slider(
                     value = volume,
                     onValueChange = onVolumeChange,
-                    modifier = Modifier.width(100.dp).height(12.dp),
+                    modifier = Modifier.width(sliderWidth).height(12.dp),
+                    interactionSource = sliderInteraction,
                     colors = SliderDefaults.colors(
                         thumbColor = MaterialTheme.colorScheme.primary,
                         activeTrackColor = MaterialTheme.colorScheme.primary,

@@ -17,8 +17,8 @@ actual val AppDispatchers: SynaraDispatchers = object : SynaraDispatchers {
     override val io: CoroutineDispatcher = 
         Executors.newCachedThreadPool(NamedThreadFactory("Synara-IO")).asCoroutineDispatcher()
     
-    override val database: CoroutineDispatcher = 
-        Executors.newSingleThreadExecutor(NamedThreadFactory("Synara-DB")).asCoroutineDispatcher()
+    override val database: CoroutineDispatcher =
+        Executors.newFixedThreadPool(3, NamedThreadFactory("Synara-DB")).asCoroutineDispatcher()
     
     override val images: CoroutineDispatcher = 
         Executors.newFixedThreadPool(

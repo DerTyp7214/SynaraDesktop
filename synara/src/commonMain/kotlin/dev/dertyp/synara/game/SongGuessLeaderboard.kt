@@ -20,7 +20,7 @@ class SongGuessLeaderboard(
     private val globalState: GlobalStateModel,
     dispatchers: SynaraDispatchers,
 ) {
-    private val scope = CoroutineScope(dispatchers.database + SupervisorJob())
+    private val scope = CoroutineScope(dispatchers.default + SupervisorJob())
 
     private val _entries = MutableStateFlow<List<LeaderboardEntry>>(emptyList())
     val entries: StateFlow<List<LeaderboardEntry>> = _entries.asStateFlow()

@@ -22,15 +22,7 @@ class RecentlyPlayedScrobbler(
         val userId = globalState.user.value?.id ?: return
         val timestamp = listenedAt
 
-        repository.insertSong(userId, song, timestamp)
-
-        song.album?.let { album ->
-            repository.insertAlbum(userId, album, timestamp)
-        }
-
-        song.artists.forEach { artist ->
-            repository.insertArtist(userId, artist, timestamp)
-        }
+        repository.insertListen(userId, song, timestamp)
 
         updateStatus(ScrobbleStatus.SCROBBLED)
         logger.info(LogTag.RECENTLY_PLAYED, "Recently played updated for ${song.title}")

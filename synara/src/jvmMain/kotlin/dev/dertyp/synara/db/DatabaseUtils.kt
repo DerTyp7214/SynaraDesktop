@@ -1,7 +1,7 @@
 package dev.dertyp.synara.db
 
 import com.zaxxer.hikari.HikariDataSource
-import kotlinx.coroutines.Dispatchers
+import dev.dertyp.synara.utils.AppDispatchers
 import kotlinx.coroutines.withContext
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
@@ -17,5 +17,5 @@ fun <T> tempConnection(block: JdbcTransaction.() -> T): T {
     }
 }
 
-suspend fun <T> dbQuery(block: suspend () -> T): T =
-    suspendTransaction { withContext(Dispatchers.IO) { block() } }
+suspend fun <T> dbQuery(block: JdbcTransaction.() -> T): T =
+    withContext(AppDispatchers.database) { suspendTransaction { block() } }

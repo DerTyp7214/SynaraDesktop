@@ -14,6 +14,8 @@ import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.put
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.select
@@ -48,31 +50,55 @@ class DownloadManager(
 
     private val queueUpdateFlow = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
-    override fun getDownloadStatus(songId: PlatformUUID): Flow<DownloadStatus> = combine(
-        queue,
-        currentDownload,
-        libraryRepository.observeChanges().onStart { emit(Unit) }
-    ) { q, current, _ ->
-        if (current?.song?.id == songId) return@combine DownloadStatus.Downloading
-        if (q.any { it.id == songId }) return@combine DownloadStatus.Queued
-        if (libraryRepository.isSongSaved(songId)) return@combine DownloadStatus.Downloaded
-        DownloadStatus.NotDownloaded
-    }.distinctUntilChanged()
+    private val cleanupMutex = Mutex()
 
-    override fun isAlbumDownloaded(albumId: PlatformUUID): Flow<Boolean> = 
-        libraryRepository.observeChanges().onStart { emit(Unit) }.map {
-            libraryRepository.isAlbumSaved(albumId, true)
+    private val libraryChanged = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    private val savedIds: StateFlow<SavedLibraryIds?> =
+        merge(libraryRepository.observeChanges(), libraryChanged)
+            .onStart { emit(Unit) }
+            .conflate()
+            .mapNotNull {
+                try {
+                    libraryRepository.getExplicitlySavedIds()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    null
+                }
+            }
+            .stateIn(scope, SharingStarted.Lazily, null)
+
+    private val queuedIds: StateFlow<Set<PlatformUUID>> =
+        _queue.map { q -> q.mapTo(HashSet()) { it.id } }
+            .stateIn(scope, SharingStarted.Eagerly, emptySet())
+
+    private val currentDownloadId: StateFlow<PlatformUUID?> =
+        _currentDownload.map { it?.song?.id }
+            .distinctUntilChanged()
+            .stateIn(scope, SharingStarted.Eagerly, null)
+
+    override fun getDownloadStatus(songId: PlatformUUID): Flow<DownloadStatus> =
+        combine(queuedIds, currentDownloadId, savedIds) { q, current, saved ->
+            when {
+                current == songId -> DownloadStatus.Downloading
+                songId in q -> DownloadStatus.Queued
+                saved != null && songId in saved.songs -> DownloadStatus.Downloaded
+                else -> DownloadStatus.NotDownloaded
+            }
         }.distinctUntilChanged()
 
-    override fun isArtistDownloaded(artistId: PlatformUUID): Flow<Boolean> = 
-        libraryRepository.observeChanges().onStart { emit(Unit) }.map {
-            libraryRepository.isArtistSaved(artistId, true)
-        }.distinctUntilChanged()
+    override fun isAlbumDownloaded(albumId: PlatformUUID): Flow<Boolean> =
+        savedIds.map { it != null && albumId in it.albums }.distinctUntilChanged()
 
-    override fun isPlaylistDownloaded(playlistId: PlatformUUID): Flow<Boolean> = 
-        libraryRepository.observeChanges().onStart { emit(Unit) }.map {
-            libraryRepository.isPlaylistSaved(playlistId, true)
-        }.distinctUntilChanged()
+    override fun isArtistDownloaded(artistId: PlatformUUID): Flow<Boolean> =
+        savedIds.map { it != null && artistId in it.artists }.distinctUntilChanged()
+
+    override fun isPlaylistDownloaded(playlistId: PlatformUUID): Flow<Boolean> =
+        savedIds.map { it != null && playlistId in it.playlists }.distinctUntilChanged()
+
+    private suspend fun awaitSavedIds(): SavedLibraryIds = savedIds.filterNotNull().first()
 
     init {
         scope.launch {
@@ -146,10 +172,8 @@ class DownloadManager(
             while (true) {
                 val response = songService.byUserPlaylist(page, 150, playlist.id)
                 if (response.data.isEmpty()) break
-                response.data.forEach { song ->
-                    libraryRepository.addSongToPlaylist(playlist.id, song.id)
-                    addToQueue(song)
-                }
+                libraryRepository.addSongsToPlaylist(playlist.id, response.data.map { it.id })
+                response.data.forEach { addToQueue(it) }
                 if (!response.hasNextPage) break
                 page++
             }
@@ -170,17 +194,11 @@ class DownloadManager(
         }
     }
 
-    private fun addToQueue(song: UserSong) {
+    private suspend fun addToQueue(song: UserSong) {
         if (_queue.value.any { it.id == song.id } || _currentDownload.value?.song?.id == song.id) return
-        
-        scope.launch {
-            if (libraryRepository.isSongSaved(song.id)) {
-                val path = storageService.getInternalSongPath(song)
-                if (File(path).exists()) return@launch
-            }
-            _queue.update { it + song }
-            queueUpdateFlow.emit(Unit)
-        }
+        if (song.id in awaitSavedIds().songs && File(storageService.getInternalSongPath(song)).exists()) return
+        _queue.update { it + song }
+        queueUpdateFlow.tryEmit(Unit)
     }
 
     private suspend fun performDownload(song: UserSong) {
@@ -270,10 +288,10 @@ class DownloadManager(
         }
     }
 
-    suspend fun cleanup() {
-        dbQuery {
-            val downloadFavoritesEnabled = settings.get(SettingKey.DownloadFavorites, false)
+    suspend fun cleanup(): Unit = cleanupMutex.withLock {
+        val downloadFavoritesEnabled = settings.get(SettingKey.DownloadFavorites, false)
 
+        val toDelete: List<Pair<PlatformUUID, UserSong?>> = dbQuery {
             // Find entities to keep
             val explicitlySavedSongs = DownloadedSongs.select(DownloadedSongs.id)
                 .where {
@@ -335,39 +353,68 @@ class DownloadManager(
             val allSongs = DownloadedSongs.selectAll().map { it[DownloadedSongs.id].value }
             val songsToDelete = allSongs.filter { it !in songsToKeep }
 
-            songsToDelete.forEach { songId ->
-                val song = libraryRepository.getSong(songId)
-                if (song != null) {
-                    val internalPath = storageService.getInternalSongPath(song)
-                    File(internalPath).delete()
-                    storageService.unlinkSongFromSystemMusicDir(song)
+            val songs = getSongsInternal(songsToDelete).associateBy { it.id }
+            songsToDelete.map { id -> id to songs[id] }
+        }
+
+        withContext(Dispatchers.IO) {
+            toDelete.forEach { (_, song) ->
+                song?.let {
+                    File(storageService.getInternalSongPath(it)).delete()
+                    storageService.unlinkSongFromSystemMusicDir(it)
                 }
-                DownloadedSongs.deleteWhere { DownloadedSongs.id eq songId }
             }
+        }
+
+        dbQuery {
+            val ids = toDelete.map { it.first }
+
+            ids.chunked(500).forEach { chunk ->
+                DownloadedSongs.deleteWhere { DownloadedSongs.id inList chunk }
+                DownloadedUserPlaylistSongs.deleteWhere { DownloadedUserPlaylistSongs.songId inList chunk }
+            }
+
+            val liveSongs = DownloadedSongs.select(DownloadedSongs.id)
+            DownloadedSongArtists.deleteWhere { DownloadedSongArtists.songId notInSubQuery liveSongs }
+            DownloadedSongGenres.deleteWhere { DownloadedSongGenres.songId notInSubQuery liveSongs }
+            DownloadedPlaylistSongs.deleteWhere { DownloadedPlaylistSongs.songId notInSubQuery liveSongs }
 
             // Cleanup Albums
             val albumsWithSongs = DownloadedSongs.select(DownloadedSongs.albumId)
                 .mapNotNull { it[DownloadedSongs.albumId]?.value }
                 .toSet()
-            
-            DownloadedAlbums.deleteWhere { 
+
+            DownloadedAlbums.deleteWhere {
                 (DownloadedAlbums.id notInList albumsWithSongs) and (DownloadedAlbums.explicitlySaved eq false)
             }
+
+            val liveAlbums = DownloadedAlbums.select(DownloadedAlbums.id)
+            DownloadedAlbumArtists.deleteWhere { DownloadedAlbumArtists.albumId notInSubQuery liveAlbums }
+            DownloadedAlbumGenres.deleteWhere { DownloadedAlbumGenres.albumId notInSubQuery liveAlbums }
 
             // Cleanup Artists
             val artistsWithSongs = DownloadedSongArtists.select(DownloadedSongArtists.artistId)
                 .map { it[DownloadedSongArtists.artistId].value }
                 .toSet()
-            
+
             val artistsWithAlbums = DownloadedAlbumArtists.select(DownloadedAlbumArtists.artistId)
                 .map { it[DownloadedAlbumArtists.artistId].value }
                 .toSet()
-            
+
             val activeArtists = artistsWithSongs + artistsWithAlbums
-            
+
             DownloadedArtists.deleteWhere {
                 (DownloadedArtists.id notInList activeArtists) and (DownloadedArtists.explicitlySaved eq false)
             }
+
+            val liveArtists = DownloadedArtists.select(DownloadedArtists.id)
+            DownloadedArtistMembers.deleteWhere {
+                (DownloadedArtistMembers.groupId notInSubQuery liveArtists) or
+                    (DownloadedArtistMembers.memberId notInSubQuery liveArtists)
+            }
+            DownloadedArtistGenres.deleteWhere { DownloadedArtistGenres.artistId notInSubQuery liveArtists }
         }
+
+        libraryChanged.tryEmit(Unit)
     }
 }

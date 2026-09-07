@@ -1,8 +1,10 @@
 package dev.dertyp.synara.ui.components.player
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,41 +35,47 @@ fun PlayerActions(
     onVolumeChange: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.End,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(
-            onClick = onToggleShuffle,
-            enabled = currentSongExists
+    BoxWithConstraints(modifier = modifier) {
+        val fixedWidth = 48.dp * 3 + 8.dp + 4.dp
+        val expandedSliderWidth = (maxWidth - fixedWidth - 16.dp).coerceIn(100.dp, 200.dp)
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                SynaraIcons.Shuffle.get(),
-                contentDescription = stringResource(Res.string.shuffle),
-                tint = if (shuffleMode) MaterialTheme.colorScheme.onSurfaceVariantDistinct() else LocalContentColor.current
+            IconButton(
+                onClick = onToggleShuffle,
+                enabled = currentSongExists
+            ) {
+                Icon(
+                    SynaraIcons.Shuffle.get(),
+                    contentDescription = stringResource(Res.string.shuffle),
+                    tint = if (shuffleMode) MaterialTheme.colorScheme.onSurfaceVariantDistinct() else LocalContentColor.current
+                )
+            }
+            IconButton(
+                onClick = onToggleRepeat,
+                enabled = currentSongExists
+            ) {
+                Icon(
+                    when (repeatMode) {
+                        RepeatMode.ONE -> SynaraIcons.RepeatOne.get()
+                        else -> SynaraIcons.Repeat.get()
+                    },
+                    contentDescription = stringResource(Res.string.repeat),
+                    tint = if (repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.onSurfaceVariantDistinct() else LocalContentColor.current
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            VolumeControl(
+                volume = volume,
+                onVolumeChange = onVolumeChange,
+                isCompact = isCompact,
+                expandedSliderWidth = expandedSliderWidth
             )
         }
-        IconButton(
-            onClick = onToggleRepeat,
-            enabled = currentSongExists
-        ) {
-            Icon(
-                when (repeatMode) {
-                    RepeatMode.ONE -> SynaraIcons.RepeatOne.get()
-                    else -> SynaraIcons.Repeat.get()
-                },
-                contentDescription = stringResource(Res.string.repeat),
-                tint = if (repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.onSurfaceVariantDistinct() else LocalContentColor.current
-            )
-        }
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        VolumeControl(
-            volume = volume,
-            onVolumeChange = onVolumeChange,
-            isCompact = isCompact
-        )
     }
 }

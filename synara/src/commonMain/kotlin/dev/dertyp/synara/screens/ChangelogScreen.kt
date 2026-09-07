@@ -64,6 +64,18 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.4.4",
+                        date = "2026-09-07",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Fixed, "The offline library no longer locks up with a database connection timeout while downloading or browsing long song lists: local database work runs on a small dedicated thread pool and download badges come from one shared snapshot instead of one query per row."),
+                            Change(ChangeType.Fixed, "Removing a downloaded song, album, artist or playlist now updates the download badges immediately and also removes leftover artist, genre and playlist links."),
+                            Change(ChangeType.Fixed, "Downloading a playlist no longer stores each song twice in the offline playlist."),
+                            Change(ChangeType.Improved, "**Recently played** on the home screen updates once per listen instead of once per song, album and artist."),
+                            Change(ChangeType.Improved, "The volume slider grows wider while hovered when the player bar has room.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.4.3",
                         date = "2026-09-07",
                         isPrerelease = true,

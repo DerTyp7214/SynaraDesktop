@@ -5,7 +5,6 @@ import dev.dertyp.data.UserSong
 import dev.dertyp.synara.db.RawScrobbleQueueEntry
 import dev.dertyp.synara.db.ScrobbleQueueRepository
 import dev.dertyp.synara.viewmodels.GlobalStateModel
-import kotlinx.coroutines.runBlocking
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -22,63 +21,51 @@ class ScrobbleQueue(
 ) : KoinComponent {
     private val globalState: GlobalStateModel by inject()
 
-    fun push(song: UserSong, timestamp: Long, target: String) {
+    suspend fun push(song: UserSong, timestamp: Long, target: String) {
         val userId = globalState.user.value?.id ?: return
-        runBlocking {
-            repository.insert(
-                userId = userId,
-                song = song,
-                timestamp = timestamp,
-                target = target
-            )
-        }
+        repository.insert(
+            userId = userId,
+            song = song,
+            timestamp = timestamp,
+            target = target
+        )
     }
 
-    fun pushRaw(songId: String, payload: String, timestamp: Long, target: String) {
+    suspend fun pushRaw(songId: String, payload: String, timestamp: Long, target: String) {
         val userId = globalState.user.value?.id ?: return
-        runBlocking {
-            repository.insertRaw(
-                userId = userId,
-                songId = songId,
-                payload = payload,
-                timestamp = timestamp,
-                target = target
-            )
-        }
+        repository.insertRaw(
+            userId = userId,
+            songId = songId,
+            payload = payload,
+            timestamp = timestamp,
+            target = target
+        )
     }
 
-    fun getAllRaw(target: String): List<RawScrobbleQueueEntry> {
+    suspend fun getAllRaw(target: String): List<RawScrobbleQueueEntry> {
         val userId = globalState.user.value?.id ?: return emptyList()
-        return runBlocking {
-            repository.getAllRaw(userId, target)
-        }
+        return repository.getAllRaw(userId, target)
     }
 
-    fun peek(target: String): QueuedScrobble? {
+    suspend fun peek(target: String): QueuedScrobble? {
         val userId = globalState.user.value?.id ?: return null
-        return runBlocking {
-            repository.peek(userId, target)?.let {
-                QueuedScrobble(
-                    id = it.id,
-                    userId = it.userId,
-                    song = it.song,
-                    timestamp = it.timestamp,
-                    target = it.target
-                )
-            }
+        return repository.peek(userId, target)?.let {
+            QueuedScrobble(
+                id = it.id,
+                userId = it.userId,
+                song = it.song,
+                timestamp = it.timestamp,
+                target = it.target
+            )
         }
     }
 
-    fun pop(id: Long) {
-        runBlocking {
-            repository.delete(id)
-        }
+    suspend fun pop(id: Long) {
+        repository.delete(id)
     }
 
-    fun isEmpty(target: String): Boolean {
+    suspend fun isEmpty(target: String): Boolean {
         val userId = globalState.user.value?.id ?: return true
-        return runBlocking {
-            repository.getCount(userId, target) == 0L
-        }
+        return repository.getCount(userId, target) == 0L
     }
 }

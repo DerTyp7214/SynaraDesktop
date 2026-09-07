@@ -8,11 +8,16 @@ import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
 import dev.dertyp.synara.game.LeaderboardEntry
 import dev.dertyp.synara.game.SavedGame
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.core.*
+import org.jetbrains.exposed.v1.core.dao.id.EntityID
 import org.jetbrains.exposed.v1.jdbc.*
+import java.util.UUID
 import kotlin.uuid.ExperimentalUuidApi
+
+private const val SQL_CHUNK_SIZE = 500
 
 @OptIn(ExperimentalUuidApi::class)
 class ExposedRecentlyPlayedRepository(
@@ -21,42 +26,58 @@ class ExposedRecentlyPlayedRepository(
     private val artistService: IArtistService,
     private val json: Json
 ) : RecentlyPlayedRepository {
-    private val _updates = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val _updates =
+        MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+
+    private fun upsertSong(userId: PlatformUUID, song: UserSong, timestamp: Long) {
+        RecentlyPlayedSongs.upsert(RecentlyPlayedSongs.userId, RecentlyPlayedSongs.songId) {
+            it[RecentlyPlayedSongs.userId] = userId
+            it[RecentlyPlayedSongs.songId] = song.id.toString()
+            it[RecentlyPlayedSongs.timestamp] = timestamp
+            it[RecentlyPlayedSongs.payload] = json.encodeToString(song)
+        }
+    }
+
+    private fun upsertAlbum(userId: PlatformUUID, album: Album, timestamp: Long) {
+        RecentlyPlayedAlbums.upsert(RecentlyPlayedAlbums.userId, RecentlyPlayedAlbums.albumId) {
+            it[RecentlyPlayedAlbums.userId] = userId
+            it[RecentlyPlayedAlbums.albumId] = album.id.toString()
+            it[RecentlyPlayedAlbums.timestamp] = timestamp
+            it[RecentlyPlayedAlbums.payload] = json.encodeToString(album)
+        }
+    }
+
+    private fun upsertArtist(userId: PlatformUUID, artist: Artist, timestamp: Long) {
+        RecentlyPlayedArtists.upsert(RecentlyPlayedArtists.userId, RecentlyPlayedArtists.artistId) {
+            it[RecentlyPlayedArtists.userId] = userId
+            it[RecentlyPlayedArtists.artistId] = artist.id.toString()
+            it[RecentlyPlayedArtists.timestamp] = timestamp
+            it[RecentlyPlayedArtists.payload] = json.encodeToString(artist)
+        }
+    }
 
     override suspend fun insertSong(userId: PlatformUUID, song: UserSong, timestamp: Long) {
-        dbQuery {
-            RecentlyPlayedSongs.upsert(RecentlyPlayedSongs.userId, RecentlyPlayedSongs.songId) {
-                it[RecentlyPlayedSongs.userId] = userId
-                it[RecentlyPlayedSongs.songId] = song.id.toString()
-                it[RecentlyPlayedSongs.timestamp] = timestamp
-                it[RecentlyPlayedSongs.payload] = json.encodeToString(song)
-            }
-        }
-        _updates.emit(Unit)
+        dbQuery { upsertSong(userId, song, timestamp) }
+        _updates.tryEmit(Unit)
     }
 
     override suspend fun insertAlbum(userId: PlatformUUID, album: Album, timestamp: Long) {
-        dbQuery {
-            RecentlyPlayedAlbums.upsert(RecentlyPlayedAlbums.userId, RecentlyPlayedAlbums.albumId) {
-                it[RecentlyPlayedAlbums.userId] = userId
-                it[RecentlyPlayedAlbums.albumId] = album.id.toString()
-                it[RecentlyPlayedAlbums.timestamp] = timestamp
-                it[RecentlyPlayedAlbums.payload] = json.encodeToString(album)
-            }
-        }
-        _updates.emit(Unit)
+        dbQuery { upsertAlbum(userId, album, timestamp) }
+        _updates.tryEmit(Unit)
     }
 
     override suspend fun insertArtist(userId: PlatformUUID, artist: Artist, timestamp: Long) {
+        dbQuery { upsertArtist(userId, artist, timestamp) }
+        _updates.tryEmit(Unit)
+    }
+
+    override suspend fun insertListen(userId: PlatformUUID, song: UserSong, timestamp: Long) {
         dbQuery {
-            RecentlyPlayedArtists.upsert(RecentlyPlayedArtists.userId, RecentlyPlayedArtists.artistId) {
-                it[RecentlyPlayedArtists.userId] = userId
-                it[RecentlyPlayedArtists.artistId] = artist.id.toString()
-                it[RecentlyPlayedArtists.timestamp] = timestamp
-                it[RecentlyPlayedArtists.payload] = json.encodeToString(artist)
-            }
+            upsertSong(userId, song, timestamp)
+            song.album?.let { upsertAlbum(userId, it, timestamp) }
+            song.artists.forEach { upsertArtist(userId, it, timestamp) }
         }
-        _updates.emit(Unit)
+        _updates.tryEmit(Unit)
     }
 
     override suspend fun getSongs(userId: PlatformUUID, limit: Long): List<UserSong> {
@@ -90,19 +111,19 @@ class ExposedRecentlyPlayedRepository(
     }
 
     override fun getSongsFlow(userId: PlatformUUID, limit: Long): Flow<List<UserSong>> {
-        return _updates.asSharedFlow().onStart { emit(Unit) }.map {
+        return _updates.asSharedFlow().onStart { emit(Unit) }.conflate().map {
             getSongs(userId, limit)
         }
     }
 
     override fun getAlbumsFlow(userId: PlatformUUID, limit: Long): Flow<List<Album>> {
-        return _updates.asSharedFlow().onStart { emit(Unit) }.map {
+        return _updates.asSharedFlow().onStart { emit(Unit) }.conflate().map {
             getAlbums(userId, limit)
         }
     }
 
     override fun getArtistsFlow(userId: PlatformUUID, limit: Long): Flow<List<Artist>> {
-        return _updates.asSharedFlow().onStart { emit(Unit) }.map {
+        return _updates.asSharedFlow().onStart { emit(Unit) }.conflate().map {
             getArtists(userId, limit)
         }
     }
@@ -111,21 +132,21 @@ class ExposedRecentlyPlayedRepository(
         dbQuery {
             RecentlyPlayedSongs.deleteWhere { RecentlyPlayedSongs.userId eq userId }
         }
-        _updates.emit(Unit)
+        _updates.tryEmit(Unit)
     }
 
     override suspend fun deleteAllAlbums(userId: PlatformUUID) {
         dbQuery {
             RecentlyPlayedAlbums.deleteWhere { RecentlyPlayedAlbums.userId eq userId }
         }
-        _updates.emit(Unit)
+        _updates.tryEmit(Unit)
     }
 
     override suspend fun deleteAllArtists(userId: PlatformUUID) {
         dbQuery {
             RecentlyPlayedArtists.deleteWhere { RecentlyPlayedArtists.userId eq userId }
         }
-        _updates.emit(Unit)
+        _updates.tryEmit(Unit)
     }
 }
 
@@ -292,27 +313,28 @@ class ExposedLocalHistoryRepository(private val json: Json) : LocalHistoryReposi
 }
 
 class ExposedLibraryRepository : LibraryRepository {
-    private val _updates = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val _updates =
+        MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     override suspend fun saveSongMetadata(song: UserSong, explicitlySaved: Boolean) {
         dbQuery {
             saveSongMetadataInternal(song, explicitlySaved)
         }
-        _updates.emit(Unit)
+        _updates.tryEmit(Unit)
     }
 
     override suspend fun saveAlbumMetadata(album: Album, explicitlySaved: Boolean) {
         dbQuery {
             saveAlbumMetadataInternal(album, explicitlySaved)
         }
-        _updates.emit(Unit)
+        _updates.tryEmit(Unit)
     }
 
     override suspend fun saveArtistMetadata(artist: Artist, explicitlySaved: Boolean) {
         dbQuery {
             saveArtistMetadataInternal(artist, explicitlySaved)
         }
-        _updates.emit(Unit)
+        _updates.tryEmit(Unit)
     }
 
     override suspend fun savePlaylistMetadata(playlist: UserPlaylist, explicitlySaved: Boolean) {
@@ -347,18 +369,32 @@ class ExposedLibraryRepository : LibraryRepository {
                 }
             }
         }
-        _updates.emit(Unit)
+        _updates.tryEmit(Unit)
     }
 
     override suspend fun addSongToPlaylist(playlistId: PlatformUUID, songId: PlatformUUID) {
+        addSongsToPlaylist(playlistId, listOf(songId))
+    }
+
+    override suspend fun addSongsToPlaylist(playlistId: PlatformUUID, songIds: List<PlatformUUID>) {
+        if (songIds.isEmpty()) return
         dbQuery {
-            DownloadedUserPlaylistSongs.insert {
-                it[this.playlistId] = playlistId
-                it[this.songId] = songId
-                it[addedAt] = System.currentTimeMillis()
-            }
+            val existing = DownloadedUserPlaylistSongs
+                .select(DownloadedUserPlaylistSongs.songId)
+                .where { DownloadedUserPlaylistSongs.playlistId eq playlistId }
+                .mapTo(HashSet()) { it[DownloadedUserPlaylistSongs.songId].value }
+            val now = System.currentTimeMillis()
+            songIds.distinct()
+                .filterNot { it in existing }
+                .forEachIndexed { index, id ->
+                    DownloadedUserPlaylistSongs.insert {
+                        it[this.playlistId] = playlistId
+                        it[this.songId] = id
+                        it[addedAt] = now + index
+                    }
+                }
         }
-        _updates.emit(Unit)
+        _updates.tryEmit(Unit)
     }
 
     override suspend fun removeSongFromPlaylist(playlistId: PlatformUUID, songId: PlatformUUID) {
@@ -367,7 +403,7 @@ class ExposedLibraryRepository : LibraryRepository {
                 (DownloadedUserPlaylistSongs.playlistId eq playlistId) and (DownloadedUserPlaylistSongs.songId eq songId)
             }
         }
-        _updates.emit(Unit)
+        _updates.tryEmit(Unit)
     }
 
     override suspend fun getPlaylistSongs(playlistId: PlatformUUID): List<PlatformUUID> {
@@ -385,7 +421,7 @@ class ExposedLibraryRepository : LibraryRepository {
             if (explicitlySavedOnly) {
                 query.where { DownloadedSongs.explicitlySaved eq true }
             }
-            query.map { mapRowToUserSong(it) }
+            mapSongs(query.toList())
         }
     }
 
@@ -395,7 +431,9 @@ class ExposedLibraryRepository : LibraryRepository {
             if (explicitlySavedOnly) {
                 query.where { DownloadedAlbums.explicitlySaved eq true }
             }
-            query.map { mapRowToAlbum(it) }
+            val ids = query.map { it[DownloadedAlbums.id].value }
+            val albums = loadAlbums(ids)
+            ids.mapNotNull { albums[it] }
         }
     }
 
@@ -405,7 +443,9 @@ class ExposedLibraryRepository : LibraryRepository {
             if (explicitlySavedOnly) {
                 query.where { DownloadedArtists.explicitlySaved eq true }
             }
-            query.map { mapRowToArtist(it) }
+            val ids = query.map { it[DownloadedArtists.id].value }
+            val artists = loadArtists(ids)
+            ids.mapNotNull { artists[it] }
         }
     }
 
@@ -459,6 +499,25 @@ class ExposedLibraryRepository : LibraryRepository {
         }
     }
 
+    override suspend fun getExplicitlySavedIds(): SavedLibraryIds {
+        return dbQuery {
+            SavedLibraryIds(
+                songs = DownloadedSongs.select(DownloadedSongs.id)
+                    .where { DownloadedSongs.explicitlySaved eq true }
+                    .mapTo(HashSet()) { it[DownloadedSongs.id].value },
+                albums = DownloadedAlbums.select(DownloadedAlbums.id)
+                    .where { DownloadedAlbums.explicitlySaved eq true }
+                    .mapTo(HashSet()) { it[DownloadedAlbums.id].value },
+                artists = DownloadedArtists.select(DownloadedArtists.id)
+                    .where { DownloadedArtists.explicitlySaved eq true }
+                    .mapTo(HashSet()) { it[DownloadedArtists.id].value },
+                playlists = DownloadedUserPlaylists.select(DownloadedUserPlaylists.id)
+                    .where { DownloadedUserPlaylists.explicitlySaved eq true }
+                    .mapTo(HashSet()) { it[DownloadedUserPlaylists.id].value }
+            )
+        }
+    }
+
     override fun observeChanges(): Flow<Unit> = _updates.asSharedFlow()
 
     override suspend fun deleteSong(id: PlatformUUID) {
@@ -468,7 +527,7 @@ class ExposedLibraryRepository : LibraryRepository {
             DownloadedUserPlaylistSongs.deleteWhere { DownloadedUserPlaylistSongs.songId eq id }
             DownloadedSongGenres.deleteWhere { DownloadedSongGenres.songId eq id }
         }
-        _updates.emit(Unit)
+        _updates.tryEmit(Unit)
     }
 
     override suspend fun deleteAlbum(id: PlatformUUID) {
@@ -477,7 +536,7 @@ class ExposedLibraryRepository : LibraryRepository {
             DownloadedAlbumArtists.deleteWhere { DownloadedAlbumArtists.albumId eq id }
             DownloadedAlbumGenres.deleteWhere { DownloadedAlbumGenres.albumId eq id }
         }
-        _updates.emit(Unit)
+        _updates.tryEmit(Unit)
     }
 
     override suspend fun deleteArtist(id: PlatformUUID) {
@@ -488,7 +547,7 @@ class ExposedLibraryRepository : LibraryRepository {
             DownloadedArtistMembers.deleteWhere { (DownloadedArtistMembers.groupId eq id) or (DownloadedArtistMembers.memberId eq id) }
             DownloadedArtistGenres.deleteWhere { DownloadedArtistGenres.artistId eq id }
         }
-        _updates.emit(Unit)
+        _updates.tryEmit(Unit)
     }
 
     override suspend fun deletePlaylist(id: PlatformUUID) {
@@ -496,19 +555,19 @@ class ExposedLibraryRepository : LibraryRepository {
             DownloadedUserPlaylists.deleteWhere { DownloadedUserPlaylists.id eq id }
             DownloadedUserPlaylistSongs.deleteWhere { DownloadedUserPlaylistSongs.playlistId eq id }
         }
-        _updates.emit(Unit)
+        _updates.tryEmit(Unit)
     }
 
     override suspend fun getSong(id: PlatformUUID): UserSong? {
-        return dbQuery { getSongInternal(id) }
+        return dbQuery { getSongsInternal(listOf(id)).singleOrNull() }
     }
 
     override suspend fun getAlbum(id: PlatformUUID): Album? {
-        return dbQuery { getAlbumInternal(id) }
+        return dbQuery { loadAlbums(listOf(id))[id] }
     }
 
     override suspend fun getArtist(id: PlatformUUID): Artist? {
-        return dbQuery { getArtistInternal(id) }
+        return dbQuery { loadArtists(listOf(id))[id] }
     }
 
     override suspend fun getPlaylist(id: PlatformUUID): UserPlaylist? {
@@ -530,119 +589,185 @@ class ExposedDatabaseMigrationRepository : DatabaseMigrationRepository {
 
 // Internal mapping and saving functions
 
-private fun getSongInternal(id: PlatformUUID): UserSong? {
-    return DownloadedSongs.selectAll().where { DownloadedSongs.id eq id }
-        .map { mapRowToUserSong(it) }
-        .singleOrNull()
+private fun loadGenres(
+    link: Table,
+    ownerCol: Column<EntityID<UUID>>,
+    ids: Collection<UUID>
+): Map<UUID, List<Genre>> {
+    if (ids.isEmpty()) return emptyMap()
+    val result = HashMap<UUID, MutableList<Genre>>()
+    ids.distinct().chunked(SQL_CHUNK_SIZE).forEach { chunk ->
+        link.innerJoin(DownloadedGenres)
+            .select(ownerCol, DownloadedGenres.id, DownloadedGenres.name)
+            .where { ownerCol inList chunk }
+            .forEach { row ->
+                result.getOrPut(row[ownerCol].value) { mutableListOf() }
+                    .add(Genre(row[DownloadedGenres.id].value, row[DownloadedGenres.name]))
+            }
+    }
+    return result
 }
 
-private fun getAlbumInternal(id: PlatformUUID): Album? {
-    return DownloadedAlbums.selectAll().where { DownloadedAlbums.id eq id }
-        .map { mapRowToAlbum(it) }
-        .singleOrNull()
+private fun loadArtists(ids: Collection<UUID>): Map<UUID, Artist> {
+    if (ids.isEmpty()) return emptyMap()
+
+    val visited = HashSet<UUID>(ids)
+    val membersByGroup = HashMap<UUID, MutableList<UUID>>()
+    var frontier: List<UUID> = visited.toList()
+    while (frontier.isNotEmpty()) {
+        val discovered = ArrayList<UUID>()
+        frontier.chunked(SQL_CHUNK_SIZE).forEach { chunk ->
+            DownloadedArtistMembers
+                .select(DownloadedArtistMembers.groupId, DownloadedArtistMembers.memberId)
+                .where { DownloadedArtistMembers.groupId inList chunk }
+                .forEach { row ->
+                    val groupId = row[DownloadedArtistMembers.groupId].value
+                    val memberId = row[DownloadedArtistMembers.memberId].value
+                    membersByGroup.getOrPut(groupId) { mutableListOf() }.add(memberId)
+                    if (visited.add(memberId)) discovered.add(memberId)
+                }
+        }
+        frontier = discovered
+    }
+
+    val rows = HashMap<UUID, ResultRow>()
+    visited.chunked(SQL_CHUNK_SIZE).forEach { chunk ->
+        DownloadedArtists.selectAll()
+            .where { DownloadedArtists.id inList chunk }
+            .forEach { rows[it[DownloadedArtists.id].value] = it }
+    }
+
+    val genres = loadGenres(DownloadedArtistGenres, DownloadedArtistGenres.artistId, rows.keys)
+
+    val built = HashMap<UUID, Artist?>()
+    val building = HashSet<UUID>()
+    fun build(id: UUID): Artist? {
+        if (built.containsKey(id)) return built[id]
+        if (!building.add(id)) return null
+        val artist = rows[id]?.let { row ->
+            Artist(
+                id = id,
+                name = row[DownloadedArtists.name],
+                isGroup = row[DownloadedArtists.isGroup],
+                artists = membersByGroup[id].orEmpty().mapNotNull { build(it) },
+                about = row[DownloadedArtists.about],
+                imageId = row[DownloadedArtists.image]?.value,
+                musicbrainzId = row[DownloadedArtists.musicBrainzId],
+                isFollowed = row[DownloadedArtists.isFollowed],
+                genres = genres[id].orEmpty()
+            )
+        }
+        building.remove(id)
+        built[id] = artist
+        return artist
+    }
+
+    val result = HashMap<UUID, Artist>()
+    ids.distinct().forEach { id -> build(id)?.let { result[id] = it } }
+    return result
 }
 
-private fun getArtistInternal(id: PlatformUUID): Artist? {
-    return DownloadedArtists.selectAll().where { DownloadedArtists.id eq id }
-        .map { mapRowToArtist(it) }
-        .singleOrNull()
+private fun loadAlbums(ids: Collection<UUID>): Map<UUID, Album> {
+    if (ids.isEmpty()) return emptyMap()
+
+    val rows = LinkedHashMap<UUID, ResultRow>()
+    ids.distinct().chunked(SQL_CHUNK_SIZE).forEach { chunk ->
+        DownloadedAlbums.selectAll()
+            .where { DownloadedAlbums.id inList chunk }
+            .forEach { rows[it[DownloadedAlbums.id].value] = it }
+    }
+    if (rows.isEmpty()) return emptyMap()
+
+    val artistIdsByAlbum = HashMap<UUID, MutableList<UUID>>()
+    rows.keys.chunked(SQL_CHUNK_SIZE).forEach { chunk ->
+        DownloadedAlbumArtists
+            .select(DownloadedAlbumArtists.albumId, DownloadedAlbumArtists.artistId)
+            .where { DownloadedAlbumArtists.albumId inList chunk }
+            .forEach { row ->
+                artistIdsByAlbum.getOrPut(row[DownloadedAlbumArtists.albumId].value) { mutableListOf() }
+                    .add(row[DownloadedAlbumArtists.artistId].value)
+            }
+    }
+
+    val artists = loadArtists(artistIdsByAlbum.values.flatten())
+    val genres = loadGenres(DownloadedAlbumGenres, DownloadedAlbumGenres.albumId, rows.keys)
+
+    return rows.mapValues { (albumId, row) ->
+        Album(
+            id = albumId,
+            name = row[DownloadedAlbums.name],
+            artists = artistIdsByAlbum[albumId].orEmpty().mapNotNull { artists[it] },
+            songCount = row[DownloadedAlbums.songCount],
+            releaseDate = row[DownloadedAlbums.releaseDate]?.toPlatformLocalDateISO(),
+            totalDuration = row[DownloadedAlbums.totalDuration],
+            totalSize = row[DownloadedAlbums.totalSize],
+            coverId = row[DownloadedAlbums.cover]?.value,
+            originalId = row[DownloadedAlbums.originalId],
+            musicbrainzId = row[DownloadedAlbums.musicBrainzId],
+            genres = genres[albumId].orEmpty()
+        )
+    }
 }
 
-private fun mapRowToUserSong(row: ResultRow): UserSong {
-    val songId = row[DownloadedSongs.id].value
-    val artists = DownloadedSongArtists.selectAll()
-        .where { DownloadedSongArtists.songId eq songId }
-        .map { getArtistInternal(it[DownloadedSongArtists.artistId].value)!! }
-    
-    val album = row[DownloadedSongs.albumId]?.let { getAlbumInternal(it.value) }
-    
-    val genres = DownloadedSongGenres.innerJoin(DownloadedGenres)
-        .select(DownloadedGenres.id, DownloadedGenres.name)
-        .where { DownloadedSongGenres.songId eq songId }
-        .map { Genre(it[DownloadedGenres.id].value, it[DownloadedGenres.name]) }
+private fun mapSongs(rows: List<ResultRow>): List<UserSong> {
+    if (rows.isEmpty()) return emptyList()
 
-    return UserSong(
-        id = songId,
-        title = row[DownloadedSongs.title],
-        artists = artists,
-        album = album,
-        duration = row[DownloadedSongs.duration],
-        explicit = row[DownloadedSongs.explicit],
-        releaseDate = row[DownloadedSongs.releaseDate]?.toPlatformLocalDateISO(),
-        lyrics = row[DownloadedSongs.lyrics],
-        path = row[DownloadedSongs.filePath],
-        originalUrl = row[DownloadedSongs.originalUrl],
-        trackNumber = row[DownloadedSongs.trackNumber],
-        discNumber = row[DownloadedSongs.discNumber],
-        copyright = row[DownloadedSongs.copyright],
-        audio = AudioInfo(
-            codec = row[DownloadedSongs.codec],
-            sampleRate = row[DownloadedSongs.sampleRate],
-            bitsPerSample = row[DownloadedSongs.bitsPerSample],
-            bitRate = row[DownloadedSongs.bitRate],
-            fileSize = row[DownloadedSongs.fileSize],
-            channels = row[DownloadedSongs.channels],
-        ),
-        audioStartMs = row[DownloadedSongs.audioStartMs],
-        coverId = row[DownloadedSongs.cover]?.value,
-        musicBrainzId = row[DownloadedSongs.musicBrainzId],
-        genres = genres,
-        isFavourite = row[DownloadedSongs.isFavourite],
-        userSongCreatedAt = row[DownloadedSongs.createdAt]?.let { platformDateFromEpochMilliseconds(it) },
-        userSongUpdatedAt = row[DownloadedSongs.updatedAt]?.let { platformDateFromEpochMilliseconds(it) }
-    )
+    val songIds = rows.map { it[DownloadedSongs.id].value }
+
+    val artistIdsBySong = HashMap<UUID, MutableList<UUID>>()
+    songIds.distinct().chunked(SQL_CHUNK_SIZE).forEach { chunk ->
+        DownloadedSongArtists
+            .select(DownloadedSongArtists.songId, DownloadedSongArtists.artistId)
+            .where { DownloadedSongArtists.songId inList chunk }
+            .forEach { row ->
+                artistIdsBySong.getOrPut(row[DownloadedSongArtists.songId].value) { mutableListOf() }
+                    .add(row[DownloadedSongArtists.artistId].value)
+            }
+    }
+
+    val albums = loadAlbums(rows.mapNotNull { it[DownloadedSongs.albumId]?.value })
+    val artists = loadArtists(artistIdsBySong.values.flatten())
+    val genres = loadGenres(DownloadedSongGenres, DownloadedSongGenres.songId, songIds)
+
+    return rows.map { row ->
+        val songId = row[DownloadedSongs.id].value
+        UserSong(
+            id = songId,
+            title = row[DownloadedSongs.title],
+            artists = artistIdsBySong[songId].orEmpty().mapNotNull { artists[it] },
+            album = row[DownloadedSongs.albumId]?.let { albums[it.value] },
+            duration = row[DownloadedSongs.duration],
+            explicit = row[DownloadedSongs.explicit],
+            releaseDate = row[DownloadedSongs.releaseDate]?.toPlatformLocalDateISO(),
+            lyrics = row[DownloadedSongs.lyrics],
+            path = row[DownloadedSongs.filePath],
+            originalUrl = row[DownloadedSongs.originalUrl],
+            trackNumber = row[DownloadedSongs.trackNumber],
+            discNumber = row[DownloadedSongs.discNumber],
+            copyright = row[DownloadedSongs.copyright],
+            audio = AudioInfo(
+                codec = row[DownloadedSongs.codec],
+                sampleRate = row[DownloadedSongs.sampleRate],
+                bitsPerSample = row[DownloadedSongs.bitsPerSample],
+                bitRate = row[DownloadedSongs.bitRate],
+                fileSize = row[DownloadedSongs.fileSize],
+                channels = row[DownloadedSongs.channels],
+            ),
+            audioStartMs = row[DownloadedSongs.audioStartMs],
+            coverId = row[DownloadedSongs.cover]?.value,
+            musicBrainzId = row[DownloadedSongs.musicBrainzId],
+            genres = genres[songId].orEmpty(),
+            isFavourite = row[DownloadedSongs.isFavourite],
+            userSongCreatedAt = row[DownloadedSongs.createdAt]?.let { platformDateFromEpochMilliseconds(it) },
+            userSongUpdatedAt = row[DownloadedSongs.updatedAt]?.let { platformDateFromEpochMilliseconds(it) }
+        )
+    }
 }
 
-private fun mapRowToAlbum(row: ResultRow): Album {
-    val albumId = row[DownloadedAlbums.id].value
-    val artists = DownloadedAlbumArtists.selectAll()
-        .where { DownloadedAlbumArtists.albumId eq albumId }
-        .map { getArtistInternal(it[DownloadedAlbumArtists.artistId].value)!! }
-    
-    val genres = DownloadedAlbumGenres.innerJoin(DownloadedGenres)
-        .select(DownloadedGenres.id, DownloadedGenres.name)
-        .where { DownloadedAlbumGenres.albumId eq albumId }
-        .map { Genre(it[DownloadedGenres.id].value, it[DownloadedGenres.name]) }
-
-    return Album(
-        id = albumId,
-        name = row[DownloadedAlbums.name],
-        artists = artists,
-        songCount = row[DownloadedAlbums.songCount],
-        releaseDate = row[DownloadedAlbums.releaseDate]?.toPlatformLocalDateISO(),
-        totalDuration = row[DownloadedAlbums.totalDuration],
-        totalSize = row[DownloadedAlbums.totalSize],
-        coverId = row[DownloadedAlbums.cover]?.value,
-        originalId = row[DownloadedAlbums.originalId],
-        musicbrainzId = row[DownloadedAlbums.musicBrainzId],
-        genres = genres
-    )
-}
-
-private fun mapRowToArtist(row: ResultRow): Artist {
-    val artistId = row[DownloadedArtists.id].value
-    
-    val members = DownloadedArtistMembers.selectAll()
-        .where { DownloadedArtistMembers.groupId eq artistId }
-        .map { getArtistInternal(it[DownloadedArtistMembers.memberId].value)!! }
-    
-    val genres = DownloadedArtistGenres.innerJoin(DownloadedGenres)
-        .select(DownloadedGenres.id, DownloadedGenres.name)
-        .where { DownloadedArtistGenres.artistId eq artistId }
-        .map { Genre(it[DownloadedGenres.id].value, it[DownloadedGenres.name]) }
-
-    return Artist(
-        id = artistId,
-        name = row[DownloadedArtists.name],
-        isGroup = row[DownloadedArtists.isGroup],
-        artists = members,
-        about = row[DownloadedArtists.about],
-        imageId = row[DownloadedArtists.image]?.value,
-        musicbrainzId = row[DownloadedArtists.musicBrainzId],
-        isFollowed = row[DownloadedArtists.isFollowed],
-        genres = genres
-    )
-}
+internal fun getSongsInternal(ids: Collection<UUID>): List<UserSong> =
+    ids.chunked(SQL_CHUNK_SIZE).flatMap { chunk ->
+        mapSongs(DownloadedSongs.selectAll().where { DownloadedSongs.id inList chunk }.toList())
+    }
 
 private fun mapRowToPlaylist(row: ResultRow): UserPlaylist {
     val playlistId = row[DownloadedUserPlaylists.id].value
