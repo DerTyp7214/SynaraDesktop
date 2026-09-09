@@ -14,6 +14,7 @@ import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.CollectionItemType
 import dev.dertyp.data.UserCapability
 import dev.dertyp.data.UserSong
+import dev.dertyp.synara.core.textTitle
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.QueueEntry
@@ -87,7 +88,7 @@ fun SongContextMenu(
                     )
                 }
                 Text(
-                    text = song.title,
+                    text = song.textTitle(),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
@@ -438,9 +439,11 @@ fun SongContextMenu(
 
     SimilarSongsDialog(
         isOpen = showSimilarSongsDialog,
-        seed = SimilarSongsSeed.Songs(listOf(song.id), song.title),
+        seed = SimilarSongsSeed.Songs(listOf(song.id), song.textTitle()),
         onConfirm = { criterion, limit ->
-            navigator?.push(SimilarSongsScreen(SimilarSongsSeed.Songs(listOf(song.id), song.title), criterion, limit))
+            navigator?.push(
+                SimilarSongsScreen(SimilarSongsSeed.Songs(listOf(song.id), song.textTitle()), criterion, limit)
+            )
         },
         onDismissRequest = { showSimilarSongsDialog = false }
     )

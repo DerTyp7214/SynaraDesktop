@@ -8,6 +8,7 @@ import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
 import dev.dertyp.services.metadata.IMetadataService
 import dev.dertyp.synara.BuildConfig
+import dev.dertyp.synara.core.textTitle
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
@@ -140,7 +141,7 @@ actual class DiscordScrobbler actual constructor(
 
         val activity = buildJsonObject {
             put("type", 2)
-            put("details", pad(song.title.cleanTitle()))
+            put("details", pad(song.textTitle()))
             put("state", pad(song.artists.joinArtists()))
 
             put("assets", buildJsonObject {

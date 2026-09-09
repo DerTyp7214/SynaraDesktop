@@ -26,6 +26,7 @@ import dev.dertyp.synara.game.*
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SettingsCard
 import dev.dertyp.synara.ui.components.SynaraImage
+import dev.dertyp.synara.ui.components.TitleTagChips
 import dev.dertyp.synara.ui.components.dialogs.SynaraAlertDialog
 import dev.dertyp.synara.ui.components.player.PlayerProgressBar
 import dev.dertyp.synara.viewmodels.SongGuessScreenModel
@@ -387,7 +388,19 @@ class SongGuessScreen : Screen {
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Column {
-                            Text(song.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    song.title,
+                                    modifier = Modifier.weight(1f, fill = false),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                TitleTagChips(tags = song.tags)
+                            }
                             Text(
                                 song.artists.joinArtists(),
                                 style = MaterialTheme.typography.bodySmall,

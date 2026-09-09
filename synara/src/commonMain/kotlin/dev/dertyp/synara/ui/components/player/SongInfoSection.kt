@@ -16,12 +16,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.dertyp.core.cleanTitle
 import dev.dertyp.data.UserSong
 import dev.dertyp.data.effectiveAudio
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.ArtistsText
 import dev.dertyp.synara.ui.components.SynaraImage
+import dev.dertyp.synara.ui.components.TitleTagChipStyle
+import dev.dertyp.synara.ui.components.TitleTagChips
 import dev.dertyp.synara.ui.components.channelLabel
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -71,7 +72,7 @@ fun SongInfoSection(
         ) { song ->
             Column {
                 Text(
-                    text = song?.title?.cleanTitle()
+                    text = song?.title
                         ?: stringResource(Res.string.not_playing),
                     modifier = Modifier
                         .pointerInput(song?.id) {
@@ -92,6 +93,13 @@ fun SongInfoSection(
                 )
 
                 if (song != null) {
+                    TitleTagChips(
+                        tags = song.tags,
+                        style = TitleTagChipStyle.Detailed,
+                        singleLine = true,
+                        dense = true
+                    )
+
                     ArtistsText(
                         artists = song.artists,
                         style = MaterialTheme.typography.bodySmall,

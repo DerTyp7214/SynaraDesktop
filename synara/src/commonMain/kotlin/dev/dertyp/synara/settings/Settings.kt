@@ -49,6 +49,7 @@ sealed class SettingKey<T>(val name: String) {
     data object IconFilled : SettingKey<Boolean>("icon_filled")
     data object IconPack : SettingKey<String>("icon_pack")
     data object ShowRemainingTime : SettingKey<Boolean>("show_remaining_time")
+    data object ShowTitleTagsInText : SettingKey<Boolean>("show_title_tags_in_text")
 
     // Database
     data object NeedsUserIdMigration : SettingKey<Boolean>("needs_user_id_migration")
@@ -135,6 +136,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.SslConfirmed,
         is SettingKey.NeedsUserIdMigration, is SettingKey.IconFilled,
         is SettingKey.DownloadFavorites, is SettingKey.ShowRemainingTime,
+        is SettingKey.ShowTitleTagsInText,
         is SettingKey.ShowPerformanceOverlay -> getBooleanOrNull(key.name) as T?
 
         is SettingKey.Volume, is SettingKey.ParticleMultiplier -> getFloatOrNull(key.name) as T?

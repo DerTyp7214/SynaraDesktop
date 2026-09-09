@@ -5,6 +5,7 @@ import dev.dertyp.core.md5
 import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
+import dev.dertyp.synara.core.textTitle
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.ui.SynaraIcons
@@ -152,7 +153,7 @@ class LastFmScrobbler(
             "api_key" to apiKey,
             "sk" to sessionKey,
             "artist" to song.artists.joinToString(", ") { it.name },
-            "track" to song.title
+            "track" to song.textTitle()
         )
         song.album?.name?.let { params["album"] = it }
         if (!isNowPlaying) {
@@ -172,7 +173,7 @@ class LastFmScrobbler(
             )
             val isSuccess = response.status.value in 200..299
             if (isSuccess) {
-                logger.info(LogTag.LASTFM, "Successfully submitted to Last.fm: ${song.title}")
+                logger.info(LogTag.LASTFM, "Successfully submitted to Last.fm: ${song.textTitle()}")
                 if (!isNowPlaying) updateStatus(ScrobbleStatus.SCROBBLED)
             } else {
                 logger.warning(LogTag.LASTFM, "Failed to submit to Last.fm: ${response.status.value}")

@@ -93,6 +93,8 @@ import synara.synara.generated.resources.server
 import synara.synara.generated.resources.server_edit
 import synara.synara.generated.resources.server_edit_warning
 import synara.synara.generated.resources.server_path
+import synara.synara.generated.resources.show_title_tags_in_text
+import synara.synara.generated.resources.show_title_tags_in_text_summary
 import synara.synara.generated.resources.server_use_ssl
 import synara.synara.generated.resources.test_connection
 import synara.synara.generated.resources.audio
@@ -168,6 +170,7 @@ class SettingsScreen : Screen {
         val usePywal by Config.usePywal.collectAsState()
         val particleMultiplier by Config.particleMultiplier.collectAsState()
         val hideOnClose by Config.hideOnClose.collectAsState()
+        val showTitleTagsInText by Config.showTitleTagsInText.collectAsState()
 
         val isProxyEnabled by Config.isProxyEnabled.collectAsState()
         val proxyHost by Config.proxyHost.collectAsState()
@@ -331,6 +334,13 @@ class SettingsScreen : Screen {
                         title = stringResource(Res.string.hide_on_close),
                         checked = hideOnClose,
                         onCheckedChange = { Config.setHideOnClose(it) }
+                    )
+
+                    SettingSwitch(
+                        title = stringResource(Res.string.show_title_tags_in_text),
+                        summary = stringResource(Res.string.show_title_tags_in_text_summary),
+                        checked = showTitleTagsInText,
+                        onCheckedChange = { Config.setShowTitleTagsInText(it) }
                     )
 
                     Text(
@@ -1048,7 +1058,8 @@ class SettingsScreen : Screen {
         title: String,
         checked: Boolean,
         onCheckedChange: (Boolean) -> Unit,
-        useElevatedCard: Boolean = true
+        useElevatedCard: Boolean = true,
+        summary: String? = null
     ) {
         val rowContent = @Composable { modifier: Modifier ->
             Row(
@@ -1058,11 +1069,19 @@ class SettingsScreen : Screen {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f)
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    if (summary != null) {
+                        Text(
+                            text = summary,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
                 Switch(
                     checked = checked,
                     onCheckedChange = { onCheckedChange(it) }

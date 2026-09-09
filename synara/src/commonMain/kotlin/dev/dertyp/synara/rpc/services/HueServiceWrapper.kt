@@ -4,6 +4,7 @@ import dev.dertyp.PlatformUUID
 import dev.dertyp.data.HueBridgeCandidate
 import dev.dertyp.data.HueBridgeInfo
 import dev.dertyp.data.HuePairingStatus
+import dev.dertyp.data.HueScene
 import dev.dertyp.data.HueStatus
 import dev.dertyp.data.HueTarget
 import dev.dertyp.data.HueUserLink
@@ -26,6 +27,10 @@ class HueServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manager
 
     override suspend fun removeBridge(bridgeId: PlatformUUID): Boolean {
         return manager.getService<IHueService>().removeBridge(bridgeId)
+    }
+
+    override suspend fun listScenes(bridgeId: PlatformUUID): List<HueScene> {
+        return manager.getService<IHueService>().listScenes(bridgeId)
     }
 
     override suspend fun listTargets(bridgeId: PlatformUUID): List<HueTarget> {

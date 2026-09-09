@@ -22,6 +22,7 @@ import dev.dertyp.data.RadioChannel
 import dev.dertyp.data.RadioChannelItemType
 import dev.dertyp.data.RadioType
 import dev.dertyp.synara.InternalTextField
+import dev.dertyp.synara.core.displayTitle
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SettingsCard
 import dev.dertyp.synara.ui.components.SynaraImage
@@ -494,7 +495,7 @@ class RadioScreen : Screen {
                                 EditorItemRow(
                                     imageId = match.song.coverId,
                                     fallbackIcon = SynaraIcons.Songs,
-                                    title = match.song.title,
+                                    title = match.song.displayTitle,
                                     subtitle = match.song.artists.joinToString(", ") { it.name },
                                     actionIcon = SynaraIcons.Delete,
                                     onAction = {
@@ -557,7 +558,7 @@ class RadioScreen : Screen {
                             EditorItemRow(
                                 imageId = song.coverId,
                                 fallbackIcon = SynaraIcons.Songs,
-                                title = song.title,
+                                title = song.displayTitle,
                                 subtitle = song.artists.joinToString(", ") { it.name },
                                 actionIcon = SynaraIcons.Add,
                                 onAction = {

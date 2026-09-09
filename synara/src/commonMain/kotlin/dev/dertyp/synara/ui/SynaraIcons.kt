@@ -60,6 +60,8 @@ enum class SynaraIcons {
     CheckCircle, ErrorCircle, SyncCircle, Circle, History,
     Sync, Link, Download, Discovery,
     Radio, Collections, Stats, Users, Key, Game, Trophy,
+    TagFeat, TagProd, TagRemix, TagMix, TagLive, TagCover, TagAcoustic, TagInstrumental, TagEdit, TagVersion,
+    TagRemaster, TagDemo,
     LastFm, ListenBrainz, Discord, MusicBrainz, LocalScrobble;
 
     @Composable

@@ -22,6 +22,7 @@ object DownloadedUsers : UUIDTable("user") {
 
 object DownloadedSongs : UUIDTable("song") {
     val title = text("title").default("")
+    val tags = text("tags").default("[]")
     val albumId = reference("albumId", DownloadedAlbums.id, onDelete = ReferenceOption.SET_NULL).nullable()
     val duration = long("duration").default(0L)
     val releaseDate = varchar("releaseDate", 128).nullable()

@@ -574,4 +574,23 @@
     <string name="home_cards_available">Verfügbar</string>
     <string name="move_up">Nach oben</string>
     <string name="move_down">Nach unten</string>
+    <string name="title_tag_kind_feat">Feat.</string>
+    <string name="title_tag_kind_prod">Prod.</string>
+    <string name="title_tag_kind_remix">Remix</string>
+    <string name="title_tag_kind_mix">Mix</string>
+    <string name="title_tag_kind_live">Live</string>
+    <string name="title_tag_kind_cover">Cover</string>
+    <string name="title_tag_kind_acoustic">Akustisch</string>
+    <string name="title_tag_kind_instrumental">Instrumental</string>
+    <string name="title_tag_kind_edit">Edit</string>
+    <string name="title_tag_kind_version">Version</string>
+    <string name="title_tag_kind_remaster">Remaster</string>
+    <string name="title_tag_kind_demo">Demo</string>
+    <string name="show_title_tags_in_text">Versions-Tags in Titeln anzeigen</string>
+    <string name="show_title_tags_in_text_summary">Hängt Tags wie Remix oder Live in Mediensteuerung, Discord, Last.fm und Menüs an den Titel an</string>
+    <string name="metadata_tags">Versions-Tags</string>
+    <string name="edit_title_tags">Versions-Tags bearbeiten</string>
+    <string name="add_title_tag">Tag hinzufügen</string>
+    <string name="title_tag_kind">Art</string>
+    <string name="title_tag_label">Bezeichnung</string>
 </resources>

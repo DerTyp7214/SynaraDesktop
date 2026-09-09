@@ -133,16 +133,24 @@ fun SongItem(
                 }
 
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = currentSongState.title,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isCurrent) MaterialTheme.colorScheme.onSurfaceVariantDistinct()
-                        else MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = currentSongState.title,
+                            modifier = Modifier.weight(1f, fill = false),
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isCurrent) MaterialTheme.colorScheme.onSurfaceVariantDistinct()
+                            else MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        TitleTagChips(tags = currentSongState.tags)
+                    }
+
                     ArtistsText(
                         artists = currentSongState.artists,
                         style = MaterialTheme.typography.bodySmall,

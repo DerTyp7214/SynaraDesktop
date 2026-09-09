@@ -5,6 +5,7 @@ package dev.dertyp.synara.player
 import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.BuildConfig
+import dev.dertyp.synara.core.textTitle
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.services.LocalStorageService
 import dev.dertyp.synara.utils.OSUtils
@@ -397,7 +398,7 @@ private fun createMetadata(song: UserSong?): Map<String, Variant<*>> {
     m["mpris:trackid"] = Variant(DBusPath("/org/mpris/MediaPlayer2/track/$idStr"))
     if (song != null) {
         m["mpris:length"] = Variant(song.duration * 1000L)
-        m["xesam:title"] = Variant(song.title)
+        m["xesam:title"] = Variant(song.textTitle())
         m["xesam:artist"] = Variant(song.artists.map { it.name }.toTypedArray(), "as")
         song.album?.let { m["xesam:album"] = Variant(it.name) }
 

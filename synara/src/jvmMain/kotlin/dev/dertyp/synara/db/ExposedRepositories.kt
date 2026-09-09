@@ -19,6 +19,19 @@ import kotlin.uuid.ExperimentalUuidApi
 
 private const val SQL_CHUNK_SIZE = 500
 
+private val titleTagsJson = Json { ignoreUnknownKeys = true }
+
+private fun decodeTitleTags(raw: String): List<TitleTag> {
+    if (raw.isBlank()) return emptyList()
+    return try {
+        titleTagsJson.decodeFromString(raw)
+    } catch (_: Exception) {
+        emptyList()
+    }
+}
+
+private fun encodeTitleTags(tags: List<TitleTag>): String = titleTagsJson.encodeToString(tags)
+
 @OptIn(ExperimentalUuidApi::class)
 class ExposedRecentlyPlayedRepository(
     private val songService: ISongService,
@@ -734,6 +747,7 @@ private fun mapSongs(rows: List<ResultRow>): List<UserSong> {
         UserSong(
             id = songId,
             title = row[DownloadedSongs.title],
+            tags = decodeTitleTags(row[DownloadedSongs.tags]),
             artists = artistIdsBySong[songId].orEmpty().mapNotNull { artists[it] },
             album = row[DownloadedSongs.albumId]?.let { albums[it.value] },
             duration = row[DownloadedSongs.duration],
@@ -793,6 +807,7 @@ private fun saveSongMetadataInternal(song: UserSong, explicitlySaved: Boolean) {
     DownloadedSongs.upsert(DownloadedSongs.id) {
         it[id] = song.id
         it[title] = song.title
+        it[tags] = encodeTitleTags(song.tags)
         it[albumId] = song.album?.id
         it[duration] = song.duration
         it[explicit] = song.explicit

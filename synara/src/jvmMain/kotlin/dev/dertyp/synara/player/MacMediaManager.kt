@@ -4,6 +4,7 @@ import com.sun.jna.*
 import dev.dertyp.core.joinArtists
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.IImageService
+import dev.dertyp.synara.core.textTitle
 import dev.dertyp.synara.utils.OSUtils
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
@@ -207,7 +208,7 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
         val dictClass = objc.objc_getClass("NSMutableDictionary")
         val dict = msg(dictClass, "dictionary") ?: return
 
-        msg(dict, "setObject:forKey:", nsString(song.title), nsString("title"))
+        msg(dict, "setObject:forKey:", nsString(song.textTitle()), nsString("title"))
         msg(dict, "setObject:forKey:", nsString(song.artists.joinArtists()), nsString("artist"))
         song.album?.let {
             msg(dict, "setObject:forKey:", nsString(it.name), nsString("albumTitle"))

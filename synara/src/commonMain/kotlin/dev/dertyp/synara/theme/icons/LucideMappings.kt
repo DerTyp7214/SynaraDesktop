@@ -13,7 +13,9 @@ object LucideMappings {
     @MapTo(SynaraIcons.Settings) val Settings = Lucide.Settings
     @MapTo(SynaraIcons.IsFavorite) val HeartOff = Lucide.HeartOff
     @MapTo(SynaraIcons.IsNotFavorite) val Heart = Lucide.Heart
-    @MapTo(SynaraIcons.Songs) val Music = Lucide.Music
+    @MapTo(SynaraIcons.Songs)
+    @MapTo(SynaraIcons.TagCover)
+    val Music = Lucide.Music
     @MapTo(SynaraIcons.Refresh)
     @MapTo(SynaraIcons.SyncCircle)
     @MapTo(SynaraIcons.Sync)
@@ -29,11 +31,15 @@ object LucideMappings {
     @MapTo(SynaraIcons.SkipNext) val SkipForward = Lucide.SkipForward
     @MapTo(SynaraIcons.SkipPrevious) val SkipBack = Lucide.SkipBack
     @MapTo(SynaraIcons.Shuffle) val Shuffle = Lucide.Shuffle
-    @MapTo(SynaraIcons.Repeat) val Repeat = Lucide.Repeat
+    @MapTo(SynaraIcons.Repeat)
+    @MapTo(SynaraIcons.TagRemix)
+    val Repeat = Lucide.Repeat
     @MapTo(SynaraIcons.RepeatOne) val Repeat1 = Lucide.Repeat1
     @MapTo(SynaraIcons.PlayNext) val ListVideo = Lucide.ListVideo
     @MapTo(SynaraIcons.AddToPlaylist) val ListPlus = Lucide.ListPlus
-    @MapTo(SynaraIcons.Albums) val Disc = Lucide.Disc
+    @MapTo(SynaraIcons.Albums)
+    @MapTo(SynaraIcons.TagDemo)
+    val Disc = Lucide.Disc
     @MapTo(SynaraIcons.Artists) val User = Lucide.User
     @MapTo(SynaraIcons.AlbumVersions) val Layers = Lucide.Layers
     @MapTo(SynaraIcons.DeviceGeneric) val Tablet = Lucide.Tablet
@@ -67,7 +73,9 @@ object LucideMappings {
     @MapTo(SynaraIcons.Expiration)
     @MapTo(SynaraIcons.Pending)
     val Clock = Lucide.Clock
-    @MapTo(SynaraIcons.Lyrics) val Mic = Lucide.Mic
+    @MapTo(SynaraIcons.Lyrics)
+    @MapTo(SynaraIcons.TagLive)
+    val Mic = Lucide.Mic
     @MapTo(SynaraIcons.Queue) val ListMusic = Lucide.ListMusic
     @MapTo(SynaraIcons.FullscreenEnter) val Maximize = Lucide.Maximize
     @MapTo(SynaraIcons.FullscreenExit) val Minimize = Lucide.Minimize
@@ -82,12 +90,22 @@ object LucideMappings {
     @MapTo(SynaraIcons.History) val History = Lucide.History
     @MapTo(SynaraIcons.Link) val Link = Lucide.Link
     @MapTo(SynaraIcons.Download) val Download = Lucide.Download
-    @MapTo(SynaraIcons.Discovery) val Sparkles = Lucide.Sparkles
+    @MapTo(SynaraIcons.Discovery)
+    @MapTo(SynaraIcons.TagRemaster)
+    val Sparkles = Lucide.Sparkles
     @MapTo(SynaraIcons.Radio) val Radio = Lucide.Radio
     @MapTo(SynaraIcons.Collections) val LibraryBig = Lucide.LibraryBig
     @MapTo(SynaraIcons.Stats) val ChartBar = Lucide.ChartBar
-    @MapTo(SynaraIcons.Users) val Users = Lucide.Users
+    @MapTo(SynaraIcons.Users)
+    @MapTo(SynaraIcons.TagFeat)
+    val Users = Lucide.Users
     @MapTo(SynaraIcons.Key) val KeyRound = Lucide.KeyRound
     @MapTo(SynaraIcons.Game) val Gamepad = Lucide.Gamepad
     @MapTo(SynaraIcons.Trophy) val Trophy = Lucide.Trophy
+    @MapTo(SynaraIcons.TagProd) val SlidersHorizontal = Lucide.SlidersHorizontal
+    @MapTo(SynaraIcons.TagMix) val Activity = Lucide.Activity
+    @MapTo(SynaraIcons.TagAcoustic) val Guitar = Lucide.Guitar
+    @MapTo(SynaraIcons.TagInstrumental) val Piano = Lucide.Piano
+    @MapTo(SynaraIcons.TagEdit) val Scissors = Lucide.Scissors
+    @MapTo(SynaraIcons.TagVersion) val Copy = Lucide.Copy
 }

@@ -20,11 +20,19 @@ import dev.dertyp.PlatformUUID
 import dev.dertyp.core.joinArtists
 import dev.dertyp.data.Artist
 import dev.dertyp.data.MusicBrainzRecording
+import dev.dertyp.data.TitleTag
+import dev.dertyp.data.TitleTagKind
 import dev.dertyp.data.UserSong
 import dev.dertyp.data.effectiveAudio
 import dev.dertyp.services.ISongService
+import dev.dertyp.synara.core.displayTags
+import dev.dertyp.synara.core.localizedName
+import dev.dertyp.synara.core.toSong
+import dev.dertyp.synara.db.LibraryRepository
 import dev.dertyp.synara.scrobble.MusicBrainzService
 import dev.dertyp.synara.ui.SynaraIcons
+import dev.dertyp.synara.ui.components.TitleTagChipStyle
+import dev.dertyp.synara.ui.components.TitleTagChips
 import dev.dertyp.synara.ui.components.dialogs.EditSongArtistsDialog
 import dev.dertyp.synara.ui.components.dialogs.LyricsEditDialog
 import dev.dertyp.synara.ui.components.dialogs.MusicBrainzSearchDialog
@@ -46,8 +54,11 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
         val navigator = LocalNavigator.currentOrThrow
         val songService: ISongService = koinInject()
         val mbService: MusicBrainzService = koinInject()
+        val libraryRepository: LibraryRepository = koinInject()
 
         var song by remember { mutableStateOf<UserSong?>(null) }
+        var title by remember { mutableStateOf("") }
+        var tags by remember { mutableStateOf<List<TitleTag>>(emptyList()) }
         var artists by remember { mutableStateOf<List<Artist>>(emptyList()) }
         var lyrics by remember { mutableStateOf<List<String>>(emptyList()) }
         var musicBrainzId by remember { mutableStateOf<PlatformUUID?>(null) }
@@ -62,6 +73,8 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
 
         LaunchedEffect(songId) {
             song = songService.byId(songId)
+            title = song?.title ?: ""
+            tags = song?.tags ?: emptyList()
             artists = song?.artists ?: emptyList()
             lyrics = song?.lyrics?.lines()?.filter { it.isNotBlank() } ?: emptyList()
             musicBrainzId = song?.musicBrainzId
@@ -100,9 +113,28 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
                                     scope.launch {
                                         isSaving = true
                                         try {
-                                            songService.setArtists(songId, artists.map { it.id })
-                                            songService.setLyrics(songId, lyrics)
-                                            songService.setMusicBrainzId(songId, musicBrainzId)
+                                            val current = song ?: return@launch
+                                            val payload = current.toSong().copy(
+                                                title = title.trim(),
+                                                tags = tags
+                                                    .map { it.copy(label = it.label.trim()) }
+                                                    .filter { it.label.isNotBlank() },
+                                                artists = artists,
+                                                lyrics = lyrics.joinToString("\n"),
+                                                musicBrainzId = musicBrainzId,
+                                            )
+                                            val updated = songService.updateSong(payload)
+                                            if (updated != null &&
+                                                libraryRepository.isSongSaved(songId, explicitlySavedOnly = false)
+                                            ) {
+                                                libraryRepository.saveSongMetadata(
+                                                    updated,
+                                                    explicitlySaved = libraryRepository.isSongSaved(
+                                                        songId,
+                                                        explicitlySavedOnly = true
+                                                    )
+                                                )
+                                            }
                                             navigator.pop()
                                         } catch (_: Exception) {
                                         } finally {
@@ -134,17 +166,25 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     item {
-                        Column {
-                            Text(
-                                text = song?.title ?: "",
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = title,
+                                onValueChange = { title = it },
+                                label = { Text(stringResource(Res.string.metadata_title)) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
                             )
                             Text(
                                 text = artists.joinArtists(),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            if (tags.displayTags.isNotEmpty()) {
+                                TitleTagChips(
+                                    tags = tags,
+                                    style = TitleTagChipStyle.Detailed
+                                )
+                            }
                         }
                     }
 
@@ -187,6 +227,101 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(stringResource(Res.string.match_musicbrainz))
+                            }
+                        }
+                    }
+
+                    item {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(Res.string.edit_title_tags),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold
+                                )
+
+                                tags.forEachIndexed { index, tag ->
+                                    var kindExpanded by remember { mutableStateOf(false) }
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        ExposedDropdownMenuBox(
+                                            expanded = kindExpanded,
+                                            onExpandedChange = { kindExpanded = it },
+                                            modifier = Modifier.width(180.dp)
+                                        ) {
+                                            OutlinedTextField(
+                                                value = tag.kind.localizedName(),
+                                                onValueChange = {},
+                                                readOnly = true,
+                                                singleLine = true,
+                                                label = { Text(stringResource(Res.string.title_tag_kind)) },
+                                                trailingIcon = {
+                                                    ExposedDropdownMenuDefaults.TrailingIcon(
+                                                        expanded = kindExpanded
+                                                    )
+                                                },
+                                                modifier = Modifier
+                                                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                                                    .fillMaxWidth()
+                                            )
+                                            ExposedDropdownMenu(
+                                                expanded = kindExpanded,
+                                                onDismissRequest = { kindExpanded = false }
+                                            ) {
+                                                TitleTagKind.entries.forEach { kind ->
+                                                    DropdownMenuItem(
+                                                        text = { Text(kind.localizedName()) },
+                                                        onClick = {
+                                                            tags = tags.toMutableList().also {
+                                                                it[index] = it[index].copy(kind = kind)
+                                                            }
+                                                            kindExpanded = false
+                                                        }
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        OutlinedTextField(
+                                            value = tag.label,
+                                            onValueChange = { value ->
+                                                tags = tags.toMutableList().also {
+                                                    it[index] = it[index].copy(label = value)
+                                                }
+                                            },
+                                            label = { Text(stringResource(Res.string.title_tag_label)) },
+                                            singleLine = true,
+                                            modifier = Modifier.weight(1f)
+                                        )
+
+                                        IconButton(onClick = {
+                                            tags = tags.toMutableList().also { it.removeAt(index) }
+                                        }) {
+                                            Icon(
+                                                SynaraIcons.Delete.get(),
+                                                contentDescription = null
+                                            )
+                                        }
+                                    }
+                                }
+
+                                TextButton(
+                                    onClick = { tags = tags + TitleTag(TitleTagKind.VERSION, "") }
+                                ) {
+                                    Icon(SynaraIcons.Add.get(), contentDescription = null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(stringResource(Res.string.add_title_tag))
+                                }
                             }
                         }
                     }
@@ -278,7 +413,14 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
                                 modifier = Modifier.padding(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                InfoItem(stringResource(Res.string.metadata_title), song?.title ?: "-")
+                                InfoItem(
+                                    stringResource(Res.string.metadata_title),
+                                    title.ifBlank { "-" }
+                                )
+                                InfoItem(
+                                    stringResource(Res.string.metadata_tags),
+                                    tags.displayTags.joinToString { it.label }.ifBlank { "-" }
+                                )
                                 InfoItem(
                                     stringResource(Res.string.metadata_artist),
                                     artists.joinArtists()

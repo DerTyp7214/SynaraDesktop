@@ -2,6 +2,7 @@ package dev.dertyp.synara.player
 
 import dev.dertyp.core.joinArtists
 import dev.dertyp.data.RepeatMode
+import dev.dertyp.synara.core.textTitle
 import dev.dertyp.synara.utils.OSUtils
 import dev.toastbits.mediasession.MediaSession
 import dev.toastbits.mediasession.MediaSessionLoopMode
@@ -56,7 +57,7 @@ class WindowsMediaManager(private val playerModel: PlayerModel) : SystemMediaMan
             playerModel.currentSong.collectLatest { song ->
                 song?.let {
                     val metadata = MediaSessionMetadata(
-                        title = it.title,
+                        title = it.textTitle(),
                         artist = it.artists.joinArtists(),
                         album = it.album?.name ?: "",
                         length_ms = it.duration

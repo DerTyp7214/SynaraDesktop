@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
@@ -15,6 +16,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.synara.formatBytes
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SongItem
+import dev.dertyp.synara.ui.components.TitleTagChips
 import dev.dertyp.synara.viewmodels.DownloadsScreenModel
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.*
@@ -114,10 +116,20 @@ class DownloadsScreen : Screen {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = download.song.title,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = download.song.title,
+                                modifier = Modifier.weight(1f, fill = false),
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+
+                            TitleTagChips(tags = download.song.tags)
+                        }
                         Text(
                             text = download.song.artists.joinToString { it.name },
                             style = MaterialTheme.typography.bodySmall,

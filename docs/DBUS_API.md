@@ -291,6 +291,30 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `host` | String | The host of the Synara server. |
 | `port` | Int | The port of the Synara server. |
 
+### TitleTag
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `kind` | [TitleTagKind](#titletagkind) |  |
+| `label` | String |  |
+
+### TitleTagKind
+
+| Value | Description |
+| :--- | :--- |
+| `FEAT` |  |
+| `PROD` |  |
+| `REMIX` |  |
+| `MIX` |  |
+| `LIVE` |  |
+| `COVER` |  |
+| `ACOUSTIC` |  |
+| `INSTRUMENTAL` |  |
+| `EDIT` |  |
+| `VERSION` |  |
+| `REMASTER` |  |
+| `DEMO` |  |
+
 ### UserPlaylist
 
 | Field | Type | Description |
@@ -349,6 +373,7 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `animatedCoverBlurHash` | String? |  |
 | `audioStartMs` | Long? |  |
 | `atmosPath` | String? |  |
+| `tags` | List<[TitleTag](#titletag)> |  |
 | `atmosVariantPath` | String? |  |
 | `isFavourite` | Boolean? |  |
 | `userSongCreatedAt` | PlatformDate? |  |

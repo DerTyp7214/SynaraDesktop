@@ -19,6 +19,7 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.Songs) val MusicNote = PhIcons.Regular.MusicNote
     @MapTo(SynaraIcons.Refresh)
     @MapTo(SynaraIcons.Sync)
+    @MapTo(SynaraIcons.TagRemix)
     val ArrowsClockwise = PhIcons.Regular.ArrowsClockwise
     @MapTo(SynaraIcons.Back) val ArrowLeft = PhIcons.Regular.ArrowLeft
     @MapTo(SynaraIcons.SideMenu) val List = PhIcons.Regular.List
@@ -67,7 +68,9 @@ object PhosphorMappings {
     val Clock = PhIcons.Regular.Clock
     @MapTo(SynaraIcons.ExpandDown) val CaretCircleDown = PhIcons.Regular.CaretCircleDown
     @MapTo(SynaraIcons.ExpandUp) val CaretCircleUp = PhIcons.Regular.CaretCircleUp
-    @MapTo(SynaraIcons.Lyrics) val Microphone = PhIcons.Regular.Microphone
+    @MapTo(SynaraIcons.Lyrics)
+    @MapTo(SynaraIcons.TagCover)
+    val Microphone = PhIcons.Regular.Microphone
     @MapTo(SynaraIcons.Queue) val ListDashes = PhIcons.Regular.ListDashes
     @MapTo(SynaraIcons.FullscreenEnter) val ArrowsOut = PhIcons.Regular.ArrowsOut
     @MapTo(SynaraIcons.FullscreenExit) val ArrowsIn = PhIcons.Regular.ArrowsIn
@@ -83,12 +86,24 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.History) val ClockAfternoon = PhIcons.Regular.ClockAfternoon
     @MapTo(SynaraIcons.Link) val Link = PhIcons.Regular.Link
     @MapTo(SynaraIcons.Download) val DownloadSimple = PhIcons.Regular.DownloadSimple
-    @MapTo(SynaraIcons.Discovery) val Sparkle = PhIcons.Regular.Sparkle
+    @MapTo(SynaraIcons.Discovery)
+    @MapTo(SynaraIcons.TagRemaster)
+    val Sparkle = PhIcons.Regular.Sparkle
     @MapTo(SynaraIcons.Radio) val Radio = PhIcons.Regular.Radio
     @MapTo(SynaraIcons.Collections) val Folders = PhIcons.Regular.Folders
     @MapTo(SynaraIcons.Stats) val ChartBar = PhIcons.Regular.ChartBar
-    @MapTo(SynaraIcons.Users) val Users = PhIcons.Regular.Users
+    @MapTo(SynaraIcons.Users)
+    @MapTo(SynaraIcons.TagFeat)
+    val Users = PhIcons.Regular.Users
     @MapTo(SynaraIcons.Key) val Key = PhIcons.Regular.Key
     @MapTo(SynaraIcons.Game) val GameController = PhIcons.Regular.GameController
     @MapTo(SynaraIcons.Trophy) val Trophy = PhIcons.Regular.Trophy
+    @MapTo(SynaraIcons.TagProd) val FadersHorizontal = PhIcons.Regular.FadersHorizontal
+    @MapTo(SynaraIcons.TagMix) val Waveform = PhIcons.Regular.Waveform
+    @MapTo(SynaraIcons.TagLive) val MicrophoneStage = PhIcons.Regular.MicrophoneStage
+    @MapTo(SynaraIcons.TagAcoustic) val Guitar = PhIcons.Regular.Guitar
+    @MapTo(SynaraIcons.TagInstrumental) val PianoKeys = PhIcons.Regular.PianoKeys
+    @MapTo(SynaraIcons.TagEdit) val Scissors = PhIcons.Regular.Scissors
+    @MapTo(SynaraIcons.TagVersion) val Copy = PhIcons.Regular.Copy
+    @MapTo(SynaraIcons.TagDemo) val CassetteTape = PhIcons.Regular.CassetteTape
 }

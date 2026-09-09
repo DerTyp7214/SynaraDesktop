@@ -16,7 +16,9 @@ object MaterialMappings {
     @MapTo(SynaraIcons.IsFavorite, fillMode = FillMode.Filled)
     @MapTo(SynaraIcons.IsNotFavorite, fillMode = FillMode.Outlined)
     val Favorite = MaterialSymbols.Rounded.Favorite
-    @MapTo(SynaraIcons.Songs) val Music_note = MaterialSymbols.Rounded.Music_note
+    @MapTo(SynaraIcons.Songs)
+    @MapTo(SynaraIcons.TagAcoustic)
+    val Music_note = MaterialSymbols.Rounded.Music_note
     @MapTo(SynaraIcons.Refresh) val Refresh = MaterialSymbols.Rounded.Refresh
     @MapTo(SynaraIcons.Back) val Arrow_back = MaterialSymbols.Rounded.Arrow_back
     @MapTo(SynaraIcons.SideMenu) val Menu = MaterialSymbols.Rounded.Menu
@@ -33,7 +35,9 @@ object MaterialMappings {
     @MapTo(SynaraIcons.RepeatOne) val Repeat_one = MaterialSymbols.Rounded.Repeat_one
     @MapTo(SynaraIcons.PlayNext) val Playlist_play = MaterialSymbols.Rounded.Playlist_play
     @MapTo(SynaraIcons.AddToPlaylist) val Playlist_add = MaterialSymbols.Rounded.Playlist_add
-    @MapTo(SynaraIcons.Albums) val Album = MaterialSymbols.Rounded.Album
+    @MapTo(SynaraIcons.Albums)
+    @MapTo(SynaraIcons.TagDemo)
+    val Album = MaterialSymbols.Rounded.Album
     @MapTo(SynaraIcons.Artists) val Person = MaterialSymbols.Rounded.Person
     @MapTo(SynaraIcons.AlbumVersions) val Layers = MaterialSymbols.Rounded.Layers
     @MapTo(SynaraIcons.DeviceGeneric) val Devices = MaterialSymbols.Rounded.Devices
@@ -83,7 +87,9 @@ object MaterialMappings {
     @MapTo(SynaraIcons.Sync) val Sync = MaterialSymbols.Rounded.Sync
     @MapTo(SynaraIcons.Link) val Link = MaterialSymbols.Rounded.Link
     @MapTo(SynaraIcons.Download) val Download = MaterialSymbols.Rounded.Download
-    @MapTo(SynaraIcons.Discovery) val Auto_awesome = MaterialSymbols.Rounded.Auto_awesome
+    @MapTo(SynaraIcons.Discovery)
+    @MapTo(SynaraIcons.TagRemaster)
+    val Auto_awesome = MaterialSymbols.Rounded.Auto_awesome
     @MapTo(SynaraIcons.Radio) val Radio = MaterialSymbols.Rounded.Radio
     @MapTo(SynaraIcons.Collections) val Collections_bookmark = MaterialSymbols.Rounded.Collections_bookmark
     @MapTo(SynaraIcons.Stats) val Bar_chart = MaterialSymbols.Rounded.Bar_chart
@@ -91,4 +97,13 @@ object MaterialMappings {
     @MapTo(SynaraIcons.Key) val Key = MaterialSymbols.Rounded.Key
     @MapTo(SynaraIcons.Game) val Sports_esports = MaterialSymbols.Rounded.Sports_esports
     @MapTo(SynaraIcons.Trophy) val Trophy = MaterialSymbols.Rounded.Trophy
+    @MapTo(SynaraIcons.TagFeat) val Groups = MaterialSymbols.Rounded.Groups
+    @MapTo(SynaraIcons.TagProd) val Tune = MaterialSymbols.Rounded.Tune
+    @MapTo(SynaraIcons.TagRemix) val Autorenew = MaterialSymbols.Rounded.Autorenew
+    @MapTo(SynaraIcons.TagMix) val Equalizer = MaterialSymbols.Rounded.Equalizer
+    @MapTo(SynaraIcons.TagLive) val Mic = MaterialSymbols.Rounded.Mic
+    @MapTo(SynaraIcons.TagCover) val Record_voice_over = MaterialSymbols.Rounded.Record_voice_over
+    @MapTo(SynaraIcons.TagInstrumental) val Piano = MaterialSymbols.Rounded.Piano
+    @MapTo(SynaraIcons.TagEdit) val Content_cut = MaterialSymbols.Rounded.Content_cut
+    @MapTo(SynaraIcons.TagVersion) val Content_copy = MaterialSymbols.Rounded.Content_copy
 }

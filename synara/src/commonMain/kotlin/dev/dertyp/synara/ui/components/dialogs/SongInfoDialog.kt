@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import dev.dertyp.core.joinArtists
 import dev.dertyp.data.UserSong
 import dev.dertyp.data.effectiveAudio
+import dev.dertyp.synara.core.displayTags
 import dev.dertyp.synara.ui.components.channelLabel
 import dev.dertyp.synara.ui.components.formatFileSize
 import org.jetbrains.compose.resources.stringResource
@@ -43,6 +44,12 @@ fun SongInfoDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 InfoItem(stringResource(Res.string.metadata_title), song.title)
+                if (song.tags.displayTags.isNotEmpty()) {
+                    InfoItem(
+                        stringResource(Res.string.metadata_tags),
+                        song.tags.displayTags.joinToString { it.label }
+                    )
+                }
                 InfoItem(stringResource(Res.string.metadata_artist), song.artists.joinArtists())
                 InfoItem(stringResource(Res.string.metadata_album), song.album?.name ?: "-")
                 InfoItem(

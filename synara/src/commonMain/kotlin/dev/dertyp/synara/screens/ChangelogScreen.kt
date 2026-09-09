@@ -64,6 +64,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.4.5",
+                        date = "2026-09-09",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "**Version tags**: markers like Remix, Live, Acoustic or Remaster are split off song titles and shown as chips next to the title, with a setting for whether media controls, Discord, Last.fm and menus still get the full title. The metadata editor can edit the title and its tags, and the offline library is converted on first start.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.4.4",
                         date = "2026-09-07",
                         isPrerelease = true,

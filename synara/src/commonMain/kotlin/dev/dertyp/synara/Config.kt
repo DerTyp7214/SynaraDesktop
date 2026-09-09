@@ -40,6 +40,9 @@ object Config : KoinComponent {
     private val _showRemainingTime = MutableStateFlow(settings.get(SettingKey.ShowRemainingTime, false))
     val showRemainingTime: StateFlow<Boolean> = _showRemainingTime.asStateFlow()
 
+    private val _showTitleTagsInText = MutableStateFlow(settings.get(SettingKey.ShowTitleTagsInText, true))
+    val showTitleTagsInText: StateFlow<Boolean> = _showTitleTagsInText.asStateFlow()
+
     private val _language = MutableStateFlow(settings.getStringOrNull("language"))
     val language: StateFlow<String?> = _language.asStateFlow()
 
@@ -163,6 +166,11 @@ object Config : KoinComponent {
     fun setShowRemainingTime(show: Boolean) {
         _showRemainingTime.value = show
         settings.put(SettingKey.ShowRemainingTime, show)
+    }
+
+    fun setShowTitleTagsInText(show: Boolean) {
+        _showTitleTagsInText.value = show
+        settings.put(SettingKey.ShowTitleTagsInText, show)
     }
 
     fun setLanguage(lang: String?) {

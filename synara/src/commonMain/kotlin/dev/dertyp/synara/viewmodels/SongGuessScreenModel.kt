@@ -13,6 +13,7 @@ import dev.dertyp.data.UserSong
 import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
+import dev.dertyp.synara.core.displayTitle
 import dev.dertyp.synara.game.GameAudioPlayer
 import dev.dertyp.synara.game.GameConfig
 import dev.dertyp.synara.game.LeaderboardEntry
@@ -336,7 +337,11 @@ class SongGuessScreenModel(
     }
 
     fun selectGuess(song: UserSong) = mutableState.update {
-        it.copy(selectedGuess = song, guessQuery = "${song.title} — ${song.artists.joinArtists()}", suggestions = emptyList())
+        it.copy(
+            selectedGuess = song,
+            guessQuery = "${song.displayTitle} — ${song.artists.joinArtists()}",
+            suggestions = emptyList()
+        )
     }
 
     fun submitGuess() {
@@ -382,7 +387,7 @@ class SongGuessScreenModel(
         val points = if (solved) pointsForAttempt(s.attempt) else 0
         val result = RoundResult(
             songId = song.id,
-            title = song.title,
+            title = song.displayTitle,
             artist = song.artists.joinArtists(),
             coverId = song.coverId,
             attemptsUsed = s.attempt + 1,
