@@ -92,6 +92,13 @@ object Config : KoinComponent {
     private val _isDiscordRpcEnabled = MutableStateFlow(settings.get(SettingKey.IsDiscordRpcEnabled, false))
     val isDiscordRpcEnabled: StateFlow<Boolean> = _isDiscordRpcEnabled.asStateFlow()
 
+    // Queue sync
+    private val _isQueueSyncEnabled = MutableStateFlow(settings.get(SettingKey.IsQueueSyncEnabled, false))
+    val isQueueSyncEnabled: StateFlow<Boolean> = _isQueueSyncEnabled.asStateFlow()
+
+    private val _queueSyncDeviceName = MutableStateFlow(settings.getOrNull(SettingKey.QueueSyncDeviceName) ?: "")
+    val queueSyncDeviceName: StateFlow<String> = _queueSyncDeviceName.asStateFlow()
+
     // Visualizer
     private val _particleMultiplier = MutableStateFlow(settings.get(SettingKey.ParticleMultiplier, 2.5f))
     val particleMultiplier: StateFlow<Float> = _particleMultiplier.asStateFlow()
@@ -264,6 +271,16 @@ object Config : KoinComponent {
     fun setIsDiscordRpcEnabled(enabled: Boolean) {
         _isDiscordRpcEnabled.value = enabled
         settings.put(SettingKey.IsDiscordRpcEnabled, enabled)
+    }
+
+    fun setIsQueueSyncEnabled(enabled: Boolean) {
+        _isQueueSyncEnabled.value = enabled
+        settings.put(SettingKey.IsQueueSyncEnabled, enabled)
+    }
+
+    fun setQueueSyncDeviceName(name: String) {
+        _queueSyncDeviceName.value = name
+        settings.put(SettingKey.QueueSyncDeviceName, name)
     }
 
     fun setParticleMultiplier(multiplier: Float) {

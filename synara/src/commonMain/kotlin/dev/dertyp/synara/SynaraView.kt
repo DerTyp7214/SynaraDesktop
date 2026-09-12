@@ -37,6 +37,7 @@ import dev.dertyp.synara.ui.LocalWindowActions
 import dev.dertyp.synara.ui.components.ConnectionBanners
 import dev.dertyp.synara.ui.components.LocalHazeState
 import dev.dertyp.synara.ui.components.PerformanceOverlay
+import dev.dertyp.synara.ui.components.QueueSyncPrompts
 import dev.dertyp.synara.ui.server.rememberUiShareHookDispatcher
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import dev.dertyp.ui.UiHookEvent
@@ -158,6 +159,8 @@ fun SynaraView() {
                         rpcServiceManager = rpcServiceManager,
                         modifier = Modifier.align(Alignment.TopCenter)
                     )
+
+                    QueueSyncPrompts()
                 }
 
                 if (showPerformanceOverlay) {

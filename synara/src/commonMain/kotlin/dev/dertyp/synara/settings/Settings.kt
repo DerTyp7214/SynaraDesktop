@@ -41,6 +41,13 @@ sealed class SettingKey<T>(val name: String) {
     data object LastFmUsername : SettingKey<String>("lastfm_username")
     data object IsDiscordRpcEnabled : SettingKey<Boolean>("is_discord_rpc_enabled")
 
+    // Queue sync
+    data object IsQueueSyncEnabled : SettingKey<Boolean>("is_queue_sync_enabled")
+    data object QueueSyncDeviceName : SettingKey<String>("queue_sync_device_name")
+    data object QueueSyncVersion : SettingKey<Long>("queue_sync_version")
+    data object QueueSyncDirty : SettingKey<Boolean>("queue_sync_dirty")
+    data object QueueSyncLastAt : SettingKey<Long>("queue_sync_last_at")
+
     // Visualizer
     data object ParticleMultiplier : SettingKey<Float>("particle_multiplier")
 
@@ -119,6 +126,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.LastFmUsername, is SettingKey.ProxyHost, is SettingKey.ProxyId,
         is SettingKey.IconStyle, is SettingKey.IconPack, is SettingKey.LastSeenVersion,
         is SettingKey.LastSeenRecentReleaseId, is SettingKey.RpcPath,
+        is SettingKey.QueueSyncDeviceName,
         is SettingKey.AudioOutputDevice -> getStringOrNull(key.name) as T?
 
         is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor,
@@ -127,7 +135,8 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
             key.name
         ) as T?
 
-        is SettingKey.TokenExpiration -> getLongOrNull(key.name) as T?
+        is SettingKey.TokenExpiration, is SettingKey.QueueSyncVersion,
+        is SettingKey.QueueSyncLastAt -> getLongOrNull(key.name) as T?
         is SettingKey.DarkTheme, is SettingKey.UseSongColor, is SettingKey.UsePywal,
         is SettingKey.IsServerScrobblingEnabled,
         is SettingKey.IsListenBrainzEnabled, is SettingKey.IsLastFmEnabled,
@@ -137,6 +146,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.NeedsUserIdMigration, is SettingKey.IconFilled,
         is SettingKey.DownloadFavorites, is SettingKey.ShowRemainingTime,
         is SettingKey.ShowTitleTagsInText,
+        is SettingKey.IsQueueSyncEnabled, is SettingKey.QueueSyncDirty,
         is SettingKey.ShowPerformanceOverlay -> getBooleanOrNull(key.name) as T?
 
         is SettingKey.Volume, is SettingKey.ParticleMultiplier -> getFloatOrNull(key.name) as T?

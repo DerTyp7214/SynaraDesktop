@@ -1,14 +1,30 @@
 package dev.dertyp.synara.utils
 
+import dev.dertyp.getPlatformName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
 import java.io.FilenameFilter
+import java.net.InetAddress
 import java.util.TimeZone
 
 actual fun currentTimezoneId(): String = TimeZone.getDefault().id
+
+private val cachedDeviceName: String by lazy {
+    val hostName = runCatching { InetAddress.getLocalHost().hostName }
+        .getOrNull()
+        ?.takeIf { it.isNotBlank() && !it.equals("localhost", ignoreCase = true) }
+    if (hostName != null) return@lazy hostName
+
+    val userName = runCatching { System.getProperty("user.name") }
+        .getOrNull()
+        ?.takeIf { it.isNotBlank() }
+    if (userName != null) "$userName (${getPlatformName()})" else "Synara Desktop"
+}
+
+actual fun defaultDeviceName(): String = cachedDeviceName
 
 private val imageExtensions = setOf("png", "jpg", "jpeg", "webp", "bmp", "gif")
 

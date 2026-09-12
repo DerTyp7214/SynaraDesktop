@@ -11,9 +11,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,11 +28,18 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.player.QueueSyncService
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
+import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.queue_sync_banner_dismiss
+import synara.synara.generated.resources.queue_sync_banner_load
+import synara.synara.generated.resources.queue_sync_banner_title
+import synara.synara.generated.resources.queue_sync_other_device
 import kotlin.math.abs
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -36,7 +47,8 @@ import kotlin.math.abs
 fun QueueView(
     modifier: Modifier = Modifier,
     playerModel: PlayerModel = koinInject(),
-    globalState: GlobalStateModel = koinInject()
+    globalState: GlobalStateModel = koinInject(),
+    queueSync: QueueSyncService = koinInject()
 ) {
     val queue by playerModel.queue.collectAsState()
     val currentIndex by playerModel.currentIndex.collectAsState()
@@ -57,6 +69,14 @@ fun QueueView(
 
     var draggedItemIndex by remember { mutableStateOf<Int?>(null) }
     var draggingOffset by remember { mutableStateOf(0f) }
+
+    val pendingRemote by queueSync.pendingRemote.collectAsState()
+    val otherDeviceName = stringResource(Res.string.queue_sync_other_device)
+    var bannerDeviceName by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(pendingRemote) {
+        val info = pendingRemote
+        if (info != null) bannerDeviceName = info.modifiedByDeviceName
+    }
 
     LaunchedEffect(isQueueExpanded, currentIndex) {
         if (isQueueExpanded && currentIndex >= 0 && currentIndex < queue.size) {
@@ -212,6 +232,56 @@ fun QueueView(
                 .fillMaxHeight()
                 .padding(vertical = 48.dp, horizontal = 4.dp)
         )
+
+        AnimatedVisibility(
+            visible = pendingRemote != null,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically(),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+        ) {
+            Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                shape = MaterialTheme.shapes.medium,
+                shadowElevation = 4.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = SynaraIcons.Sync.get(),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        text = stringResource(
+                            Res.string.queue_sync_banner_title,
+                            bannerDeviceName ?: otherDeviceName
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Button(
+                        onClick = { queueSync.applyPendingRemote() },
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
+                    ) {
+                        Text(stringResource(Res.string.queue_sync_banner_load))
+                    }
+                    IconButton(onClick = { queueSync.dismissPendingRemote() }) {
+                        Icon(
+                            imageVector = SynaraIcons.Close.get(),
+                            contentDescription = stringResource(Res.string.queue_sync_banner_dismiss),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+        }
 
         AnimatedVisibility(
             visible = showScrollToCurrent,

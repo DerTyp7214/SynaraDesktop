@@ -64,6 +64,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.4.6",
+                        date = "2026-09-12",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "**Queue sync**: the play queue can now be kept the same on all your devices. Turn on Sync Queue in the settings, give the device a name, and adding, removing, reordering or skipping songs on one device shows up on the others. While this device is playing, changes from elsewhere wait as a banner above the queue until you load them, and a device list lets you pull the current queue from another device.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.4.5",
                         date = "2026-09-09",
                         isPrerelease = true,

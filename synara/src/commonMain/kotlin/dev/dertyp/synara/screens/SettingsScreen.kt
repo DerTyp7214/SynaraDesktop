@@ -60,7 +60,9 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.synara.Config
 import dev.dertyp.synara.IS_DEBUG
 import dev.dertyp.synara.InternalTextField
+import dev.dertyp.synara.formatDateTime
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.player.QueueSyncService
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.scrobble.LastFmScrobbler
 import dev.dertyp.synara.theme.PywalLoader
@@ -136,9 +138,19 @@ import synara.synara.generated.resources.particle_multiplier
 import synara.synara.generated.resources.performance
 import synara.synara.generated.resources.proxy
 import synara.synara.generated.resources.quality_source
+import synara.synara.generated.resources.queue_sync_never_synced
 import synara.synara.generated.resources.restart_required
 import synara.synara.generated.resources.scrobbling
 import synara.synara.generated.resources.settings
+import synara.synara.generated.resources.settings_queue_sync_behind
+import synara.synara.generated.resources.settings_queue_sync_device_name_title
+import synara.synara.generated.resources.settings_queue_sync_devices_title
+import synara.synara.generated.resources.settings_queue_sync_last_synced
+import synara.synara.generated.resources.settings_queue_sync_section
+import synara.synara.generated.resources.settings_queue_sync_status_title
+import synara.synara.generated.resources.settings_queue_sync_summary
+import synara.synara.generated.resources.settings_queue_sync_title
+import synara.synara.generated.resources.settings_queue_sync_upload_pending
 import synara.synara.generated.resources.settings_scheduled_task_logs_title
 import synara.synara.generated.resources.subsonic_credential
 import synara.synara.generated.resources.user_management
@@ -187,6 +199,9 @@ class SettingsScreen : Screen {
         val lastFmSessionKey by Config.lastFmSessionKey.collectAsState()
         val lastFmUsername by Config.lastFmUsername.collectAsState()
         val isDiscordRpcEnabled by Config.isDiscordRpcEnabled.collectAsState()
+
+        val isQueueSyncEnabled by Config.isQueueSyncEnabled.collectAsState()
+        val queueSyncDeviceName by Config.queueSyncDeviceName.collectAsState()
 
         val rpcServiceManager = koinInject<RpcServiceManager>()
         val playerModel = koinInject<PlayerModel>()
@@ -525,6 +540,18 @@ class SettingsScreen : Screen {
                         sharedSecret = lastFmSharedSecret,
                         sessionKey = lastFmSessionKey,
                         username = lastFmUsername
+                    )
+
+                    Text(
+                        text = stringResource(Res.string.settings_queue_sync_section),
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+
+                    QueueSyncSettings(
+                        isEnabled = isQueueSyncEnabled,
+                        deviceName = queueSyncDeviceName,
+                        onOpenDevices = { navigator.push(QueueSyncDevicesScreen()) }
                     )
 
                     Text(
@@ -1048,6 +1075,87 @@ class SettingsScreen : Screen {
                             Text(stringResource(Res.string.save))
                         }
                     }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun QueueSyncSettings(
+        isEnabled: Boolean,
+        deviceName: String,
+        onOpenDevices: () -> Unit,
+        queueSync: QueueSyncService = koinInject()
+    ) {
+        val status by queueSync.status.collectAsState()
+
+        SettingsCard(innerPadding = PaddingValues(0.dp)) {
+            SettingSwitch(
+                title = stringResource(Res.string.settings_queue_sync_title),
+                summary = stringResource(Res.string.settings_queue_sync_summary),
+                checked = isEnabled,
+                onCheckedChange = { Config.setIsQueueSyncEnabled(it) },
+                useElevatedCard = false
+            )
+
+            if (isEnabled) {
+                Column(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    InternalTextField(
+                        value = deviceName,
+                        onValueChange = { Config.setQueueSyncDeviceName(it) },
+                        label = { Text(stringResource(Res.string.settings_queue_sync_device_name_title)) },
+                        placeholder = { Text(queueSync.platformDeviceName) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    val behindDevice = status.behindDevice
+                    val lastSyncedText = if (status.lastSyncAt > 0) {
+                        stringResource(Res.string.settings_queue_sync_last_synced, status.lastSyncAt.formatDateTime())
+                    } else {
+                        stringResource(Res.string.queue_sync_never_synced)
+                    }
+                    val statusSuffix = when {
+                        status.uploadPending -> " · " + stringResource(Res.string.settings_queue_sync_upload_pending)
+                        behindDevice != null -> " · " + stringResource(Res.string.settings_queue_sync_behind, behindDevice)
+                        else -> ""
+                    }
+                    val statusSummary = lastSyncedText + statusSuffix
+
+                    Column {
+                        Text(
+                            text = stringResource(Res.string.settings_queue_sync_status_title),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = statusSummary,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        if (isEnabled) {
+            SettingsCard(onClick = onOpenDevices) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(Res.string.settings_queue_sync_devices_title),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Icon(
+                        imageVector = SynaraIcons.ChevronRight.get(),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }

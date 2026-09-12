@@ -18,6 +18,7 @@ import dev.dertyp.synara.game.GameAudioPlayer
 import dev.dertyp.synara.game.SongGuessLeaderboard
 import dev.dertyp.synara.logging.StdoutLogPersistence
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.player.QueueSyncService
 import dev.dertyp.synara.player.SongCache
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.ServerClock
@@ -108,6 +109,7 @@ val appModule = module {
     singleOf(::ScrobbleQueue)
     singleOf(::SongCache)
     singleOf(::PlayerModel)
+    singleOf(::QueueSyncService)
     singleOf(::TrayState)
     singleOf(::SnackbarManager)
     singleOf(::PerformanceMonitor)
@@ -161,6 +163,8 @@ val appModule = module {
     singleOf(::MetadataServiceWrapper) bind IMetadataService::class
     singleOf(::MusicBrainzServiceWrapper) bind IMusicBrainzService::class
     singleOf(::PlaybackServiceWrapper) bind IPlaybackService::class
+    singleOf(::QueueServiceWrapper) bind IQueueService::class
+    singleOf(::ClientRequestServiceWrapper) bind IClientRequestService::class
     singleOf(::PlaylistServiceWrapper) bind IPlaylistService::class
     singleOf(::ReleaseServiceWrapper) bind IReleaseService::class
     singleOf(::ScheduledTaskConfigurationServiceWrapper) bind IScheduledTaskConfigurationService::class

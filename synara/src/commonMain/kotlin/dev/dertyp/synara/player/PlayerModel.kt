@@ -18,6 +18,7 @@ import dev.dertyp.synara.utils.SynaraDispatchers
 import dev.dertyp.synara.utils.compress
 import dev.dertyp.synara.utils.decompress
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.cbor.Cbor
@@ -30,6 +31,7 @@ import okio.Path.Companion.toPath
 import org.jetbrains.compose.resources.getString
 import synara.synara.generated.resources.*
 import kotlin.math.log10
+import kotlin.random.Random
 
 @Suppress("unused")
 @OptIn(ExperimentalSerializationApi::class)
@@ -88,6 +90,34 @@ class PlayerModel(
     val shuffleMode: StateFlow<Boolean> = _shuffleMode.asStateFlow()
 
     private val _requestedWindow = MutableStateFlow<IntRange?>(null)
+
+    private val _queueChanges = MutableSharedFlow<QueueChange>(
+        extraBufferCapacity = 256,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val queueChanges: SharedFlow<QueueChange> = _queueChanges.asSharedFlow()
+
+    private var suppressChanges = false
+
+    sealed class QueueChange {
+        data object Replaced : QueueChange()
+        data class Inserted(val anchor: Anchor, val entries: List<QueueEntry>, val index: Int) : QueueChange()
+        data class Removed(val queueIds: List<Long>) : QueueChange()
+        data class Moved(val queueId: Long, val toIndex: Int) : QueueChange()
+        data class CurrentChanged(val queueId: Long?, val index: Int) : QueueChange()
+        data class ModesChanged(val shuffle: Boolean, val repeat: RepeatMode) : QueueChange()
+
+        enum class Anchor { AFTER_CURRENT, END }
+    }
+
+    data class QueueSnapshot(
+        val original: List<QueueEntry>,
+        val active: List<QueueEntry>,
+        val currentIndex: Int,
+        val shuffle: Boolean,
+        val repeat: RepeatMode,
+        val sourceId: String?
+    )
 
     val isPlaying: StateFlow<Boolean> = audioPlayer.isPlaying
     val currentPosition: StateFlow<Long> = audioPlayer.currentPosition
@@ -191,6 +221,26 @@ class PlayerModel(
                 }
             }
         }
+    }
+
+    private fun emitChange(change: QueueChange) {
+        if (suppressChanges) return
+        _queueChanges.tryEmit(change)
+    }
+
+    private fun emitCurrentChanged() {
+        val index = _currentIndex.value
+        emitChange(QueueChange.CurrentChanged(_queue.value.getOrNull(index)?.queueId, index))
+    }
+
+    private fun songIdOf(entry: QueueEntry): PlatformUUID = when (entry) {
+        is QueueEntry.Explicit -> entry.song.id
+        is QueueEntry.FromSource -> entry.songId
+    }
+
+    private fun withQueueId(entry: QueueEntry, id: Long): QueueEntry = when (entry) {
+        is QueueEntry.Explicit -> entry.copy(queueId = id)
+        is QueueEntry.FromSource -> entry.copy(queueId = id)
     }
 
     private fun loadState() {
@@ -372,6 +422,7 @@ class PlayerModel(
         if (index in _queue.value.indices) {
             val entry = _queue.value[index]
             _currentIndex.value = index
+            emitCurrentChanged()
             scope.launch {
                 resolveSongId(entry)?.let { id ->
                     audioPlayer.load(id)
@@ -387,6 +438,7 @@ class PlayerModel(
         originalQueue = listOf(entry)
         _queue.value = listOf(entry)
         _currentIndex.value = 0
+        emitChange(QueueChange.Replaced)
         scope.launch { songCache.put(song) }
         audioPlayer.load(song.id)
         audioPlayer.play()
@@ -473,6 +525,7 @@ class PlayerModel(
                     _queue.value = newItems
                     _currentIndex.value = startIndex
                 }
+                emitChange(QueueChange.Replaced)
             } else if (source != null) {
                 val startSong = try {
                     source.getSongAt(startIndex) as? UserSong
@@ -518,6 +571,7 @@ class PlayerModel(
                             }
                         }
                         updateWindow()
+                        emitChange(QueueChange.Replaced)
                     }
                 }
                 return@launch
@@ -582,12 +636,12 @@ class PlayerModel(
             }
 
             withContext(Dispatchers.Main) {
-                originalQueue = originalQueue + newItems
-                if (_shuffleMode.value) {
-                    _queue.value += newItems.shuffled()
-                } else {
-                    _queue.value += newItems
-                }
+                val at = _queue.value.size
+                val appended = if (_shuffleMode.value) newItems.shuffled() else newItems
+                originalQueue = originalQueue + appended
+                _queue.value += appended
+
+                emitChange(QueueChange.Inserted(QueueChange.Anchor.END, appended, at))
 
                 if (_currentIndex.value == -1) {
                     playAtIndex(0)
@@ -631,11 +685,17 @@ class PlayerModel(
                 newQueue.addAll(insertIndex, newItems)
                 _queue.value = newQueue
 
-                val currentEntry = _queue.value.getOrNull(_currentIndex.value)
-                val origInsertIndex = originalQueue.indexOf(currentEntry).let { if (it == -1) originalQueue.size else it + 1 }
-                val newOrigQueue = originalQueue.toMutableList()
-                newOrigQueue.addAll(origInsertIndex, newItems)
-                originalQueue = newOrigQueue
+                if (_shuffleMode.value) {
+                    originalQueue = originalQueue + newItems
+                } else {
+                    val currentEntry = _queue.value.getOrNull(_currentIndex.value)
+                    val origInsertIndex = originalQueue.indexOf(currentEntry).let { if (it == -1) originalQueue.size else it + 1 }
+                    val newOrigQueue = originalQueue.toMutableList()
+                    newOrigQueue.addAll(origInsertIndex, newItems)
+                    originalQueue = newOrigQueue
+                }
+
+                emitChange(QueueChange.Inserted(QueueChange.Anchor.AFTER_CURRENT, newItems, insertIndex))
 
                 snackbarManager.showSnackbar(message)
             }
@@ -666,6 +726,8 @@ class PlayerModel(
         if (!_shuffleMode.value) {
             originalQueue = newQueue
         }
+
+        emitChange(QueueChange.Moved(entry.queueId, toIndex))
     }
 
     fun removeFromQueue(entry: QueueEntry) {
@@ -675,26 +737,27 @@ class PlayerModel(
         val newQueue = _queue.value.toMutableList()
         newQueue.removeAt(index)
 
-        val currentIdx = _currentIndex.value
-        if (index == currentIdx) {
-            if (newQueue.isEmpty()) {
-                clearQueue()
-            } else {
-                _queue.value = newQueue
-                playAtIndex(if (index < newQueue.size) index else 0)
-            }
-        } else {
-            _queue.value = newQueue
-            if (index < currentIdx) {
-                _currentIndex.value = currentIdx - 1
-            }
+        if (newQueue.isEmpty()) {
+            clearQueue()
+            return
         }
+
+        val currentIdx = _currentIndex.value
+        _queue.value = newQueue
 
         val origIndex = originalQueue.indexOf(entry)
         if (origIndex != -1) {
             val newOrig = originalQueue.toMutableList()
             newOrig.removeAt(origIndex)
             originalQueue = newOrig
+        }
+
+        emitChange(QueueChange.Removed(listOf(entry.queueId)))
+
+        if (index == currentIdx) {
+            playAtIndex(if (index < newQueue.size) index else 0)
+        } else if (index < currentIdx) {
+            _currentIndex.value = currentIdx - 1
         }
     }
 
@@ -705,6 +768,7 @@ class PlayerModel(
         _currentIndex.value = -1
         _currentSong.value = null
         _currentSource.value = null
+        emitChange(QueueChange.Replaced)
     }
 
     fun togglePlayPause() {
@@ -760,12 +824,17 @@ class PlayerModel(
     }
 
     fun toggleShuffle() {
-        if (_currentSource.value is PlaybackSource.Radio) return
-        val currentEntry = _queue.value.getOrNull(_currentIndex.value)
-        val newShuffleMode = !_shuffleMode.value
-        _shuffleMode.value = newShuffleMode
+        setShuffleMode(!_shuffleMode.value)
+    }
 
-        if (newShuffleMode) {
+    fun setShuffleMode(enabled: Boolean) {
+        if (_currentSource.value?.isEndless == true) return
+        if (_shuffleMode.value == enabled) return
+
+        val currentEntry = _queue.value.getOrNull(_currentIndex.value)
+        _shuffleMode.value = enabled
+
+        if (enabled) {
             val shuffled = originalQueue.shuffled().toMutableList()
             if (currentEntry != null) {
                 shuffled.remove(currentEntry)
@@ -773,24 +842,30 @@ class PlayerModel(
                 _currentIndex.value = 0
             }
             _queue.value = shuffled
+            emitChange(QueueChange.Replaced)
         } else {
             _queue.value = originalQueue
             if (currentEntry != null) {
                 _currentIndex.value = originalQueue.indexOf(currentEntry)
             }
+            emitChange(QueueChange.ModesChanged(false, _repeatMode.value))
         }
     }
 
     fun setRepeatMode(repeatMode: RepeatMode) {
+        if (_repeatMode.value == repeatMode) return
         _repeatMode.value = repeatMode
+        emitChange(QueueChange.ModesChanged(_shuffleMode.value, repeatMode))
     }
 
     fun toggleRepeat() {
-        _repeatMode.value = when (_repeatMode.value) {
-            RepeatMode.OFF -> RepeatMode.ALL
-            RepeatMode.ALL -> RepeatMode.ONE
-            RepeatMode.ONE -> RepeatMode.OFF
-        }
+        setRepeatMode(
+            when (_repeatMode.value) {
+                RepeatMode.OFF -> RepeatMode.ALL
+                RepeatMode.ALL -> RepeatMode.ONE
+                RepeatMode.ONE -> RepeatMode.OFF
+            }
+        )
     }
 
     fun toggleLike() {
@@ -883,6 +958,134 @@ class PlayerModel(
                 e.printStackTrace()
             }
         }
+    }
+
+    fun snapshot(): QueueSnapshot = QueueSnapshot(
+        original = originalQueue,
+        active = _queue.value,
+        currentIndex = _currentIndex.value,
+        shuffle = _shuffleMode.value,
+        repeat = _repeatMode.value,
+        sourceId = _currentSource.value?.id
+    )
+
+    fun applyRemoteQueue(snapshot: QueueSnapshot, keepCurrentQueueId: Long? = null) {
+        suppressChanges = true
+        try {
+            setSourceJob?.cancel()
+            radioTopUpJob?.cancel()
+
+            val previousSongId = _currentSong.value?.id
+            val wasPlaying = audioPlayer.isPlaying.value
+
+            originalQueue = snapshot.original
+            _queue.value = snapshot.active
+            _shuffleMode.value = snapshot.shuffle
+            _repeatMode.value = snapshot.repeat
+            _currentSource.value = null
+            _requestedWindow.value = null
+
+            val keptIndex = keepCurrentQueueId
+                ?.let { id -> snapshot.active.indexOfFirst { it.queueId == id } }
+                ?.takeIf { it >= 0 }
+            _currentIndex.value = when {
+                snapshot.active.isEmpty() -> -1
+                keptIndex != null -> keptIndex
+                else -> snapshot.currentIndex.coerceIn(0, snapshot.active.size - 1)
+            }
+
+            val targetId = _queue.value.getOrNull(_currentIndex.value)?.let { songIdOf(it) }
+            when {
+                targetId == null -> audioPlayer.stop()
+                targetId == previousSongId -> Unit
+                else -> audioPlayer.load(targetId, playImmediately = wasPlaying)
+            }
+        } finally {
+            suppressChanges = false
+        }
+    }
+
+    fun reassignQueueIds(entries: List<QueueEntry>, taken: Set<Long>): List<QueueEntry> {
+        if (entries.isEmpty()) return entries
+        val used = HashSet(taken)
+        _queue.value.forEach { used.add(it.queueId) }
+        originalQueue.forEach { used.add(it.queueId) }
+
+        return entries.map { entry ->
+            if (used.add(entry.queueId)) return@map entry
+            var candidate = Random.nextLong()
+            while (!used.add(candidate)) candidate = Random.nextLong()
+            withQueueId(entry, candidate)
+        }
+    }
+
+    fun insertEntries(anchor: QueueChange.Anchor, entries: List<QueueEntry>) {
+        if (entries.isEmpty()) return
+
+        val newQueue = _queue.value.toMutableList()
+        val at = when (anchor) {
+            QueueChange.Anchor.AFTER_CURRENT -> (_currentIndex.value + 1).coerceIn(0, newQueue.size)
+            QueueChange.Anchor.END -> newQueue.size
+        }
+        newQueue.addAll(at, entries)
+        _queue.value = newQueue
+        originalQueue = originalQueue + entries
+
+        emitChange(QueueChange.Inserted(anchor, entries, at))
+
+        if (_currentIndex.value == -1) {
+            playAtIndex(0)
+        } else if (at <= _currentIndex.value) {
+            _currentIndex.value += entries.size
+        }
+    }
+
+    fun removeByQueueIds(ids: List<Long>) {
+        if (ids.isEmpty()) return
+        val dropped = ids.toSet()
+        val currentList = _queue.value
+        if (currentList.none { it.queueId in dropped }) return
+
+        val oldIndex = _currentIndex.value
+        val currentRemoved = currentList.getOrNull(oldIndex)?.let { it.queueId in dropped } == true
+        val removedBefore = currentList.take(oldIndex.coerceAtLeast(0)).count { it.queueId in dropped }
+        val remaining = currentList.filter { it.queueId !in dropped }
+
+        _queue.value = remaining
+        originalQueue = originalQueue.filter { it.queueId !in dropped }
+
+        emitChange(QueueChange.Removed(ids))
+
+        when {
+            remaining.isEmpty() -> {
+                audioPlayer.stop()
+                _currentIndex.value = -1
+                _currentSong.value = null
+            }
+
+            oldIndex < 0 -> _currentIndex.value = -1
+
+            currentRemoved -> playAtIndex((oldIndex - removedBefore).coerceIn(0, remaining.size - 1))
+
+            else -> _currentIndex.value = (oldIndex - removedBefore).coerceIn(0, remaining.size - 1)
+        }
+    }
+
+    fun moveByQueueId(queueId: Long, toIndex: Int) {
+        val from = _queue.value.indexOfFirst { it.queueId == queueId }
+        if (from < 0) return
+        moveQueueItem(from, toIndex.coerceIn(0, (_queue.value.size - 1).coerceAtLeast(0)))
+    }
+
+    fun skipToQueueId(queueId: Long): Boolean {
+        val index = _queue.value.indexOfFirst { it.queueId == queueId }
+        if (index < 0) return false
+        if (index == _currentIndex.value) {
+            emitCurrentChanged()
+        } else {
+            playAtIndex(index)
+        }
+        return true
     }
 
     fun getPlaybackState(): PlaybackState {

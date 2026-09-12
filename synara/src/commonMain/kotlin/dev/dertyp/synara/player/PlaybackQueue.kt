@@ -62,6 +62,9 @@ sealed class PlaybackSource {
     }
 }
 
+val PlaybackSource.isEndless: Boolean
+    get() = this is PlaybackSource.Radio
+
 fun PlaybackSource.toQueueSource(songService: ISongService): QueueSource? {
     return when (this) {
         is PlaybackSource.AllSongs -> AllSongsQueueSource(songService, tags = tags, invertTags = invertTags)
