@@ -978,3 +978,40 @@ class ExposedSongGuessRepository(private val json: Json) : SongGuessRepository {
         dbQuery { SongGuessSavedGames.deleteWhere { SongGuessSavedGames.userId eq userId } }
     }
 }
+
+class ExposedSettingsSyncRepository : SettingsSyncRepository {
+    override suspend fun getAll(): Map<String, SettingsSyncKnown> = dbQuery {
+        SettingsSyncKnownEntries.selectAll().associate {
+            it[SettingsSyncKnownEntries.key] to SettingsSyncKnown(
+                value = it[SettingsSyncKnownEntries.value],
+                version = it[SettingsSyncKnownEntries.version]
+            )
+        }
+    }
+
+    override suspend fun putAll(entries: Map<String, SettingsSyncKnown>) {
+        if (entries.isEmpty()) return
+        dbQuery {
+            for ((key, known) in entries) {
+                SettingsSyncKnownEntries.upsert(SettingsSyncKnownEntries.key) {
+                    it[SettingsSyncKnownEntries.key] = key
+                    it[SettingsSyncKnownEntries.value] = known.value
+                    it[SettingsSyncKnownEntries.version] = known.version
+                }
+            }
+        }
+    }
+
+    override suspend fun remove(keys: Collection<String>) {
+        if (keys.isEmpty()) return
+        dbQuery {
+            keys.chunked(SQL_CHUNK_SIZE).forEach { chunk ->
+                SettingsSyncKnownEntries.deleteWhere { SettingsSyncKnownEntries.key inList chunk }
+            }
+        }
+    }
+
+    override suspend fun clear() {
+        dbQuery { SettingsSyncKnownEntries.deleteAll() }
+    }
+}

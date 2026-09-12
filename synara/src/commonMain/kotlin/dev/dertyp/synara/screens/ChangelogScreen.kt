@@ -64,6 +64,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.4.7",
+                        date = "2026-09-12",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "**Settings sync**: your appearance and playback preferences can now follow you across every device signed in to your account. Turn on Sync Settings, and things like the theme, icon pack, streaming quality or remaining-time display stay the same everywhere, with a list of your devices and a status showing when the last sync happened. Your ListenBrainz and Last.fm logins can move along too, protected by a passphrase you choose that never leaves your devices. After signing in, a short setup asks once whether queue and settings should sync, and the device name is now shared by both."),
+                            Change(ChangeType.Fixed, "Seeking or skipping while paused no longer makes the progress bar run through the song without sound and jump to the next track.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.4.6",
                         date = "2026-09-12",
                         isPrerelease = true,

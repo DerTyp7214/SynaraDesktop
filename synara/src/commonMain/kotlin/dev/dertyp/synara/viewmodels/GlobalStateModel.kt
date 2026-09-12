@@ -12,6 +12,7 @@ import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.services.UserPlaylistServiceWrapper
 import dev.dertyp.synara.rpc.services.UserServiceWrapper
 import dev.dertyp.synara.scrobble.*
+import dev.dertyp.synara.sync.SettingsSyncService
 import dev.dertyp.synara.utils.SynaraDispatchers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -25,6 +26,7 @@ class GlobalStateModel(
     private val userPlaylistService: UserPlaylistServiceWrapper,
     private val scrobblerService: ScrobblerService,
     private val queueSyncService: QueueSyncService,
+    private val settingsSyncService: SettingsSyncService,
     private val songCache: SongCache,
     private val migrationRepository: DatabaseMigrationRepository,
     private val userRepository: UserRepository,
@@ -131,6 +133,7 @@ class GlobalStateModel(
         }
 
         queueSyncService.start()
+        settingsSyncService.start()
         scrobblerService.start()
     }
 

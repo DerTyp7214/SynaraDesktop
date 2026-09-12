@@ -406,12 +406,23 @@ class JvmAudioPlayer(
                     alSourcePlay(sourceId)
                     _isPlaying.value = true
                 } else {
+                    // The source is AL_STOPPED after stopInternal and pausing a stopped source is a no-op,
+                    // yet a stopped source reports every queued buffer as processed, which would let the loop
+                    // below drain the track silently. Start it muted and pause to reach a real AL_PAUSED state.
+                    alSourcef(sourceId, AL_GAIN, 0f)
+                    alSourcePlay(sourceId)
                     alSourcePause(sourceId)
+                    alSourcef(sourceId, AL_GAIN, _volume.value * loudnessCompensation)
                     _isPlaying.value = false
                 }
 
                 while (isActive) {
-                    val processed = alGetSourcei(sourceId, AL_BUFFERS_PROCESSED)
+                    val state = alGetSourcei(sourceId, AL_SOURCE_STATE)
+                    val processed = if (_isPlaying.value || state == AL_PLAYING || state == AL_PAUSED) {
+                        alGetSourcei(sourceId, AL_BUFFERS_PROCESSED)
+                    } else {
+                        0
+                    }
                     for (i in 0 until processed) {
                         val bufferId = alSourceUnqueueBuffers(sourceId)
                         
@@ -432,7 +443,6 @@ class JvmAudioPlayer(
                     if (uploadFailed) break
 
                     if (_isPlaying.value) {
-                        val state = alGetSourcei(sourceId, AL_SOURCE_STATE)
                         if (state != AL_PLAYING && state != AL_PAUSED) {
                             if (alGetSourcei(sourceId, AL_BUFFERS_QUEUED) > 0) {
                                 alSourcePlay(sourceId)
@@ -469,7 +479,7 @@ class JvmAudioPlayer(
                     delay(1.milliseconds)
                 }
 
-                if (isActive && alGetSourcei(sourceId, AL_BUFFERS_QUEUED) == 0) {
+                if (isActive && _isPlaying.value && alGetSourcei(sourceId, AL_BUFFERS_QUEUED) == 0) {
                     _onFinished.emit(Unit)
                 }
             } catch (e: Exception) {

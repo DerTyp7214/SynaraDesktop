@@ -24,6 +24,9 @@ import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.ServerClock
 import dev.dertyp.synara.rpc.services.*
 import dev.dertyp.synara.scrobble.*
+import dev.dertyp.synara.sync.SecretsCipher
+import dev.dertyp.synara.sync.SettingsSyncService
+import dev.dertyp.synara.sync.SyncedSettingsRegistry
 import dev.dertyp.synara.services.IDownloadManager
 import dev.dertyp.synara.services.StubDownloadManager
 import dev.dertyp.synara.settings.SettingsFactory
@@ -110,6 +113,9 @@ val appModule = module {
     singleOf(::SongCache)
     singleOf(::PlayerModel)
     singleOf(::QueueSyncService)
+    singleOf(::SecretsCipher)
+    singleOf(::SyncedSettingsRegistry)
+    singleOf(::SettingsSyncService)
     singleOf(::TrayState)
     singleOf(::SnackbarManager)
     singleOf(::PerformanceMonitor)
@@ -165,6 +171,7 @@ val appModule = module {
     singleOf(::PlaybackServiceWrapper) bind IPlaybackService::class
     singleOf(::QueueServiceWrapper) bind IQueueService::class
     singleOf(::ClientRequestServiceWrapper) bind IClientRequestService::class
+    singleOf(::ClientSettingsServiceWrapper) bind IClientSettingsService::class
     singleOf(::PlaylistServiceWrapper) bind IPlaylistService::class
     singleOf(::ReleaseServiceWrapper) bind IReleaseService::class
     singleOf(::ScheduledTaskConfigurationServiceWrapper) bind IScheduledTaskConfigurationService::class

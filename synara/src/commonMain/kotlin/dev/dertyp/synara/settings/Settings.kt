@@ -48,6 +48,20 @@ sealed class SettingKey<T>(val name: String) {
     data object QueueSyncDirty : SettingKey<Boolean>("queue_sync_dirty")
     data object QueueSyncLastAt : SettingKey<Long>("queue_sync_last_at")
 
+    // Device identity (shared by every sync feature)
+    data object DeviceId : SettingKey<String>("device_id")
+
+    // Settings sync
+    data object IsSettingsSyncEnabled : SettingKey<Boolean>("is_settings_sync_enabled")
+    data object IsSecretsSyncEnabled : SettingKey<Boolean>("is_secrets_sync_enabled")
+    data object SyncSetupShown : SettingKey<Boolean>("sync_setup_shown")
+    data object SettingsSyncVersion : SettingKey<Long>("settings_sync_version")
+    data object SettingsSyncUserId : SettingKey<String>("settings_sync_user_id")
+    data object SettingsSyncLastAt : SettingKey<Long>("settings_sync_last_at")
+    data object SecretsSyncEncKey : SettingKey<String>("secrets_sync_enc_key")
+    data object SecretsSyncMacKey : SettingKey<String>("secrets_sync_mac_key")
+    data object SecretsSyncSaltFingerprint : SettingKey<String>("secrets_sync_salt_fingerprint")
+
     // Visualizer
     data object ParticleMultiplier : SettingKey<Float>("particle_multiplier")
 
@@ -83,7 +97,10 @@ sealed class SettingKey<T>(val name: String) {
             ListenBrainzToken.name,
             LastFmApiKey.name,
             LastFmSharedSecret.name,
-            LastFmSessionKey.name
+            LastFmSessionKey.name,
+            SecretsSyncEncKey.name,
+            SecretsSyncMacKey.name,
+            SecretsSyncSaltFingerprint.name
         )
     }
 }
@@ -126,7 +143,9 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.LastFmUsername, is SettingKey.ProxyHost, is SettingKey.ProxyId,
         is SettingKey.IconStyle, is SettingKey.IconPack, is SettingKey.LastSeenVersion,
         is SettingKey.LastSeenRecentReleaseId, is SettingKey.RpcPath,
-        is SettingKey.QueueSyncDeviceName,
+        is SettingKey.QueueSyncDeviceName, is SettingKey.DeviceId,
+        is SettingKey.SettingsSyncUserId, is SettingKey.SecretsSyncEncKey,
+        is SettingKey.SecretsSyncMacKey, is SettingKey.SecretsSyncSaltFingerprint,
         is SettingKey.AudioOutputDevice -> getStringOrNull(key.name) as T?
 
         is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor,
@@ -136,7 +155,8 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         ) as T?
 
         is SettingKey.TokenExpiration, is SettingKey.QueueSyncVersion,
-        is SettingKey.QueueSyncLastAt -> getLongOrNull(key.name) as T?
+        is SettingKey.QueueSyncLastAt, is SettingKey.SettingsSyncVersion,
+        is SettingKey.SettingsSyncLastAt -> getLongOrNull(key.name) as T?
         is SettingKey.DarkTheme, is SettingKey.UseSongColor, is SettingKey.UsePywal,
         is SettingKey.IsServerScrobblingEnabled,
         is SettingKey.IsListenBrainzEnabled, is SettingKey.IsLastFmEnabled,
@@ -147,6 +167,8 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.DownloadFavorites, is SettingKey.ShowRemainingTime,
         is SettingKey.ShowTitleTagsInText,
         is SettingKey.IsQueueSyncEnabled, is SettingKey.QueueSyncDirty,
+        is SettingKey.IsSettingsSyncEnabled, is SettingKey.IsSecretsSyncEnabled,
+        is SettingKey.SyncSetupShown,
         is SettingKey.ShowPerformanceOverlay -> getBooleanOrNull(key.name) as T?
 
         is SettingKey.Volume, is SettingKey.ParticleMultiplier -> getFloatOrNull(key.name) as T?

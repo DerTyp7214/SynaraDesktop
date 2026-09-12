@@ -99,6 +99,16 @@ object Config : KoinComponent {
     private val _queueSyncDeviceName = MutableStateFlow(settings.getOrNull(SettingKey.QueueSyncDeviceName) ?: "")
     val queueSyncDeviceName: StateFlow<String> = _queueSyncDeviceName.asStateFlow()
 
+    // Settings sync
+    private val _isSettingsSyncEnabled = MutableStateFlow(settings.get(SettingKey.IsSettingsSyncEnabled, false))
+    val isSettingsSyncEnabled: StateFlow<Boolean> = _isSettingsSyncEnabled.asStateFlow()
+
+    private val _isSecretsSyncEnabled = MutableStateFlow(settings.get(SettingKey.IsSecretsSyncEnabled, false))
+    val isSecretsSyncEnabled: StateFlow<Boolean> = _isSecretsSyncEnabled.asStateFlow()
+
+    private val _syncSetupShown = MutableStateFlow(settings.get(SettingKey.SyncSetupShown, false))
+    val syncSetupShown: StateFlow<Boolean> = _syncSetupShown.asStateFlow()
+
     // Visualizer
     private val _particleMultiplier = MutableStateFlow(settings.get(SettingKey.ParticleMultiplier, 2.5f))
     val particleMultiplier: StateFlow<Float> = _particleMultiplier.asStateFlow()
@@ -281,6 +291,21 @@ object Config : KoinComponent {
     fun setQueueSyncDeviceName(name: String) {
         _queueSyncDeviceName.value = name
         settings.put(SettingKey.QueueSyncDeviceName, name)
+    }
+
+    fun setIsSettingsSyncEnabled(enabled: Boolean) {
+        _isSettingsSyncEnabled.value = enabled
+        settings.put(SettingKey.IsSettingsSyncEnabled, enabled)
+    }
+
+    fun setIsSecretsSyncEnabled(enabled: Boolean) {
+        _isSecretsSyncEnabled.value = enabled
+        settings.put(SettingKey.IsSecretsSyncEnabled, enabled)
+    }
+
+    fun setSyncSetupShown(shown: Boolean) {
+        _syncSetupShown.value = shown
+        settings.put(SettingKey.SyncSetupShown, shown)
     }
 
     fun setParticleMultiplier(multiplier: Float) {

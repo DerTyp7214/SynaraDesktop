@@ -10,6 +10,8 @@ import dev.dertyp.synara.db.ExposedLibraryRepository
 import dev.dertyp.synara.db.ExposedLocalHistoryRepository
 import dev.dertyp.synara.db.ExposedRecentlyPlayedRepository
 import dev.dertyp.synara.db.ExposedScrobbleQueueRepository
+import dev.dertyp.synara.db.ExposedSettingsSyncRepository
+import dev.dertyp.synara.db.SettingsSyncRepository
 import dev.dertyp.synara.db.ExposedUserRepository
 import dev.dertyp.synara.db.LibraryRepository
 import dev.dertyp.synara.db.LocalHistoryRepository
@@ -108,6 +110,7 @@ actual fun platformModule(): Module = module {
     singleOf(::ExposedLibraryRepository) bind LibraryRepository::class
     singleOf(::ExposedDatabaseMigrationRepository) bind DatabaseMigrationRepository::class
     singleOf(::ExposedSongGuessRepository) bind SongGuessRepository::class
+    singleOf(::ExposedSettingsSyncRepository) bind SettingsSyncRepository::class
 }
 
 actual fun platformInit() {

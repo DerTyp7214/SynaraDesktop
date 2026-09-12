@@ -200,6 +200,13 @@ object SongGuessGames : IntIdTable("songGuessGame") {
     val roundResults = text("roundResults")
 }
 
+object SettingsSyncKnownEntries : Table("settings_sync_known") {
+    val key = text("key")
+    val value = text("value").nullable()
+    val version = long("version")
+    override val primaryKey = PrimaryKey(key)
+}
+
 object SongGuessSavedGames : Table("songGuessSavedGame") {
     val userId = reference("userId", DownloadedUsers.id, onDelete = ReferenceOption.CASCADE)
     val updatedAt = long("updatedAt")

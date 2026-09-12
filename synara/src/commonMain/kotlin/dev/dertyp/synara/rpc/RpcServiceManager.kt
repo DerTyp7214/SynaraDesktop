@@ -149,21 +149,26 @@ class RpcServiceManager(
         get() = storedTokenExpiration
 
     @OptIn(ExperimentalEncodingApi::class)
-    val sessionId: String?
-        get() {
-            val token = storedAuthToken ?: return null
-            return try {
-                val parts = token.split(".")
-                if (parts.size < 2) return null
-                val payload = Base64.UrlSafe.withPadding(Base64.PaddingOption.ABSENT_OPTIONAL)
-                    .decode(parts[1]).decodeToString()
-                val json = Json.parseToJsonElement(payload).jsonObject
-                json["ses"]?.jsonPrimitive?.content
-            } catch (e: Exception) {
-                e.printStackTrace()
-                null
-            }
+    private fun tokenClaim(vararg names: String): String? {
+        val token = storedAuthToken ?: return null
+        return try {
+            val parts = token.split(".")
+            if (parts.size < 2) return null
+            val payload = Base64.UrlSafe.withPadding(Base64.PaddingOption.ABSENT_OPTIONAL)
+                .decode(parts[1]).decodeToString()
+            val json = Json.parseToJsonElement(payload).jsonObject
+            names.firstNotNullOfOrNull { json[it]?.jsonPrimitive?.content }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
+    }
+
+    val sessionId: String?
+        get() = tokenClaim("ses")
+
+    val userId: String?
+        get() = tokenClaim("sub", "usr")
 
     override suspend fun getRpcUrl(): String? {
         val sslAllowed = sessionSslOverride.value != false

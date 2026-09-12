@@ -65,14 +65,18 @@ import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.QueueSyncService
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.scrobble.LastFmScrobbler
+import dev.dertyp.synara.sync.SecretsLockState
+import dev.dertyp.synara.sync.SettingsSyncService
 import dev.dertyp.synara.theme.PywalLoader
 import dev.dertyp.synara.ui.IconPackType
 import dev.dertyp.synara.ui.LocalIconPack
 import dev.dertyp.synara.ui.SynaraIconStyle
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.ColorPicker
+import dev.dertyp.synara.ui.components.PassphraseMode
 import dev.dertyp.synara.ui.components.ServerVersionInfo
 import dev.dertyp.synara.ui.components.SettingsCard
+import dev.dertyp.synara.ui.components.SettingsSyncDialogs
 import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.SynaraAlertDialog
 import dev.dertyp.synara.ui.components.dialogs.SynaraDialog
@@ -142,15 +146,33 @@ import synara.synara.generated.resources.queue_sync_never_synced
 import synara.synara.generated.resources.restart_required
 import synara.synara.generated.resources.scrobbling
 import synara.synara.generated.resources.settings
+import synara.synara.generated.resources.secrets_sync_enter_passphrase
+import synara.synara.generated.resources.secrets_sync_forget_passphrase
+import synara.synara.generated.resources.secrets_sync_set_passphrase
+import synara.synara.generated.resources.secrets_sync_state_connecting
+import synara.synara.generated.resources.secrets_sync_state_locked
+import synara.synara.generated.resources.secrets_sync_state_setup
+import synara.synara.generated.resources.secrets_sync_state_unlocked
+import synara.synara.generated.resources.secrets_sync_summary
+import synara.synara.generated.resources.secrets_sync_title
 import synara.synara.generated.resources.settings_queue_sync_behind
-import synara.synara.generated.resources.settings_queue_sync_device_name_title
 import synara.synara.generated.resources.settings_queue_sync_devices_title
 import synara.synara.generated.resources.settings_queue_sync_last_synced
-import synara.synara.generated.resources.settings_queue_sync_section
 import synara.synara.generated.resources.settings_queue_sync_status_title
 import synara.synara.generated.resources.settings_queue_sync_summary
 import synara.synara.generated.resources.settings_queue_sync_title
 import synara.synara.generated.resources.settings_queue_sync_upload_pending
+import synara.synara.generated.resources.settings_settings_sync_summary
+import synara.synara.generated.resources.settings_settings_sync_title
+import synara.synara.generated.resources.settings_sync_device_name_summary
+import synara.synara.generated.resources.settings_sync_device_name_title
+import synara.synara.generated.resources.settings_sync_devices_title
+import synara.synara.generated.resources.settings_sync_last_synced
+import synara.synara.generated.resources.settings_sync_never_synced
+import synara.synara.generated.resources.settings_sync_now
+import synara.synara.generated.resources.settings_sync_pending
+import synara.synara.generated.resources.settings_sync_section
+import synara.synara.generated.resources.settings_sync_status_title
 import synara.synara.generated.resources.settings_scheduled_task_logs_title
 import synara.synara.generated.resources.subsonic_credential
 import synara.synara.generated.resources.user_management
@@ -202,6 +224,8 @@ class SettingsScreen : Screen {
 
         val isQueueSyncEnabled by Config.isQueueSyncEnabled.collectAsState()
         val queueSyncDeviceName by Config.queueSyncDeviceName.collectAsState()
+        val isSettingsSyncEnabled by Config.isSettingsSyncEnabled.collectAsState()
+        val isSecretsSyncEnabled by Config.isSecretsSyncEnabled.collectAsState()
 
         val rpcServiceManager = koinInject<RpcServiceManager>()
         val playerModel = koinInject<PlayerModel>()
@@ -543,15 +567,22 @@ class SettingsScreen : Screen {
                     )
 
                     Text(
-                        text = stringResource(Res.string.settings_queue_sync_section),
+                        text = stringResource(Res.string.settings_sync_section),
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.padding(top = 8.dp)
                     )
 
+                    SyncDeviceNameSetting(deviceName = queueSyncDeviceName)
+
                     QueueSyncSettings(
                         isEnabled = isQueueSyncEnabled,
-                        deviceName = queueSyncDeviceName,
                         onOpenDevices = { navigator.push(QueueSyncDevicesScreen()) }
+                    )
+
+                    SettingsSyncSettings(
+                        isEnabled = isSettingsSyncEnabled,
+                        isSecretsEnabled = isSecretsSyncEnabled,
+                        onOpenDevices = { navigator.push(SettingsSyncDevicesScreen()) }
                     )
 
                     Text(
@@ -1081,9 +1112,32 @@ class SettingsScreen : Screen {
     }
 
     @Composable
+    private fun SyncDeviceNameSetting(
+        deviceName: String,
+        queueSync: QueueSyncService = koinInject()
+    ) {
+        SettingsCard {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                InternalTextField(
+                    value = deviceName,
+                    onValueChange = { Config.setQueueSyncDeviceName(it) },
+                    label = { Text(stringResource(Res.string.settings_sync_device_name_title)) },
+                    placeholder = { Text(queueSync.platformDeviceName) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = stringResource(Res.string.settings_sync_device_name_summary),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+
+    @Composable
     private fun QueueSyncSettings(
         isEnabled: Boolean,
-        deviceName: String,
         onOpenDevices: () -> Unit,
         queueSync: QueueSyncService = koinInject()
     ) {
@@ -1103,15 +1157,6 @@ class SettingsScreen : Screen {
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    InternalTextField(
-                        value = deviceName,
-                        onValueChange = { Config.setQueueSyncDeviceName(it) },
-                        label = { Text(stringResource(Res.string.settings_queue_sync_device_name_title)) },
-                        placeholder = { Text(queueSync.platformDeviceName) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
                     val behindDevice = status.behindDevice
                     val lastSyncedText = if (status.lastSyncAt > 0) {
                         stringResource(Res.string.settings_queue_sync_last_synced, status.lastSyncAt.formatDateTime())
@@ -1162,12 +1207,180 @@ class SettingsScreen : Screen {
     }
 
     @Composable
+    private fun SettingsSyncSettings(
+        isEnabled: Boolean,
+        isSecretsEnabled: Boolean,
+        onOpenDevices: () -> Unit,
+        settingsSync: SettingsSyncService = koinInject()
+    ) {
+        val status by settingsSync.status.collectAsState()
+        val lockState by settingsSync.secretsLockState.collectAsState()
+
+        SettingsCard(innerPadding = PaddingValues(0.dp)) {
+            SettingSwitch(
+                title = stringResource(Res.string.settings_settings_sync_title),
+                summary = stringResource(Res.string.settings_settings_sync_summary),
+                checked = isEnabled,
+                onCheckedChange = { Config.setIsSettingsSyncEnabled(it) },
+                useElevatedCard = false
+            )
+
+            if (isEnabled) {
+                Column(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    val lastSyncedText = if (status.lastSyncAt > 0) {
+                        stringResource(Res.string.settings_sync_last_synced, status.lastSyncAt.formatDateTime())
+                    } else {
+                        stringResource(Res.string.settings_sync_never_synced)
+                    }
+                    val statusSuffix = if (status.pendingKeys > 0) {
+                        " · " + stringResource(Res.string.settings_sync_pending, status.pendingKeys.toString())
+                    } else {
+                        ""
+                    }
+
+                    Column {
+                        Text(
+                            text = stringResource(Res.string.settings_sync_status_title),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = lastSyncedText + statusSuffix,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Button(
+                        onClick = { settingsSync.syncNow() },
+                        enabled = !status.isSyncing
+                    ) {
+                        if (status.isSyncing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = LocalContentColor.current
+                            )
+                        } else {
+                            Text(stringResource(Res.string.settings_sync_now))
+                        }
+                    }
+                }
+            }
+        }
+
+        if (isEnabled) {
+            SettingsCard(onClick = onOpenDevices) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(Res.string.settings_sync_devices_title),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Icon(
+                        imageVector = SynaraIcons.ChevronRight.get(),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        SettingsCard(innerPadding = PaddingValues(0.dp)) {
+            SettingSwitch(
+                title = stringResource(Res.string.secrets_sync_title),
+                summary = stringResource(Res.string.secrets_sync_summary),
+                checked = isSecretsEnabled,
+                onCheckedChange = { Config.setIsSecretsSyncEnabled(it) },
+                useElevatedCard = false,
+                enabled = isEnabled
+            )
+
+            if (isEnabled && isSecretsEnabled) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    when (lockState) {
+                        SecretsLockState.NEEDS_SETUP -> {
+                            Text(
+                                text = stringResource(Res.string.secrets_sync_state_setup),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                onClick = { SettingsSyncDialogs.requestPassphrase(PassphraseMode.Setup) }
+                            ) {
+                                Text(stringResource(Res.string.secrets_sync_set_passphrase))
+                            }
+                        }
+
+                        SecretsLockState.NEEDS_PASSPHRASE -> {
+                            Text(
+                                text = stringResource(Res.string.secrets_sync_state_locked),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                onClick = { SettingsSyncDialogs.requestPassphrase(PassphraseMode.Enter) }
+                            ) {
+                                Text(stringResource(Res.string.secrets_sync_enter_passphrase))
+                            }
+                        }
+
+                        SecretsLockState.UNLOCKED -> {
+                            Text(
+                                text = stringResource(Res.string.secrets_sync_state_unlocked),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                onClick = { settingsSync.forgetPassphrase() },
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Text(stringResource(Res.string.secrets_sync_forget_passphrase))
+                            }
+                        }
+
+                        SecretsLockState.DISABLED -> {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Text(
+                                text = stringResource(Res.string.secrets_sync_state_connecting),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
     private fun SettingSwitch(
         title: String,
         checked: Boolean,
         onCheckedChange: (Boolean) -> Unit,
         useElevatedCard: Boolean = true,
-        summary: String? = null
+        summary: String? = null,
+        enabled: Boolean = true
     ) {
         val rowContent = @Composable { modifier: Modifier ->
             Row(
@@ -1180,7 +1393,9 @@ class SettingsScreen : Screen {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (enabled) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (summary != null) {
                         Text(
@@ -1192,17 +1407,18 @@ class SettingsScreen : Screen {
                 }
                 Switch(
                     checked = checked,
-                    onCheckedChange = { onCheckedChange(it) }
+                    onCheckedChange = { onCheckedChange(it) },
+                    enabled = enabled
                 )
             }
         }
 
         if (useElevatedCard) {
-            SettingsCard(onClick = { onCheckedChange(!checked) }) {
+            SettingsCard(onClick = if (enabled) ({ onCheckedChange(!checked) }) else null) {
                 rowContent(Modifier)
             }
         } else {
-            rowContent(Modifier.clickable { onCheckedChange(!checked) }.padding(16.dp))
+            rowContent(Modifier.clickable(enabled = enabled) { onCheckedChange(!checked) }.padding(16.dp))
         }
     }
 

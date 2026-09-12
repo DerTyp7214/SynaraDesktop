@@ -34,7 +34,6 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -61,6 +60,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import dev.dertyp.services.IUiService
+import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.SynaraMenu
@@ -682,7 +682,7 @@ private fun UiTextField(component: UiComponent.TextField, host: UiHost, modifier
     val multiline = component.multiline || component.kind == UiTextKind.MULTILINE_URLS
 
     Column(modifier = modifier.fillMaxWidth()) {
-        OutlinedTextField(
+        InternalTextField(
             value = value,
             onValueChange = { form.set(component.key, UiValue.of(it)) },
             modifier = Modifier.fillMaxWidth(),
@@ -748,7 +748,7 @@ private fun UiNumberField(component: UiComponent.NumberField, modifier: Modifier
     }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        OutlinedTextField(
+        InternalTextField(
             value = text,
             onValueChange = { commit(it) },
             modifier = Modifier.fillMaxWidth(),

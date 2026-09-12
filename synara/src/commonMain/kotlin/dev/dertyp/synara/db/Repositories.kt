@@ -121,6 +121,19 @@ interface DatabaseMigrationRepository {
     suspend fun migrateUserIds(newUserId: PlatformUUID)
 }
 
+/** The last value and scope version this client saw for one synced settings key. */
+data class SettingsSyncKnown(
+    val value: String? = null,
+    val version: Long = 0L
+)
+
+interface SettingsSyncRepository {
+    suspend fun getAll(): Map<String, SettingsSyncKnown>
+    suspend fun putAll(entries: Map<String, SettingsSyncKnown>)
+    suspend fun remove(keys: Collection<String>)
+    suspend fun clear()
+}
+
 interface SongGuessRepository {
     suspend fun insert(userId: PlatformUUID, entry: LeaderboardEntry): LeaderboardEntry
     suspend fun getAll(userId: PlatformUUID): List<LeaderboardEntry>
