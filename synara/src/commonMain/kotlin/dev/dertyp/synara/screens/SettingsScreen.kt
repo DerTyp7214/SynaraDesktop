@@ -65,6 +65,7 @@ import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.QueueSyncService
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.scrobble.LastFmScrobbler
+import dev.dertyp.synara.sync.DeviceIdentity
 import dev.dertyp.synara.sync.SecretsLockState
 import dev.dertyp.synara.sync.SettingsSyncService
 import dev.dertyp.synara.theme.PywalLoader
@@ -162,6 +163,8 @@ import synara.synara.generated.resources.settings_queue_sync_status_title
 import synara.synara.generated.resources.settings_queue_sync_summary
 import synara.synara.generated.resources.settings_queue_sync_title
 import synara.synara.generated.resources.settings_queue_sync_upload_pending
+import synara.synara.generated.resources.settings_remote_control_summary
+import synara.synara.generated.resources.settings_remote_control_title
 import synara.synara.generated.resources.settings_settings_sync_summary
 import synara.synara.generated.resources.settings_settings_sync_title
 import synara.synara.generated.resources.settings_sync_device_name_summary
@@ -223,6 +226,7 @@ class SettingsScreen : Screen {
         val isDiscordRpcEnabled by Config.isDiscordRpcEnabled.collectAsState()
 
         val isQueueSyncEnabled by Config.isQueueSyncEnabled.collectAsState()
+        val isRemoteControlEnabled by Config.isRemoteControlEnabled.collectAsState()
         val queueSyncDeviceName by Config.queueSyncDeviceName.collectAsState()
         val isSettingsSyncEnabled by Config.isSettingsSyncEnabled.collectAsState()
         val isSecretsSyncEnabled by Config.isSecretsSyncEnabled.collectAsState()
@@ -578,6 +582,8 @@ class SettingsScreen : Screen {
                         isEnabled = isQueueSyncEnabled,
                         onOpenDevices = { navigator.push(QueueSyncDevicesScreen()) }
                     )
+
+                    RemoteControlSettings(isEnabled = isRemoteControlEnabled)
 
                     SettingsSyncSettings(
                         isEnabled = isSettingsSyncEnabled,
@@ -1114,7 +1120,7 @@ class SettingsScreen : Screen {
     @Composable
     private fun SyncDeviceNameSetting(
         deviceName: String,
-        queueSync: QueueSyncService = koinInject()
+        identity: DeviceIdentity = koinInject()
     ) {
         SettingsCard {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1122,7 +1128,7 @@ class SettingsScreen : Screen {
                     value = deviceName,
                     onValueChange = { Config.setQueueSyncDeviceName(it) },
                     label = { Text(stringResource(Res.string.settings_sync_device_name_title)) },
-                    placeholder = { Text(queueSync.platformDeviceName) },
+                    placeholder = { Text(identity.platformDeviceName) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1203,6 +1209,19 @@ class SettingsScreen : Screen {
                     )
                 }
             }
+        }
+    }
+
+    @Composable
+    private fun RemoteControlSettings(isEnabled: Boolean) {
+        SettingsCard(innerPadding = PaddingValues(0.dp)) {
+            SettingSwitch(
+                title = stringResource(Res.string.settings_remote_control_title),
+                summary = stringResource(Res.string.settings_remote_control_summary),
+                checked = isEnabled,
+                onCheckedChange = { Config.setIsRemoteControlEnabled(it) },
+                useElevatedCard = false
+            )
         }
     }
 

@@ -33,10 +33,12 @@ fun PlayerActions(
     onToggleShuffle: () -> Unit,
     onToggleRepeat: () -> Unit,
     onVolumeChange: (Float) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showVolume: Boolean = true,
+    deviceMenu: (@Composable () -> Unit)? = null
 ) {
     BoxWithConstraints(modifier = modifier) {
-        val fixedWidth = 48.dp * 3 + 8.dp + 4.dp
+        val fixedWidth = 48.dp * 3 + 8.dp + 4.dp + if (deviceMenu != null) 48.dp else 0.dp
         val expandedSliderWidth = (maxWidth - fixedWidth - 16.dp).coerceIn(100.dp, 200.dp)
 
         Row(
@@ -44,6 +46,8 @@ fun PlayerActions(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            deviceMenu?.invoke()
+
             IconButton(
                 onClick = onToggleShuffle,
                 enabled = currentSongExists
@@ -68,14 +72,16 @@ fun PlayerActions(
                 )
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            if (showVolume) {
+                Spacer(modifier = Modifier.width(8.dp))
 
-            VolumeControl(
-                volume = volume,
-                onVolumeChange = onVolumeChange,
-                isCompact = isCompact,
-                expandedSliderWidth = expandedSliderWidth
-            )
+                VolumeControl(
+                    volume = volume,
+                    onVolumeChange = onVolumeChange,
+                    isCompact = isCompact,
+                    expandedSliderWidth = expandedSliderWidth
+                )
+            }
         }
     }
 }

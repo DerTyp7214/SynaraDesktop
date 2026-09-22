@@ -8,10 +8,8 @@ import dev.dertyp.data.ClientSettingScope
 import dev.dertyp.data.ClientSettingWrite
 import dev.dertyp.data.ClientSettingsSnapshot
 import dev.dertyp.data.ClientSettingsWriteResult
-import dev.dertyp.getPlatformName
 import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
-import dev.dertyp.randomPlatformUUID
 import dev.dertyp.serializers.AppJson
 import dev.dertyp.services.IClientSettingsService
 import dev.dertyp.synara.Config
@@ -23,7 +21,6 @@ import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.getOrNull
 import dev.dertyp.synara.settings.put
 import dev.dertyp.synara.utils.SynaraDispatchers
-import dev.dertyp.synara.utils.defaultDeviceName
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
@@ -72,6 +69,7 @@ enum class SecretsLockState { DISABLED, NEEDS_SETUP, NEEDS_PASSPHRASE, UNLOCKED 
  */
 class SettingsSyncService(
     private val clientSettingsService: IClientSettingsService,
+    private val identity: DeviceIdentity,
     private val settings: Settings,
     private val repository: SettingsSyncRepository,
     private val registry: SyncedSettingsRegistry,
@@ -118,9 +116,9 @@ class SettingsSyncService(
     private val _secretsLockState = MutableStateFlow(SecretsLockState.DISABLED)
     val secretsLockState: StateFlow<SecretsLockState> = _secretsLockState.asStateFlow()
 
-    val platformDeviceName: String get() = defaultDeviceName()
+    val platformDeviceName: String get() = identity.platformDeviceName
 
-    val currentDeviceId: String get() = ensureDeviceId()
+    val currentDeviceId: String get() = identity.deviceId
 
     fun start() {
         if (started) return
@@ -283,8 +281,7 @@ class SettingsSyncService(
         scope.launch { cipher.forget() }
     }
 
-    fun deviceName(): String =
-        Config.queueSyncDeviceName.value.takeIf { it.isNotBlank() } ?: platformDeviceName
+    fun deviceName(): String = identity.deviceName()
 
     private data class Gate(
         val enabled: Boolean,
@@ -295,24 +292,17 @@ class SettingsSyncService(
         val isActive: Boolean get() = enabled && reachable && authenticated
     }
 
-    private fun ensureDeviceId(): String {
-        settings.getOrNull(SettingKey.DeviceId)?.takeIf { it.isNotBlank() }?.let { return it }
-        val id = randomPlatformUUID().toString()
-        settings.put(SettingKey.DeviceId, id)
-        return id
-    }
-
     private suspend fun session(userId: String?) {
         sessionActive = true
         try {
             coroutineScope {
-                val id = ensureDeviceId()
+                val id = identity.deviceId
                 deviceId = id
                 loadPersistedState(userId)
                 publishStatus()
 
                 runCatching {
-                    clientSettingsService.registerDevice(id, deviceName(), getPlatformName())
+                    clientSettingsService.registerDevice(id, deviceName(), identity.platform)
                 }.onFailure { report(it) }
 
                 val snapshot = retrying { clientSettingsService.getSnapshot(id) }
@@ -325,7 +315,7 @@ class SettingsSyncService(
                         .drop(1)
                         .collect { name ->
                             runCatching {
-                                clientSettingsService.registerDevice(id, name, getPlatformName())
+                                clientSettingsService.registerDevice(id, name, identity.platform)
                             }.onFailure { report(it) }
                         }
                 }

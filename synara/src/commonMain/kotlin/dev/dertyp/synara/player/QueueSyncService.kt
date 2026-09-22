@@ -16,12 +16,13 @@ import dev.dertyp.logging.Logger
 import dev.dertyp.services.IClientRequestService
 import dev.dertyp.services.IQueueService
 import dev.dertyp.synara.Config
+import dev.dertyp.synara.rpc.PresenceService
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.put
+import dev.dertyp.synara.sync.DeviceIdentity
 import dev.dertyp.synara.utils.SynaraDispatchers
-import dev.dertyp.synara.utils.defaultDeviceName
 import dev.dertyp.toPlatformUUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -41,14 +42,17 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -67,6 +71,8 @@ sealed class QueueSyncEvent {
 class QueueSyncService(
     private val queueService: IQueueService,
     private val clientRequestService: IClientRequestService,
+    private val presenceService: PresenceService,
+    private val identity: DeviceIdentity,
     private val playerModel: PlayerModel,
     private val songCache: SongCache,
     private val settings: Settings,
@@ -89,7 +95,20 @@ class QueueSyncService(
     private val mutex = Mutex()
     private var outbound = Channel<PlayerModel.QueueChange>(Channel.UNLIMITED)
 
-    private var syncedVersion = 0L
+    private val _syncedVersion = MutableStateFlow(0L)
+    val syncedVersionFlow: StateFlow<Long> = _syncedVersion.asStateFlow()
+
+    private var syncedVersion: Long
+        get() = _syncedVersion.value
+        set(value) {
+            _syncedVersion.value = value
+        }
+
+    private val receivedSerial = MutableStateFlow(0L)
+    private val enqueued = MutableStateFlow(0L)
+    private val processed = MutableStateFlow(0L)
+    private var dequeued = 0L
+
     private var dirty = false
     private var lastSyncAt = 0L
     private var conflictStreak = 0
@@ -123,8 +142,6 @@ class QueueSyncService(
     private val _busySessionId = MutableStateFlow<PlatformUUID?>(null)
     val busySessionId: StateFlow<PlatformUUID?> = _busySessionId.asStateFlow()
 
-    val platformDeviceName: String get() = defaultDeviceName()
-
     private val ownSessionId: PlatformUUID?
         get() = rpcServiceManager.sessionId?.toPlatformUUID()
 
@@ -133,11 +150,14 @@ class QueueSyncService(
         started = true
 
         scope.launch {
-            playerModel.queueChanges.collect { change ->
-                if (!Config.isQueueSyncEnabled.value) return@collect
-                if (playerModel.currentSource.value?.isEndless == true) return@collect
-                outbound.trySend(change)
-            }
+            playerModel.queueChanges
+                .onSubscription { receivedSerial.value = playerModel.changeSerial.value }
+                .collect { change ->
+                    val syncable = Config.isQueueSyncEnabled.value &&
+                        playerModel.currentSource.value?.isEndless != true
+                    if (syncable && outbound.trySend(change).isSuccess) enqueued.value++
+                    receivedSerial.value++
+                }
         }
 
         scope.launch {
@@ -234,8 +254,40 @@ class QueueSyncService(
         }
     }
 
-    fun deviceName(): String =
-        Config.queueSyncDeviceName.value.takeIf { it.isNotBlank() } ?: platformDeviceName
+    fun deviceName(): String = identity.deviceName()
+
+    suspend fun ensureVersion(version: Long, timeout: Duration): Boolean {
+        if (syncedVersion >= version) return true
+        if (!isSessionActive()) return false
+        val reached = withTimeoutOrNull(timeout) {
+            val info = runCatching { queueService.getQueueInfo() }.onFailure { report(it) }.getOrNull()
+            if (info != null && info.version >= version) {
+                mutex.withLock {
+                    if (syncedVersion < version) {
+                        val keepId = playerModel.queue.value
+                            .getOrNull(playerModel.currentIndex.value)
+                            ?.queueId
+                        runCatching { pull(info, keepCurrentQueueId = keepId) }.onFailure { report(it) }
+                    }
+                }
+            }
+            syncedVersionFlow.first { it >= version }
+            true
+        }
+        return reached == true
+    }
+
+    suspend fun awaitFlushed(timeout: Duration): Long? {
+        if (!isSessionActive()) return null
+        val serial = playerModel.changeSerial.value
+        return withTimeoutOrNull(timeout) {
+            receivedSerial.first { it >= serial }
+            processed.first { it >= enqueued.value }
+            mutex.withLock { syncedVersion }
+        }
+    }
+
+    private fun isSessionActive(): Boolean = wasActive && Config.isQueueSyncEnabled.value
 
     private suspend fun requestUpload(sessionId: PlatformUUID): ClientRequestStatus {
         _isBusy.value = true
@@ -286,7 +338,11 @@ class QueueSyncService(
                 }
         }
         launch { observeQueueLoop() }
-        launch { observeRequestsLoop() }
+        launch {
+            presenceService.requests
+                .filterIsInstance<ClientRequest.UploadQueue>()
+                .collect { request -> onClientRequest(request) }
+        }
         launch {
             runCatching { reconcile() }.onFailure { markDirty(it) }
             outboundWorker()
@@ -299,6 +355,8 @@ class QueueSyncService(
         stale.close()
         var count = 0
         while (stale.tryReceive().isSuccess) count++
+        dequeued = enqueued.value
+        processed.value = enqueued.value
         return count
     }
 
@@ -353,35 +411,19 @@ class QueueSyncService(
         }
     }
 
-    private suspend fun observeRequestsLoop() {
-        while (currentCoroutineContext().isActive) {
-            runCatching {
-                clientRequestService.observeRequests().collect { request -> onClientRequest(request) }
-            }.onFailure {
-                if (it is CancellationException) throw it
+    private suspend fun onClientRequest(request: ClientRequest.UploadQueue) {
+        val endless = playerModel.currentSource.value?.isEndless == true
+        if (endless || playerModel.queue.value.isEmpty()) {
+            runCatching { clientRequestService.complete(request.id, ClientRequestStatus.REJECTED) }
+            return
+        }
+        runCatching { mutex.withLock { fullUpload(force = true, requestId = request.id) } }
+            .onFailure {
                 report(it)
-            }
-            delay(STREAM_RETRY_DELAY)
-        }
-    }
-
-    private suspend fun onClientRequest(request: ClientRequest) {
-        when (request) {
-            is ClientRequest.UploadQueue -> {
-                val endless = playerModel.currentSource.value?.isEndless == true
-                if (endless || playerModel.queue.value.isEmpty()) {
-                    runCatching { clientRequestService.complete(request.id, ClientRequestStatus.REJECTED) }
-                    return
+                runCatching {
+                    clientRequestService.complete(request.id, ClientRequestStatus.REJECTED)
                 }
-                runCatching { mutex.withLock { fullUpload(force = true, requestId = request.id) } }
-                    .onFailure {
-                        report(it)
-                        runCatching {
-                            clientRequestService.complete(request.id, ClientRequestStatus.REJECTED)
-                        }
-                    }
             }
-        }
     }
 
     private suspend fun outboundWorker() {
@@ -405,6 +447,8 @@ class QueueSyncService(
 
             awaitDecisions()
             mutex.withLock { push(change) }
+            val pushedThrough = dequeued - if (carried != null) 1L else 0L
+            processed.value = maxOf(processed.value, pushedThrough)
             if (outbound !== source) carried = null
         }
     }
@@ -412,7 +456,10 @@ class QueueSyncService(
     private suspend fun receiveOutbound(): PlayerModel.QueueChange {
         while (true) {
             val result = outbound.receiveCatching()
-            if (result.isSuccess) return result.getOrThrow()
+            if (result.isSuccess) {
+                dequeued++
+                return result.getOrThrow()
+            }
         }
     }
 
@@ -467,7 +514,7 @@ class QueueSyncService(
 
                 is QueueWriteResult.Conflict -> {
                     conflictStreak++
-                    if (conflictStreak >= MAX_CONFLICTS) {
+                    if (conflictStreak >= MAX_CONFLICTS && !presenceService.isControlled.value) {
                         _pendingConflict.value = result.info
                     } else {
                         rebase(result.info, change)
@@ -539,6 +586,11 @@ class QueueSyncService(
 
         if (!playerModel.isPlaying.value || playerModel.queue.value.isEmpty()) {
             pull(info)
+        } else if (presenceService.isControlled.value) {
+            val keepId = playerModel.queue.value
+                .getOrNull(playerModel.currentIndex.value)
+                ?.queueId
+            pull(info, keepCurrentQueueId = keepId)
         } else {
             _pendingRemote.value = info
             publishStatus()

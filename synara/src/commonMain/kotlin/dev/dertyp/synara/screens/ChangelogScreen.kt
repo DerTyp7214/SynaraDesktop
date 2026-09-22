@@ -64,6 +64,16 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.5.0",
+                        date = "2026-09-23",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "**Remote control**: play on one device, steer it from another. Turn on Allow remote control in the Sync settings and every other device signed in to your account can pick this one from a new device menu in its player bar. While a device is picked, the whole player is yours to drive: play, pause, skip, seek, shuffle, repeat, volume and the keyboard shortcuts act on that device, the bar shows what it is playing, the expanded view keeps cover, lyrics and the shared queue, and playing a song, album or playlist starts it over there instead of here. Choose This device in the menu to get your own player back."),
+                            Change(ChangeType.Improved, "A device that is being remote controlled loads queue changes from the other devices on its own, so nothing waits behind the banner or a dialog while you steer it."),
+                            Change(ChangeType.Improved, "Devices announce themselves and what they support the moment they connect, so device lists only show what is online right now.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.4.7",
                         date = "2026-09-12",
                         isPrerelease = true,

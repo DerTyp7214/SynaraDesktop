@@ -7,7 +7,9 @@ import dev.dertyp.synara.db.DatabaseMigrationRepository
 import dev.dertyp.synara.db.UserRepository
 import dev.dertyp.synara.player.PlaylistUpdate
 import dev.dertyp.synara.player.QueueSyncService
+import dev.dertyp.synara.player.RemoteControlService
 import dev.dertyp.synara.player.SongCache
+import dev.dertyp.synara.rpc.PresenceService
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.services.UserPlaylistServiceWrapper
 import dev.dertyp.synara.rpc.services.UserServiceWrapper
@@ -25,7 +27,9 @@ class GlobalStateModel(
     private val userService: UserServiceWrapper,
     private val userPlaylistService: UserPlaylistServiceWrapper,
     private val scrobblerService: ScrobblerService,
+    private val presenceService: PresenceService,
     private val queueSyncService: QueueSyncService,
+    private val remoteControlService: RemoteControlService,
     private val settingsSyncService: SettingsSyncService,
     private val songCache: SongCache,
     private val migrationRepository: DatabaseMigrationRepository,
@@ -132,7 +136,9 @@ class GlobalStateModel(
                 }
         }
 
+        presenceService.start()
         queueSyncService.start()
+        remoteControlService.start()
         settingsSyncService.start()
         scrobblerService.start()
     }

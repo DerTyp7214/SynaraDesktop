@@ -48,6 +48,9 @@ sealed class SettingKey<T>(val name: String) {
     data object QueueSyncDirty : SettingKey<Boolean>("queue_sync_dirty")
     data object QueueSyncLastAt : SettingKey<Long>("queue_sync_last_at")
 
+    // Remote control
+    data object IsRemoteControlEnabled : SettingKey<Boolean>("is_remote_control_enabled")
+
     // Device identity (shared by every sync feature)
     data object DeviceId : SettingKey<String>("device_id")
 
@@ -167,6 +170,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.DownloadFavorites, is SettingKey.ShowRemainingTime,
         is SettingKey.ShowTitleTagsInText,
         is SettingKey.IsQueueSyncEnabled, is SettingKey.QueueSyncDirty,
+        is SettingKey.IsRemoteControlEnabled,
         is SettingKey.IsSettingsSyncEnabled, is SettingKey.IsSecretsSyncEnabled,
         is SettingKey.SyncSetupShown,
         is SettingKey.ShowPerformanceOverlay -> getBooleanOrNull(key.name) as T?

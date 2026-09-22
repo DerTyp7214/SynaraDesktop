@@ -99,6 +99,10 @@ object Config : KoinComponent {
     private val _queueSyncDeviceName = MutableStateFlow(settings.getOrNull(SettingKey.QueueSyncDeviceName) ?: "")
     val queueSyncDeviceName: StateFlow<String> = _queueSyncDeviceName.asStateFlow()
 
+    // Remote control
+    private val _isRemoteControlEnabled = MutableStateFlow(settings.get(SettingKey.IsRemoteControlEnabled, false))
+    val isRemoteControlEnabled: StateFlow<Boolean> = _isRemoteControlEnabled.asStateFlow()
+
     // Settings sync
     private val _isSettingsSyncEnabled = MutableStateFlow(settings.get(SettingKey.IsSettingsSyncEnabled, false))
     val isSettingsSyncEnabled: StateFlow<Boolean> = _isSettingsSyncEnabled.asStateFlow()
@@ -286,6 +290,13 @@ object Config : KoinComponent {
     fun setIsQueueSyncEnabled(enabled: Boolean) {
         _isQueueSyncEnabled.value = enabled
         settings.put(SettingKey.IsQueueSyncEnabled, enabled)
+        if (!enabled && _isRemoteControlEnabled.value) setIsRemoteControlEnabled(false)
+    }
+
+    fun setIsRemoteControlEnabled(enabled: Boolean) {
+        _isRemoteControlEnabled.value = enabled
+        settings.put(SettingKey.IsRemoteControlEnabled, enabled)
+        if (enabled && !_isQueueSyncEnabled.value) setIsQueueSyncEnabled(true)
     }
 
     fun setQueueSyncDeviceName(name: String) {

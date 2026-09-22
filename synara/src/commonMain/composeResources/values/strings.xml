@@ -96,6 +96,7 @@
     <string name="capability_import">Import</string>
     <string name="capability_edit">Edit</string>
     <string name="capability_delete">Delete</string>
+    <string name="capability_podcast_edit">Edit podcasts</string>
     <string name="administration">Administration</string>
     <string name="stats_range_day">Day</string>
     <string name="stats_range_week">Week</string>
@@ -625,6 +626,12 @@
     <string name="queue_sync_conflict_keep_local">Keep My Queue</string>
     <string name="queue_sync_conflict_use_remote">Use Queue from %1$s</string>
     <string name="queue_sync_merged_toast">Queue merged with changes from %1$s</string>
+    <string name="settings_remote_control_title">Allow remote control</string>
+    <string name="settings_remote_control_summary">Other devices signed in to your account can control playback on this device. Turns on queue sync. The device picker appears in the player bar.</string>
+    <string name="remote_control_pick_device">Control another device</string>
+    <string name="remote_control_this_device">This device</string>
+    <string name="remote_control_controlling">Controlling %1$s</string>
+    <string name="remote_control_sync_pending">Waiting for the queue to sync</string>
     <string name="settings_sync_section">Sync</string>
     <string name="settings_sync_device_name_title">Device Name</string>
     <string name="settings_sync_device_name_summary">The name your other devices see for this one.</string>

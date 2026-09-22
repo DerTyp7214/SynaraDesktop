@@ -96,6 +96,7 @@
     <string name="capability_import">Importieren</string>
     <string name="capability_edit">Bearbeiten</string>
     <string name="capability_delete">Löschen</string>
+    <string name="capability_podcast_edit">Podcasts bearbeiten</string>
     <string name="administration">Administration</string>
     <string name="stats_range_day">Tag</string>
     <string name="stats_range_week">Woche</string>
@@ -623,6 +624,12 @@
     <string name="queue_sync_conflict_keep_local">Meine Warteschlange behalten</string>
     <string name="queue_sync_conflict_use_remote">Warteschlange von %1$s verwenden</string>
     <string name="queue_sync_merged_toast">Warteschlange mit Änderungen von %1$s zusammengeführt</string>
+    <string name="settings_remote_control_title">Fernsteuerung erlauben</string>
+    <string name="settings_remote_control_summary">Andere Geräte, die in deinem Konto angemeldet sind, können die Wiedergabe auf diesem Gerät steuern. Aktiviert die Synchronisation der Warteschlange. Die Geräteauswahl erscheint in der Player-Leiste.</string>
+    <string name="remote_control_pick_device">Anderes Gerät steuern</string>
+    <string name="remote_control_this_device">Dieses Gerät</string>
+    <string name="remote_control_controlling">Steuert %1$s</string>
+    <string name="remote_control_sync_pending">Warte auf die Synchronisation der Warteschlange</string>
     <string name="settings_sync_section">Synchronisierung</string>
     <string name="settings_sync_device_name_title">Gerätename</string>
     <string name="settings_sync_device_name_summary">Der Name, unter dem deine anderen Geräte dieses Gerät sehen.</string>

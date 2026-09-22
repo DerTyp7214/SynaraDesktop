@@ -20,7 +20,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.dertyp.data.UserSong
 import dev.dertyp.synara.player.PlayerModel
+import kotlinx.coroutines.flow.StateFlow
 import org.koin.compose.koinInject
 
 data class LyricLine(
@@ -31,12 +33,14 @@ data class LyricLine(
 @Composable
 fun LyricsView(
     modifier: Modifier = Modifier,
-    playerModel: PlayerModel = koinInject()
+    playerModel: PlayerModel = koinInject(),
+    song: UserSong? = playerModel.currentSong.collectAsState().value,
+    position: StateFlow<Long> = playerModel.currentPosition,
+    onSeek: (Long) -> Unit = { playerModel.seekTo(it) }
 ) {
-    val currentSong by playerModel.currentSong.collectAsState()
-    val currentPosition by playerModel.currentPosition.collectAsState()
-    
-    val lyrics = currentSong?.lyrics ?: ""
+    val currentPosition by position.collectAsState()
+
+    val lyrics = song?.lyrics ?: ""
     val parsedLyrics = remember(lyrics) { parseLyrics(lyrics) }
     val listState = rememberLazyListState()
 
@@ -101,7 +105,7 @@ fun LyricsView(
                         .padding(horizontal = 16.dp)
                         .scale(scale)
                         .clip(RoundedCornerShape(12.dp))
-                        .clickable { playerModel.seekTo(line.time) }
+                        .clickable { onSeek(line.time) }
                         .padding(vertical = 12.dp, horizontal = 16.dp)
                 )
             }

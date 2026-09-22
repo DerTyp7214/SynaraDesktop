@@ -19,11 +19,15 @@ import dev.dertyp.synara.game.SongGuessLeaderboard
 import dev.dertyp.synara.logging.StdoutLogPersistence
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.QueueSyncService
+import dev.dertyp.synara.player.RemoteControlService
+import dev.dertyp.synara.player.RemotePlaybackController
 import dev.dertyp.synara.player.SongCache
+import dev.dertyp.synara.rpc.PresenceService
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.ServerClock
 import dev.dertyp.synara.rpc.services.*
 import dev.dertyp.synara.scrobble.*
+import dev.dertyp.synara.sync.DeviceIdentity
 import dev.dertyp.synara.sync.SecretsCipher
 import dev.dertyp.synara.sync.SettingsSyncService
 import dev.dertyp.synara.sync.SyncedSettingsRegistry
@@ -112,7 +116,11 @@ val appModule = module {
     singleOf(::ScrobbleQueue)
     singleOf(::SongCache)
     singleOf(::PlayerModel)
+    singleOf(::DeviceIdentity)
+    singleOf(::PresenceService)
     singleOf(::QueueSyncService)
+    singleOf(::RemoteControlService)
+    singleOf(::RemotePlaybackController)
     singleOf(::SecretsCipher)
     singleOf(::SyncedSettingsRegistry)
     singleOf(::SettingsSyncService)
@@ -171,6 +179,7 @@ val appModule = module {
     singleOf(::PlaybackServiceWrapper) bind IPlaybackService::class
     singleOf(::QueueServiceWrapper) bind IQueueService::class
     singleOf(::ClientRequestServiceWrapper) bind IClientRequestService::class
+    singleOf(::RemoteControlServiceWrapper) bind IRemoteControlService::class
     singleOf(::ClientSettingsServiceWrapper) bind IClientSettingsService::class
     singleOf(::PlaylistServiceWrapper) bind IPlaylistService::class
     singleOf(::ReleaseServiceWrapper) bind IReleaseService::class

@@ -97,7 +97,14 @@ class PlayerModel(
     )
     val queueChanges: SharedFlow<QueueChange> = _queueChanges.asSharedFlow()
 
+    private val _changeSerial = MutableStateFlow(0L)
+    val changeSerial: StateFlow<Long> = _changeSerial.asStateFlow()
+
     private var suppressChanges = false
+
+    var remotePlayHandler: ((queueId: Long) -> Unit)? = null
+
+    val isRemote: Boolean get() = remotePlayHandler != null
 
     sealed class QueueChange {
         data object Replaced : QueueChange()
@@ -223,9 +230,26 @@ class PlayerModel(
         }
     }
 
+    private fun startPlayback(entry: QueueEntry?, play: Boolean, notifyRemote: Boolean = true) {
+        val handler = remotePlayHandler
+        if (handler != null) {
+            if (notifyRemote && play && entry != null) handler(entry.queueId)
+            return
+        }
+        if (entry == null) {
+            audioPlayer.stop()
+            return
+        }
+        scope.launch {
+            resolveSongId(entry)?.let { id ->
+                audioPlayer.load(id, playImmediately = play)
+            }
+        }
+    }
+
     private fun emitChange(change: QueueChange) {
         if (suppressChanges) return
-        _queueChanges.tryEmit(change)
+        if (_queueChanges.tryEmit(change)) _changeSerial.value++
     }
 
     private fun emitCurrentChanged() {
@@ -377,12 +401,7 @@ class PlayerModel(
             RepeatMode.ONE -> {
                 val index = _currentIndex.value
                 val entry = _queue.value.getOrNull(index)
-                if (entry != null) {
-                    scope.launch {
-                        resolveSongId(entry)?.let { audioPlayer.load(it) }
-                        audioPlayer.play()
-                    }
-                }
+                if (entry != null) startPlayback(entry, play = true, notifyRemote = false)
             }
             RepeatMode.ALL -> {
                 val nextIndex = if (_queue.value.isNotEmpty()) (_currentIndex.value + 1) % _queue.value.size else -1
@@ -393,7 +412,7 @@ class PlayerModel(
                 if (nextIndex in _queue.value.indices) {
                     playAtIndex(nextIndex)
                 } else {
-                    audioPlayer.stop()
+                    startPlayback(null, play = false)
                     _currentIndex.value = -1
                 }
             }
@@ -423,12 +442,7 @@ class PlayerModel(
             val entry = _queue.value[index]
             _currentIndex.value = index
             emitCurrentChanged()
-            scope.launch {
-                resolveSongId(entry)?.let { id ->
-                    audioPlayer.load(id)
-                    audioPlayer.play()
-                }
-            }
+            startPlayback(entry, play = true)
         }
     }
 
@@ -440,8 +454,7 @@ class PlayerModel(
         _currentIndex.value = 0
         emitChange(QueueChange.Replaced)
         scope.launch { songCache.put(song) }
-        audioPlayer.load(song.id)
-        audioPlayer.play()
+        startPlayback(entry, play = true)
     }
 
     fun playRadio(sessionId: PlatformUUID, displayName: String? = null) {
@@ -539,8 +552,7 @@ class PlayerModel(
                     _currentIndex.value = 0
                     _currentSong.value = startSong
                     songCache.put(startSong)
-                    audioPlayer.load(startSong.id)
-                    audioPlayer.play()
+                    startPlayback(startEntry, play = true, notifyRemote = false)
                 }
 
                 launch(modelDispatcher) {
@@ -572,18 +584,14 @@ class PlayerModel(
                         }
                         updateWindow()
                         emitChange(QueueChange.Replaced)
+                        if (isRemote) startPlayback(_queue.value.getOrNull(_currentIndex.value), play = true)
                     }
                 }
                 return@launch
             }
 
             val currentItem = _queue.value.getOrNull(_currentIndex.value)
-            if (currentItem != null) {
-                resolveSongId(currentItem)?.let { id ->
-                    audioPlayer.load(id)
-                    audioPlayer.play()
-                }
-            }
+            if (currentItem != null) startPlayback(currentItem, play = true)
         }
     }
 
@@ -994,11 +1002,12 @@ class PlayerModel(
                 else -> snapshot.currentIndex.coerceIn(0, snapshot.active.size - 1)
             }
 
-            val targetId = _queue.value.getOrNull(_currentIndex.value)?.let { songIdOf(it) }
+            val currentEntry = _queue.value.getOrNull(_currentIndex.value)
+            val targetId = currentEntry?.let { songIdOf(it) }
             when {
-                targetId == null -> audioPlayer.stop()
+                targetId == null -> startPlayback(null, play = false, notifyRemote = false)
                 targetId == previousSongId -> Unit
-                else -> audioPlayer.load(targetId, playImmediately = wasPlaying)
+                else -> startPlayback(currentEntry, play = wasPlaying, notifyRemote = false)
             }
         } finally {
             suppressChanges = false
@@ -1058,7 +1067,7 @@ class PlayerModel(
 
         when {
             remaining.isEmpty() -> {
-                audioPlayer.stop()
+                startPlayback(null, play = false, notifyRemote = false)
                 _currentIndex.value = -1
                 _currentSong.value = null
             }

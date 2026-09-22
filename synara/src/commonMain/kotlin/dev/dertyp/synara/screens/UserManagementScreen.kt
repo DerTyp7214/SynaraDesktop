@@ -224,6 +224,7 @@ class UserManagementScreen : Screen {
         UserCapability.IMPORT -> stringResource(Res.string.capability_import)
         UserCapability.EDIT -> stringResource(Res.string.capability_edit)
         UserCapability.DELETE -> stringResource(Res.string.capability_delete)
+        UserCapability.PODCAST_EDIT -> stringResource(Res.string.capability_podcast_edit)
     }
 
     @Composable

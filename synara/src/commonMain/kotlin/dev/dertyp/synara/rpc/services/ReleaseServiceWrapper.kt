@@ -27,9 +27,10 @@ class ReleaseServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(man
     override suspend fun getArtistRecentReleases(
         artistId: PlatformUUID,
         page: Int,
-        pageSize: Int
+        pageSize: Int,
+        includeHidden: Boolean
     ): PaginatedResponse<RecentRelease> {
-        return manager.getService<IReleaseService>().getArtistRecentReleases(artistId, page, pageSize)
+        return manager.getService<IReleaseService>().getArtistRecentReleases(artistId, page, pageSize, includeHidden)
     }
 
     override suspend fun getRecentReleasesByMusicBrainzId(
@@ -46,5 +47,13 @@ class ReleaseServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(man
 
     override suspend fun refreshRecentRelease(releaseId: PlatformUUID) {
         manager.getService<IReleaseService>().refreshRecentRelease(releaseId)
+    }
+
+    override suspend fun setReleaseHidden(releaseId: PlatformUUID, hidden: Boolean, includeRelated: Boolean): Int {
+        return manager.getService<IReleaseService>().setReleaseHidden(releaseId, hidden, includeRelated)
+    }
+
+    override suspend fun confirmRelease(releaseId: PlatformUUID): RecentRelease {
+        return manager.getService<IReleaseService>().confirmRelease(releaseId)
     }
 }

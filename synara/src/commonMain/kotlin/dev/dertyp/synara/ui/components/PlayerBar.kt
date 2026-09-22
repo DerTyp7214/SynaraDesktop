@@ -36,10 +36,13 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import coil3.compose.ConstraintsSizeResolver
 import coil3.compose.rememberConstraintsSizeResolver
+import dev.dertyp.PlatformUUID
+import dev.dertyp.data.OnlineDevice
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.IAnimatedImageService
 import dev.dertyp.synara.animateColorSchemeAsState
-import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.player.*
+import dev.dertyp.synara.rpc.PresenceService
 import dev.dertyp.synara.scrobble.ScrobblerService
 import dev.dertyp.synara.theme.createColorSchemeFromSeeds
 import dev.dertyp.synara.theme.isAppDark
@@ -50,9 +53,13 @@ import dev.dertyp.synara.ui.components.menus.SongContextMenu
 import dev.dertyp.synara.ui.components.player.*
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.StateFlow
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.remote_control_controlling
+import synara.synara.generated.resources.remote_control_pick_device
+import synara.synara.generated.resources.remote_control_this_device
 import synara.synara.generated.resources.volume
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -64,9 +71,17 @@ fun PlayerBar(
     height: Dp,
     playerModel: PlayerModel = koinInject(),
     scrobblerService: ScrobblerService = koinInject(),
-    globalState: GlobalStateModel = koinInject()
+    globalState: GlobalStateModel = koinInject(),
+    remote: RemotePlaybackController = koinInject(),
+    presence: PresenceService = koinInject()
 ) {
-    val isPlayingState by playerModel.isPlaying.collectAsState()
+    val target by remote.target.collectAsState()
+    val controllableDevices by remote.controllableDevices.collectAsState()
+    val surface: PlaybackSurface =
+        if (target != null) remote else remember(playerModel) { LocalPlaybackSurface(playerModel) }
+    val isRemote = target != null
+
+    val isPlayingState by surface.isPlaying.collectAsState()
     val isPlaying by produceState(initialValue = isPlayingState, isPlayingState) {
         if (isPlayingState) {
             value = true
@@ -76,12 +91,12 @@ fun PlayerBar(
         }
     }
 
-    val currentSong by playerModel.currentSong.collectAsState()
-    val volume by playerModel.volume.collectAsState()
-    val currentPositionState by playerModel.currentPosition.collectAsState()
-    val duration by playerModel.duration.collectAsState()
-    val shuffleMode by playerModel.shuffleMode.collectAsState()
-    val repeatMode by playerModel.repeatMode.collectAsState()
+    val currentSong by surface.currentSong.collectAsState()
+    val volume by surface.volume.collectAsState()
+    val currentPositionState by surface.currentPosition.collectAsState()
+    val duration by surface.duration.collectAsState()
+    val shuffleMode by surface.shuffleMode.collectAsState()
+    val repeatMode by surface.repeatMode.collectAsState()
     val liveSampleRate by playerModel.sampleRate.collectAsState()
     val liveBitsPerSample by playerModel.bitsPerSample.collectAsState()
     val liveBitRate by playerModel.bitRate.collectAsState()
@@ -146,7 +161,7 @@ fun PlayerBar(
                 if (isExpanded && event.type == KeyEventType.KeyDown) {
                     when (event.key) {
                         Key.Spacebar -> {
-                            playerModel.togglePlayPause()
+                            surface.togglePlayPause()
                             true
                         }
 
@@ -156,8 +171,8 @@ fun PlayerBar(
                         }
 
                         Key.DirectionLeft -> {
-                            playerModel.seekTo(
-                                (playerModel.currentPosition.value - 5000).coerceAtLeast(
+                            surface.seekTo(
+                                (surface.currentPosition.value - 5000).coerceAtLeast(
                                     0
                                 )
                             )
@@ -165,20 +180,20 @@ fun PlayerBar(
                         }
 
                         Key.DirectionRight -> {
-                            playerModel.seekTo(playerModel.currentPosition.value + 5000)
+                            surface.seekTo(surface.currentPosition.value + 5000)
                             true
                         }
 
                         Key.N -> {
                             if (event.isShiftPressed) {
-                                playerModel.skipNext()
+                                surface.skipNext()
                                 true
                             } else false
                         }
 
                         Key.P -> {
                             if (event.isShiftPressed) {
-                                playerModel.skipPrevious()
+                                surface.skipPrevious()
                                 true
                             } else false
                         }
@@ -200,12 +215,12 @@ fun PlayerBar(
                 } else false
             }
             .onPointerEvent(PointerEventType.Scroll) {
-                if (isExpanded && it.keyboardModifiers.isShiftPressed) {
+                if (isExpanded && it.keyboardModifiers.isShiftPressed && surface.supportsVolume) {
                     val delay = it.changes.first().scrollDelta.y
                     if (delay != 0f) {
                         val direction = if (delay > 0) -1 else 1
-                        playerModel.setVolume(
-                            (playerModel.volume.value + direction * 0.02f).coerceIn(
+                        surface.setVolume(
+                            (surface.volume.value + direction * 0.02f).coerceIn(
                                 0f,
                                 1f
                             )
@@ -317,6 +332,9 @@ fun PlayerBar(
                                     sizeResolver = sizeResolver,
                                     parentCoordinates = parentCoordinates,
                                     coverCenter = coverCenter,
+                                    isRemote = isRemote,
+                                    position = surface.currentPosition,
+                                    onSeek = { surface.seekTo(it) },
                                     onCollapse = {
                                         globalState.setPlayerExpanded(false)
                                     }
@@ -343,12 +361,12 @@ fun PlayerBar(
                                 ) {
                                     SongInfoSection(
                                         currentSong = currentSong,
-                                        liveBitRate = liveBitRate,
-                                        liveSampleRate = liveSampleRate,
-                                        liveBitsPerSample = liveBitsPerSample,
+                                        liveBitRate = if (isRemote) 0L else liveBitRate,
+                                        liveSampleRate = if (isRemote) 0 else liveSampleRate,
+                                        liveBitsPerSample = if (isRemote) 0 else liveBitsPerSample,
                                         onToggleExpanded = { globalState.togglePlayerExpanded() },
                                         onArtistClick = { globalState.setPlayerExpanded(false) },
-                                        onLikeClick = { playerModel.toggleLike() },
+                                        onLikeClick = { currentSong?.let { playerModel.toggleLike(it) } },
                                         onSecondaryClick = { showSongContextMenu = true },
                                         modifier = Modifier.weight(1f)
                                     )
@@ -356,11 +374,25 @@ fun PlayerBar(
                                     PlayerControls(
                                         isPlaying = isPlaying,
                                         currentSongExists = currentSong != null,
-                                        onSkipPrevious = { playerModel.skipPrevious() },
-                                        onTogglePlayPause = { playerModel.togglePlayPause() },
-                                        onSkipNext = { playerModel.skipNext() },
+                                        onSkipPrevious = { surface.skipPrevious() },
+                                        onTogglePlayPause = { surface.togglePlayPause() },
+                                        onSkipNext = { surface.skipNext() },
                                         modifier = Modifier.weight(1.2f)
                                     )
+
+                                    val deviceMenu: (@Composable () -> Unit)? =
+                                        if (controllableDevices.isEmpty()) {
+                                            null
+                                        } else {
+                                            {
+                                                DeviceMenuButton(
+                                                    devices = controllableDevices,
+                                                    target = target,
+                                                    onOpen = { presence.refreshOnlineDevices() },
+                                                    onSelect = { remote.select(it) }
+                                                )
+                                            }
+                                        }
 
                                     PlayerActions(
                                         shuffleMode = shuffleMode,
@@ -368,10 +400,12 @@ fun PlayerBar(
                                         volume = volume,
                                         currentSongExists = currentSong != null,
                                         isCompact = isCompact,
-                                        onToggleShuffle = { playerModel.toggleShuffle() },
-                                        onToggleRepeat = { playerModel.toggleRepeat() },
-                                        onVolumeChange = { playerModel.setVolume(it) },
-                                        modifier = Modifier.weight(1f)
+                                        onToggleShuffle = { surface.toggleShuffle() },
+                                        onToggleRepeat = { surface.toggleRepeat() },
+                                        onVolumeChange = { surface.setVolume(it) },
+                                        modifier = Modifier.weight(1f),
+                                        showVolume = surface.supportsVolume,
+                                        deviceMenu = deviceMenu
                                     )
                                 }
 
@@ -384,23 +418,38 @@ fun PlayerBar(
                                         seekPosition = (it * duration).toLong()
                                     },
                                     onSeekFinished = {
-                                        playerModel.seekTo(seekPosition)
+                                        surface.seekTo(seekPosition)
                                         isSeeking = false
                                         isWaitingForPosition = true
                                     }
                                 )
                             }
 
-                            currentSong?.let { song ->
-                                PlayerScrobbleIndicator(
-                                    currentSong = song,
-                                    scrobbledFor = scrobbledFor,
-                                    triggeredSong = triggeredSong,
-                                    scrobblerService = scrobblerService,
+                            val controlledDevice = target
+                            if (controlledDevice != null) {
+                                Text(
+                                    text = stringResource(
+                                        Res.string.remote_control_controlling,
+                                        controlledDevice.deviceName
+                                    ),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier
                                         .align(Alignment.TopEnd)
                                         .padding(top = 10.dp, end = 16.dp)
                                 )
+                            } else {
+                                currentSong?.let { song ->
+                                    PlayerScrobbleIndicator(
+                                        currentSong = song,
+                                        scrobbledFor = scrobbledFor,
+                                        triggeredSong = triggeredSong,
+                                        scrobblerService = scrobblerService,
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .padding(top = 10.dp, end = 16.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -418,6 +467,78 @@ fun PlayerBar(
     }
 }
 
+@Composable
+private fun DeviceMenuButton(
+    devices: List<OnlineDevice>,
+    target: OnlineDevice?,
+    onOpen: () -> Unit,
+    onSelect: (PlatformUUID?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        IconButton(
+            onClick = {
+                onOpen()
+                expanded = true
+            }
+        ) {
+            Icon(
+                SynaraIcons.DeviceGeneric.get(),
+                contentDescription = stringResource(Res.string.remote_control_pick_device),
+                tint = if (target != null) MaterialTheme.colorScheme.primary else LocalContentColor.current
+            )
+        }
+
+        SynaraMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.remote_control_this_device)) },
+                onClick = {
+                    onSelect(null)
+                    expanded = false
+                },
+                trailingIcon = if (target == null) {
+                    { Icon(SynaraIcons.Confirm.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+                } else null
+            )
+
+            devices.forEach { device ->
+                val isSelected = target?.sessionId == device.sessionId
+
+                DropdownMenuItem(
+                    text = { Text(device.deviceName) },
+                    onClick = {
+                        onSelect(device.sessionId)
+                        expanded = false
+                    },
+                    leadingIcon = {
+                        Icon(
+                            platformIcon(device.platform).get(),
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    trailingIcon = if (isSelected) {
+                        { Icon(SynaraIcons.Confirm.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+                    } else null
+                )
+            }
+        }
+    }
+}
+
+private fun platformIcon(platform: String): SynaraIcons {
+    val value = platform.lowercase()
+    return when {
+        listOf("linux", "windows", "mac", "desktop").any { it in value } -> SynaraIcons.DeviceDesktop
+        listOf("android", "ios", "iphone", "ipad").any { it in value } -> SynaraIcons.DeviceMobile
+        else -> SynaraIcons.DeviceGeneric
+    }
+}
+
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun ExpandedPlayerContent(
@@ -425,6 +546,9 @@ private fun ExpandedPlayerContent(
     sizeResolver: ConstraintsSizeResolver,
     coverCenter: MutableState<Offset>,
     parentCoordinates: LayoutCoordinates? = null,
+    isRemote: Boolean,
+    position: StateFlow<Long>,
+    onSeek: (Long) -> Unit,
     onCollapse: () -> Unit,
     globalState: GlobalStateModel = koinInject()
 ) {
@@ -544,22 +668,26 @@ private fun ExpandedPlayerContent(
                                 }
                         )
 
-                        Spacer(modifier = Modifier.weight(.3f))
+                        if (isRemote) {
+                            Spacer(modifier = Modifier.weight(.5f))
+                        } else {
+                            Spacer(modifier = Modifier.weight(.3f))
 
-                        val (colorA, colorB) = sort(
-                            MaterialTheme.colorScheme.primaryContainer,
-                            MaterialTheme.colorScheme.tertiary
-                        )
+                            val (colorA, colorB) = sort(
+                                MaterialTheme.colorScheme.primaryContainer,
+                                MaterialTheme.colorScheme.tertiary
+                            )
 
-                        VisualizerView(
-                            modifier = Modifier
-                                .fillMaxWidth(visualizerWidthScale)
-                                .requiredHeight(120.dp),
-                            highlightColor = colorA,
-                            color = colorB
-                        )
+                            VisualizerView(
+                                modifier = Modifier
+                                    .fillMaxWidth(visualizerWidthScale)
+                                    .requiredHeight(120.dp),
+                                highlightColor = colorA,
+                                color = colorB
+                            )
 
-                        Spacer(modifier = Modifier.weight(.2f))
+                            Spacer(modifier = Modifier.weight(.2f))
+                        }
                     }
 
                     androidx.compose.animation.AnimatedVisibility(
@@ -580,7 +708,11 @@ private fun ExpandedPlayerContent(
                                 label = "sideContentTransition"
                             ) { (showLyrics, showQueue) ->
                                 if (showLyrics) {
-                                    LyricsView()
+                                    LyricsView(
+                                        song = currentSong,
+                                        position = position,
+                                        onSeek = onSeek
+                                    )
                                 } else if (showQueue) {
                                     QueueView()
                                 }
@@ -627,22 +759,26 @@ private fun ExpandedPlayerContent(
                                         }
                                 )
 
-                                Spacer(modifier = Modifier.weight(.6f))
+                                if (isRemote) {
+                                    Spacer(modifier = Modifier.weight(.9f))
+                                } else {
+                                    Spacer(modifier = Modifier.weight(.6f))
 
-                                val (colorA, colorB) = sort(
-                                    MaterialTheme.colorScheme.primaryContainer,
-                                    MaterialTheme.colorScheme.tertiary
-                                )
+                                    val (colorA, colorB) = sort(
+                                        MaterialTheme.colorScheme.primaryContainer,
+                                        MaterialTheme.colorScheme.tertiary
+                                    )
 
-                                VisualizerView(
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.9f)
-                                        .requiredHeight(120.dp),
-                                    highlightColor = colorA,
-                                    color = colorB
-                                )
+                                    VisualizerView(
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.9f)
+                                            .requiredHeight(120.dp),
+                                        highlightColor = colorA,
+                                        color = colorB
+                                    )
 
-                                Spacer(modifier = Modifier.weight(.3f))
+                                    Spacer(modifier = Modifier.weight(.3f))
+                                }
                             }
                         }
 
@@ -651,7 +787,12 @@ private fun ExpandedPlayerContent(
                         }
 
                         "lyrics" -> {
-                            LyricsView(modifier = Modifier.fillMaxSize())
+                            LyricsView(
+                                modifier = Modifier.fillMaxSize(),
+                                song = currentSong,
+                                position = position,
+                                onSeek = onSeek
+                            )
                         }
                     }
                 }
