@@ -20,7 +20,7 @@ if [ "$NEEDS_RPC_REBUILD" = true ]; then
     echo "Changes detected in RPC code or doc-compiler. Rebuilding RPC documentation..."
     ./gradlew :common-rpc:kspCommonMainKotlinMetadata
     if [ $? -eq 0 ]; then
-        git add docs/RPC_SERVICES.md
+        git add docs/RPC_SERVICES.md docs/MODELS.md docs/PERMISSIONS.md
         echo "RPC Documentation rebuilt and staged."
     else
         echo "RPC Documentation build failed."
