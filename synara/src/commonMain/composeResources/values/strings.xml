@@ -631,6 +631,8 @@
     <string name="remote_control_pick_device">Control another device</string>
     <string name="remote_control_this_device">This device</string>
     <string name="remote_control_controlling">Controlling %1$s</string>
+    <string name="remote_control_controlled_by">Controlled by %1$s</string>
+    <string name="remote_control_controlled_remotely">Controlled remotely</string>
     <string name="remote_control_sync_pending">Waiting for the queue to sync</string>
     <string name="settings_sync_section">Sync</string>
     <string name="settings_sync_device_name_title">Device Name</string>

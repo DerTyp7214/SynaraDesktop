@@ -57,6 +57,8 @@ import kotlinx.coroutines.flow.StateFlow
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.remote_control_controlled_by
+import synara.synara.generated.resources.remote_control_controlled_remotely
 import synara.synara.generated.resources.remote_control_controlling
 import synara.synara.generated.resources.remote_control_pick_device
 import synara.synara.generated.resources.remote_control_this_device
@@ -76,6 +78,7 @@ fun PlayerBar(
     presence: PresenceService = koinInject()
 ) {
     val target by remote.target.collectAsState()
+    val controlledBy by presence.controlledBy.collectAsState()
     val controllableDevices by remote.controllableDevices.collectAsState()
     val surface: PlaybackSurface =
         if (target != null) remote else remember(playerModel) { LocalPlaybackSurface(playerModel) }
@@ -426,12 +429,27 @@ fun PlayerBar(
                             }
 
                             val controlledDevice = target
+                            val controller = controlledBy
                             if (controlledDevice != null) {
                                 Text(
                                     text = stringResource(
                                         Res.string.remote_control_controlling,
                                         controlledDevice.deviceName
                                     ),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(top = 10.dp, end = 16.dp)
+                                )
+                            } else if (controller != null) {
+                                val controllerName = controller.deviceName?.takeIf { it.isNotBlank() }
+                                Text(
+                                    text = if (controllerName != null) {
+                                        stringResource(Res.string.remote_control_controlled_by, controllerName)
+                                    } else {
+                                        stringResource(Res.string.remote_control_controlled_remotely)
+                                    },
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier

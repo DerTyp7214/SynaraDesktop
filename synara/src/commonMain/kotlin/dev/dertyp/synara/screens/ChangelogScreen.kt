@@ -64,6 +64,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.5.1",
+                        date = "2026-09-23",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Fixed, "A device that is steering another one lets go of it the moment it gets remote controlled itself, so the two never fight over the same player."),
+                            Change(ChangeType.New, "While this device is being remote controlled, the player bar shows Controlled by and the name of the device steering it, in the spot where Controlling appears on the other side.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.5.0",
                         date = "2026-09-23",
                         isPrerelease = true,

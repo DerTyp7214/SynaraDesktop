@@ -32,6 +32,7 @@ class RemoteControlService(
     private val clientRequestService: IClientRequestService,
     private val remoteControlService: IRemoteControlService,
     private val queueSyncService: QueueSyncService,
+    private val remotePlaybackController: RemotePlaybackController,
     private val playerModel: PlayerModel,
     private val logger: Logger,
     private val dispatchers: SynaraDispatchers
@@ -72,7 +73,8 @@ class RemoteControlService(
     }
 
     private suspend fun handle(request: ClientRequest.ControlPlayback) {
-        presenceService.markControlled()
+        remotePlaybackController.deselect()
+        presenceService.markControlled(request.requestedBySessionId, request.requestedByDeviceName)
         val applied = try {
             apply(request.command)
         } catch (e: CancellationException) {

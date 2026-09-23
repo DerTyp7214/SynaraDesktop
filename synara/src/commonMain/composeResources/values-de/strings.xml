@@ -629,6 +629,8 @@
     <string name="remote_control_pick_device">Anderes Gerät steuern</string>
     <string name="remote_control_this_device">Dieses Gerät</string>
     <string name="remote_control_controlling">Steuert %1$s</string>
+    <string name="remote_control_controlled_by">Gesteuert von %1$s</string>
+    <string name="remote_control_controlled_remotely">Wird ferngesteuert</string>
     <string name="remote_control_sync_pending">Warte auf die Synchronisation der Warteschlange</string>
     <string name="settings_sync_section">Synchronisierung</string>
     <string name="settings_sync_device_name_title">Gerätename</string>

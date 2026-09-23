@@ -1,5 +1,6 @@
 package dev.dertyp.synara.rpc
 
+import dev.dertyp.PlatformUUID
 import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.ClientCapability
 import dev.dertyp.data.ClientDescription
@@ -26,6 +27,11 @@ import kotlin.time.Duration.Companion.seconds
 
 private val PRESENCE_TAG = LogTag("presence")
 
+data class RemoteController(
+    val sessionId: PlatformUUID,
+    val deviceName: String?
+)
+
 class PresenceService(
     private val clientRequestService: IClientRequestService,
     private val deviceIdentity: DeviceIdentity,
@@ -51,8 +57,12 @@ class PresenceService(
     private val _onlineDevices = MutableStateFlow<List<OnlineDevice>>(emptyList())
     val onlineDevices: StateFlow<List<OnlineDevice>> = _onlineDevices.asStateFlow()
 
-    private val _isControlled = MutableStateFlow(false)
-    val isControlled: StateFlow<Boolean> = _isControlled.asStateFlow()
+    private val _controlledBy = MutableStateFlow<RemoteController?>(null)
+    val controlledBy: StateFlow<RemoteController?> = _controlledBy.asStateFlow()
+
+    val isControlled: StateFlow<Boolean> = _controlledBy
+        .map { it != null }
+        .stateIn(scope, SharingStarted.Eagerly, false)
 
     private val refreshes = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     private var controlledUntil = 0L
@@ -100,9 +110,9 @@ class PresenceService(
         refreshes.tryEmit(Unit)
     }
 
-    fun markControlled() {
+    fun markControlled(sessionId: PlatformUUID, deviceName: String?) {
         controlledUntil = currentTimeMillis() + CONTROLLED_WINDOW.inWholeMilliseconds
-        _isControlled.value = true
+        _controlledBy.value = RemoteController(sessionId, deviceName)
         if (controlledJob?.isActive == true) return
         controlledJob = scope.launch {
             while (currentCoroutineContext().isActive) {
@@ -110,7 +120,7 @@ class PresenceService(
                 if (remaining <= 0L) break
                 delay(remaining)
             }
-            _isControlled.value = false
+            _controlledBy.value = null
         }
     }
 
