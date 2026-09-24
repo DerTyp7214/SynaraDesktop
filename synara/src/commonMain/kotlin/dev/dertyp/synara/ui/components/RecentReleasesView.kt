@@ -21,11 +21,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.LocalNavigator
+import dev.dertyp.data.ReleaseSource
 import dev.dertyp.data.ReleaseType
 import dev.dertyp.formatDate
 import dev.dertyp.services.IReleaseService
@@ -61,7 +65,7 @@ fun RecentReleasesView(
     val lastSeenRecentReleaseId by Config.lastSeenRecentReleaseId.collectAsState()
 
     LaunchedEffect(Unit) {
-        releases = releaseService.getRecentReleases(0, 150).data
+        releases = releaseService.getRecentReleases().data
     }
 
     LaunchedEffect(isExpanded, releases) {
@@ -182,12 +186,35 @@ fun RecentReleaseCard(
             )
             .padding(12.dp)
     ) {
-        SynaraImage(
-            imageId = release.imageId,
-            size = 116.dp,
-            shape = MaterialTheme.shapes.small,
-            fallbackIcon = SynaraIcons.Albums
-        )
+        Box {
+            SynaraImage(
+                imageId = release.imageId,
+                size = 116.dp,
+                shape = MaterialTheme.shapes.small,
+                fallbackIcon = SynaraIcons.Albums
+            )
+            if (release.versions.isNotEmpty()) {
+                val versionCount = release.versions.size + 1
+                val badgeDescription = stringResource(Res.string.versions_count, versionCount)
+                Surface(
+                    color = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = (-4).dp, y = 4.dp)
+                        .semantics { contentDescription = badgeDescription }
+                ) {
+                    Text(
+                        text = "$versionCount",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+        }
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = release.title,
@@ -280,25 +307,7 @@ fun RecentReleaseDialog(
                 val user by globalState.user.collectAsState()
                 val canImport = user?.hasCapability(UserCapability.IMPORT) == true
 
-                val handlerLinks by produceState(emptyList<Pair<String, UiHookHandler>>(), release.links, canImport) {
-                    if (!canImport) {
-                        value = emptyList()
-                        return@produceState
-                    }
-                    val results = mutableListOf<Pair<String, UiHookHandler>>()
-                    release.links.forEach { link ->
-                        if (!link.contains("musicbrainz.org", ignoreCase = true)) {
-                            try {
-                                val handler = uiService.resolveIntake(listOf(IntakeItem.Url(link))).firstOrNull()
-                                if (handler != null) {
-                                    results.add(link to handler)
-                                }
-                            } catch (_: Exception) {
-                            }
-                        }
-                    }
-                    value = results
-                }
+                val handlerLinks by rememberReleaseLinkHandlers(release.links, uiService, canImport)
 
                 val otherLinks = remember(release.links, handlerLinks) {
                     val handledUrls = handlerLinks.map { it.first }.toSet()
@@ -366,11 +375,131 @@ fun RecentReleaseDialog(
                             Text(stringResource(Res.string.tag_has_musicbrainz_id))
                         }
                     }
+
+                    if (release.versions.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = stringResource(Res.string.other_versions, release.versions.size),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        }
+                        items(release.versions, key = { it.releaseId }) { version ->
+                            ReleaseVersionItem(
+                                version = version,
+                                uiService = uiService,
+                                host = host,
+                                canImport = canImport,
+                                uriHandler = uriHandler,
+                                onDismissRequest = onDismissRequest
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
+
+@Composable
+private fun ReleaseVersionItem(
+    version: RecentRelease,
+    uiService: IUiService,
+    host: UiHost,
+    canImport: Boolean,
+    uriHandler: UriHandler,
+    onDismissRequest: () -> Unit
+) {
+    val handlerLinks by rememberReleaseLinkHandlers(version.links, uiService, canImport)
+    val otherLinks = remember(version.links, handlerLinks) {
+        val handledUrls = handlerLinks.map { it.first }.toSet()
+        version.links.filter {
+            !it.contains("musicbrainz.org", ignoreCase = true) &&
+                    it !in handledUrls
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = version.title,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        version.releaseDate?.formatDate()?.let { date ->
+            Text(
+                text = date,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        handlerLinks.forEach { (link, handler) ->
+            FilledTonalButton(
+                onClick = {
+                    host.dispatch(UiAction.Intake(listOf(IntakeItem.Url(link)), resolverId = handler.id))
+                    onDismissRequest()
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(handler.title)
+            }
+        }
+        otherLinks.forEach { link ->
+            val domain = remember(link) {
+                link.split("//").last().split("/").first().removePrefix("www.")
+            }
+            OutlinedButton(
+                onClick = { uriHandler.openUri(link) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(SynaraIcons.OpenInNew.get(), null, Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(domain)
+            }
+        }
+        if (version.source == ReleaseSource.MusicBrainz) {
+            OutlinedButton(
+                onClick = { uriHandler.openUri("https://musicbrainz.org/release-group/${version.releaseId}") },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(SynaraIcons.MusicBrainz.get(), null, Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(stringResource(Res.string.tag_has_musicbrainz_id))
+            }
+        }
+    }
+}
+
+@Composable
+private fun rememberReleaseLinkHandlers(
+    links: List<String>,
+    uiService: IUiService,
+    canImport: Boolean
+): State<List<Pair<String, UiHookHandler>>> =
+    produceState(emptyList(), links, canImport) {
+        if (!canImport) {
+            value = emptyList()
+            return@produceState
+        }
+        val results = mutableListOf<Pair<String, UiHookHandler>>()
+        links.forEach { link ->
+            if (!link.contains("musicbrainz.org", ignoreCase = true)) {
+                try {
+                    val handler = uiService.resolveIntake(listOf(IntakeItem.Url(link))).firstOrNull()
+                    if (handler != null) {
+                        results.add(link to handler)
+                    }
+                } catch (_: Exception) {
+                }
+            }
+        }
+        value = results
+    }
 
 private fun ReleaseType.toResResource() = when (this) {
     ReleaseType.Album -> Res.string.release_type_album

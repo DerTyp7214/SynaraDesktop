@@ -64,6 +64,16 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.6.0",
+                        date = "2026-09-24",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Recent releases show one card per release, with a badge counting its editions such as explicit, deluxe or remastered versions."),
+                            Change(ChangeType.New, "The release dialog lists the other editions of a release, each with its own import and open buttons."),
+                            Change(ChangeType.Updated, "Recent releases load the 50 newest releases of every type instead of the 150 newest overall.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.5.1",
                         date = "2026-09-23",
                         isPrerelease = true,
