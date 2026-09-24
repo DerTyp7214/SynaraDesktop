@@ -16,7 +16,7 @@ val minor = 0
 val patch = 0
 val buildMajor = 3
 val buildMinor = 7
-val buildPatch = 0
+val buildPatch = 1
 
 if (minor > 9 || patch > 9 || buildMajor > 99 || buildMinor > 99 || buildPatch > 99) {
     throw GradleException("Version component too high: minor($minor), patch($patch), buildMajor($buildMajor), buildMinor($buildMinor), buildPatch($buildPatch)")
@@ -171,14 +171,12 @@ kotlin {
                 implementation(libs.mediasession.kt)
                 implementation(libs.jna)
 
-                // Add natives for all desktop platforms
-                val platforms = listOf("linux", "windows", "macos", "macos-arm64")
-                platforms.forEach { platform ->
-                    runtimeOnly("org.lwjgl:lwjgl::natives-$platform")
-                    runtimeOnly("org.lwjgl:lwjgl-opengl::natives-$platform")
-                    runtimeOnly("org.lwjgl:lwjgl-openal::natives-$platform")
-                    runtimeOnly("org.lwjgl:lwjgl-stb::natives-$platform")
-                }
+                // Add natives for the current desktop platform only
+                val targetNatives = rootProject.extra["lwjglNativesClassifier"] as String
+                runtimeOnly("org.lwjgl:lwjgl::$targetNatives")
+                runtimeOnly("org.lwjgl:lwjgl-opengl::$targetNatives")
+                runtimeOnly("org.lwjgl:lwjgl-openal::$targetNatives")
+                runtimeOnly("org.lwjgl:lwjgl-stb::$targetNatives")
             }
         }
     }

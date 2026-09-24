@@ -49,45 +49,155 @@ jobs:
 
       - name: Build Linux Tarballs and Arch Packages
         if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
+          set -euo pipefail
           ./gradlew :app:createDistributable :classic:createDistributable
-          
+
           VERSION=$(./gradlew :synara:properties -q | grep "^version:" | cut -d' ' -f2 | tr -d '\r')
           [ -z "$VERSION" ] && VERSION="1.0.0"
-          
-          ARCH_VERSION=$(echo "$VERSION" | tr '-' '_')
-          
-          # For Synara (app)
-          cd app/build/compose/binaries/main/app
-          tar -czf ../../../../../../Synara-linux-x64.tar.gz Synara
-          
-          mkdir -p ../../../../../../arch-app/opt/synara
-          mkdir -p ../../../../../../arch-app/usr/share/applications
-          mkdir -p ../../../../../../arch-app/usr/share/icons/hicolor/scalable/apps
-          mkdir -p ../../../../../../arch-app/usr/share/pixmaps
-          
-          cp -r Synara/* ../../../../../../arch-app/opt/synara/
-          cp ../../../../../../synara/src/commonMain/resources/icon.svg ../../../../../../arch-app/usr/share/icons/hicolor/scalable/apps/synara.svg
-          cp ../../../../../../synara/src/commonMain/resources/icon.png ../../../../../../arch-app/usr/share/pixmaps/synara.png
-          
-          for size in 16 24 32 48 64 96 128 256 512 1024; do
-            mkdir -p ../../../../../../arch-app/usr/share/icons/hicolor/${size}x${size}/apps
-            convert ../../../../../../synara/src/commonMain/resources/icon.png -resize ${size}x${size} ../../../../../../arch-app/usr/share/icons/hicolor/${size}x${size}/apps/synara.png
-          done
-          
-          cat <<EOF > ../../../../../../arch-app/usr/share/applications/synara.desktop
+
+          APP_PKGVER="$(echo "$VERSION" | tr '-' '_').r${RUN_NUMBER}"
+          STAMP=$(date -u +%Y%m%d.%H%M%S)
+
+          ROOT=$PWD
+          APP_IMAGE=$ROOT/app/build/compose/binaries/main/app/Synara
+          CLASSIC_IMAGE=$ROOT/classic/build/compose/binaries/main/app/Synara
+          ICON_PNG=$ROOT/synara/src/commonMain/resources/icon.png
+          ICON_SVG=$ROOT/synara/src/commonMain/resources/icon.svg
+          STAGE=$ROOT/arch-stage
+          PREV=$ROOT/arch-prev
+          OUT=$ROOT/arch-out
+          OWN_JAR_RE='^(app|classic|synara|common-rpc|tray|dbus-api)-jvm(-[^/]*)?\.jar$'
+          rm -rf "$STAGE" "$PREV" "$OUT"
+          mkdir -p "$STAGE" "$PREV" "$OUT"
+          : > "$OUT/reused-packages.txt"
+
+          (cd "$APP_IMAGE/.." && tar -czf "$ROOT/Synara-linux-x64.tar.gz" Synara)
+          (cd "$CLASSIC_IMAGE/.." && tar -czf "$ROOT/ClassicApp-linux-x64.tar.gz" Synara)
+
+          content_hash() {
+            (cd "$1" && find . \( -type f -o -type l \) -print0 | LC_ALL=C sort -z | while IFS= read -r -d '' f; do
+              if [ -L "$f" ]; then
+                printf 'L %s %s\n' "$f" "$(readlink "$f")"
+              else
+                printf 'F %s %s %s\n' "$f" "$(stat -c %a "$f")" "$(sha256sum < "$f" | cut -d' ' -f1)"
+              fi
+            done | sha256sum | cut -d' ' -f1)
+          }
+
+          make_pkg() {
+            local name=$1 ver=$2 desc=$3 stage=$4
+            shift 4
+            local file="$name-$ver-1-x86_64.pkg.tar.zst"
+            local entries size
+            mapfile -t entries < <(cd "$stage" && find . -mindepth 1 -maxdepth 1 ! -name '.*' -printf '%P\n' | LC_ALL=C sort)
+            size=$(cd "$stage" && du -sb "${entries[@]}" | awk '{s+=$1} END {print s+0}')
+            {
+              echo "pkgname = $name"
+              echo "pkgbase = $name"
+              echo "pkgver = $ver-1"
+              echo "pkgdesc = $desc"
+              echo "url = https://github.com/$REPO"
+              echo "builddate = $(date +%s)"
+              echo "packager = GitHub Actions"
+              echo "size = $size"
+              echo "arch = x86_64"
+              echo "license = custom"
+              local dep
+              for dep in "$@"; do echo "depend = $dep"; done
+            } > "$stage/.PKGINFO"
+            local meta=(.PKGINFO)
+            [ -f "$stage/.INSTALL" ] && meta+=(.INSTALL)
+            (cd "$stage" && tar --owner=0 --group=0 --numeric-owner --sort=name -I 'zstd -19 -T0' -cf "$OUT/$file" "${meta[@]}" "${entries[@]}")
+            echo "Built $file"
+          }
+
+          PKG_VER=
+          reuse_or_build() {
+            local name=$1 desc=$2 stage=$3 hash prev_hash prev_file
+            hash=$(content_hash "$stage")
+            if gh release download latest-dev --repo "$REPO" --pattern "$name.sha256" --dir "$PREV" --clobber 2>/dev/null; then
+              read -r prev_hash prev_file < "$PREV/$name.sha256" || true
+              if [ "${prev_hash:-}" = "$hash" ] && [[ "${prev_file:-}" =~ ^${name}-([0-9]{8}\.[0-9]{6})-1-x86_64\.pkg\.tar\.zst$ ]]; then
+                local prev_ver=${BASH_REMATCH[1]}
+                if gh release download latest-dev --repo "$REPO" --pattern "$prev_file" --dir "$PREV" --clobber 2>/dev/null \
+                  && tar -I zstd -xOf "$PREV/$prev_file" .PKGINFO | grep -xF "pkgname = $name" > /dev/null; then
+                  mv "$PREV/$prev_file" "$OUT/"
+                  echo "$prev_file" >> "$OUT/reused-packages.txt"
+                  PKG_VER=$prev_ver
+                  echo "Reusing $prev_file"
+                  return
+                fi
+              fi
+            fi
+            PKG_VER=$STAMP
+            make_pkg "$name" "$PKG_VER" "$desc" "$stage"
+            printf '%s %s\n' "$hash" "$name-$PKG_VER-1-x86_64.pkg.tar.zst" > "$OUT/$name.sha256"
+          }
+
+          APP_RUNTIME_HASH=$(content_hash "$APP_IMAGE/lib/runtime")
+          CLASSIC_RUNTIME_HASH=$(content_hash "$CLASSIC_IMAGE/lib/runtime")
+          if [ "$APP_RUNTIME_HASH" != "$CLASSIC_RUNTIME_HASH" ]; then
+            echo "::error::The classic runtime ($CLASSIC_RUNTIME_HASH) differs from the app runtime ($APP_RUNTIME_HASH), synara-runtime cannot be shared"
+            diff <(cd "$APP_IMAGE/lib/runtime" && find . -type f -exec sha256sum {} + | LC_ALL=C sort -k2) \
+              <(cd "$CLASSIC_IMAGE/lib/runtime" && find . -type f -exec sha256sum {} + | LC_ALL=C sort -k2) || true
+            exit 1
+          fi
+
+          mkdir -p "$STAGE/runtime/usr/lib/synara-runtime"
+          cp -a "$APP_IMAGE/lib/runtime/." "$STAGE/runtime/usr/lib/synara-runtime/"
+          reuse_or_build synara-runtime "Java runtime for Synara" "$STAGE/runtime"
+          RUNTIME_VER=$PKG_VER
+
+          build_edition() {
+            local image=$1 pkg=$2 libs_pkg=$3 dir=$4 icon=$5 name=$6 desc=$7
+            local app_stage="$STAGE/$pkg" libs_stage="$STAGE/$libs_pkg"
+            mkdir -p "$app_stage/opt/$dir" "$libs_stage/opt/$dir/lib/app"
+            cp -a "$image/." "$app_stage/opt/$dir/"
+            rm -rf "$app_stage/opt/$dir/lib/runtime"
+            ln -s /usr/lib/synara-runtime "$app_stage/opt/$dir/lib/runtime"
+
+            local entry base
+            for entry in "$app_stage/opt/$dir/lib/app"/* "$app_stage/opt/$dir/lib/app"/.[!.]*; do
+              [ -e "$entry" ] || [ -L "$entry" ] || continue
+              base=$(basename "$entry")
+              if [[ "$base" =~ $OWN_JAR_RE ]] || [[ "$base" == *.cfg ]] || [ "$base" = resources ]; then
+                continue
+              fi
+              mv "$entry" "$libs_stage/opt/$dir/lib/app/"
+            done
+            echo "Own files of $pkg in lib/app:"
+            ls -1A "$app_stage/opt/$dir/lib/app"
+
+            reuse_or_build "$libs_pkg" "Third-party libraries for $desc" "$libs_stage"
+            local libs_ver=$PKG_VER
+
+            mkdir -p "$app_stage/usr/share/applications" "$app_stage/usr/share/icons/hicolor/scalable/apps" "$app_stage/usr/share/pixmaps"
+            cp "$ICON_SVG" "$app_stage/usr/share/icons/hicolor/scalable/apps/$icon.svg"
+            cp "$ICON_PNG" "$app_stage/usr/share/pixmaps/$icon.png"
+            local size
+            for size in 16 24 32 48 64 96 128 256 512 1024; do
+              mkdir -p "$app_stage/usr/share/icons/hicolor/${size}x${size}/apps"
+              convert "$ICON_PNG" -resize ${size}x${size} "$app_stage/usr/share/icons/hicolor/${size}x${size}/apps/$icon.png"
+            done
+
+            cat <<EOF > "$app_stage/usr/share/applications/$icon.desktop"
           [Desktop Entry]
-          Name=Synara
-          Comment=Synara Music Player
-          Exec=/opt/synara/bin/Synara
-          Icon=synara
+          Name=$name
+          Comment=$desc
+          Exec=/opt/$dir/bin/Synara
+          Icon=$icon
           Terminal=false
           Type=Application
           Categories=Audio;Music;Player;
           EOF
 
-          # Add .INSTALL script for post-install triggers
-          cat <<EOF > ../../../../../../arch-app/.INSTALL
+            cat <<'EOF' > "$app_stage/.INSTALL"
           post_install() {
             update-desktop-database -q
             gtk-update-icon-cache -q -t -f usr/share/icons/hicolor
@@ -100,83 +210,22 @@ jobs:
           }
           EOF
 
-          SIZE=$(du -sb ../../../../../../arch-app | cut -f1)
-          cat <<EOF > ../../../../../../arch-app/.PKGINFO
-          pkgname = synara
-          pkgver = $ARCH_VERSION-1
-          pkgdesc = Synara Music Player
-          arch = x86_64
-          url = https://github.com/${{ github.repository }}
-          license = custom
-          builddate = $(date +%s)
-          packager = GitHub Actions
-          size = $SIZE
-          install = .INSTALL
-          EOF
-          cd ../../../../../../arch-app
-          tar --zstd -cf ../Synara-linux-x64.pkg.tar.zst .PKGINFO .INSTALL opt usr
-          cd ..
-
-          # For Synara (classic)
-          cd classic/build/compose/binaries/main/app
-          tar -czf ../../../../../../ClassicApp-linux-x64.tar.gz Synara
-          
-          mkdir -p ../../../../../../arch-classic/opt/synara-classic
-          mkdir -p ../../../../../../arch-classic/usr/share/applications
-          mkdir -p ../../../../../../arch-classic/usr/share/icons/hicolor/scalable/apps
-          mkdir -p ../../../../../../arch-classic/usr/share/pixmaps
-          
-          cp -r Synara/* ../../../../../../arch-classic/opt/synara-classic/
-          cp ../../../../../../synara/src/commonMain/resources/icon.svg ../../../../../../arch-classic/usr/share/icons/hicolor/scalable/apps/synara-classic.svg
-          cp ../../../../../../synara/src/commonMain/resources/icon.png ../../../../../../arch-classic/usr/share/pixmaps/synara-classic.png
-          
-          for size in 16 24 32 48 64 96 128 256 512 1024; do
-            mkdir -p ../../../../../../arch-classic/usr/share/icons/hicolor/${size}x${size}/apps
-            convert ../../../../../../synara/src/commonMain/resources/icon.png -resize ${size}x${size} ../../../../../../arch-classic/usr/share/icons/hicolor/${size}x${size}/apps/synara-classic.png
-          done
-          
-          cat <<EOF > ../../../../../../arch-classic/usr/share/applications/synara-classic.desktop
-          [Desktop Entry]
-          Name=Synara (Classic)
-          Comment=Synara Music Player (Classic)
-          Exec=/opt/synara-classic/bin/Synara
-          Icon=synara-classic
-          Terminal=false
-          Type=Application
-          Categories=Audio;Music;Player;
-          EOF
-
-          # Add .INSTALL script for classic
-          cat <<EOF > ../../../../../../arch-classic/.INSTALL
-          post_install() {
-            update-desktop-database -q
-            gtk-update-icon-cache -q -t -f usr/share/icons/hicolor
+            make_pkg "$pkg" "$APP_PKGVER" "$desc" "$app_stage" "synara-runtime=$RUNTIME_VER" "$libs_pkg=$libs_ver"
           }
-          post_upgrade() {
-            post_install
-          }
-          post_remove() {
-            post_install
-          }
-          EOF
 
-          SIZE=$(du -sb ../../../../../../arch-classic | cut -f1)
-          cat <<EOF > ../../../../../../arch-classic/.PKGINFO
-          pkgname = synara-classic
-          pkgver = $ARCH_VERSION-1
+          build_edition "$APP_IMAGE" synara synara-libs synara synara "Synara" "Synara Music Player"
+          build_edition "$CLASSIC_IMAGE" synara-classic synara-classic-libs synara-classic synara-classic "Synara (Classic)" "Synara Music Player (Classic)"
 
-          pkgdesc = Synara Music Player (Classic)
-          arch = x86_64
-          url = https://github.com/${{ github.repository }}
-          license = custom
-          builddate = $(date +%s)
-          packager = GitHub Actions
-          size = $SIZE
-          install = .INSTALL
-          EOF
-          cd ../../../../../../arch-classic
-          tar --zstd -cf ../ClassicApp-linux-x64.pkg.tar.zst .PKGINFO .INSTALL opt usr
-          cd ..
+          for f in "$OUT"/*.pkg.tar.zst; do
+            tar -I zstd -tf "$f" | grep -v '/$' | grep -v '^\.[A-Z]*$' | sed "s|\$| $(basename "$f")|"
+          done > "$STAGE/owned-files.txt"
+          DUPLICATES=$(cut -d' ' -f1 "$STAGE/owned-files.txt" | LC_ALL=C sort | uniq -d)
+          if [ -n "$DUPLICATES" ]; then
+            echo "::error::Files owned by more than one Arch package:"
+            echo "$DUPLICATES"
+            exit 1
+          fi
+          ls -l "$OUT"
 
       - name: Collect Artifacts
         shell: bash
@@ -193,8 +242,7 @@ jobs:
             cp classic/build/compose/binaries/main/deb/*.deb artifacts/ClassicApp-linux-x64.deb || true
             if [ -f Synara-linux-x64.tar.gz ]; then mv Synara-linux-x64.tar.gz artifacts/; fi
             if [ -f ClassicApp-linux-x64.tar.gz ]; then mv ClassicApp-linux-x64.tar.gz artifacts/; fi
-            if [ -f Synara-linux-x64.pkg.tar.zst ]; then mv Synara-linux-x64.pkg.tar.zst artifacts/; fi
-            if [ -f ClassicApp-linux-x64.pkg.tar.zst ]; then mv ClassicApp-linux-x64.pkg.tar.zst artifacts/; fi
+            if [ -d arch-out ]; then mv arch-out/* artifacts/; fi
           fi
 
       - name: Upload artifacts
@@ -219,12 +267,21 @@ jobs:
 
       - name: Create Arch Linux Repository Database
         run: |
+          set -euo pipefail
           cd all-artifacts
           docker run --rm -v $(pwd):/repo archlinux:base bash -c "cd /repo && repo-add synara.db.tar.gz *.pkg.tar.zst"
           
           rm -f synara.db synara.files
           cp synara.db.tar.gz synara.db
           cp synara.files.tar.gz synara.files
+
+          ls -1 *.pkg.tar.zst > "$RUNNER_TEMP/keep-packages.txt"
+          mkdir -p reused
+          if [ -f reused-packages.txt ]; then
+            while IFS= read -r pkg; do
+              [ -n "$pkg" ] && mv "$pkg" reused/
+            done < reused-packages.txt
+          fi
 
           cat <<EOF > synara.conf
           [synara]
@@ -260,8 +317,8 @@ jobs:
             all-artifacts/ClassicApp-linux-x64.deb
             all-artifacts/Synara-linux-x64.tar.gz
             all-artifacts/ClassicApp-linux-x64.tar.gz
-            all-artifacts/Synara-linux-x64.pkg.tar.zst
-            all-artifacts/ClassicApp-linux-x64.pkg.tar.zst
+            all-artifacts/*.pkg.tar.zst
+            all-artifacts/*.sha256
             all-artifacts/synara.db
             all-artifacts/synara.db.tar.gz
             all-artifacts/synara.files
@@ -270,3 +327,20 @@ jobs:
           generate_release_notes: true
           make_latest: true
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove Stale Arch Packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh release view latest-dev --repo "$REPO" --json assets --jq '.assets[].name' | while IFS= read -r asset; do
+            case "$asset" in
+              *.pkg.tar.zst)
+                if ! grep -qxF "$asset" "$RUNNER_TEMP/keep-packages.txt"; then
+                  echo "Deleting stale asset $asset"
+                  gh release delete-asset latest-dev "$asset" --repo "$REPO" --yes
+                fi
+                ;;
+            esac
+          done

@@ -8,12 +8,7 @@ plugins {
 
 evaluationDependsOn(":synara")
 
-val osName = System.getProperty("os.name").lowercase()
-val targetNatives = when {
-    osName.contains("win") -> "natives-windows"
-    osName.contains("mac") -> "natives-macos"
-    else -> "natives-linux"
-}
+val targetNatives = rootProject.extra["lwjglNativesClassifier"] as String
 
 kotlin {
     jvm()

@@ -64,6 +64,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.7.1",
+                        date = "2026-09-24",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Improved, "**Smaller updates**: updates download less, especially on Arch Linux, where only the changed parts of the app are fetched.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.7.0",
                         date = "2026-09-24",
                         isPrerelease = true,
