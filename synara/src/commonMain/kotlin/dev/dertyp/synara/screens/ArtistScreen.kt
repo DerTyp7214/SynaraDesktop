@@ -45,6 +45,7 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
     @Composable
     override fun Content() {
         val screenModel = getScreenModel<ArtistScreenModel> { parametersOf(artistId) }
+        RegisterRefreshTarget(screenModel)
         val state by screenModel.state.collectAsState()
         val navigator = LocalNavigator.current
         val lazyListState = rememberLazyListState()

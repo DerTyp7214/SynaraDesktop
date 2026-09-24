@@ -13,21 +13,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.core.screen.ScreenKey
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.ui.SynaraIcons
+import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.viewmodels.ArtistLikedSongsScreenModel
 import org.koin.core.parameter.parametersOf
 
 class ArtistLikedSongsScreen(private val artistId: PlatformUUID) : Screen {
 
+    override val key: ScreenKey = "ArtistLikedSongsScreen_$artistId"
+
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
         val screenModel = getScreenModel<ArtistLikedSongsScreenModel> { parametersOf(artistId) }
+        RegisterRefreshTarget(screenModel)
         val state by screenModel.state.collectAsState()
         val navigator = LocalNavigator.current
 

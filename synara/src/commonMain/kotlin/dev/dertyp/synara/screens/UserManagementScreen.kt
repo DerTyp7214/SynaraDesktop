@@ -24,6 +24,7 @@ import dev.dertyp.data.User
 import dev.dertyp.data.UserCapability
 import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.ui.SynaraIcons
+import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SettingsCard
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.viewmodels.UserManagementScreenModel
@@ -35,6 +36,7 @@ class UserManagementScreen : Screen {
     @Composable
     override fun Content() {
         val screenModel = getScreenModel<UserManagementScreenModel>()
+        RegisterRefreshTarget(screenModel)
         val navigator = LocalNavigator.currentOrThrow
         val state by screenModel.state.collectAsState()
 

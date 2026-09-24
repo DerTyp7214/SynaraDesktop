@@ -17,7 +17,11 @@ class LikedSongsScreenModel(
     private val songCache: SongCache,
     val playerModel: PlayerModel,
     private val downloadManager: IDownloadManager
-) : ScreenModel {
+) : ScreenModel, Refreshable {
+
+    private val refresher = RefreshCoalescer(screenModelScope) { reload() }
+    override val isRefreshing = refresher.isRefreshing
+    private var generation = 0
 
     private val _state = MutableStateFlow<LikedSongsState>(LikedSongsState.Loading)
     val state = _state.asStateFlow()
@@ -59,21 +63,39 @@ class LikedSongsScreenModel(
         screenModelScope.launch {
             songCache.playlistUpdates.collect { update ->
                 if (update is PlaylistUpdate.LikedSongsReloadRequired) {
-                    refresh()
+                    screenModelScope.launch { reload() }
                 }
             }
         }
     }
 
-    fun refresh() {
-        currentPage = 0
-        hasNextPage = true
-        loadLikedSongs()
+    override fun refresh() {
+        refresher.refresh()
+    }
+
+    private suspend fun reload() {
+        val requestGeneration = ++generation
+        try {
+            val songsResponse = songService.likedSongs(0, pageSize, true)
+            if (requestGeneration != generation) return
+            _state.value = LikedSongsState.Success(
+                songs = songsResponse.data,
+                hasNextPage = songsResponse.hasNextPage
+            )
+            hasNextPage = songsResponse.hasNextPage
+            currentPage = if (hasNextPage) 1 else 0
+            songCache.refreshCached(songsResponse.data)
+        } catch (e: Exception) {
+            if (_state.value !is LikedSongsState.Success) {
+                _state.value = LikedSongsState.Error(e.message ?: "Unknown error")
+            }
+        }
     }
 
     fun loadLikedSongs() {
         if (isFetching) return
         isFetching = true
+        val requestGeneration = generation
         
         screenModelScope.launch {
             if (currentPage == 0) {
@@ -82,6 +104,7 @@ class LikedSongsScreenModel(
             
             try {
                 val songsResponse = songService.likedSongs(currentPage, pageSize, true)
+                if (requestGeneration != generation) return@launch
                 val currentSongs = if (currentPage == 0) emptyList() else (_state.value as? LikedSongsState.Success)?.songs ?: emptyList()
                 
                 _state.value = LikedSongsState.Success(
@@ -94,7 +117,7 @@ class LikedSongsScreenModel(
                     currentPage++
                 }
             } catch (e: Exception) {
-                if (currentPage == 0) {
+                if (currentPage == 0 && requestGeneration == generation) {
                     _state.value = LikedSongsState.Error(e.message ?: "Unknown error")
                 }
             } finally {

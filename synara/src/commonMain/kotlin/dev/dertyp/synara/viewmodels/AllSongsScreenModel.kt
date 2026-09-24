@@ -18,9 +18,13 @@ class AllSongsScreenModel(
     private val songCache: SongCache,
     val playerModel: PlayerModel,
     dispatchers: SynaraDispatchers
-) : ScreenModel {
+) : ScreenModel, Refreshable {
 
     private val modelDispatcher = dispatchers.createNamed("AllSongsScreenModel")
+
+    private val refresher = RefreshCoalescer(screenModelScope, modelDispatcher) { reload() }
+    override val isRefreshing = refresher.isRefreshing
+    private var generation = 0
 
     override fun onDispose() {
         super.onDispose()
@@ -66,23 +70,43 @@ class AllSongsScreenModel(
             
             _state.value = AllSongsState.Loading
             try {
-                val response = songService.allSongs(0, pageSize, true, tags, invertTags)
-                val total = response.total
-                val songs = arrayOfNulls<UserSong>(total).toMutableList()
-
-                for (i in response.data.indices) {
-                    songs[i] = response.data[i]
-                }
-                
-                _state.value = AllSongsState.Success(
-                    songs = songs,
-                    total = total,
-                    tags = tags,
-                    invertTags = invertTags
-                )
+                _state.value = fetchFirstPage(tags, invertTags)
             } catch (e: Exception) {
                 _state.value = AllSongsState.Error(e.message ?: "Unknown error")
             }
+        }
+    }
+
+    private suspend fun fetchFirstPage(tags: List<SongTag>, invertTags: Boolean): AllSongsState.Success {
+        generation++
+        loadingPages.clear()
+        val response = songService.allSongs(0, pageSize, true, tags, invertTags)
+        val total = response.total
+        val songs = arrayOfNulls<UserSong>(total).toMutableList()
+
+        for (i in response.data.indices) {
+            if (i < songs.size) songs[i] = response.data[i]
+        }
+
+        return AllSongsState.Success(
+            songs = songs,
+            total = total,
+            tags = tags,
+            invertTags = invertTags
+        )
+    }
+
+    private suspend fun reload() {
+        if (_state.value is AllSongsState.Loading) return
+        val current = _state.value as? AllSongsState.Success
+        val requestGeneration = generation + 1
+        try {
+            val refreshed = fetchFirstPage(current?.tags ?: emptyList(), current?.invertTags ?: false)
+            if (requestGeneration != generation) return
+            _state.value = refreshed
+            songCache.refreshCached(refreshed.songs.filterNotNull())
+        } catch (e: Exception) {
+            if (current == null) _state.value = AllSongsState.Error(e.message ?: "Unknown error")
         }
     }
 
@@ -96,10 +120,13 @@ class AllSongsScreenModel(
         if (currentState.songs.getOrNull(offset) != null) return
 
         loadingPages.add(page)
+        val requestGeneration = generation
         screenModelScope.launch(modelDispatcher) {
             try {
                 val response = songService.allSongs(page, pageSize, true, currentState.tags, currentState.invertTags)
-                val updatedSongs = currentState.songs.toMutableList()
+                if (requestGeneration != generation) return@launch
+                val latestState = _state.value as? AllSongsState.Success ?: return@launch
+                val updatedSongs = latestState.songs.toMutableList()
                 
                 for (i in response.data.indices) {
                     val index = offset + i
@@ -108,10 +135,10 @@ class AllSongsScreenModel(
                     }
                 }
                 
-                _state.value = currentState.copy(songs = updatedSongs)
+                _state.value = latestState.copy(songs = updatedSongs)
             } catch (_: Exception) {
             } finally {
-                loadingPages.remove(page)
+                if (requestGeneration == generation) loadingPages.remove(page)
             }
         }
     }
@@ -125,7 +152,7 @@ class AllSongsScreenModel(
             currentTags.add(tag)
         }
         _state.value = currentState.copy(tags = currentTags)
-        refresh()
+        applyFilters()
     }
 
     fun setInvertTags(invert: Boolean) {
@@ -133,12 +160,16 @@ class AllSongsScreenModel(
         if (currentState.invertTags == invert) return
         
         _state.value = currentState.copy(invertTags = invert)
-        refresh()
+        applyFilters()
     }
 
-    fun refresh() {
+    private fun applyFilters() {
         loadingPages.clear()
         loadInitialData()
+    }
+
+    override fun refresh() {
+        refresher.refresh()
     }
 
     fun playAll() {

@@ -18,6 +18,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.ui.SynaraIcons
+import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraFab
 import dev.dertyp.synara.viewmodels.LikedSongsScreenModel
@@ -31,6 +32,7 @@ class LikedSongsScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val screenModel = getScreenModel<LikedSongsScreenModel>()
+        RegisterRefreshTarget(screenModel)
         val state by screenModel.state.collectAsState()
 
         Scaffold(

@@ -58,7 +58,7 @@ fun SongItem(
     onRemoveFromQueue: (() -> Unit)? = null,
     trailingContent: (@Composable RowScope.() -> Unit)? = null
 ) {
-    var currentSongState by remember(song.id) { mutableStateOf(song) }
+    var currentSongState by remember(song) { mutableStateOf(song) }
     var showContextMenu by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()

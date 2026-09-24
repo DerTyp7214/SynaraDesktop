@@ -54,6 +54,7 @@ import synara.synara.generated.resources.*
 @Composable
 fun RecentReleasesView(
     modifier: Modifier = Modifier,
+    refreshKey: Any? = Unit,
     releaseService: IReleaseService = koinInject(),
     uiService: IUiService = koinInject()
 ) {
@@ -64,7 +65,7 @@ fun RecentReleasesView(
     val host = rememberUiHost("recentReleases")
     val lastSeenRecentReleaseId by Config.lastSeenRecentReleaseId.collectAsState()
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(refreshKey) {
         releases = releaseService.getRecentReleases().data
     }
 

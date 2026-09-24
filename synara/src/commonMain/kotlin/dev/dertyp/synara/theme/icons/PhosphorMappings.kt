@@ -106,4 +106,8 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.TagEdit) val Scissors = PhIcons.Regular.Scissors
     @MapTo(SynaraIcons.TagVersion) val Copy = PhIcons.Regular.Copy
     @MapTo(SynaraIcons.TagDemo) val CassetteTape = PhIcons.Regular.CassetteTape
+    @MapTo(SynaraIcons.TimecodeTags) val Bookmarks = PhIcons.Regular.Bookmarks
+    @MapTo(SynaraIcons.TimecodeChapter) val BracketsSquare = PhIcons.Regular.BracketsSquare
+    @MapTo(SynaraIcons.TimecodeMarker) val Flag = PhIcons.Regular.Flag
+    @MapTo(SynaraIcons.TimecodeNote) val Note = PhIcons.Regular.Note
 }

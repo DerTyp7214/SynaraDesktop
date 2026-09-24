@@ -16,7 +16,14 @@ class UserManagementScreenModel(
     private val userService: IUserService,
     private val rpcServiceManager: RpcServiceManager,
     private val dispatchers: SynaraDispatchers
-) : StateScreenModel<UserManagementScreenModel.UserManagementState>(UserManagementState()) {
+) : StateScreenModel<UserManagementScreenModel.UserManagementState>(UserManagementState()), Refreshable {
+
+    private val refresher = RefreshCoalescer(screenModelScope, dispatchers.io) { fetchUsers() }
+    override val isRefreshing = refresher.isRefreshing
+
+    override fun refresh() {
+        refresher.refresh()
+    }
 
     data class UserManagementState(
         val users: List<User> = emptyList(),
@@ -31,14 +38,18 @@ class UserManagementScreenModel(
 
     fun loadUsers() {
         screenModelScope.launch(dispatchers.io) {
-            mutableState.update { it.copy(isLoading = true, error = null) }
-            try {
-                rpcServiceManager.awaitAuthentication()
-                val users = userService.getAllUsers().sortedBy { it.username.lowercase() }
-                mutableState.update { it.copy(users = users, isLoading = false) }
-            } catch (e: Exception) {
-                mutableState.update { it.copy(isLoading = false, error = e.message ?: "Unknown error") }
-            }
+            fetchUsers()
+        }
+    }
+
+    private suspend fun fetchUsers() {
+        mutableState.update { it.copy(isLoading = true, error = null) }
+        try {
+            rpcServiceManager.awaitAuthentication()
+            val users = userService.getAllUsers().sortedBy { it.username.lowercase() }
+            mutableState.update { it.copy(users = users, isLoading = false) }
+        } catch (e: Exception) {
+            mutableState.update { it.copy(isLoading = false, error = e.message ?: "Unknown error") }
         }
     }
 

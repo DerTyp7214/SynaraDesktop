@@ -15,7 +15,10 @@ class CollectionsScreenModel(
     private val collectionService: ICollectionService,
     private val rpcServiceManager: RpcServiceManager,
     private val dispatchers: SynaraDispatchers
-) : StateScreenModel<CollectionsScreenModel.CollectionsState>(CollectionsState()) {
+) : StateScreenModel<CollectionsScreenModel.CollectionsState>(CollectionsState()), Refreshable {
+
+    private val refresher = RefreshCoalescer(screenModelScope, dispatchers.io) { fetchCollections() }
+    override val isRefreshing = refresher.isRefreshing
 
     data class CollectionsState(
         val collections: List<MediaCollection> = emptyList(),
@@ -27,16 +30,18 @@ class CollectionsScreenModel(
         refresh()
     }
 
-    fun refresh() {
-        screenModelScope.launch(dispatchers.io) {
-            mutableState.update { it.copy(isLoading = true, error = null) }
-            try {
-                rpcServiceManager.awaitAuthentication()
-                val collections = collectionService.allCollections()
-                mutableState.update { it.copy(collections = collections, isLoading = false) }
-            } catch (e: Exception) {
-                mutableState.update { it.copy(isLoading = false, error = e.message ?: "Unknown error") }
-            }
+    override fun refresh() {
+        refresher.refresh()
+    }
+
+    private suspend fun fetchCollections() {
+        mutableState.update { it.copy(isLoading = true, error = null) }
+        try {
+            rpcServiceManager.awaitAuthentication()
+            val collections = collectionService.allCollections()
+            mutableState.update { it.copy(collections = collections, isLoading = false) }
+        } catch (e: Exception) {
+            mutableState.update { it.copy(isLoading = false, error = e.message ?: "Unknown error") }
         }
     }
 
@@ -49,7 +54,7 @@ class CollectionsScreenModel(
             } catch (e: Exception) {
                 mutableState.update { it.copy(error = e.message) }
             }
-            refresh()
+            fetchCollections()
         }
     }
 
@@ -60,7 +65,7 @@ class CollectionsScreenModel(
             } catch (e: Exception) {
                 mutableState.update { it.copy(error = e.message) }
             }
-            refresh()
+            fetchCollections()
         }
     }
 }

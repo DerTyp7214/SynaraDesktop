@@ -15,7 +15,14 @@ class ApiKeysScreenModel(
     private val apiKeyService: IApiKeyService,
     private val rpcServiceManager: RpcServiceManager,
     private val dispatchers: SynaraDispatchers
-) : StateScreenModel<ApiKeysScreenModel.ApiKeysState>(ApiKeysState()) {
+) : StateScreenModel<ApiKeysScreenModel.ApiKeysState>(ApiKeysState()), Refreshable {
+
+    private val refresher = RefreshCoalescer(screenModelScope, dispatchers.io) { fetchKeys() }
+    override val isRefreshing = refresher.isRefreshing
+
+    override fun refresh() {
+        refresher.refresh()
+    }
 
     data class ApiKeysState(
         val keys: List<ApiKeyInfo> = emptyList(),
@@ -30,15 +37,19 @@ class ApiKeysScreenModel(
 
     fun load() {
         screenModelScope.launch(dispatchers.io) {
-            mutableState.update { it.copy(isLoading = true, error = null) }
-            try {
-                rpcServiceManager.awaitAuthentication()
-                val keys = apiKeyService.listApiKeys().sortedByDescending { it.createdAt }
-                val scopes = apiKeyService.listAvailableScopes()
-                mutableState.update { it.copy(keys = keys, availableScopes = scopes, isLoading = false) }
-            } catch (e: Exception) {
-                mutableState.update { it.copy(isLoading = false, error = e.message ?: "Unknown error") }
-            }
+            fetchKeys()
+        }
+    }
+
+    private suspend fun fetchKeys() {
+        mutableState.update { it.copy(isLoading = true, error = null) }
+        try {
+            rpcServiceManager.awaitAuthentication()
+            val keys = apiKeyService.listApiKeys().sortedByDescending { it.createdAt }
+            val scopes = apiKeyService.listAvailableScopes()
+            mutableState.update { it.copy(keys = keys, availableScopes = scopes, isLoading = false) }
+        } catch (e: Exception) {
+            mutableState.update { it.copy(isLoading = false, error = e.message ?: "Unknown error") }
         }
     }
 

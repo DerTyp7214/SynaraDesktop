@@ -26,7 +26,14 @@ class SimilarSongsScreenModel(
     private val rpcServiceManager: RpcServiceManager,
     val playerModel: PlayerModel,
     private val dispatchers: SynaraDispatchers
-) : StateScreenModel<SimilarSongsScreenModel.SimilarSongsState>(SimilarSongsState()) {
+) : StateScreenModel<SimilarSongsScreenModel.SimilarSongsState>(SimilarSongsState()), Refreshable {
+
+    private val refresher = RefreshCoalescer(screenModelScope, dispatchers.io) { fetchSimilarSongs() }
+    override val isRefreshing = refresher.isRefreshing
+
+    override fun refresh() {
+        refresher.refresh()
+    }
 
     data class SimilarSongsState(
         val seedSongs: List<UserSong> = emptyList(),
@@ -42,24 +49,30 @@ class SimilarSongsScreenModel(
     private fun loadSimilarSongs() {
         screenModelScope.launch(dispatchers.io) {
             mutableState.update { it.copy(isLoading = true, error = null) }
-            try {
-                rpcServiceManager.awaitAuthentication()
+            fetchSimilarSongs()
+        }
+    }
 
-                val seedSongs = when (seed) {
-                    is SimilarSongsSeed.Songs -> songService.byIds(seed.songIds)
-                    is SimilarSongsSeed.Playlist -> songService.byUserPlaylist(0, 50, seed.playlistId).data
-                    is SimilarSongsSeed.Album -> songService.byAlbum(0, 50, seed.albumId).data
-                }
+    private suspend fun fetchSimilarSongs() {
+        try {
+            rpcServiceManager.awaitAuthentication()
 
-                val songs = when (seed) {
-                    is SimilarSongsSeed.Songs -> fetchBySongs(seed.songIds)
-                    is SimilarSongsSeed.Playlist -> fetchByPlaylist(seed.playlistId)
-                    is SimilarSongsSeed.Album -> fetchByAlbum(seed.albumId)
-                }
-                
-                mutableState.update { it.copy(seedSongs = seedSongs, songs = songs, isLoading = false) }
-            } catch (e: Exception) {
-                mutableState.update { it.copy(isLoading = false, error = e.message ?: "Unknown error") }
+            val seedSongs = when (seed) {
+                is SimilarSongsSeed.Songs -> songService.byIds(seed.songIds)
+                is SimilarSongsSeed.Playlist -> songService.byUserPlaylist(0, 50, seed.playlistId).data
+                is SimilarSongsSeed.Album -> songService.byAlbum(0, 50, seed.albumId).data
+            }
+
+            val songs = when (seed) {
+                is SimilarSongsSeed.Songs -> fetchBySongs(seed.songIds)
+                is SimilarSongsSeed.Playlist -> fetchByPlaylist(seed.playlistId)
+                is SimilarSongsSeed.Album -> fetchByAlbum(seed.albumId)
+            }
+            
+            mutableState.update { it.copy(seedSongs = seedSongs, songs = songs, isLoading = false, error = null) }
+        } catch (e: Exception) {
+            mutableState.update {
+                it.copy(isLoading = false, error = if (it.songs.isEmpty()) e.message ?: "Unknown error" else null)
             }
         }
     }

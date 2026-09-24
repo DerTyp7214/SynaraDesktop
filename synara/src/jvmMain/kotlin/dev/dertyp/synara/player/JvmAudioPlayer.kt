@@ -94,6 +94,8 @@ class JvmAudioPlayer(
     private var useThreadLocalContext = false
     private var supportsMultiChannelFormats = false
     private var loudnessCompensation = 1.0f
+    @Volatile
+    private var fadeGain = 1.0f
     private var sourceId: Int = 0
     private var numBuffers = settings.get(SettingKey.AudioBufferCount, 4)
     private var buffers: IntBuffer = BufferUtils.createIntBuffer(numBuffers)
@@ -290,6 +292,7 @@ class JvmAudioPlayer(
 
     override fun stop() {
         stopInternal(true)
+        setFadeGain(1f)
     }
 
     private fun stopInternal(resetDesiredPlaying: Boolean, resetPosition: Boolean = true, resetIsPlaying: Boolean = true) {
@@ -327,12 +330,22 @@ class JvmAudioPlayer(
         _volume.value = volume
         scope.launch {
             if (sourceId != 0) {
-                alSourcef(sourceId, AL_GAIN, volume * loudnessCompensation)
+                alSourcef(sourceId, AL_GAIN, volume * loudnessCompensation * fadeGain)
+            }
+        }
+    }
+
+    override fun setFadeGain(gain: Float) {
+        fadeGain = gain.coerceIn(0f, 1f)
+        scope.launch {
+            if (sourceId != 0) {
+                alSourcef(sourceId, AL_GAIN, _volume.value * loudnessCompensation * fadeGain)
             }
         }
     }
 
     override fun load(songId: PlatformUUID, playImmediately: Boolean) {
+        fadeGain = 1f
         loadInternal(songId, 0L, playImmediately)
     }
 
@@ -401,7 +414,7 @@ class JvmAudioPlayer(
                     if (uploadFailed) break
                 }
 
-                alSourcef(sourceId, AL_GAIN, _volume.value * loudnessCompensation)
+                alSourcef(sourceId, AL_GAIN, _volume.value * loudnessCompensation * fadeGain)
                 if (isDesiredPlaying) {
                     alSourcePlay(sourceId)
                     _isPlaying.value = true
@@ -412,7 +425,7 @@ class JvmAudioPlayer(
                     alSourcef(sourceId, AL_GAIN, 0f)
                     alSourcePlay(sourceId)
                     alSourcePause(sourceId)
-                    alSourcef(sourceId, AL_GAIN, _volume.value * loudnessCompensation)
+                    alSourcef(sourceId, AL_GAIN, _volume.value * loudnessCompensation * fadeGain)
                     _isPlaying.value = false
                 }
 

@@ -21,9 +21,16 @@ class ArtistAlbumsScreenModel(
     private val artistService: IArtistService,
     private val albumService: IAlbumService,
     dispatchers: SynaraDispatchers
-) : ScreenModel {
+) : ScreenModel, Refreshable {
 
     private val modelDispatcher = dispatchers.createNamed("ArtistAlbumsScreenModel")
+
+    private val refresher = RefreshCoalescer(screenModelScope, modelDispatcher) { fetchData() }
+    override val isRefreshing = refresher.isRefreshing
+
+    override fun refresh() {
+        refresher.refresh()
+    }
 
     override fun onDispose() {
         (modelDispatcher as? AutoCloseable)?.close()
@@ -42,17 +49,23 @@ class ArtistAlbumsScreenModel(
 
     private fun loadData() {
         screenModelScope.launch(modelDispatcher) {
-            try {
-                coroutineScope {
-                    val artistDeferred = async { artistService.byId(artistId) }
-                    val albumsDeferred = async { albumService.byArtist(0, Int.MAX_VALUE, artistId) }
+            fetchData()
+        }
+    }
 
-                    val artist = artistDeferred.await()
-                    val albumsResponse = albumsDeferred.await()
+    private suspend fun fetchData() {
+        try {
+            coroutineScope {
+                val artistDeferred = async { artistService.byId(artistId) }
+                val albumsDeferred = async { albumService.byArtist(0, Int.MAX_VALUE, artistId) }
 
-                    _state.value = ArtistAlbumsState.Success(artist, albumsResponse.data)
-                }
-            } catch (e: Exception) {
+                val artist = artistDeferred.await()
+                val albumsResponse = albumsDeferred.await()
+
+                _state.value = ArtistAlbumsState.Success(artist, albumsResponse.data)
+            }
+        } catch (e: Exception) {
+            if (_state.value !is ArtistAlbumsState.Success) {
                 _state.value = ArtistAlbumsState.Error(e.message ?: "Unknown error")
             }
         }

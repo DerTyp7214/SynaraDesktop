@@ -18,9 +18,22 @@ class HomeScreenModel(
     val globalState: GlobalStateModel,
     private val dispatchers: SynaraDispatchers,
     private val recentlyPlayedRepository: RecentlyPlayedRepository,
-) : ScreenModel {
+) : ScreenModel, Refreshable {
 
     private val modelDispatcher = dispatchers.createNamed("HomeScreenModel")
+
+    private val refresher = RefreshCoalescer(screenModelScope, modelDispatcher) {
+        fetchStats()
+        _refreshKey.value++
+    }
+    override val isRefreshing = refresher.isRefreshing
+
+    private val _refreshKey = MutableStateFlow(0)
+    val refreshKey = _refreshKey.asStateFlow()
+
+    override fun refresh() {
+        refresher.refresh()
+    }
 
     override fun onDispose() {
         super.onDispose()
@@ -57,11 +70,15 @@ class HomeScreenModel(
 
     fun loadStats() {
         screenModelScope.launch(modelDispatcher) {
-            try {
-                _serverStats.value = serverStatsService.getStats()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            fetchStats()
+        }
+    }
+
+    private suspend fun fetchStats() {
+        try {
+            _serverStats.value = serverStatsService.getStats()
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 

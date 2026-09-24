@@ -10,6 +10,7 @@ import dev.dertyp.services.ISongService
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.player.SongCache
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.utils.SynaraDispatchers
 import kotlinx.coroutines.async
@@ -30,11 +31,19 @@ class AlbumScreenModel(
     private val rpcServiceManager: RpcServiceManager,
     private val albumService: IAlbumService,
     private val songService: ISongService,
+    private val songCache: SongCache,
     val playerModel: PlayerModel,
     dispatchers: SynaraDispatchers
-) : StateScreenModel<AlbumState>(AlbumState()) {
+) : StateScreenModel<AlbumState>(AlbumState()), Refreshable {
 
     private val modelDispatcher = dispatchers.createNamed("AlbumScreenModel")
+
+    private val refresher = RefreshCoalescer(screenModelScope, modelDispatcher) { fetchAlbum() }
+    override val isRefreshing = refresher.isRefreshing
+
+    override fun refresh() {
+        refresher.refresh()
+    }
 
     override fun onDispose() {
         (modelDispatcher as? AutoCloseable)?.close()
@@ -52,28 +61,33 @@ class AlbumScreenModel(
         screenModelScope.launch(modelDispatcher) {
             mutableState.update { it.copy(isLoading = true) }
             try {
-                coroutineScope {
-                    val albumDeferred = async { albumService.byId(albumId) }
-                    val songsDeferred = async { songService.byAlbum(0, Int.MAX_VALUE, albumId) }
-                    val versionsDeferred = async { albumService.versions(albumId) }
-
-                    val album = albumDeferred.await()
-                    val songsResponse = songsDeferred.await()
-                    val versions = versionsDeferred.await()
-
-                    mutableState.update {
-                        it.copy(
-                            album = album,
-                            songs = songsResponse.data,
-                            versions = versions,
-                            totalDuration = songsResponse.data.sumOf { s -> s.duration },
-                            isLoading = false
-                        )
-                    }
-                }
+                fetchAlbum()
             } catch (_: Exception) {
                 mutableState.update { it.copy(isLoading = false) }
             }
+        }
+    }
+
+    private suspend fun fetchAlbum() {
+        coroutineScope {
+            val albumDeferred = async { albumService.byId(albumId) }
+            val songsDeferred = async { songService.byAlbum(0, Int.MAX_VALUE, albumId) }
+            val versionsDeferred = async { albumService.versions(albumId) }
+
+            val album = albumDeferred.await()
+            val songsResponse = songsDeferred.await()
+            val versions = versionsDeferred.await()
+
+            mutableState.update {
+                it.copy(
+                    album = album,
+                    songs = songsResponse.data,
+                    versions = versions,
+                    totalDuration = songsResponse.data.sumOf { s -> s.duration },
+                    isLoading = false
+                )
+            }
+            songCache.refreshCached(songsResponse.data)
         }
     }
 

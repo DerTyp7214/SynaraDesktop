@@ -25,6 +25,7 @@ import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.AlbumItem
 import dev.dertyp.synara.ui.components.ArtistItem
 import dev.dertyp.synara.ui.components.PlaylistItem
+import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.fadingEdge
 import dev.dertyp.synara.viewmodels.GlobalStateModel
@@ -38,6 +39,7 @@ class SearchScreen : Screen {
     @Composable
     override fun Content() {
         val screenModel = getScreenModel<SearchScreenModel>()
+        RegisterRefreshTarget(screenModel)
         val globalState = koinInject<GlobalStateModel>()
         val playerModel = koinInject<PlayerModel>()
         val navigator = LocalNavigator.currentOrThrow

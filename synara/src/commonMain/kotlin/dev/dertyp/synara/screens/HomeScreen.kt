@@ -647,6 +647,8 @@ class HomeScreen : Screen {
                     shape = RoundedCornerShape(26.dp),
                 )
 
+                CurrentRefreshButton()
+
                 IconButton(onClick = { screenModel.toggleDarkMode() }) {
                     Icon(
                         imageVector = if (isDark) SynaraIcons.ThemeLight.get() else SynaraIcons.ThemeDark.get(),
@@ -682,6 +684,9 @@ private class DashboardScreen : Screen {
         val recentSongs by screenModel.recentSongs.collectAsState(emptyList())
         val recentAlbums by screenModel.recentAlbums.collectAsState(emptyList())
         val recentArtists by screenModel.recentArtists.collectAsState(emptyList())
+        val refreshKey by screenModel.refreshKey.collectAsState()
+
+        RegisterRefreshTarget(screenModel)
 
         val lazyListState = rememberLazyListState()
         val albumsLazyListState = rememberLazyListState()
@@ -722,7 +727,7 @@ private class DashboardScreen : Screen {
 
                 item {
                     Spacer(modifier = Modifier.height(24.dp))
-                    RecentReleasesView()
+                    RecentReleasesView(refreshKey = refreshKey)
                 }
 
                 if (recentAlbums.isNotEmpty()) {

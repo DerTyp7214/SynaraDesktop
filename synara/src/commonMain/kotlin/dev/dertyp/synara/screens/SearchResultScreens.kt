@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.core.screen.ScreenKey
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.synara.player.PlayerModel
@@ -24,6 +25,7 @@ import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.AlbumItem
 import dev.dertyp.synara.ui.components.ArtistItem
 import dev.dertyp.synara.ui.components.PlaylistItem
+import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.viewmodels.*
 import org.jetbrains.compose.resources.stringResource
@@ -36,9 +38,12 @@ abstract class BaseSearchResultScreen<T, VM : BaseSearchViewModel<T>>(
     protected val query: String,
     private val titleRes: org.jetbrains.compose.resources.StringResource
 ) : Screen {
+    override val key: ScreenKey = "${this::class.simpleName}_$query"
+
     @Composable
     override fun Content() {
         val screenModel = getVM(query)
+        RegisterRefreshTarget(screenModel)
         val items by screenModel.items.collectAsState()
         val isLoading by screenModel.isLoading.collectAsState()
         val hasNextPage by screenModel.hasNextPage.collectAsState()

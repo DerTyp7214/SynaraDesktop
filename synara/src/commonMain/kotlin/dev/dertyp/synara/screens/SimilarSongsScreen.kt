@@ -47,6 +47,7 @@ import dev.dertyp.data.UserSong
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.QueueEntry
 import dev.dertyp.synara.ui.SynaraIcons
+import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.dialogs.CreatePlaylistDialog
 import dev.dertyp.synara.ui.components.dialogs.DiscoveryCriterion
@@ -75,6 +76,7 @@ data class SimilarSongsScreen(
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val screenModel = getScreenModel<SimilarSongsScreenModel> { parametersOf(seed, criterion, limit) }
+        RegisterRefreshTarget(screenModel)
         val state by screenModel.state.collectAsState()
         
         var showCreatePlaylistDialog by remember { mutableStateOf(false) }

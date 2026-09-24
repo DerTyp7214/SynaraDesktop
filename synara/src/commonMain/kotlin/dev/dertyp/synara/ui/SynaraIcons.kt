@@ -62,6 +62,7 @@ enum class SynaraIcons {
     Radio, Collections, Stats, Users, Key, Game, Trophy,
     TagFeat, TagProd, TagRemix, TagMix, TagLive, TagCover, TagAcoustic, TagInstrumental, TagEdit, TagVersion,
     TagRemaster, TagDemo,
+    TimecodeTags, TimecodeChapter, TimecodeMarker, TimecodeNote,
     LastFm, ListenBrainz, Discord, MusicBrainz, LocalScrobble;
 
     @Composable

@@ -20,6 +20,7 @@ import dev.dertyp.data.Session
 import dev.dertyp.synara.formatDateTime
 import dev.dertyp.synara.formatHumanReadableDuration
 import dev.dertyp.synara.ui.SynaraIcons
+import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.SynaraAlertDialog
 import dev.dertyp.synara.viewmodels.SessionsScreenModel
@@ -33,6 +34,7 @@ class SessionsScreen : Screen {
     @Composable
     override fun Content() {
         val screenModel = getScreenModel<SessionsScreenModel>()
+        RegisterRefreshTarget(screenModel)
         val state by screenModel.state.collectAsState()
         val navigator = LocalNavigator.current
 

@@ -108,4 +108,8 @@ object LucideMappings {
     @MapTo(SynaraIcons.TagInstrumental) val Piano = Lucide.Piano
     @MapTo(SynaraIcons.TagEdit) val Scissors = Lucide.Scissors
     @MapTo(SynaraIcons.TagVersion) val Copy = Lucide.Copy
+    @MapTo(SynaraIcons.TimecodeTags) val Tags = Lucide.Tags
+    @MapTo(SynaraIcons.TimecodeChapter) val Brackets = Lucide.Brackets
+    @MapTo(SynaraIcons.TimecodeMarker) val Flag = Lucide.Flag
+    @MapTo(SynaraIcons.TimecodeNote) val StickyNote = Lucide.StickyNote
 }

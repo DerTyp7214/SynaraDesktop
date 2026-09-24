@@ -38,6 +38,7 @@ import dev.dertyp.synara.ui.components.SynaraTray
 import dev.dertyp.synara.ui.components.WindowDraggableArea
 import dev.dertyp.synara.ui.models.PerformanceMonitor
 import dev.dertyp.synara.utils.OSUtils
+import dev.dertyp.synara.viewmodels.GlobalShortcuts
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.skia.*
 import org.koin.core.context.GlobalContext
@@ -526,16 +527,17 @@ fun runTransparentWindow(
         }
         val composeKey = glfwKeyToComposeKey(key)
 
-        scene.sendKeyEvent(
-            KeyEvent(
-                key = composeKey,
-                type = type,
-                isCtrlPressed = (mods and GLFW_MOD_CONTROL) != 0,
-                isMetaPressed = (mods and GLFW_MOD_SUPER) != 0,
-                isAltPressed = (mods and GLFW_MOD_ALT) != 0,
-                isShiftPressed = (mods and GLFW_MOD_SHIFT) != 0,
-            )
+        val keyEvent = KeyEvent(
+            key = composeKey,
+            type = type,
+            isCtrlPressed = (mods and GLFW_MOD_CONTROL) != 0,
+            isMetaPressed = (mods and GLFW_MOD_SUPER) != 0,
+            isAltPressed = (mods and GLFW_MOD_ALT) != 0,
+            isShiftPressed = (mods and GLFW_MOD_SHIFT) != 0,
         )
+        if (!scene.sendKeyEvent(keyEvent)) {
+            GlobalContext.getOrNull()?.getOrNull<GlobalShortcuts>()?.onKeyEvent(keyEvent)
+        }
     }
 
     glfwSetCharCallback(windowHandle) { _, codepoint ->

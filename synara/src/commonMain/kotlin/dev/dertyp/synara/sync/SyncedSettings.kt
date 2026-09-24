@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import dev.dertyp.serializers.AppJson
 import dev.dertyp.synara.Config
+import dev.dertyp.synara.settings.VisualizerStyle
 import dev.dertyp.synara.ui.IconPackType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -225,6 +226,7 @@ class SyncedSettingsRegistry(private val cipher: SecretsCipher) {
         string("desktop.icon_style", Config.iconStyle, "rounded") { Config.setIconStyle(it) },
         boolean("desktop.icon_filled", Config.iconFilled, false) { Config.setIconFilled(it) },
         enum("desktop.icon_pack", Config.iconPack, IconPackType.MaterialSymbols) { Config.setIconPack(it) },
+        enum("desktop.visualizer_style", Config.visualizerStyle, VisualizerStyle.Synara) { Config.setVisualizerStyle(it) },
         int("desktop.streaming_quality", Config.streamingQuality, 0) { Config.setStreamingQuality(it) },
         nullableString("desktop.language", Config.language) { Config.setLanguage(it) },
 

@@ -16,12 +16,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.core.screen.ScreenKey
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.PlatformUUID
 import dev.dertyp.core.parseVersions
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.AlbumItem
+import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.viewmodels.ArtistAlbumsScreenModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.core.parameter.parametersOf
@@ -30,10 +32,13 @@ import synara.synara.generated.resources.versions_count
 
 class ArtistAlbumsScreen(private val artistId: PlatformUUID) : Screen {
 
+    override val key: ScreenKey = "ArtistAlbumsScreen_$artistId"
+
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
         val screenModel = getScreenModel<ArtistAlbumsScreenModel> { parametersOf(artistId) }
+        RegisterRefreshTarget(screenModel)
         val state by screenModel.state.collectAsState()
         val navigator = LocalNavigator.current
 

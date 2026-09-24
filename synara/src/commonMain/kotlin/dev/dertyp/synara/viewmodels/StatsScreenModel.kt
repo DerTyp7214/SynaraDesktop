@@ -48,7 +48,16 @@ class StatsScreenModel(
     private val songService: ISongService,
     private val rpcServiceManager: RpcServiceManager,
     private val dispatchers: SynaraDispatchers
-) : StateScreenModel<StatsScreenModel.StatsState>(StatsState()) {
+) : StateScreenModel<StatsScreenModel.StatsState>(StatsState()), Refreshable {
+
+    private val refresher = RefreshCoalescer(screenModelScope, dispatchers.io) {
+        fetchStats(state.value.selectedRange, state.value.topOrder)
+    }
+    override val isRefreshing = refresher.isRefreshing
+
+    override fun refresh() {
+        refresher.refresh()
+    }
 
     data class StatsState(
         val stats: ListeningStats? = null,
@@ -66,13 +75,19 @@ class StatsScreenModel(
     fun load(range: StatsRange, topOrder: TopOrder = state.value.topOrder) {
         screenModelScope.launch(dispatchers.io) {
             mutableState.update { it.copy(selectedRange = range, topOrder = topOrder, isLoading = true, error = null) }
-            try {
-                rpcServiceManager.awaitAuthentication()
-                val stats = listeningStatsService.getStats(range, currentTimezoneId(), topLimit = 50, topOrder = topOrder)
-                mutableState.update { it.copy(stats = stats, isLoading = false) }
-            } catch (e: Exception) {
-                mutableState.update { it.copy(isLoading = false, error = e.message ?: "Unknown error") }
+            fetchStats(range, topOrder)
+        }
+    }
+
+    private suspend fun fetchStats(range: StatsRange, topOrder: TopOrder) {
+        try {
+            rpcServiceManager.awaitAuthentication()
+            val stats = listeningStatsService.getStats(range, currentTimezoneId(), topLimit = 50, topOrder = topOrder)
+            mutableState.update {
+                if (it.selectedRange == range && it.topOrder == topOrder) it.copy(stats = stats, isLoading = false) else it
             }
+        } catch (e: Exception) {
+            mutableState.update { it.copy(isLoading = false, error = e.message ?: "Unknown error") }
         }
     }
 

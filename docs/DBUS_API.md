@@ -291,6 +291,40 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `host` | String | The host of the Synara server. |
 | `port` | Int | The port of the Synara server. |
 
+### TimecodeTag
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `id` | PlatformUUID |  |
+| `userId` | PlatformUUID |  |
+| `songId` | PlatformUUID |  |
+| `type` | [TimecodeTagType](#timecodetagtype) |  |
+| `text` | String |  |
+| `timestampMs` | Long |  |
+| `endMs` | Long? |  |
+| `createdAt` | Long |  |
+| `updatedAt` | Long |  |
+| `action` | [TimecodeTagAction](#timecodetagaction) |  |
+| `fade` | Boolean |  |
+
+### TimecodeTagAction
+
+| Value | Description |
+| :--- | :--- |
+| `NONE` |  |
+| `PLAY_ONLY` |  |
+| `SKIP` |  |
+| `SKIP_TO` |  |
+| `PLAY_UNTIL` |  |
+
+### TimecodeTagType
+
+| Value | Description |
+| :--- | :--- |
+| `CHAPTER` |  |
+| `MARKER` |  |
+| `NOTE` |  |
+
 ### TitleTag
 
 | Field | Type | Description |
@@ -378,4 +412,5 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `isFavourite` | Boolean? |  |
 | `userSongCreatedAt` | PlatformDate? |  |
 | `userSongUpdatedAt` | PlatformDate? |  |
+| `playbackTags` | List<[TimecodeTag](#timecodetag)> |  |
 

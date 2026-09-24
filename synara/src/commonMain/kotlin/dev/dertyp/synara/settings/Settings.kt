@@ -2,6 +2,15 @@ package dev.dertyp.synara.settings
 
 import com.russhwolf.settings.Settings
 import dev.dertyp.synara.services.LocalStorageService
+import org.jetbrains.compose.resources.StringResource
+import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.visualizer_style_monstercat
+import synara.synara.generated.resources.visualizer_style_synara
+
+enum class VisualizerStyle(val label: StringResource) {
+    Synara(Res.string.visualizer_style_synara),
+    Monstercat(Res.string.visualizer_style_monstercat)
+}
 
 sealed class SettingKey<T>(val name: String) {
     data object Host : SettingKey<String>("host")
@@ -67,6 +76,7 @@ sealed class SettingKey<T>(val name: String) {
 
     // Visualizer
     data object ParticleMultiplier : SettingKey<Float>("particle_multiplier")
+    data object VisualizerStyle : SettingKey<String>("visualizer_style")
 
     // UI
     data object IconStyle : SettingKey<String>("icon_style")
@@ -149,7 +159,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.QueueSyncDeviceName, is SettingKey.DeviceId,
         is SettingKey.SettingsSyncUserId, is SettingKey.SecretsSyncEncKey,
         is SettingKey.SecretsSyncMacKey, is SettingKey.SecretsSyncSaltFingerprint,
-        is SettingKey.AudioOutputDevice -> getStringOrNull(key.name) as T?
+        is SettingKey.AudioOutputDevice, is SettingKey.VisualizerStyle -> getStringOrNull(key.name) as T?
 
         is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor,
         is SettingKey.ProxyPort, is SettingKey.AudioBufferSize, is SettingKey.AudioBufferCount,

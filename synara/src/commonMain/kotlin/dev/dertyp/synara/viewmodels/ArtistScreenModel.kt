@@ -12,6 +12,7 @@ import dev.dertyp.services.ISongService
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.player.SongCache
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.utils.SynaraDispatchers
 import kotlinx.coroutines.async
@@ -35,11 +36,19 @@ class ArtistScreenModel(
     private val artistService: IArtistService,
     private val songService: ISongService,
     private val albumService: IAlbumService,
+    private val songCache: SongCache,
     val playerModel: PlayerModel,
     dispatchers: SynaraDispatchers
-) : StateScreenModel<ArtistState>(ArtistState()) {
+) : StateScreenModel<ArtistState>(ArtistState()), Refreshable {
 
     private val modelDispatcher = dispatchers.createNamed("ArtistScreenModel")
+
+    private val refresher = RefreshCoalescer(screenModelScope, modelDispatcher) { fetchArtist() }
+    override val isRefreshing = refresher.isRefreshing
+
+    override fun refresh() {
+        refresher.refresh()
+    }
 
     override fun onDispose() {
         (modelDispatcher as? AutoCloseable)?.close()
@@ -57,30 +66,35 @@ class ArtistScreenModel(
         screenModelScope.launch(modelDispatcher) {
             mutableState.update { it.copy(isLoading = true) }
             try {
-                coroutineScope {
-                    val artistDeferred = async { artistService.byId(artistId) }
-                    val songsDeferred = async { songService.byArtist(0, 5, artistId) }
-                    val albumsDeferred = async { albumService.byArtist(0, 20, artistId) }
-                    val topLikedSongsDeferred = async { songService.likedByArtist(0, 5, artistId, true) }
-
-                    val artist = artistDeferred.await()
-                    val songsResponse = songsDeferred.await()
-                    val albumsResponse = albumsDeferred.await()
-                    val topLikedSongsResponse = topLikedSongsDeferred.await()
-
-                    mutableState.update {
-                        it.copy(
-                            artist = artist,
-                            topSongs = songsResponse.data,
-                            topLikedSongs = topLikedSongsResponse.data,
-                            albums = albumsResponse.data,
-                            isLoading = false
-                        )
-                    }
-                }
+                fetchArtist()
             } catch (_: Exception) {
                 mutableState.update { it.copy(isLoading = false) }
             }
+        }
+    }
+
+    private suspend fun fetchArtist() {
+        coroutineScope {
+            val artistDeferred = async { artistService.byId(artistId) }
+            val songsDeferred = async { songService.byArtist(0, 5, artistId) }
+            val albumsDeferred = async { albumService.byArtist(0, 20, artistId) }
+            val topLikedSongsDeferred = async { songService.likedByArtist(0, 5, artistId, true) }
+
+            val artist = artistDeferred.await()
+            val songsResponse = songsDeferred.await()
+            val albumsResponse = albumsDeferred.await()
+            val topLikedSongsResponse = topLikedSongsDeferred.await()
+
+            mutableState.update {
+                it.copy(
+                    artist = artist,
+                    topSongs = songsResponse.data,
+                    topLikedSongs = topLikedSongsResponse.data,
+                    albums = albumsResponse.data,
+                    isLoading = false
+                )
+            }
+            songCache.refreshCached(songsResponse.data + topLikedSongsResponse.data)
         }
     }
 

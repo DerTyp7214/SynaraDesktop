@@ -106,4 +106,8 @@ object MaterialMappings {
     @MapTo(SynaraIcons.TagInstrumental) val Piano = MaterialSymbols.Rounded.Piano
     @MapTo(SynaraIcons.TagEdit) val Content_cut = MaterialSymbols.Rounded.Content_cut
     @MapTo(SynaraIcons.TagVersion) val Content_copy = MaterialSymbols.Rounded.Content_copy
+    @MapTo(SynaraIcons.TimecodeTags) val Bookmarks = MaterialSymbols.Rounded.Bookmarks
+    @MapTo(SynaraIcons.TimecodeChapter) val Segment = MaterialSymbols.Rounded.Segment
+    @MapTo(SynaraIcons.TimecodeMarker) val Flag = MaterialSymbols.Rounded.Flag
+    @MapTo(SynaraIcons.TimecodeNote) val Sticky_note_2 = MaterialSymbols.Rounded.Sticky_note_2
 }

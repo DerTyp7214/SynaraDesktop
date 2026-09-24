@@ -64,6 +64,18 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.7.0",
+                        date = "2026-09-24",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "The expanded player has a Tags panel next to lyrics and queue that lists the chapters, markers and notes of the current song and lets you add, edit and delete them."),
+                            Change(ChangeType.New, "Chapters and markers show on the seek bar, with the tag's text and action when you hover over them."),
+                            Change(ChangeType.New, "Tags can carry a playback action: play only the chosen chapters, skip a chapter, start the song at a marker or move to the next track at a marker, optionally with a fade."),
+                            Change(ChangeType.New, "A visualizer style setting lets the bars react Monstercat-style, with bass spread over more bars, neighbouring bars lifting each other, an instant rise and a gravity fall, next to the original Synara reaction."),
+                            Change(ChangeType.New, "Every list loaded from the server, such as playlists, songs, liked songs, albums, artists, collections, radio channels, stats and search results, can be reloaded with the refresh button in the top bar or with F5 and Ctrl+R, keeping the current list visible while it updates.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.6.0",
                         date = "2026-09-24",
                         isPrerelease = true,

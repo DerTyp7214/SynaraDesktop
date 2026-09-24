@@ -10,9 +10,11 @@ import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -26,6 +28,7 @@ import dev.dertyp.data.ApiKeyInfo
 import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.formatDateTime
 import dev.dertyp.synara.ui.SynaraIcons
+import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SettingsCard
 import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.viewmodels.ApiKeysScreenModel
@@ -36,12 +39,14 @@ import org.koin.compose.koinInject
 import synara.synara.generated.resources.*
 
 class ApiKeysScreen : Screen {
+    @OptIn(ExperimentalComposeUiApi::class)
     @Composable
     override fun Content() {
         val screenModel = getScreenModel<ApiKeysScreenModel>()
+        RegisterRefreshTarget(screenModel)
         val navigator = LocalNavigator.currentOrThrow
         val snackbarManager = koinInject<SnackbarManager>()
-        val clipboard = LocalClipboardManager.current
+        val clipboard = LocalClipboard.current
         val state by screenModel.state.collectAsState()
         val scope = rememberCoroutineScope()
 
@@ -172,8 +177,8 @@ class ApiKeysScreen : Screen {
                 },
                 confirmButton = {
                     Button(onClick = {
-                        clipboard.setText(AnnotatedString(secret))
                         scope.launch {
+                            clipboard.setClipEntry(ClipEntry(AnnotatedString(secret)))
                             snackbarManager.showSnackbar(getString(Res.string.copied_to_clipboard))
                         }
                     }) {

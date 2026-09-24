@@ -25,6 +25,7 @@ import dev.dertyp.synara.formatHumanReadableDuration
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.ArtistsText
 import dev.dertyp.synara.ui.components.GenresText
+import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.dialogs.AlbumVersionsDialog
@@ -46,6 +47,7 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
     @Composable
     override fun Content() {
         val screenModel = getScreenModel<AlbumScreenModel> { parametersOf(albumId) }
+        RegisterRefreshTarget(screenModel)
         val state by screenModel.state.collectAsState()
         val navigator = LocalNavigator.current
         val lazyListState = rememberLazyListState()

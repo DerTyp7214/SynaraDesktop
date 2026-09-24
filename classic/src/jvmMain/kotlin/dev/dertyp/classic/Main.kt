@@ -40,6 +40,7 @@ import dev.dertyp.synara.ui.LocalWindowActions
 import dev.dertyp.synara.ui.WindowActions
 import dev.dertyp.synara.ui.components.SynaraTray
 import dev.dertyp.synara.ui.models.PerformanceMonitor
+import dev.dertyp.synara.viewmodels.GlobalShortcuts
 import org.jetbrains.compose.resources.painterResource
 import org.koin.core.context.GlobalContext
 import synara.synara.generated.resources.Res
@@ -95,7 +96,10 @@ fun main() {
                 }
             }
 
+            val globalShortcuts = remember { GlobalContext.getOrNull()?.getOrNull<GlobalShortcuts>() }
+
             Window(
+                onKeyEvent = { globalShortcuts?.onKeyEvent(it) ?: false },
                 onCloseRequest = {
                     if (hideOnClose) {
                         isVisible = false

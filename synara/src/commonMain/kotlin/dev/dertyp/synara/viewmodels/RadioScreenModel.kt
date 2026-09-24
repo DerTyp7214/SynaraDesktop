@@ -34,7 +34,14 @@ class RadioScreenModel(
     private val rpcServiceManager: RpcServiceManager,
     private val playerModel: PlayerModel,
     private val dispatchers: SynaraDispatchers
-) : StateScreenModel<RadioScreenModel.RadioState>(RadioState()) {
+) : StateScreenModel<RadioScreenModel.RadioState>(RadioState()), Refreshable {
+
+    private val refresher = RefreshCoalescer(screenModelScope, dispatchers.io) { fetchChannels() }
+    override val isRefreshing = refresher.isRefreshing
+
+    override fun refresh() {
+        refresher.refresh()
+    }
 
     data class RadioState(
         val channels: List<RadioChannel> = emptyList(),
@@ -53,14 +60,18 @@ class RadioScreenModel(
 
     fun loadChannels() {
         screenModelScope.launch(dispatchers.io) {
-            mutableState.update { it.copy(isLoading = true, error = null) }
-            try {
-                rpcServiceManager.awaitAuthentication()
-                val channels = radioChannelService.listChannels().sortedBy { it.position }
-                mutableState.update { it.copy(channels = channels, isLoading = false) }
-            } catch (e: Exception) {
-                mutableState.update { it.copy(isLoading = false, error = e.message ?: "Unknown error") }
-            }
+            fetchChannels()
+        }
+    }
+
+    private suspend fun fetchChannels() {
+        mutableState.update { it.copy(isLoading = true, error = null) }
+        try {
+            rpcServiceManager.awaitAuthentication()
+            val channels = radioChannelService.listChannels().sortedBy { it.position }
+            mutableState.update { it.copy(channels = channels, isLoading = false) }
+        } catch (e: Exception) {
+            mutableState.update { it.copy(isLoading = false, error = e.message ?: "Unknown error") }
         }
     }
 

@@ -9,6 +9,7 @@ import dev.dertyp.synara.player.PlaylistUpdate
 import dev.dertyp.synara.player.QueueSyncService
 import dev.dertyp.synara.player.RemoteControlService
 import dev.dertyp.synara.player.SongCache
+import dev.dertyp.synara.player.TimecodeTagAutomation
 import dev.dertyp.synara.rpc.PresenceService
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.services.UserPlaylistServiceWrapper
@@ -30,6 +31,7 @@ class GlobalStateModel(
     private val presenceService: PresenceService,
     private val queueSyncService: QueueSyncService,
     private val remoteControlService: RemoteControlService,
+    private val timecodeTagAutomation: TimecodeTagAutomation,
     private val settingsSyncService: SettingsSyncService,
     private val songCache: SongCache,
     private val migrationRepository: DatabaseMigrationRepository,
@@ -57,6 +59,9 @@ class GlobalStateModel(
 
     private val _isLyricsExpanded = MutableStateFlow(false)
     val isLyricsExpanded = _isLyricsExpanded.asStateFlow()
+
+    private val _isTagsExpanded = MutableStateFlow(false)
+    val isTagsExpanded = _isTagsExpanded.asStateFlow()
 
     private val _openDialogsCount = MutableStateFlow(0)
     val openDialogsCount = _openDialogsCount.asStateFlow()
@@ -139,6 +144,7 @@ class GlobalStateModel(
         presenceService.start()
         queueSyncService.start()
         remoteControlService.start()
+        timecodeTagAutomation.start()
         settingsSyncService.start()
         scrobblerService.start()
     }
@@ -202,6 +208,7 @@ class GlobalStateModel(
         if (!expanded) {
             _isQueueExpanded.value = false
             _isLyricsExpanded.value = false
+            _isTagsExpanded.value = false
         }
     }
 
@@ -214,6 +221,7 @@ class GlobalStateModel(
         if (expanded) {
             _isPlayerExpanded.value = true
             _isLyricsExpanded.value = false
+            _isTagsExpanded.value = false
         }
     }
 
@@ -226,11 +234,25 @@ class GlobalStateModel(
         if (expanded) {
             _isPlayerExpanded.value = true
             _isQueueExpanded.value = false
+            _isTagsExpanded.value = false
         }
     }
 
     fun toggleLyricsExpanded() {
         setLyricsExpanded(!_isLyricsExpanded.value)
+    }
+
+    fun setTagsExpanded(expanded: Boolean) {
+        _isTagsExpanded.value = expanded
+        if (expanded) {
+            _isPlayerExpanded.value = true
+            _isQueueExpanded.value = false
+            _isLyricsExpanded.value = false
+        }
+    }
+
+    fun toggleTagsExpanded() {
+        setTagsExpanded(!_isTagsExpanded.value)
     }
 
     fun incrementDialogCount() {

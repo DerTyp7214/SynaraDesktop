@@ -62,6 +62,7 @@ import synara.synara.generated.resources.remote_control_controlled_remotely
 import synara.synara.generated.resources.remote_control_controlling
 import synara.synara.generated.resources.remote_control_pick_device
 import synara.synara.generated.resources.remote_control_this_device
+import synara.synara.generated.resources.timecode_tags
 import synara.synara.generated.resources.volume
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -100,6 +101,7 @@ fun PlayerBar(
     val duration by surface.duration.collectAsState()
     val shuffleMode by surface.shuffleMode.collectAsState()
     val repeatMode by surface.repeatMode.collectAsState()
+    val timecodeTags by rememberTimecodeTags(currentSong)
     val liveSampleRate by playerModel.sampleRate.collectAsState()
     val liveBitsPerSample by playerModel.bitsPerSample.collectAsState()
     val liveBitRate by playerModel.bitRate.collectAsState()
@@ -337,6 +339,7 @@ fun PlayerBar(
                                     coverCenter = coverCenter,
                                     isRemote = isRemote,
                                     position = surface.currentPosition,
+                                    duration = duration,
                                     onSeek = { surface.seekTo(it) },
                                     onCollapse = {
                                         globalState.setPlayerExpanded(false)
@@ -424,7 +427,8 @@ fun PlayerBar(
                                         surface.seekTo(seekPosition)
                                         isSeeking = false
                                         isWaitingForPosition = true
-                                    }
+                                    },
+                                    tags = timecodeTags
                                 )
                             }
 
@@ -566,6 +570,7 @@ private fun ExpandedPlayerContent(
     parentCoordinates: LayoutCoordinates? = null,
     isRemote: Boolean,
     position: StateFlow<Long>,
+    duration: Long,
     onSeek: (Long) -> Unit,
     onCollapse: () -> Unit,
     globalState: GlobalStateModel = koinInject()
@@ -573,8 +578,9 @@ private fun ExpandedPlayerContent(
     val windowActions = LocalWindowActions.current
     val isQueueShowing by globalState.isQueueExpanded.collectAsState()
     val isLyricsShowing by globalState.isLyricsExpanded.collectAsState()
+    val isTagsShowing by globalState.isTagsExpanded.collectAsState()
 
-    val sideContentShowing = isQueueShowing || isLyricsShowing
+    val sideContentShowing = isQueueShowing || isLyricsShowing || isTagsShowing
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val totalWidth = maxWidth
@@ -620,6 +626,17 @@ private fun ExpandedPlayerContent(
                                 contentDescription = "Lyrics",
                                 modifier = Modifier.size(28.dp),
                                 tint = if (isLyricsShowing) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                            )
+                        }
+                    }
+
+                    if (currentSong != null) {
+                        IconButton(onClick = { globalState.toggleTagsExpanded() }) {
+                            Icon(
+                                SynaraIcons.TimecodeTags.get(),
+                                contentDescription = stringResource(Res.string.timecode_tags),
+                                modifier = Modifier.size(28.dp),
+                                tint = if (isTagsShowing) MaterialTheme.colorScheme.primary else LocalContentColor.current
                             )
                         }
                     }
@@ -719,12 +736,12 @@ private fun ExpandedPlayerContent(
                             color = Color.Transparent
                         ) {
                             AnimatedContent(
-                                targetState = Pair(isLyricsShowing, isQueueShowing),
+                                targetState = Triple(isLyricsShowing, isQueueShowing, isTagsShowing),
                                 transitionSpec = {
                                     fadeIn(tween(300)) togetherWith fadeOut(tween(300))
                                 },
                                 label = "sideContentTransition"
-                            ) { (showLyrics, showQueue) ->
+                            ) { (showLyrics, showQueue, showTags) ->
                                 if (showLyrics) {
                                     LyricsView(
                                         song = currentSong,
@@ -733,6 +750,13 @@ private fun ExpandedPlayerContent(
                                     )
                                 } else if (showQueue) {
                                     QueueView()
+                                } else if (showTags) {
+                                    TimecodeTagsView(
+                                        song = currentSong,
+                                        position = position,
+                                        durationMs = duration,
+                                        onSeek = onSeek
+                                    )
                                 }
                             }
                         }
@@ -740,7 +764,7 @@ private fun ExpandedPlayerContent(
                 }
             } else {
                 AnimatedContent(
-                    targetState = if (isLyricsShowing) "lyrics" else if (isQueueShowing) "queue" else "cover",
+                    targetState = if (isLyricsShowing) "lyrics" else if (isQueueShowing) "queue" else if (isTagsShowing) "tags" else "cover",
                     transitionSpec = {
                         (fadeIn(tween(500)) + slideInVertically(tween(500)) { it / 4 })
                             .togetherWith(fadeOut(tween(500)) + slideOutVertically(tween(500)) { -it / 4 })
@@ -809,6 +833,16 @@ private fun ExpandedPlayerContent(
                                 modifier = Modifier.fillMaxSize(),
                                 song = currentSong,
                                 position = position,
+                                onSeek = onSeek
+                            )
+                        }
+
+                        "tags" -> {
+                            TimecodeTagsView(
+                                modifier = Modifier.fillMaxSize(),
+                                song = currentSong,
+                                position = position,
+                                durationMs = duration,
                                 onSeek = onSeek
                             )
                         }

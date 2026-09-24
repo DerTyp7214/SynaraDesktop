@@ -28,9 +28,13 @@ class PlaylistScreenModel(
     private val songCache: SongCache,
     val playerModel: PlayerModel,
     dispatchers: SynaraDispatchers
-) : ScreenModel {
+) : ScreenModel, Refreshable {
 
     private val modelDispatcher = dispatchers.createNamed("PlaylistScreenModel")
+
+    private val refresher = RefreshCoalescer(screenModelScope, modelDispatcher) { reload() }
+    override val isRefreshing = refresher.isRefreshing
+    private var generation = 0
 
     override fun onDispose() {
         (modelDispatcher as? AutoCloseable)?.close()
@@ -56,7 +60,7 @@ class PlaylistScreenModel(
                 when (update) {
                     is PlaylistUpdate.PlaylistContentChanged -> {
                         if (update.playlistId == playlistId) {
-                            refreshPlaylist()
+                            screenModelScope.launch(modelDispatcher) { reload() }
                         }
                     }
                     else -> {}
@@ -85,10 +89,53 @@ class PlaylistScreenModel(
         }
     }
 
-    fun refreshPlaylist() {
-        currentPage = 0
-        hasNextPage = true
-        loadPlaylist()
+    override fun refresh() {
+        refresher.refresh()
+    }
+
+    private suspend fun reload() {
+        val requestGeneration = ++generation
+        val previous = _state.value as? PlaylistState.Success
+        try {
+            val refreshed = coroutineScope {
+                if (isUserPlaylist) {
+                    val playlistDeferred = async { userPlaylistService.byId(playlistId) }
+                    val songsDeferred = async { songService.byUserPlaylist(0, pageSize, playlistId) }
+                    val playlist = playlistDeferred.await()
+                    val songsResponse = songsDeferred.await()
+                    PlaylistState.Success(
+                        name = playlist?.name ?: previous?.name ?: "Playlist",
+                        imageId = playlist?.imageId ?: previous?.imageId,
+                        songs = songsResponse.data,
+                        totalDuration = playlist?.totalDuration ?: previous?.totalDuration ?: 0L,
+                        isUserPlaylist = isUserPlaylist,
+                        hasNextPage = songsResponse.hasNextPage
+                    )
+                } else {
+                    val playlistDeferred = async { playlistService.byId(playlistId) }
+                    val songsDeferred = async { songService.byPlaylist(0, pageSize, playlistId) }
+                    val playlist = playlistDeferred.await()
+                    val songsResponse = songsDeferred.await()
+                    PlaylistState.Success(
+                        name = playlist?.name ?: previous?.name ?: "Playlist",
+                        imageId = playlist?.imageId ?: previous?.imageId,
+                        songs = songsResponse.data,
+                        totalDuration = playlist?.totalDuration ?: previous?.totalDuration ?: 0L,
+                        isUserPlaylist = isUserPlaylist,
+                        hasNextPage = songsResponse.hasNextPage
+                    )
+                }
+            }
+            if (requestGeneration != generation) return
+            _state.value = refreshed
+            hasNextPage = refreshed.hasNextPage
+            currentPage = if (refreshed.hasNextPage) 1 else 0
+            songCache.refreshCached(refreshed.songs)
+        } catch (e: Exception) {
+            if (previous == null) {
+                _state.value = PlaylistState.Error(e.message ?: "Unknown error")
+            }
+        }
     }
 
     fun setCover(bytes: ByteArray) {
@@ -110,6 +157,7 @@ class PlaylistScreenModel(
     fun loadPlaylist() {
         if (isFetching) return
         isFetching = true
+        val requestGeneration = generation
 
         screenModelScope.launch(modelDispatcher) {
             if (currentPage == 0) {
@@ -129,6 +177,7 @@ class PlaylistScreenModel(
                         
                         val playlist = playlistDeferred?.await()
                         val songsResponse = songsResponseDeferred.await()
+                        if (requestGeneration != generation) return@coroutineScope
 
                         val name = playlist?.name ?: playlistName ?: "Playlist"
                         val imageId = playlist?.imageId ?: playlistImageId
@@ -149,6 +198,7 @@ class PlaylistScreenModel(
                         
                         val playlist = playlistDeferred?.await()
                         val songsResponse = songsResponseDeferred.await()
+                        if (requestGeneration != generation) return@coroutineScope
 
                         val name = playlist?.name ?: playlistName ?: "Playlist"
                         val imageId = playlist?.imageId ?: playlistImageId
@@ -170,7 +220,7 @@ class PlaylistScreenModel(
                     }
                 }
             } catch (e: Exception) {
-                if (currentPage == 0) {
+                if (currentPage == 0 && requestGeneration == generation) {
                     _state.value = PlaylistState.Error(e.message ?: "Unknown error")
                 }
             } finally {

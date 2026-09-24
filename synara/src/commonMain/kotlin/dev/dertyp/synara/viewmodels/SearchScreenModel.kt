@@ -12,7 +12,9 @@ import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
 import dev.dertyp.synara.utils.SynaraDispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,9 +30,16 @@ class SearchScreenModel(
     private val userPlaylistService: IUserPlaylistService,
     private val globalStateModel: GlobalStateModel,
     dispatchers: SynaraDispatchers
-) : ScreenModel {
+) : ScreenModel, Refreshable {
 
     private val modelDispatcher = dispatchers.createNamed("SearchScreenModel")
+
+    private val refresher = RefreshCoalescer(screenModelScope, modelDispatcher) { refreshResults() }
+    override val isRefreshing = refresher.isRefreshing
+
+    override fun refresh() {
+        refresher.refresh()
+    }
 
     override fun onDispose() {
         (modelDispatcher as? AutoCloseable)?.close()
@@ -82,30 +91,43 @@ class SearchScreenModel(
             delay(400.milliseconds)
             _isSearching.value = true
             try {
-                when (_searchMode.value) {
-                    SearchMode.STANDARD -> {
-                        val songsJob = launch { _songs.value = songService.rankedSearch(0, 10, query, explicit = true).data }
-                        val albumsJob = launch { _albums.value = albumService.rankedSearch(0, 10, query).data }
-                        val artistsJob = launch { _artists.value = artistService.rankedSearch(0, 10, query).data }
-                        val playlistsJob = launch { _playlists.value = userPlaylistService.rankedSearch(globalStateModel.user.value?.id, 0, 10, query).data }
-
-                        songsJob.join()
-                        albumsJob.join()
-                        artistsJob.join()
-                        playlistsJob.join()
-                    }
-
-                    SearchMode.LYRICS -> {
-                        _albums.value = emptyList()
-                        _artists.value = emptyList()
-                        _playlists.value = emptyList()
-                        _songs.value = songService.searchByLyrics(0, 50, query, explicit = true).data
-                    }
-                }
+                fetchResults(query)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
                 _isSearching.value = false
+            }
+        }
+    }
+
+    private suspend fun refreshResults() {
+        val query = lastQuery
+        if (query.isBlank()) return
+        searchJob?.cancel()
+        fetchResults(query)
+    }
+
+    private suspend fun fetchResults(query: String) = coroutineScope {
+        when (_searchMode.value) {
+            SearchMode.STANDARD -> {
+                val songsJob = launch { _songs.value = songService.rankedSearch(0, 10, query, explicit = true).data }
+                val albumsJob = launch { _albums.value = albumService.rankedSearch(0, 10, query).data }
+                val artistsJob = launch { _artists.value = artistService.rankedSearch(0, 10, query).data }
+                val playlistsJob = launch { _playlists.value = userPlaylistService.rankedSearch(globalStateModel.user.value?.id, 0, 10, query).data }
+
+                songsJob.join()
+                albumsJob.join()
+                artistsJob.join()
+                playlistsJob.join()
+            }
+
+            SearchMode.LYRICS -> {
+                _albums.value = emptyList()
+                _artists.value = emptyList()
+                _playlists.value = emptyList()
+                _songs.value = songService.searchByLyrics(0, 50, query, explicit = true).data
             }
         }
     }

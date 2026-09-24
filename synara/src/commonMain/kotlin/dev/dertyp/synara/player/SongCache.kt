@@ -88,6 +88,16 @@ class SongCache {
         checkSize()
     }
 
+    suspend fun refreshCached(songs: List<UserSong>) = mutex.withLock {
+        songs.forEach { song ->
+            val cached = cache[song.id] ?: return@forEach
+            if (cached != song) {
+                cache[song.id] = song
+                _updates.tryEmit(CacheUpdate.SongUpdated(song))
+            }
+        }
+    }
+
     fun notifyPlaylistChanged(playlistId: PlatformUUID) {
         _playlistUpdates.tryEmit(PlaylistUpdate.PlaylistContentChanged(playlistId))
     }

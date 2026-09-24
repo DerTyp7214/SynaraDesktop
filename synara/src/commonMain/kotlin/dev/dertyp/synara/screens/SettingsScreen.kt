@@ -65,6 +65,7 @@ import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.QueueSyncService
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.scrobble.LastFmScrobbler
+import dev.dertyp.synara.settings.VisualizerStyle
 import dev.dertyp.synara.sync.DeviceIdentity
 import dev.dertyp.synara.sync.SecretsLockState
 import dev.dertyp.synara.sync.SettingsSyncService
@@ -186,6 +187,7 @@ import synara.synara.generated.resources.task_manager
 import synara.synara.generated.resources.theme
 import synara.synara.generated.resources.use_pywal
 import synara.synara.generated.resources.use_song_color
+import synara.synara.generated.resources.visualizer_style
 import synara.synara.generated.resources.window
 import kotlin.math.roundToInt
 
@@ -206,6 +208,7 @@ class SettingsScreen : Screen {
         val useSongColor by Config.useSongColor.collectAsState()
         val usePywal by Config.usePywal.collectAsState()
         val particleMultiplier by Config.particleMultiplier.collectAsState()
+        val visualizerStyle by Config.visualizerStyle.collectAsState()
         val hideOnClose by Config.hideOnClose.collectAsState()
         val showTitleTagsInText by Config.showTitleTagsInText.collectAsState()
 
@@ -360,6 +363,11 @@ class SettingsScreen : Screen {
                         currentPackType = iconPackType,
                         currentStyleId = iconStyleId,
                         iconFilled = iconFilled
+                    )
+
+                    VisualizerStyleSetting(
+                        currentStyle = visualizerStyle,
+                        onStyleSelected = { Config.setVisualizerStyle(it) }
                     )
 
                     ParticleMultiplierSetting(
@@ -1793,6 +1801,31 @@ class SettingsScreen : Screen {
             onColorSelected = onColorSelected,
             onDismissRequest = { showPicker = false }
         )
+    }
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    private fun VisualizerStyleSetting(currentStyle: VisualizerStyle, onStyleSelected: (VisualizerStyle) -> Unit) {
+        SettingsCard {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(Res.string.visualizer_style),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    VisualizerStyle.entries.forEachIndexed { index, style ->
+                        SegmentedButton(
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = VisualizerStyle.entries.size),
+                            onClick = { onStyleSelected(style) },
+                            selected = style == currentStyle,
+                            label = { Text(stringResource(style.label)) }
+                        )
+                    }
+                }
+            }
+        }
     }
 
     @Composable

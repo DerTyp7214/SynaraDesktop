@@ -25,6 +25,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.PlatformUUID
 import dev.dertyp.synara.formatHumanReadableDuration
 import dev.dertyp.synara.ui.SynaraIcons
+import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.dialogs.FullscreenImageDialog
@@ -46,6 +47,7 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val screenModel = getScreenModel<PlaylistScreenModel> { parametersOf(playlistId, isUserPlaylist) }
+        RegisterRefreshTarget(screenModel)
         val state by screenModel.state.collectAsState()
 
         var showFullscreenImage by remember { mutableStateOf(false) }

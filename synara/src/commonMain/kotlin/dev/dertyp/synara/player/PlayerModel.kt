@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalSerializationApi::class)
+
 package dev.dertyp.synara.player
 
 import com.russhwolf.settings.Settings
@@ -34,7 +36,6 @@ import kotlin.math.log10
 import kotlin.random.Random
 
 @Suppress("unused")
-@OptIn(ExperimentalSerializationApi::class)
 private const val RADIO_BATCH_SIZE = 20
 private const val RADIO_TOP_UP_THRESHOLD = 8
 
@@ -71,6 +72,9 @@ class PlayerModel(
     private val _seekEvents = MutableSharedFlow<Long>(extraBufferCapacity = 8)
     val seekEvents: SharedFlow<Long> = _seekEvents.asSharedFlow()
 
+    private val _trackStarts = MutableSharedFlow<TrackStart>(extraBufferCapacity = 8)
+    val trackStarts: SharedFlow<TrackStart> = _trackStarts.asSharedFlow()
+
     private val _currentSource = MutableStateFlow<PlaybackSource?>(null)
     val currentSource: StateFlow<PlaybackSource?> = _currentSource.asStateFlow()
 
@@ -105,6 +109,8 @@ class PlayerModel(
     var remotePlayHandler: ((queueId: Long) -> Unit)? = null
 
     val isRemote: Boolean get() = remotePlayHandler != null
+
+    data class TrackStart(val songId: PlatformUUID, val song: UserSong?)
 
     sealed class QueueChange {
         data object Replaced : QueueChange()
@@ -242,6 +248,7 @@ class PlayerModel(
         }
         scope.launch {
             resolveSongId(entry)?.let { id ->
+                _trackStarts.tryEmit(TrackStart(id, knownSong(entry)))
                 audioPlayer.load(id, playImmediately = play)
             }
         }
@@ -299,6 +306,7 @@ class PlayerModel(
             if (currentEntry != null) {
                 scope.launch {
                     resolveSongId(currentEntry)?.let { id ->
+                        _trackStarts.tryEmit(TrackStart(id, knownSong(currentEntry)))
                         audioPlayer.load(id, playImmediately = false)
                     }
                 }
@@ -333,6 +341,11 @@ class PlayerModel(
             }
             is QueueEntry.FromSource -> entry.songId
         }
+    }
+
+    private suspend fun knownSong(entry: QueueEntry): UserSong? = when (entry) {
+        is QueueEntry.Explicit -> entry.song
+        is QueueEntry.FromSource -> songCache.get(entry.songId)
     }
 
     private suspend fun updateCurrentSong(entry: QueueEntry?) {
@@ -820,6 +833,14 @@ class PlayerModel(
     fun seekTo(positionMs: Long) {
         audioPlayer.seekTo(positionMs)
         _seekEvents.tryEmit(positionMs)
+    }
+
+    fun finishTrack() {
+        scope.launch { handlePlaybackFinished() }
+    }
+
+    fun setFadeGain(gain: Float) {
+        audioPlayer.setFadeGain(gain)
     }
 
     fun setVolume(value: Float) {

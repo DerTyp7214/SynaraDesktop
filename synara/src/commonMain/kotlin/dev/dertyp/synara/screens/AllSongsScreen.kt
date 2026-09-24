@@ -21,6 +21,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.data.SongTag
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.ui.SynaraIcons
+import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraFab
 import dev.dertyp.synara.viewmodels.AllSongsScreenModel
@@ -36,6 +37,7 @@ class AllSongsScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val screenModel = getScreenModel<AllSongsScreenModel>()
+        RegisterRefreshTarget(screenModel)
         val state by screenModel.state.collectAsState()
 
         Scaffold(

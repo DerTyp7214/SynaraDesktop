@@ -16,7 +16,10 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import dev.dertyp.synara.Config
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.ui.components.visualizer.VisualizerReaction
+import dev.dertyp.synara.ui.components.visualizer.createReaction
 import org.koin.compose.koinInject
 import kotlin.math.*
 
@@ -29,6 +32,8 @@ fun VisualizerView(
     playerModel: PlayerModel = koinInject()
 ) {
     val isPlaying by playerModel.isPlaying.collectAsState()
+    val visualizerStyle by Config.visualizerStyle.collectAsState()
+    val reaction by rememberUpdatedState(remember(visualizerStyle) { visualizerStyle.createReaction() })
 
     BoxWithConstraints(modifier = modifier) {
         val density = LocalDensity.current
@@ -49,82 +54,81 @@ fun VisualizerView(
         val smoothedHeights = remember(barCount) { FloatArray(barCount) { minHeightPx } }
         val maxHeightDuration = remember(barCount) { LongArray(barCount) }
         val flameIntensities = remember(barCount) { FloatArray(barCount) }
+        val bandHeights = remember(barCount) { FloatArray(barCount) { minHeightPx } }
 
         var tick by remember { mutableLongStateOf(0L) }
 
         LaunchedEffect(isPlaying, barCount, heightPx) {
             var lastFrameTime = 0L
+            var lastReaction: VisualizerReaction? = null
             while (true) {
                 var hasChanges = false
                 withFrameMillis { frameTime ->
                     val delta = if (lastFrameTime == 0L) 16L else frameTime - lastFrameTime
                     lastFrameTime = frameTime
 
-                    val currentFft = playerModel.fftData.value
                     val centerIndex = (barCount - 1) / 2f
                     val halfCount = (barCount + 1) / 2
+                    val currentReaction = reaction
+                    val mirrored = currentReaction.mirrored
+                    val bandCount = if (mirrored) halfCount else barCount
 
-                    val fftSize = currentFft.size
-                    val maxFftBins = fftSize / 2
-                    val binSize = if (halfCount > 0) maxFftBins.toFloat() / halfCount else 0f
+                    fun leftIndex(band: Int) = floor(centerIndex - band).toInt()
+                    fun rightIndex(band: Int) = ceil(centerIndex + band).toInt()
 
-                    val minDb = -60f
-                    val maxDb = -20f
-
-                    // Time-independent smoothing factors
-                    // Rise is fast (80% in 1 frame @ 80fps) to ensure short peaks are not missed
-                    // Fall is smooth for a fluid, natural decay
-                    val lerpFactor = (delta / 12.5f).coerceIn(0f, 1f)
-                    val riseAlpha = 1f - 0.2f.pow(lerpFactor) 
-                    val fallAlpha = 1f - 0.88f.pow(lerpFactor)
-
-                    for (i in 0 until halfCount) {
-                        var maxMagnitude = 0f
-                        if (isPlaying && currentFft.isNotEmpty() && binSize > 0) {
-                            val startBin = (i * binSize).toInt()
-                            val endBin = ((i + 1) * binSize).toInt().coerceAtMost(maxFftBins - 1)
-
-                            for (j in startBin..endBin) {
-                                maxMagnitude = maxOf(maxMagnitude, currentFft[j])
+                    if (currentReaction !== lastReaction) {
+                        for (i in 0 until bandCount) {
+                            bandHeights[i] = if (mirrored) {
+                                maxOf(smoothedHeights[leftIndex(i)], smoothedHeights[rightIndex(i)])
+                            } else {
+                                smoothedHeights[i]
                             }
                         }
+                        lastReaction = currentReaction
+                    }
 
-                        val targetHeight = if (isPlaying) {
-                            val db = if (maxMagnitude > 0.00003f) 20f * log10(maxMagnitude) else minDb
-                            val targetNormalized = ((db - minDb) / (maxDb - minDb)).coerceIn(0f, 1f)
-                            (targetNormalized * heightPx).coerceAtLeast(minHeightPx)
-                        } else {
-                            minHeightPx
-                        }
+                    currentReaction.update(
+                        playerModel.fftData.value,
+                        isPlaying,
+                        bandHeights,
+                        bandCount,
+                        heightPx,
+                        minHeightPx,
+                        delta
+                    )
 
-                        val leftIdx = floor(centerIndex - i).toInt()
-                        val rightIdx = ceil(centerIndex + i).toInt()
+                    fun updateBar(idx: Int, targetHeight: Float) {
+                        if (idx in 0 until barCount) {
+                            val prev = smoothedHeights[idx]
+                            smoothedHeights[idx] = targetHeight
 
-                        fun updateBar(idx: Int) {
-                            if (idx in 0 until barCount) {
-                                val prev = smoothedHeights[idx]
-                                val alpha = if (targetHeight > prev) riseAlpha else fallAlpha
-                                smoothedHeights[idx] = prev + (targetHeight - prev) * alpha
-
-                                if (smoothedHeights[idx] >= heightPx * 0.98f) {
-                                    maxHeightDuration[idx] += delta
-                                    if (maxHeightDuration[idx] > minMaxHeightDuration) {
-                                        flameIntensities[idx] = (flameIntensities[idx] + delta / 300f).coerceAtMost(1f)
-                                    }
-                                } else if (smoothedHeights[idx] < heightPx * 0.80f) {
-                                    maxHeightDuration[idx] = 0L
-                                    flameIntensities[idx] = (flameIntensities[idx] - delta / 500f).coerceAtLeast(0f)
-                                } else {
-                                    maxHeightDuration[idx] = 0L
+                            if (smoothedHeights[idx] >= heightPx * 0.98f) {
+                                maxHeightDuration[idx] += delta
+                                if (maxHeightDuration[idx] > minMaxHeightDuration) {
+                                    flameIntensities[idx] = (flameIntensities[idx] + delta / 300f).coerceAtMost(1f)
                                 }
-
-                                if (abs(smoothedHeights[idx] - prev) > 0.1f) hasChanges = true
+                            } else if (smoothedHeights[idx] < heightPx * 0.80f) {
+                                maxHeightDuration[idx] = 0L
+                                flameIntensities[idx] = (flameIntensities[idx] - delta / 500f).coerceAtLeast(0f)
+                            } else {
+                                maxHeightDuration[idx] = 0L
                             }
-                        }
 
-                        updateBar(leftIdx)
-                        if (rightIdx != leftIdx) {
-                            updateBar(rightIdx)
+                            if (abs(smoothedHeights[idx] - prev) > 0.1f) hasChanges = true
+                        }
+                    }
+
+                    for (i in 0 until bandCount) {
+                        val targetHeight = bandHeights[i]
+                        if (mirrored) {
+                            val leftIdx = leftIndex(i)
+                            val rightIdx = rightIndex(i)
+                            updateBar(leftIdx, targetHeight)
+                            if (rightIdx != leftIdx) {
+                                updateBar(rightIdx, targetHeight)
+                            }
+                        } else {
+                            updateBar(i, targetHeight)
                         }
                     }
                 }

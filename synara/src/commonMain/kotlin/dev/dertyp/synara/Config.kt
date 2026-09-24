@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import com.russhwolf.settings.Settings
 import dev.dertyp.synara.settings.SettingKey
+import dev.dertyp.synara.settings.VisualizerStyle
 import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.getOrNull
 import dev.dertyp.synara.settings.put
@@ -116,6 +117,15 @@ object Config : KoinComponent {
     // Visualizer
     private val _particleMultiplier = MutableStateFlow(settings.get(SettingKey.ParticleMultiplier, 2.5f))
     val particleMultiplier: StateFlow<Float> = _particleMultiplier.asStateFlow()
+
+    private val _visualizerStyle = MutableStateFlow(
+        try {
+            VisualizerStyle.valueOf(settings.get(SettingKey.VisualizerStyle, VisualizerStyle.Synara.name))
+        } catch (_: Exception) {
+            VisualizerStyle.Synara
+        }
+    )
+    val visualizerStyle: StateFlow<VisualizerStyle> = _visualizerStyle.asStateFlow()
 
     // Window
     private val _hideOnClose = MutableStateFlow(settings.get(SettingKey.HideOnClose, true))
@@ -322,6 +332,11 @@ object Config : KoinComponent {
     fun setParticleMultiplier(multiplier: Float) {
         _particleMultiplier.value = multiplier
         settings.put(SettingKey.ParticleMultiplier, multiplier)
+    }
+
+    fun setVisualizerStyle(style: VisualizerStyle) {
+        _visualizerStyle.value = style
+        settings.put(SettingKey.VisualizerStyle, style.name)
     }
 
     fun setHideOnClose(hide: Boolean) {

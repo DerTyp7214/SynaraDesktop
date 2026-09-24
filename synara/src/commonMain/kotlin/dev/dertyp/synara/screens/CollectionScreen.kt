@@ -30,6 +30,7 @@ import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.QueueEntry
 import dev.dertyp.synara.ui.SynaraIcons
+import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.server.UiSlot
@@ -49,6 +50,7 @@ data class CollectionScreen(val collectionId: PlatformUUID) : Screen {
     @Composable
     override fun Content() {
         val screenModel = getScreenModel<CollectionScreenModel> { parametersOf(collectionId) }
+        RegisterRefreshTarget(screenModel)
         val playerModel = koinInject<PlayerModel>()
         val navigator = LocalNavigator.currentOrThrow
         val state by screenModel.state.collectAsState()

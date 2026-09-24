@@ -15,7 +15,6 @@ import kotlinx.coroutines.launch
 data class SessionsState(
     val sessions: List<Session> = emptyList(),
     val isLoading: Boolean = true,
-    val isRefreshing: Boolean = false,
     val tokenExpiration: Long? = null
 )
 
@@ -24,7 +23,10 @@ class SessionsScreenModel(
     private val playbackService: IPlaybackService,
     private val rpcServiceManager: RpcServiceManager,
     private val playerModel: PlayerModel
-) : StateScreenModel<SessionsState>(SessionsState()) {
+) : StateScreenModel<SessionsState>(SessionsState()), Refreshable {
+
+    private val refresher = RefreshCoalescer(screenModelScope) { fetchSessions() }
+    override val isRefreshing = refresher.isRefreshing
 
     val currentSessionId: PlatformUUID?
         get() = rpcServiceManager.sessionId?.toPlatformUUID()
@@ -49,15 +51,15 @@ class SessionsScreenModel(
         }
     }
 
-    fun refreshSessions() {
-        screenModelScope.launch {
-            mutableState.update { it.copy(isRefreshing = true) }
-            try {
-                val sessions = sessionService.getSessions().sortedByDescending { it.lastActive }
-                mutableState.update { it.copy(sessions = sessions, isRefreshing = false) }
-            } catch (_: Exception) {
-                mutableState.update { it.copy(isRefreshing = false) }
-            }
+    override fun refresh() {
+        refresher.refresh()
+    }
+
+    private suspend fun fetchSessions() {
+        try {
+            val sessions = sessionService.getSessions().sortedByDescending { it.lastActive }
+            mutableState.update { it.copy(sessions = sessions) }
+        } catch (_: Exception) {
         }
     }
 
@@ -65,7 +67,7 @@ class SessionsScreenModel(
         screenModelScope.launch {
             try {
                 sessionService.deactivateSession(sessionId)
-                refreshSessions()
+                fetchSessions()
             } catch (_: Exception) {}
         }
     }

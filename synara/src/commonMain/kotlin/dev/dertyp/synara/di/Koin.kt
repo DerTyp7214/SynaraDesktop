@@ -22,6 +22,8 @@ import dev.dertyp.synara.player.QueueSyncService
 import dev.dertyp.synara.player.RemoteControlService
 import dev.dertyp.synara.player.RemotePlaybackController
 import dev.dertyp.synara.player.SongCache
+import dev.dertyp.synara.player.TimecodeTagAutomation
+import dev.dertyp.synara.player.TimecodeTagStore
 import dev.dertyp.synara.rpc.PresenceService
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.ServerClock
@@ -111,6 +113,8 @@ val appModule = module {
 
     singleOf(::RpcServiceManager)
     singleOf(::GlobalStateModel)
+    singleOf(::RefreshTargets)
+    singleOf(::GlobalShortcuts)
     singleOf(::ScrobblerService)
     singleOf(::MusicBrainzService)
     singleOf(::ScrobbleQueue)
@@ -121,6 +125,8 @@ val appModule = module {
     singleOf(::QueueSyncService)
     singleOf(::RemoteControlService)
     singleOf(::RemotePlaybackController)
+    singleOf(::TimecodeTagStore)
+    singleOf(::TimecodeTagAutomation)
     singleOf(::SecretsCipher)
     singleOf(::SyncedSettingsRegistry)
     singleOf(::SettingsSyncService)
@@ -199,6 +205,7 @@ val appModule = module {
     singleOf(::ApiKeyServiceWrapper) bind IApiKeyService::class
     singleOf(::SubsonicCredentialServiceWrapper) bind ISubsonicCredentialService::class
     singleOf(::ScrobbleServiceWrapper) bind IScrobbleService::class
+    singleOf(::TimecodeTagServiceWrapper) bind ITimecodeTagService::class
     singleOf(::ServerClock)
 
     singleOf(::UiServiceWrapper) bind IUiService::class
