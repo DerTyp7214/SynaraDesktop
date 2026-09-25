@@ -32,7 +32,6 @@ import okio.Path
 import okio.Path.Companion.toPath
 import org.jetbrains.compose.resources.getString
 import synara.synara.generated.resources.*
-import kotlin.math.log10
 import kotlin.random.Random
 
 @Suppress("unused")
@@ -144,32 +143,7 @@ class PlayerModel(
     val availableOutputDevices: StateFlow<List<String>> = audioPlayer.availableOutputDevices
     val currentOutputDevice: StateFlow<String?> = audioPlayer.currentOutputDevice
 
-    val audioIntensity: StateFlow<Float> = audioPlayer.fftData
-        .map { fft ->
-            if (fft.isEmpty()) return@map 0f
-            
-            var weightedSum = 0f
-            var weightTotal = 0f
-            val limit = if (fft.size < 5) fft.size else 5
-            for (i in 0 until limit) {
-                val freqWeight = (5 - i).toFloat().let { it * it }
-
-                val curvedValue = fft[i] * fft[i]
-                
-                weightedSum += curvedValue * freqWeight
-                weightTotal += freqWeight
-            }
-            
-            val avgPower = if (weightTotal > 0f) weightedSum / weightTotal else 0f
-
-            val minDb = -90f
-            val maxDb = -10f
-            val db = if (avgPower > 1e-9f) 10f * log10(avgPower) else minDb
-            val normalized = ((db - minDb) / (maxDb - minDb)).coerceIn(0f, 1f)
-
-            normalized * normalized
-        }
-        .stateIn(scope, SharingStarted.Lazily, 0f)
+    val audioIntensity: StateFlow<Float> = audioPlayer.fftData.audioIntensityIn(scope)
 
     init {
         loadState()

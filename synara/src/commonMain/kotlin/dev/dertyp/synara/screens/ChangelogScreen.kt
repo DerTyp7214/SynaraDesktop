@@ -64,6 +64,20 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.8.0",
+                        date = "2026-09-25",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "**Podcasts**: turn on Podcasts in the settings to get a Podcasts page in the sidebar. Subscribe to shows, browse the podcasts on your server and search podcast directories, or add a show by its feed URL. Every show continues where you left off, and your progress is synced with your other devices."),
+                            Change(ChangeType.New, "**Podcast player**: episodes play in the same player bar and expanded view as songs, with buttons to go back 15 and forward 30 seconds, a speed setting from 0.8× to 2× that keeps voices at their natural pitch and an episode queue of its own. A switcher moves between music and podcasts, starting one pauses the other, and media keys control whichever is active."),
+                            Change(ChangeType.New, "**Transcripts**: episodes with a transcript show it in the lyrics panel, following along as the episode plays."),
+                            Change(ChangeType.New, "**More formats**: episodes in MP3, M4A and AAC play directly in the app."),
+                            Change(ChangeType.New, "**Podcast tools for editors**: choose whether a show streams from its feed or is stored on the server and how many episodes to keep, import single episodes, scan the server for local podcasts and delete shows."),
+                            Change(ChangeType.New, "**Getting started**: after signing in, a short onboarding walks through syncing queue and settings, allowing remote control and turning on features like Podcasts, showing each step only once and skipping those already set up."),
+                            Change(ChangeType.Improved, "**Episode colours**: with song colours turned on, the theme follows the artwork of the playing episode while the podcast player is active.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.7.1",
                         date = "2026-09-24",
                         isPrerelease = true,

@@ -19,9 +19,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import dev.dertyp.data.UserSong
+import dev.dertyp.PlatformUUID
 import dev.dertyp.services.IAnimatedImageService
-import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.player.PlayerSwitcher
 import dev.dertyp.synara.services.VideoFrameService
 import org.koin.compose.koinInject
 import kotlin.math.pow
@@ -29,22 +29,23 @@ import kotlin.math.roundToLong
 
 @Composable
 fun BlurredVideoCoverBackground(
-    song: UserSong?,
+    imageId: PlatformUUID?,
     modifier: Modifier = Modifier,
     blurRadius: Dp = 80.dp,
     alpha: Float = 0.5f,
     audioReactive: Boolean = false,
-    playerModel: PlayerModel = koinInject(),
+    animatedImageId: PlatformUUID? = null,
+    playerSwitcher: PlayerSwitcher = koinInject(),
     animatedImageService: IAnimatedImageService = koinInject(),
     videoService: VideoFrameService = koinInject(),
     onFrame: (Triple<Int?, Int?, Int?>) -> Unit = {},
     content: @Composable BoxScope.() -> Unit = {}
 ) {
-    val audioIntensity by playerModel.audioIntensity.collectAsState()
-    val isPlaying by playerModel.isPlaying.collectAsState()
+    val audioIntensity by playerSwitcher.audioIntensity.collectAsState()
+    val isPlaying by playerSwitcher.isPlaying.collectAsState()
 
-    val animatedCoverId = song?.animatedCoverId
-    val displayCoverId = song?.animatedCoverImageId ?: song?.coverId
+    val animatedCoverId = animatedImageId
+    val displayCoverId = imageId
 
     var videoLoaded by remember(animatedCoverId) { mutableStateOf(false) }
     val videoAlpha by animateFloatAsState(

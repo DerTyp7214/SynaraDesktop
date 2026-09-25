@@ -89,6 +89,7 @@ object MaterialMappings {
     @MapTo(SynaraIcons.Download) val Download = MaterialSymbols.Rounded.Download
     @MapTo(SynaraIcons.Discovery)
     @MapTo(SynaraIcons.TagRemaster)
+    @MapTo(SynaraIcons.Onboarding)
     val Auto_awesome = MaterialSymbols.Rounded.Auto_awesome
     @MapTo(SynaraIcons.Radio) val Radio = MaterialSymbols.Rounded.Radio
     @MapTo(SynaraIcons.Collections) val Collections_bookmark = MaterialSymbols.Rounded.Collections_bookmark
@@ -110,4 +111,13 @@ object MaterialMappings {
     @MapTo(SynaraIcons.TimecodeChapter) val Segment = MaterialSymbols.Rounded.Segment
     @MapTo(SynaraIcons.TimecodeMarker) val Flag = MaterialSymbols.Rounded.Flag
     @MapTo(SynaraIcons.TimecodeNote) val Sticky_note_2 = MaterialSymbols.Rounded.Sticky_note_2
+    @MapTo(SynaraIcons.Podcast) val Podcasts = MaterialSymbols.Rounded.Podcasts
+    @MapTo(SynaraIcons.PlaybackSpeed) val Speed = MaterialSymbols.Rounded.Speed
+    @MapTo(SynaraIcons.Transcript) val Subtitles = MaterialSymbols.Rounded.Subtitles
+    @MapTo(SynaraIcons.ServerStorage) val Dns = MaterialSymbols.Rounded.Dns
+    @MapTo(SynaraIcons.MarkPlayed) val Done_all = MaterialSymbols.Rounded.Done_all
+    @MapTo(SynaraIcons.SwitchPlayer) val Swap_horiz = MaterialSymbols.Rounded.Swap_horiz
+    @MapTo(SynaraIcons.RemoteControl) val Settings_remote = MaterialSymbols.Rounded.Settings_remote
+    @MapTo(SynaraIcons.Globe) val Language = MaterialSymbols.Rounded.Language
+    @MapTo(SynaraIcons.AddFeed) val Rss_feed = MaterialSymbols.Rounded.Rss_feed
 }

@@ -2,9 +2,14 @@ package dev.dertyp.synara.player
 
 import com.russhwolf.settings.Settings
 import dev.dertyp.PlatformUUID
-import dev.dertyp.data.effectiveAudio
 import dev.dertyp.services.ISongService
+import dev.dertyp.synara.player.audio.AudioLoadError
+import dev.dertyp.synara.player.audio.AudioSource
 import dev.dertyp.synara.player.audio.MonoMix
+import dev.dertyp.synara.player.audio.PcmChunk
+import dev.dertyp.synara.player.audio.TimeStretchStage
+import dev.dertyp.synara.player.audio.UnsupportedAudioFormatException
+import dev.dertyp.synara.player.audio.decode.AudioDecoders
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.getOrNull
@@ -18,6 +23,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -133,8 +140,22 @@ class JvmAudioPlayer(
     private val _onFinished = MutableSharedFlow<Unit>()
     override val onFinished = _onFinished.asSharedFlow()
 
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _loadErrors = MutableSharedFlow<AudioLoadError>(extraBufferCapacity = 8)
+    val loadErrors: SharedFlow<AudioLoadError> = _loadErrors.asSharedFlow()
+
+    @Volatile
+    var timeStretchEnabled = false
+
+    @Volatile
+    private var playbackSpeed = 1f
+
     private var playerJob: Job? = null
-    private var lastSongId: PlatformUUID? = null
+    private var lastSource: AudioSource? = null
+    @Volatile
+    private var loadGeneration = 0L
     private var isDesiredPlaying: Boolean = false
 
     private val dataSource = SongDataSource(songService, songCache, settings)
@@ -247,7 +268,7 @@ class JvmAudioPlayer(
         scope.launch {
             val wasPlaying = _isPlaying.value
             val currentPos = _currentPosition.value
-            val currentSongId = lastSongId
+            val currentSource = lastSource
 
             stopInternal(false, resetPosition = false, resetIsPlaying = false)
             
@@ -261,8 +282,8 @@ class JvmAudioPlayer(
 
             try {
                 initOpenAL()
-                if (currentSongId != null) {
-                    loadInternal(currentSongId, currentPos, wasPlaying)
+                if (currentSource != null) {
+                    loadInternal(currentSource, currentPos, wasPlaying)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -322,8 +343,12 @@ class JvmAudioPlayer(
     }
 
     override fun seekTo(positionMs: Long) {
-        val songId = lastSongId ?: return
-        loadInternal(songId, positionMs, isDesiredPlaying)
+        val source = lastSource ?: return
+        loadInternal(source, positionMs, isDesiredPlaying)
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        playbackSpeed = speed.coerceIn(TimeStretchStage.MIN_SPEED, TimeStretchStage.MAX_SPEED)
     }
 
     override fun setVolume(volume: Float) {
@@ -346,20 +371,41 @@ class JvmAudioPlayer(
 
     override fun load(songId: PlatformUUID, playImmediately: Boolean) {
         fadeGain = 1f
-        loadInternal(songId, 0L, playImmediately)
+        loadInternal(dataSource.source(songId), 0L, playImmediately)
     }
 
-    private fun loadInternal(songId: PlatformUUID, startTimeMs: Long, playImmediately: Boolean) {
+    fun loadSource(source: AudioSource, startMs: Long = 0L, playImmediately: Boolean = true) {
+        fadeGain = 1f
+        loadInternal(source, startMs.coerceAtLeast(0L), playImmediately)
+    }
+
+    private fun loadInternal(source: AudioSource, startTimeMs: Long, playImmediately: Boolean) {
         isDesiredPlaying = playImmediately
         stopInternal(false, resetPosition = false, resetIsPlaying = !playImmediately)
         _currentPosition.value = startTimeMs
-        lastSongId = songId
+        lastSource = source
+        val generation = ++loadGeneration
+        _isLoading.value = true
+        source.durationMsHint?.let { _duration.value = it }
 
         playerJob = scope.launch {
             try {
-                val session = dataSource.createPlaybackSession(songId, startTimeMs, this)
+                val session = try {
+                    AudioDecoders.open(source, startTimeMs, this)
+                } catch (e: UnsupportedAudioFormatException) {
+                    println("Failed to play ${source.cacheKey}: ${e.message}")
+                    _loadErrors.tryEmit(AudioLoadError.UnsupportedFormat)
+                    return@launch
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    println("Failed to create playback session for ${source.cacheKey}: ${e.message}")
+                    _loadErrors.tryEmit(AudioLoadError.Failed(e.message))
+                    return@launch
+                }
                 if (session == null) {
-                    println("Failed to create playback session for $songId (unsupported or unreadable audio stream)")
+                    println("Failed to create playback session for ${source.cacheKey} (unsupported or unreadable audio stream)")
+                    _loadErrors.tryEmit(AudioLoadError.Unavailable)
                     return@launch
                 }
                 val sampleRate = session.sampleRate
@@ -368,16 +414,19 @@ class JvmAudioPlayer(
                 val alFormat = nativeFormatFor(channels) ?: run {
                     val reason = if (supportsMultiChannelFormats) "unsupported channel count"
                     else "AL_EXT_MCFORMATS unavailable"
-                    println("Failed to play $songId: no OpenAL format for $channels channels ($reason)")
+                    println("Failed to play ${source.cacheKey}: no OpenAL format for $channels channels ($reason)")
+                    _loadErrors.tryEmit(AudioLoadError.Failed(reason))
                     return@launch
                 }
 
-                _duration.value = session.song.duration
+                _duration.value = session.durationMs ?: source.durationMsHint ?: 0L
                 _sampleRate.value = session.sampleRate
                 _bitsPerSample.value = session.bitsPerSample
-                _bitRate.value = session.song.effectiveAudio?.bitRate ?: 0L
+                _bitRate.value = source.bitRateHint ?: session.bitRate ?: 0L
 
                 var totalSamplesPlayedBase = (session.startMs * sampleRate) / 1000
+                var contentFramesPlayedBase = totalSamplesPlayedBase
+                val queuedChunks = ArrayDeque<PcmChunk>()
 
                 val fftQueue = ArrayDeque<Pair<Long, FloatArray>>()
                 var totalSamplesQueued = totalSamplesPlayedBase
@@ -389,7 +438,7 @@ class JvmAudioPlayer(
                     alBufferData(bufferId, alFormat, pcm, sampleRate)
                     if (alGetError() != AL_NO_ERROR) {
                         uploadFailed = true
-                        println("OpenAL rejected a $channels channel buffer for $songId")
+                        println("OpenAL rejected a $channels channel buffer for ${source.cacheKey}")
                         return
                     }
                     alSourceQueueBuffers(sourceId, bufferId)
@@ -406,13 +455,41 @@ class JvmAudioPlayer(
                 }
 
                 val pcmChannel = session.pcmFlow.produceIn(this)
+                val stretch = if (timeStretchEnabled) {
+                    TimeStretchStage(sampleRate, channels, { playbackSpeed }) {
+                        pcmChannel.receiveCatching().getOrNull()
+                    }
+                } else null
+                var exhausted = false
+
+                suspend fun nextChunk(): PcmChunk? {
+                    val chunk = if (stretch != null) {
+                        stretch.next()
+                    } else {
+                        pcmChannel.receiveCatching().getOrNull()?.let { buffer ->
+                            val frames = buffer.remaining() / channels
+                            PcmChunk(buffer, frames, frames.toLong())
+                        }
+                    }
+                    if (chunk == null) exhausted = true
+                    return chunk
+                }
+
+                fun sourceEnded(): Boolean =
+                    if (stretch == null) pcmChannel.isClosedForReceive else exhausted
+
+                fun queueChunk(bufferId: Int, chunk: PcmChunk) {
+                    totalSamplesQueued += enqueueFft(chunk.pcm)
+                    queueBuffer(bufferId, chunk.pcm)
+                    if (!uploadFailed) queuedChunks.add(chunk)
+                }
 
                 for (i in 0 until numBuffers) {
-                    val buffer = pcmChannel.receiveCatching().getOrNull() ?: break
-                    totalSamplesQueued += enqueueFft(buffer)
-                    queueBuffer(buffers.get(i), buffer)
+                    val chunk = nextChunk() ?: break
+                    queueChunk(buffers.get(i), chunk)
                     if (uploadFailed) break
                 }
+                if (generation == loadGeneration) _isLoading.value = false
 
                 alSourcef(sourceId, AL_GAIN, _volume.value * loudnessCompensation * fadeGain)
                 if (isDesiredPlaying) {
@@ -443,12 +520,13 @@ class JvmAudioPlayer(
                         val bChannels = alGetBufferi(bufferId, AL_CHANNELS)
                         val bBits = alGetBufferi(bufferId, AL_BITS)
                         val bytesPerFrame = (bChannels * bBits / 8).coerceAtLeast(1)
-                        totalSamplesPlayedBase += size / bytesPerFrame
+                        val outputFrames = size / bytesPerFrame
+                        totalSamplesPlayedBase += outputFrames
+                        contentFramesPlayedBase += queuedChunks.pollFirst()?.contentFrames ?: outputFrames.toLong()
 
-                        val pcmData = pcmChannel.receiveCatching().getOrNull()
-                        if (pcmData != null) {
-                            totalSamplesQueued += enqueueFft(pcmData)
-                            queueBuffer(bufferId, pcmData)
+                        val chunk = nextChunk()
+                        if (chunk != null) {
+                            queueChunk(bufferId, chunk)
                             if (uploadFailed) break
                         }
                     }
@@ -459,7 +537,7 @@ class JvmAudioPlayer(
                         if (state != AL_PLAYING && state != AL_PAUSED) {
                             if (alGetSourcei(sourceId, AL_BUFFERS_QUEUED) > 0) {
                                 alSourcePlay(sourceId)
-                            } else if (pcmChannel.isClosedForReceive) {
+                            } else if (sourceEnded()) {
                                 break
                             }
                         }
@@ -467,7 +545,15 @@ class JvmAudioPlayer(
 
                     val samplesInCurrentBuffer = alGetSourcei(sourceId, AL_SAMPLE_OFFSET)
                     val currentTotalSamples = totalSamplesPlayedBase + samplesInCurrentBuffer
-                    _currentPosition.value = currentTotalSamples * 1000 / sampleRate
+                    val currentChunk = queuedChunks.peekFirst()
+                    val contentInCurrentBuffer = if (currentChunk != null && currentChunk.outputFrames > 0 &&
+                        currentChunk.contentFrames != currentChunk.outputFrames.toLong()
+                    ) {
+                        samplesInCurrentBuffer.toLong() * currentChunk.contentFrames / currentChunk.outputFrames
+                    } else {
+                        samplesInCurrentBuffer.toLong()
+                    }
+                    _currentPosition.value = (contentFramesPlayedBase + contentInCurrentBuffer) * 1000 / sampleRate
                     
                     // Sync FFT
                     while (fftQueue.size > 1) {
@@ -485,7 +571,7 @@ class JvmAudioPlayer(
                         }
                     }
 
-                    if (alGetSourcei(sourceId, AL_BUFFERS_QUEUED) == 0 && pcmChannel.isClosedForReceive) {
+                    if (alGetSourcei(sourceId, AL_BUFFERS_QUEUED) == 0 && sourceEnded()) {
                         break
                     }
 
@@ -501,6 +587,7 @@ class JvmAudioPlayer(
                     e.printStackTrace()
                 }
             } finally {
+                if (generation == loadGeneration) _isLoading.value = false
                 coroutineContext.cancelChildren()
                 _isPlaying.value = false
                 fftAnalyzer.updateData(FloatArray(fftAnalyzer.fftData.value.size))

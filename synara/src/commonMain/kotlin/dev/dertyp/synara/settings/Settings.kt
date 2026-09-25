@@ -59,6 +59,12 @@ sealed class SettingKey<T>(val name: String) {
 
     // Remote control
     data object IsRemoteControlEnabled : SettingKey<Boolean>("is_remote_control_enabled")
+    data object RemoteControlOptInShown : SettingKey<Boolean>("remote_control_optin_shown")
+
+    // Podcasts
+    data object IsPodcastsEnabled : SettingKey<Boolean>("is_podcasts_enabled")
+    data object PodcastPlaybackSpeed : SettingKey<Float>("podcast_playback_speed")
+    data object PodcastOptInShown : SettingKey<Boolean>("podcast_optin_shown")
 
     // Device identity (shared by every sync feature)
     data object DeviceId : SettingKey<String>("device_id")
@@ -182,10 +188,12 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.IsQueueSyncEnabled, is SettingKey.QueueSyncDirty,
         is SettingKey.IsRemoteControlEnabled,
         is SettingKey.IsSettingsSyncEnabled, is SettingKey.IsSecretsSyncEnabled,
-        is SettingKey.SyncSetupShown,
+        is SettingKey.SyncSetupShown, is SettingKey.RemoteControlOptInShown,
+        is SettingKey.IsPodcastsEnabled, is SettingKey.PodcastOptInShown,
         is SettingKey.ShowPerformanceOverlay -> getBooleanOrNull(key.name) as T?
 
-        is SettingKey.Volume, is SettingKey.ParticleMultiplier -> getFloatOrNull(key.name) as T?
+        is SettingKey.Volume, is SettingKey.ParticleMultiplier,
+        is SettingKey.PodcastPlaybackSpeed -> getFloatOrNull(key.name) as T?
     }
 }
 

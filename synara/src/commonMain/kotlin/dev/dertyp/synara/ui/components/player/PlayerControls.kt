@@ -2,6 +2,7 @@ package dev.dertyp.synara.ui.components.player
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
@@ -26,20 +27,26 @@ fun PlayerControls(
     onSkipPrevious: () -> Unit,
     onTogglePlayPause: () -> Unit,
     onSkipNext: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    skipPreviousDescription: String = stringResource(Res.string.previous),
+    skipNextDescription: String = stringResource(Res.string.next_song),
+    leading: (@Composable RowScope.() -> Unit)? = null,
+    trailing: (@Composable RowScope.() -> Unit)? = null
 ) {
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
+        leading?.invoke(this)
+
         IconButton(
             onClick = onSkipPrevious,
             enabled = currentSongExists
         ) {
             Icon(
                 SynaraIcons.SkipPrevious.get(),
-                contentDescription = stringResource(Res.string.previous)
+                contentDescription = skipPreviousDescription
             )
         }
 
@@ -64,8 +71,10 @@ fun PlayerControls(
         ) {
             Icon(
                 SynaraIcons.SkipNext.get(),
-                contentDescription = stringResource(Res.string.next_song)
+                contentDescription = skipNextDescription
             )
         }
+
+        trailing?.invoke(this)
     }
 }

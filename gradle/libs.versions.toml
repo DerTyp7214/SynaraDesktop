@@ -35,6 +35,7 @@ composableIcons = "2.2.1"
 kover = "0.9.8"
 concentus = "1.0.2"
 vorbis-java = "0.8"
+jlayer = "1.0.1"
 
 [libraries]
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coilCompose" }
@@ -111,6 +112,7 @@ phosphor-icons = { module = "io.github.dev778g-me:phosphoricon-compose", version
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
 concentus = { module = "io.github.jaredmdobson:concentus", version.ref = "concentus" }
 vorbis-java = { module = "org.gagravarr:vorbis-java-core", version.ref = "vorbis-java" }
+jlayer = { module = "javazoom:jlayer", version.ref = "jlayer" }
 
 [plugins]
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

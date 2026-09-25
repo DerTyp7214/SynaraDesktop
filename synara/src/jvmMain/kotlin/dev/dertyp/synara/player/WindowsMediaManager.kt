@@ -1,8 +1,6 @@
 package dev.dertyp.synara.player
 
-import dev.dertyp.core.joinArtists
 import dev.dertyp.data.RepeatMode
-import dev.dertyp.synara.core.textTitle
 import dev.dertyp.synara.utils.OSUtils
 import dev.toastbits.mediasession.MediaSession
 import dev.toastbits.mediasession.MediaSessionLoopMode
@@ -14,7 +12,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
-class WindowsMediaManager(private val playerModel: PlayerModel) : SystemMediaManager {
+class WindowsMediaManager(private val bridge: MediaControlBridge) : SystemMediaManager {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var mediaSession: MediaSession? = null
 
@@ -22,45 +20,45 @@ class WindowsMediaManager(private val playerModel: PlayerModel) : SystemMediaMan
         if (!OSUtils.isWindows) return
 
         mediaSession = MediaSession.create {
-            playerModel.currentPosition.value
+            bridge.position()
         }?.apply {
-            onPlay = { playerModel.play() }
-            onPause = { playerModel.pause() }
-            onNext = { playerModel.skipNext() }
-            onPrevious = { playerModel.skipPrevious() }
-            onSeek = { byMs: Long -> playerModel.seekTo(playerModel.currentPosition.value + byMs) }
-            onSetPosition = { toMs: Long -> playerModel.seekTo(toMs) }
-            onPlayPause = { playerModel.togglePlayPause() }
-            onStop = { playerModel.stop() }
+            onPlay = { bridge.play() }
+            onPause = { bridge.pause() }
+            onNext = { bridge.next() }
+            onPrevious = { bridge.previous() }
+            onSeek = { byMs: Long -> bridge.seekBy(byMs) }
+            onSetPosition = { toMs: Long -> bridge.seekTo(toMs) }
+            onPlayPause = { bridge.togglePlayPause() }
+            onStop = { bridge.stop() }
             onSetLoop = { loopMode ->
                 val targetMode = when (loopMode) {
                     MediaSessionLoopMode.NONE -> RepeatMode.OFF
                     MediaSessionLoopMode.ONE -> RepeatMode.ONE
                     MediaSessionLoopMode.ALL -> RepeatMode.ALL
                 }
-                playerModel.setRepeatMode(targetMode)
+                bridge.setRepeatMode(targetMode)
             }
             onSetShuffle = { shuffleMode ->
-                if (playerModel.shuffleMode.value != shuffleMode) playerModel.toggleShuffle()
+                bridge.setShuffle(shuffleMode)
             }
             
             setEnabled(enabled = true)
         }
 
         scope.launch {
-            playerModel.isPlaying.collectLatest {
+            bridge.isPlaying.collectLatest {
                 mediaSession?.setPlaybackStatus(if (it) MediaSessionPlaybackStatus.PLAYING else MediaSessionPlaybackStatus.PAUSED)
             }
         }
 
         scope.launch {
-            playerModel.currentSong.collectLatest { song ->
-                song?.let {
+            bridge.metadata.collectLatest { nowPlaying ->
+                nowPlaying?.let {
                     val metadata = MediaSessionMetadata(
-                        title = it.textTitle(),
-                        artist = it.artists.joinArtists(),
-                        album = it.album?.name ?: "",
-                        length_ms = it.duration
+                        title = it.title,
+                        artist = it.artist,
+                        album = it.album ?: "",
+                        length_ms = it.durationMs
                     )
                     mediaSession?.setMetadata(metadata)
                 }
@@ -68,7 +66,7 @@ class WindowsMediaManager(private val playerModel: PlayerModel) : SystemMediaMan
         }
 
         scope.launch {
-            playerModel.repeatMode.collectLatest {
+            bridge.repeatMode.collectLatest {
                 val libMode = when (it) {
                     RepeatMode.OFF -> MediaSessionLoopMode.NONE
                     RepeatMode.ALL -> MediaSessionLoopMode.ALL
@@ -79,13 +77,13 @@ class WindowsMediaManager(private val playerModel: PlayerModel) : SystemMediaMan
         }
 
         scope.launch {
-            playerModel.shuffleMode.collectLatest {
+            bridge.shuffleMode.collectLatest {
                 mediaSession?.setShuffle(it)
             }
         }
 
         scope.launch {
-            playerModel.volume.collectLatest {
+            bridge.volume.collectLatest {
                 mediaSession?.setVolume(it)
             }
         }

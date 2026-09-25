@@ -3,9 +3,7 @@
 package dev.dertyp.synara.player
 
 import dev.dertyp.data.RepeatMode
-import dev.dertyp.data.UserSong
 import dev.dertyp.synara.BuildConfig
-import dev.dertyp.synara.core.textTitle
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.services.LocalStorageService
 import dev.dertyp.synara.utils.OSUtils
@@ -14,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.freedesktop.dbus.DBusPath
@@ -112,7 +111,7 @@ interface IMprisMediaPlayer2Player : DBusInterface {
     fun getCanControl(): Boolean
 }
 
-open class MprisObjectImpl(private val playerModel: PlayerModel) : IMprisMediaPlayer2,
+open class MprisObjectImpl(private val bridge: MediaControlBridge) : IMprisMediaPlayer2,
     IMprisMediaPlayer2Player, Properties {
     override fun isRemote() = false
     override fun getObjectPath() = "/org/mpris/MediaPlayer2"
@@ -207,20 +206,20 @@ open class MprisObjectImpl(private val playerModel: PlayerModel) : IMprisMediaPl
 
     override fun Raise() {}
     override fun Quit() {
-        playerModel.stop()
+        bridge.stop()
     }
 
-    override fun Next() = playerModel.skipNext()
-    override fun Previous() = playerModel.skipPrevious()
-    override fun Pause() = playerModel.pause()
-    override fun PlayPause() = playerModel.togglePlayPause()
-    override fun Stop() = playerModel.stop()
-    override fun Play() = playerModel.play()
+    override fun Next() = bridge.next()
+    override fun Previous() = bridge.previous()
+    override fun Pause() = bridge.pause()
+    override fun PlayPause() = bridge.togglePlayPause()
+    override fun Stop() = bridge.stop()
+    override fun Play() = bridge.play()
     override fun Seek(Offset: Long) =
-        playerModel.seekTo(playerModel.currentPosition.value + (Offset / 1000))
+        bridge.seekBy(Offset / 1000)
 
     override fun SetPosition(TrackId: DBusPath, Position: Long) =
-        playerModel.seekTo(Position / 1000)
+        bridge.seekTo(Position / 1000)
 
     override fun OpenUri(Uri: String) {}
 
@@ -246,10 +245,10 @@ open class MprisObjectImpl(private val playerModel: PlayerModel) : IMprisMediaPl
 
     @DBusBoundProperty(name = "PlaybackStatus")
     override fun getPlaybackStatus(): String =
-        if (playerModel.isPlaying.value) "Playing" else "Paused"
+        if (bridge.isPlaying.value) "Playing" else "Paused"
 
     @DBusBoundProperty(name = "LoopStatus")
-    override fun getLoopStatus() = when (playerModel.repeatMode.value) {
+    override fun getLoopStatus() = when (bridge.repeatMode.value) {
         RepeatMode.OFF -> "None"
         RepeatMode.ALL -> "Playlist"
         RepeatMode.ONE -> "Track"
@@ -262,31 +261,29 @@ open class MprisObjectImpl(private val playerModel: PlayerModel) : IMprisMediaPl
             "Track" -> RepeatMode.ONE
             else -> return
         }
-        playerModel.setRepeatMode(target)
+        bridge.setRepeatMode(target)
     }
 
     @DBusBoundProperty(name = "Rate")
-    override fun getRate() = 1.0
-    override fun setRate(rate: Double) {}
+    override fun getRate() = bridge.rate.value
+    override fun setRate(rate: Double) = bridge.setRate(rate)
     @DBusBoundProperty(name = "Shuffle")
-    override fun getShuffle() = playerModel.shuffleMode.value
-    override fun setShuffle(shuffle: Boolean) {
-        if (playerModel.shuffleMode.value != shuffle) playerModel.toggleShuffle()
-    }
+    override fun getShuffle() = bridge.shuffleMode.value
+    override fun setShuffle(shuffle: Boolean) = bridge.setShuffle(shuffle)
 
     @DBusBoundProperty(name = "Metadata")
     override fun getMetadata(): Map<String, Variant<*>> =
-        createMetadata(playerModel.currentSong.value)
+        createMetadata(bridge.metadata.value)
 
     @DBusBoundProperty(name = "Volume")
-    override fun getVolume() = playerModel.volume.value.toDouble()
-    override fun setVolume(volume: Double) = playerModel.setVolume(volume.toFloat())
+    override fun getVolume() = bridge.volume.value.toDouble()
+    override fun setVolume(volume: Double) = bridge.setVolume(volume.toFloat())
     @DBusBoundProperty(name = "Position")
-    override fun getPosition() = playerModel.currentPosition.value * 1000L
+    override fun getPosition() = bridge.position() * 1000L
     @DBusBoundProperty(name = "MinimumRate")
-    override fun getMinimumRate() = 1.0
+    override fun getMinimumRate() = bridge.minimumRate
     @DBusBoundProperty(name = "MaximumRate")
-    override fun getMaximumRate() = 1.0
+    override fun getMaximumRate() = bridge.maximumRate
     @DBusBoundProperty(name = "CanGoNext")
     override fun getCanGoNext() = true
     @DBusBoundProperty(name = "CanGoPrevious")
@@ -302,7 +299,7 @@ open class MprisObjectImpl(private val playerModel: PlayerModel) : IMprisMediaPl
 }
 
 class LinuxMediaManager(
-    private val playerModel: PlayerModel,
+    private val bridge: MediaControlBridge,
     private val synaraApi: ISynaraApi
 ) : SystemMediaManager {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -318,11 +315,11 @@ class LinuxMediaManager(
                 connection = DBusConnectionBuilder.forSessionBus().withShared(false).build()
                 val busName = if (BuildConfig.IS_DEBUG) "org.mpris.MediaPlayer2.synara-dev" else "org.mpris.MediaPlayer2.synara"
                 connection?.requestBusName(busName)
-                connection?.exportObject("/org/mpris/MediaPlayer2", MprisObjectImpl(playerModel))
+                connection?.exportObject("/org/mpris/MediaPlayer2", MprisObjectImpl(bridge))
                 connection?.exportObject("/dev/dertyp/synara", synaraApi)
 
                 launch {
-                    playerModel.isPlaying.collectLatest {
+                    bridge.isPlaying.collectLatest {
                         sendPropertiesChangedSignal(
                             "PlaybackStatus",
                             Variant(if (it) "Playing" else "Paused")
@@ -330,7 +327,7 @@ class LinuxMediaManager(
                     }
                 }
                 launch {
-                    playerModel.currentSong.collectLatest {
+                    bridge.metadata.collectLatest {
                         sendPropertiesChangedSignal(
                             "Metadata",
                             Variant(createMetadata(it), "a{sv}")
@@ -338,7 +335,7 @@ class LinuxMediaManager(
                     }
                 }
                 launch {
-                    playerModel.volume.collectLatest {
+                    bridge.volume.collectLatest {
                         sendPropertiesChangedSignal(
                             "Volume",
                             Variant(it.toDouble())
@@ -346,7 +343,7 @@ class LinuxMediaManager(
                     }
                 }
                 launch {
-                    playerModel.repeatMode.collectLatest {
+                    bridge.repeatMode.collectLatest {
                         val status = when (it) {
                             RepeatMode.OFF -> "None"
                             RepeatMode.ALL -> "Playlist"
@@ -356,10 +353,21 @@ class LinuxMediaManager(
                     }
                 }
                 launch {
-                    playerModel.shuffleMode.collectLatest {
+                    bridge.shuffleMode.collectLatest {
                         sendPropertiesChangedSignal(
                             "Shuffle",
                             Variant(it)
+                        )
+                    }
+                }
+                launch {
+                    combine(bridge.rate, bridge.isPodcastMode) { rate, _ -> rate }.collectLatest {
+                        sendPropertiesChangedSignal(
+                            mapOf(
+                                "Rate" to Variant(it),
+                                "MinimumRate" to Variant(bridge.minimumRate),
+                                "MaximumRate" to Variant(bridge.maximumRate)
+                            )
                         )
                     }
                 }
@@ -378,12 +386,16 @@ class LinuxMediaManager(
     }
 
     private fun sendPropertiesChangedSignal(property: String, value: Variant<*>) {
+        sendPropertiesChangedSignal(mapOf(property to value))
+    }
+
+    private fun sendPropertiesChangedSignal(values: Map<String, Variant<*>>) {
         try {
             connection?.sendMessage(
                 Properties.PropertiesChanged(
                     "/org/mpris/MediaPlayer2",
                     "org.mpris.MediaPlayer2.Player",
-                    mapOf(property to value),
+                    values,
                     emptyList()
                 )
             )
@@ -392,26 +404,27 @@ class LinuxMediaManager(
     }
 }
 
-private fun createMetadata(song: UserSong?): Map<String, Variant<*>> {
+private fun createMetadata(metadata: NowPlayingMetadata?): Map<String, Variant<*>> {
     val m = mutableMapOf<String, Variant<*>>()
-    val idStr = song?.id?.toString()?.replace("-", "_") ?: "no_track"
+    val idStr = metadata?.trackId?.replace("-", "_") ?: "no_track"
     m["mpris:trackid"] = Variant(DBusPath("/org/mpris/MediaPlayer2/track/$idStr"))
-    if (song != null) {
-        m["mpris:length"] = Variant(song.duration * 1000L)
-        m["xesam:title"] = Variant(song.textTitle())
-        m["xesam:artist"] = Variant(song.artists.map { it.name }.toTypedArray(), "as")
-        song.album?.let { m["xesam:album"] = Variant(it.name) }
+    if (metadata != null) {
+        m["mpris:length"] = Variant(metadata.durationMs * 1000L)
+        m["xesam:title"] = Variant(metadata.title)
+        m["xesam:artist"] = Variant(metadata.artists.toTypedArray(), "as")
+        metadata.album?.let { m["xesam:album"] = Variant(it) }
 
+        val imageId = metadata.imageId
         try {
             val koin = getKoin()
             val manager = koin.get<RpcServiceManager>()
             val storageService = koin.get<LocalStorageService>()
             val host = manager.host
             val port = manager.port
-            if (host != null && port != null && song.coverId != null) {
-                m["mpris:artUrl"] = Variant("http://$host:$port/image/imageData/${song.coverId}")
+            if (host != null && port != null && imageId != null) {
+                m["mpris:artUrl"] = Variant("http://$host:$port/image/imageData/$imageId")
             } else {
-                song.coverId?.let {
+                imageId?.let {
                     m["mpris:artUrl"] =
                         Variant("file://${storageService.getCacheDir()}/covers/$it.jpg")
                 }
@@ -419,7 +432,7 @@ private fun createMetadata(song: UserSong?): Map<String, Variant<*>> {
         } catch (_: Exception) {
             try {
                 val storageService = getKoin().get<LocalStorageService>()
-                song.coverId?.let {
+                imageId?.let {
                     m["mpris:artUrl"] =
                         Variant("file://${storageService.getCacheDir()}/covers/$it.jpg")
                 }

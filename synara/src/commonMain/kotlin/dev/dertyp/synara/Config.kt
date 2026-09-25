@@ -104,6 +104,19 @@ object Config : KoinComponent {
     private val _isRemoteControlEnabled = MutableStateFlow(settings.get(SettingKey.IsRemoteControlEnabled, false))
     val isRemoteControlEnabled: StateFlow<Boolean> = _isRemoteControlEnabled.asStateFlow()
 
+    private val _remoteControlOptInShown = MutableStateFlow(settings.get(SettingKey.RemoteControlOptInShown, false))
+    val remoteControlOptInShown: StateFlow<Boolean> = _remoteControlOptInShown.asStateFlow()
+
+    // Podcasts
+    private val _isPodcastsEnabled = MutableStateFlow(settings.get(SettingKey.IsPodcastsEnabled, false))
+    val isPodcastsEnabled: StateFlow<Boolean> = _isPodcastsEnabled.asStateFlow()
+
+    private val _podcastPlaybackSpeed = MutableStateFlow(settings.get(SettingKey.PodcastPlaybackSpeed, 1f))
+    val podcastPlaybackSpeed: StateFlow<Float> = _podcastPlaybackSpeed.asStateFlow()
+
+    private val _podcastOptInShown = MutableStateFlow(settings.get(SettingKey.PodcastOptInShown, false))
+    val podcastOptInShown: StateFlow<Boolean> = _podcastOptInShown.asStateFlow()
+
     // Settings sync
     private val _isSettingsSyncEnabled = MutableStateFlow(settings.get(SettingKey.IsSettingsSyncEnabled, false))
     val isSettingsSyncEnabled: StateFlow<Boolean> = _isSettingsSyncEnabled.asStateFlow()
@@ -307,6 +320,26 @@ object Config : KoinComponent {
         _isRemoteControlEnabled.value = enabled
         settings.put(SettingKey.IsRemoteControlEnabled, enabled)
         if (enabled && !_isQueueSyncEnabled.value) setIsQueueSyncEnabled(true)
+    }
+
+    fun setRemoteControlOptInShown(shown: Boolean) {
+        _remoteControlOptInShown.value = shown
+        settings.put(SettingKey.RemoteControlOptInShown, shown)
+    }
+
+    fun setPodcastsEnabled(enabled: Boolean) {
+        _isPodcastsEnabled.value = enabled
+        settings.put(SettingKey.IsPodcastsEnabled, enabled)
+    }
+
+    fun setPodcastPlaybackSpeed(speed: Float) {
+        _podcastPlaybackSpeed.value = speed
+        settings.put(SettingKey.PodcastPlaybackSpeed, speed)
+    }
+
+    fun setPodcastOptInShown(shown: Boolean) {
+        _podcastOptInShown.value = shown
+        settings.put(SettingKey.PodcastOptInShown, shown)
     }
 
     fun setQueueSyncDeviceName(name: String) {

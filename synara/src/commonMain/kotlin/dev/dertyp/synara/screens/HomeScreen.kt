@@ -34,7 +34,10 @@ import dev.dertyp.data.UserPlaylist
 import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.Config
 import dev.dertyp.synara.InternalTextField
+import dev.dertyp.synara.onboarding.OnboardingCoordinator
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.screens.podcasts.PodcastShowScreen
+import dev.dertyp.synara.screens.podcasts.PodcastsScreen
 import dev.dertyp.synara.theme.isAppDark
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.*
@@ -81,6 +84,19 @@ class HomeScreen : Screen {
                     navigator.push(ChangelogScreen())
                 }
                 Config.setLastSeenVersion(currentVersion)
+            }
+
+            val onboardingCoordinator = koinInject<OnboardingCoordinator>()
+            LaunchedEffect(navigator.lastItem) {
+                onboardingCoordinator.setChangelogVisible(navigator.lastItem is ChangelogScreen)
+            }
+
+            val isPodcastsEnabled by Config.isPodcastsEnabled.collectAsState()
+            LaunchedEffect(isPodcastsEnabled) {
+                if (!isPodcastsEnabled && navigator.items.any { it is PodcastsScreen || it is PodcastShowScreen }) {
+                    val remaining = navigator.items.filterNot { it is PodcastsScreen || it is PodcastShowScreen }
+                    navigator.replaceAll(remaining.ifEmpty { listOf(DashboardScreen()) })
+                }
             }
 
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -231,6 +247,7 @@ class HomeScreen : Screen {
     ) {
         val playlists by screenModel.globalState.userPlaylists.collectAsState()
         val isRefreshing by screenModel.globalState.isRefreshingPlaylists.collectAsState()
+        val isPodcastsEnabled by Config.isPodcastsEnabled.collectAsState()
 
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -285,6 +302,24 @@ class HomeScreen : Screen {
                     onItemClick?.invoke()
                 }
             )
+
+            if (isPodcastsEnabled) {
+                Spacer(modifier = Modifier.height(8.dp))
+
+                NavigationItem(
+                    label = stringResource(Res.string.podcasts),
+                    icon = SynaraIcons.Podcast.get(),
+                    selected = navigator.lastItem is PodcastsScreen || navigator.lastItem is PodcastShowScreen,
+                    onClick = {
+                        when {
+                            navigator.lastItem is PodcastsScreen -> Unit
+                            navigator.items.any { it is PodcastsScreen } -> navigator.popUntil { it is PodcastsScreen }
+                            else -> navigator.push(PodcastsScreen())
+                        }
+                        onItemClick?.invoke()
+                    }
+                )
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 

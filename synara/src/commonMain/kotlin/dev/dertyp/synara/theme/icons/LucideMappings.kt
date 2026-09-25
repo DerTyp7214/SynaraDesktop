@@ -92,6 +92,7 @@ object LucideMappings {
     @MapTo(SynaraIcons.Download) val Download = Lucide.Download
     @MapTo(SynaraIcons.Discovery)
     @MapTo(SynaraIcons.TagRemaster)
+    @MapTo(SynaraIcons.Onboarding)
     val Sparkles = Lucide.Sparkles
     @MapTo(SynaraIcons.Radio) val Radio = Lucide.Radio
     @MapTo(SynaraIcons.Collections) val LibraryBig = Lucide.LibraryBig
@@ -112,4 +113,13 @@ object LucideMappings {
     @MapTo(SynaraIcons.TimecodeChapter) val Brackets = Lucide.Brackets
     @MapTo(SynaraIcons.TimecodeMarker) val Flag = Lucide.Flag
     @MapTo(SynaraIcons.TimecodeNote) val StickyNote = Lucide.StickyNote
+    @MapTo(SynaraIcons.Podcast) val Podcast = Lucide.Podcast
+    @MapTo(SynaraIcons.PlaybackSpeed) val Gauge = Lucide.Gauge
+    @MapTo(SynaraIcons.Transcript) val Captions = Lucide.Captions
+    @MapTo(SynaraIcons.ServerStorage) val Server = Lucide.Server
+    @MapTo(SynaraIcons.MarkPlayed) val CheckCheck = Lucide.CheckCheck
+    @MapTo(SynaraIcons.SwitchPlayer) val ArrowLeftRight = Lucide.ArrowLeftRight
+    @MapTo(SynaraIcons.RemoteControl) val MonitorSmartphone = Lucide.MonitorSmartphone
+    @MapTo(SynaraIcons.Globe) val Globe = Lucide.Globe
+    @MapTo(SynaraIcons.AddFeed) val Rss = Lucide.Rss
 }

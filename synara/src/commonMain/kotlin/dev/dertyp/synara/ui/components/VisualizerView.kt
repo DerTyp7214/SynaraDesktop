@@ -17,7 +17,7 @@ import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import dev.dertyp.synara.Config
-import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.player.PlayerSwitcher
 import dev.dertyp.synara.ui.components.visualizer.VisualizerReaction
 import dev.dertyp.synara.ui.components.visualizer.createReaction
 import org.koin.compose.koinInject
@@ -29,9 +29,9 @@ fun VisualizerView(
     color: Color = MaterialTheme.colorScheme.onSurface,
     highlightColor: Color = MaterialTheme.colorScheme.primary,
     minMaxHeightDuration: Long = 100L,
-    playerModel: PlayerModel = koinInject()
+    playerSwitcher: PlayerSwitcher = koinInject()
 ) {
-    val isPlaying by playerModel.isPlaying.collectAsState()
+    val isPlaying by playerSwitcher.isPlaying.collectAsState()
     val visualizerStyle by Config.visualizerStyle.collectAsState()
     val reaction by rememberUpdatedState(remember(visualizerStyle) { visualizerStyle.createReaction() })
 
@@ -88,7 +88,7 @@ fun VisualizerView(
                     }
 
                     currentReaction.update(
-                        playerModel.fftData.value,
+                        playerSwitcher.fftData.value,
                         isPlaying,
                         bandHeights,
                         bandCount,

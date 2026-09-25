@@ -214,6 +214,7 @@ class SyncedSettingsRegistry(private val cipher: SecretsCipher) {
         boolean("is_server_scrobbling_enabled", Config.isServerScrobblingEnabled, true) {
             Config.setIsServerScrobblingEnabled(it)
         },
+        boolean("is_podcasts_enabled", Config.isPodcastsEnabled, false) { Config.setPodcastsEnabled(it) },
 
         // Desktop only
         color("desktop.light_theme_color", Config.lightThemeColor, Color(Color.Green.toArgb())) {

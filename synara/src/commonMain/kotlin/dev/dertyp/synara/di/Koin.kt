@@ -17,13 +17,17 @@ import dev.dertyp.synara.game.GAME_AUDIO_PLAYER
 import dev.dertyp.synara.game.GameAudioPlayer
 import dev.dertyp.synara.game.SongGuessLeaderboard
 import dev.dertyp.synara.logging.StdoutLogPersistence
+import dev.dertyp.synara.onboarding.OnboardingCoordinator
+import dev.dertyp.synara.player.MediaControlBridge
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.player.PlayerSwitcher
 import dev.dertyp.synara.player.QueueSyncService
 import dev.dertyp.synara.player.RemoteControlService
 import dev.dertyp.synara.player.RemotePlaybackController
 import dev.dertyp.synara.player.SongCache
 import dev.dertyp.synara.player.TimecodeTagAutomation
 import dev.dertyp.synara.player.TimecodeTagStore
+import dev.dertyp.synara.podcast.*
 import dev.dertyp.synara.rpc.PresenceService
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.ServerClock
@@ -42,6 +46,8 @@ import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.ui.models.TrayState
 import dev.dertyp.synara.utils.AppDispatchers
 import dev.dertyp.synara.viewmodels.*
+import dev.dertyp.synara.viewmodels.podcasts.PodcastShowScreenModel
+import dev.dertyp.synara.viewmodels.podcasts.PodcastsScreenModel
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.HttpTimeout
@@ -135,6 +141,12 @@ val appModule = module {
     singleOf(::PerformanceMonitor)
     singleOf(::SongGuessLeaderboard)
     single { GameAudioPlayer(get(named(GAME_AUDIO_PLAYER))) }
+    singleOf(::PodcastProgressStoreImpl) bind PodcastProgressStore::class
+    singleOf(::PodcastProgressReporter)
+    singleOf(::PodcastPlayerModel) bind PodcastPlayer::class
+    singleOf(::PlayerSwitcher)
+    singleOf(::MediaControlBridge)
+    singleOf(::OnboardingCoordinator)
 
     single<IDownloadManager> { StubDownloadManager() }
 
@@ -153,6 +165,8 @@ val appModule = module {
     factoryOf(::ArtistAlbumsScreenModel)
     factoryOf(::ArtistLikedSongsScreenModel)
     factoryOf(::AlbumScreenModel)
+    factoryOf(::PodcastsScreenModel)
+    factoryOf(::PodcastShowScreenModel)
     factoryOf(::PlaylistScreenModel)
     factoryOf(::SimilarSongsScreenModel)
 
@@ -212,6 +226,7 @@ val appModule = module {
     singleOf(::HueServiceWrapper) bind IHueService::class
     singleOf(::CoverGenerationServiceWrapper) bind ICoverGenerationService::class
     singleOf(::ListenBackupServiceWrapper) bind IListenBackupService::class
+    singleOf(::PodcastServiceWrapper) bind IPodcastService::class
 
     singleOf(::LocalSongScrobbler)
     singleOf(::ListenBrainzScrobbler)

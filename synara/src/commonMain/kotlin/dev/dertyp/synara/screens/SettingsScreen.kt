@@ -157,6 +157,8 @@ import synara.synara.generated.resources.secrets_sync_state_setup
 import synara.synara.generated.resources.secrets_sync_state_unlocked
 import synara.synara.generated.resources.secrets_sync_summary
 import synara.synara.generated.resources.secrets_sync_title
+import synara.synara.generated.resources.settings_podcasts_summary
+import synara.synara.generated.resources.settings_podcasts_title
 import synara.synara.generated.resources.settings_queue_sync_behind
 import synara.synara.generated.resources.settings_queue_sync_devices_title
 import synara.synara.generated.resources.settings_queue_sync_last_synced
@@ -233,6 +235,7 @@ class SettingsScreen : Screen {
         val queueSyncDeviceName by Config.queueSyncDeviceName.collectAsState()
         val isSettingsSyncEnabled by Config.isSettingsSyncEnabled.collectAsState()
         val isSecretsSyncEnabled by Config.isSecretsSyncEnabled.collectAsState()
+        val isPodcastsEnabled by Config.isPodcastsEnabled.collectAsState()
 
         val rpcServiceManager = koinInject<RpcServiceManager>()
         val playerModel = koinInject<PlayerModel>()
@@ -277,6 +280,13 @@ class SettingsScreen : Screen {
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     LanguageSetting(currentLanguage = language)
+
+                    SettingSwitch(
+                        title = stringResource(Res.string.settings_podcasts_title),
+                        summary = stringResource(Res.string.settings_podcasts_summary),
+                        checked = isPodcastsEnabled,
+                        onCheckedChange = { Config.setPodcastsEnabled(it) }
+                    )
 
                     Text(
                         text = stringResource(Res.string.audio),

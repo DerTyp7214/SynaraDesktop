@@ -1,18 +1,17 @@
 package dev.dertyp.synara.player
 
 import com.sun.jna.*
-import dev.dertyp.core.joinArtists
-import dev.dertyp.data.UserSong
+import dev.dertyp.PlatformUUID
 import dev.dertyp.services.IImageService
-import dev.dertyp.synara.core.textTitle
 import dev.dertyp.synara.utils.OSUtils
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
 import org.koin.java.KoinJavaComponent.getKoin
 import kotlin.math.abs
 import com.sun.jna.Function as JnaFunction
 
-class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager {
+class MacMediaManager(private val bridge: MediaControlBridge) : SystemMediaManager {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var isStarted = false
     private var artworkJob: Job? = null
@@ -65,7 +64,7 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
     private val playCallback = object : Callback {
         @Suppress("unused")
         fun invoke(self: Pointer, cmd: Pointer, event: Pointer): Long {
-            playerModel.play()
+            bridge.play()
             return 0L
         }
     }
@@ -73,7 +72,7 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
     private val pauseCallback = object : Callback {
         @Suppress("unused")
         fun invoke(self: Pointer, cmd: Pointer, event: Pointer): Long {
-            playerModel.pause()
+            bridge.pause()
             return 0L
         }
     }
@@ -81,7 +80,7 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
     private val nextCallback = object : Callback {
         @Suppress("unused")
         fun invoke(self: Pointer, cmd: Pointer, event: Pointer): Long {
-            playerModel.skipNext()
+            bridge.next()
             return 0L
         }
     }
@@ -89,7 +88,7 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
     private val previousCallback = object : Callback {
         @Suppress("unused")
         fun invoke(self: Pointer, cmd: Pointer, event: Pointer): Long {
-            playerModel.skipPrevious()
+            bridge.previous()
             return 0L
         }
     }
@@ -97,7 +96,7 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
     private val toggleCallback = object : Callback {
         @Suppress("unused")
         fun invoke(self: Pointer, cmd: Pointer, event: Pointer): Long {
-            playerModel.togglePlayPause()
+            bridge.togglePlayPause()
             return 0L
         }
     }
@@ -106,7 +105,7 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
         @Suppress("unused")
         fun invoke(self: Pointer, cmd: Pointer, event: Pointer): Long {
             val seekTime = msgDouble(event, "positionTime")
-            playerModel.seekTo((seekTime * 1000).toLong())
+            bridge.seekTo((seekTime * 1000).toLong())
             return 0L
         }
     }
@@ -148,22 +147,28 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
             setupCommand(msg(center, "changePlaybackPositionCommand")!!, "seek:", targetInstance!!)
 
             scope.launch {
-                playerModel.currentSong.collectLatest { song ->
-                    updateMetadata(song, playerModel.isPlaying.value, playerModel.currentPosition.value)
+                bridge.metadata.collectLatest { metadata ->
+                    updateMetadata(metadata, bridge.isPlaying.value, bridge.position())
                 }
             }
 
             scope.launch {
-                playerModel.isPlaying.collectLatest { isPlaying ->
-                    updateMetadata(playerModel.currentSong.value, isPlaying, playerModel.currentPosition.value)
+                bridge.isPlaying.collectLatest { isPlaying ->
+                    updateMetadata(bridge.metadata.value, isPlaying, bridge.position())
+                }
+            }
+
+            scope.launch {
+                bridge.rate.drop(1).collectLatest {
+                    updateMetadata(bridge.metadata.value, bridge.isPlaying.value, bridge.position())
                 }
             }
 
             scope.launch {
                 var lastPos = 0L
-                playerModel.currentPosition.collect { currentPos ->
+                bridge.positionFlow.collect { currentPos ->
                     if (abs(currentPos - lastPos) > 1000) {
-                        updateMetadata(playerModel.currentSong.value, playerModel.isPlaying.value, currentPos)
+                        updateMetadata(bridge.metadata.value, bridge.isPlaying.value, currentPos)
                     }
                     lastPos = currentPos
                 }
@@ -182,25 +187,25 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
         objcMsgSend.invoke(arrayOf(command, selAddTarget, target, ObjCRuntime.INSTANCE.sel_registerName(selector)))
     }
 
-    private fun updateMetadata(song: UserSong?, isPlaying: Boolean, positionMs: Long) {
+    private fun updateMetadata(metadata: NowPlayingMetadata?, isPlaying: Boolean, positionMs: Long) {
         val objc = ObjCRuntime.INSTANCE
         val infoCenterClass = objc.objc_getClass("MPNowPlayingInfoCenter")
         val defaultCenter = msg(infoCenterClass, "defaultCenter") ?: return
 
-        if (song == null) {
+        if (metadata == null) {
             msg(defaultCenter, "setNowPlayingInfo:", Pointer.NULL)
             return
         }
 
-        if (song.coverId?.toString() != lastCoverId) {
-            lastCoverId = song.coverId?.toString()
+        if (metadata.imageId?.toString() != lastCoverId) {
+            lastCoverId = metadata.imageId?.toString()
             lastArtwork = null
             artworkJob?.cancel()
             artworkJob = scope.launch {
-                val artwork = fetchArtwork(song)
+                val artwork = fetchArtwork(metadata.imageId)
                 if (artwork != null) {
                     lastArtwork = artwork
-                    updateMetadata(song, isPlaying, positionMs)
+                    updateMetadata(metadata, isPlaying, positionMs)
                 }
             }
         }
@@ -208,14 +213,14 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
         val dictClass = objc.objc_getClass("NSMutableDictionary")
         val dict = msg(dictClass, "dictionary") ?: return
 
-        msg(dict, "setObject:forKey:", nsString(song.textTitle()), nsString("title"))
-        msg(dict, "setObject:forKey:", nsString(song.artists.joinArtists()), nsString("artist"))
-        song.album?.let {
-            msg(dict, "setObject:forKey:", nsString(it.name), nsString("albumTitle"))
+        msg(dict, "setObject:forKey:", nsString(metadata.title), nsString("title"))
+        msg(dict, "setObject:forKey:", nsString(metadata.artist), nsString("artist"))
+        metadata.album?.let {
+            msg(dict, "setObject:forKey:", nsString(it), nsString("albumTitle"))
         }
-        msg(dict, "setObject:forKey:", nsNumber(song.duration / 1000.0), nsString("playbackDuration"))
+        msg(dict, "setObject:forKey:", nsNumber(metadata.durationMs / 1000.0), nsString("playbackDuration"))
         msg(dict, "setObject:forKey:", nsNumber(positionMs / 1000.0), nsString("elapsedPlaybackTime"))
-        msg(dict, "setObject:forKey:", nsNumber(if (isPlaying) 1.0 else 0.0), nsString("playbackRate"))
+        msg(dict, "setObject:forKey:", nsNumber(if (isPlaying) bridge.rate.value else 0.0), nsString("playbackRate"))
         msg(dict, "setObject:forKey:", nsNumber(1.0), nsString("defaultPlaybackRate"))
         msg(dict, "setObject:forKey:", nsDateNow(), nsString("nowPlayingInfoPropertyTimestamp"))
 
@@ -230,12 +235,12 @@ class MacMediaManager(private val playerModel: PlayerModel) : SystemMediaManager
         objcMsgSend.invoke(arrayOf(defaultCenter, selSetPlaybackState, state))
     }
 
-    private suspend fun fetchArtwork(song: UserSong): Pointer? {
+    private suspend fun fetchArtwork(imageId: PlatformUUID?): Pointer? {
         val imageService = getKoin().get<IImageService>()
-        if (song.coverId == null) return null
+        if (imageId == null) return null
 
         return try {
-            val bytes = imageService.getImageData(song.coverId!!, 256) ?: return null
+            val bytes = imageService.getImageData(imageId, 256) ?: return null
             createMpArtwork(bytes)
         } catch (_: Exception) {
             null

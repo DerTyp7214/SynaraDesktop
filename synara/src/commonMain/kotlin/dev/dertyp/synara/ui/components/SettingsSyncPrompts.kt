@@ -1,18 +1,14 @@
 package dev.dertyp.synara.ui.components
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -28,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
-import dev.dertyp.synara.Config
 import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.sync.SecretsLockState
 import dev.dertyp.synara.sync.SettingsSyncService
@@ -49,22 +44,11 @@ import synara.synara.generated.resources.secrets_sync_passphrase_setup_message
 import synara.synara.generated.resources.secrets_sync_passphrase_wrong
 import synara.synara.generated.resources.secrets_sync_set_passphrase
 import synara.synara.generated.resources.secrets_sync_state_connecting
-import synara.synara.generated.resources.secrets_sync_summary
-import synara.synara.generated.resources.secrets_sync_title
-import synara.synara.generated.resources.settings_queue_sync_summary
-import synara.synara.generated.resources.settings_queue_sync_title
-import synara.synara.generated.resources.settings_settings_sync_summary
-import synara.synara.generated.resources.settings_settings_sync_title
 import synara.synara.generated.resources.settings_sync_conflict_keep_local
 import synara.synara.generated.resources.settings_sync_conflict_message
 import synara.synara.generated.resources.settings_sync_conflict_title
 import synara.synara.generated.resources.settings_sync_conflict_use_remote
-import synara.synara.generated.resources.settings_sync_device_name_title
 import synara.synara.generated.resources.settings_sync_other_device
-import synara.synara.generated.resources.sync_setup_description
-import synara.synara.generated.resources.sync_setup_enable
-import synara.synara.generated.resources.sync_setup_not_now
-import synara.synara.generated.resources.sync_setup_title
 
 enum class PassphraseMode { Setup, Enter }
 
@@ -93,8 +77,6 @@ fun SettingsSyncPrompts(settingsSync: SettingsSyncService = koinInject()) {
             settingsSync = settingsSync
         )
     }
-
-    SyncSetupDialog(settingsSync)
 }
 
 @Composable
@@ -265,163 +247,4 @@ fun SecretsPassphraseDialog(
             }
         }
     )
-}
-
-@Composable
-private fun SyncSetupDialog(settingsSync: SettingsSyncService) {
-    val setupShown by Config.syncSetupShown.collectAsState()
-    val isQueueSyncEnabled by Config.isQueueSyncEnabled.collectAsState()
-    val isSettingsSyncEnabled by Config.isSettingsSyncEnabled.collectAsState()
-    val lockState by settingsSync.secretsLockState.collectAsState()
-
-    var isOpen by remember { mutableStateOf(false) }
-    var awaitingSecrets by remember { mutableStateOf(false) }
-
-    LaunchedEffect(setupShown, isQueueSyncEnabled, isSettingsSyncEnabled) {
-        if (setupShown) return@LaunchedEffect
-        if (isQueueSyncEnabled || isSettingsSyncEnabled) {
-            Config.setSyncSetupShown(true)
-            return@LaunchedEffect
-        }
-        isOpen = true
-    }
-
-    LaunchedEffect(awaitingSecrets, lockState) {
-        if (!awaitingSecrets) return@LaunchedEffect
-        when (lockState) {
-            SecretsLockState.NEEDS_SETUP -> {
-                awaitingSecrets = false
-                SettingsSyncDialogs.requestPassphrase(PassphraseMode.Setup)
-            }
-
-            SecretsLockState.NEEDS_PASSPHRASE -> {
-                awaitingSecrets = false
-                SettingsSyncDialogs.requestPassphrase(PassphraseMode.Enter)
-            }
-
-            else -> Unit
-        }
-    }
-
-    if (!isOpen) return
-
-    var deviceName by remember { mutableStateOf(Config.queueSyncDeviceName.value) }
-    var enableQueue by remember { mutableStateOf(true) }
-    var enableSettings by remember { mutableStateOf(true) }
-    var enableSecrets by remember { mutableStateOf(false) }
-
-    SynaraAlertDialog(
-        isOpen = true,
-        onDismissRequest = {
-            isOpen = false
-            Config.setSyncSetupShown(true)
-        },
-        title = { Text(stringResource(Res.string.sync_setup_title)) },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    text = stringResource(Res.string.sync_setup_description),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-
-                InternalTextField(
-                    value = deviceName,
-                    onValueChange = { deviceName = it },
-                    label = { Text(stringResource(Res.string.settings_sync_device_name_title)) },
-                    placeholder = { Text(settingsSync.platformDeviceName) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                SyncSetupSwitch(
-                    title = stringResource(Res.string.settings_queue_sync_title),
-                    summary = stringResource(Res.string.settings_queue_sync_summary),
-                    checked = enableQueue,
-                    onCheckedChange = { enableQueue = it }
-                )
-                SyncSetupSwitch(
-                    title = stringResource(Res.string.settings_settings_sync_title),
-                    summary = stringResource(Res.string.settings_settings_sync_summary),
-                    checked = enableSettings,
-                    onCheckedChange = {
-                        enableSettings = it
-                        if (!it) enableSecrets = false
-                    }
-                )
-                SyncSetupSwitch(
-                    title = stringResource(Res.string.secrets_sync_title),
-                    summary = stringResource(Res.string.secrets_sync_summary),
-                    checked = enableSecrets,
-                    enabled = enableSettings,
-                    onCheckedChange = { enableSecrets = it }
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val secrets = enableSettings && enableSecrets
-                    Config.setQueueSyncDeviceName(deviceName.trim())
-                    Config.setIsQueueSyncEnabled(enableQueue)
-                    Config.setIsSettingsSyncEnabled(enableSettings)
-                    Config.setIsSecretsSyncEnabled(secrets)
-                    Config.setSyncSetupShown(true)
-                    isOpen = false
-                    if (secrets) awaitingSecrets = true
-                },
-                enabled = enableQueue || enableSettings
-            ) {
-                Text(stringResource(Res.string.sync_setup_enable))
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = {
-                    isOpen = false
-                    Config.setSyncSetupShown(true)
-                }
-            ) {
-                Text(stringResource(Res.string.sync_setup_not_now))
-            }
-        }
-    )
-}
-
-@Composable
-private fun SyncSetupSwitch(
-    title: String,
-    summary: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean = true
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = enabled) { onCheckedChange(!checked) },
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                color = if (enabled) MaterialTheme.colorScheme.onSurface
-                else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = summary,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            enabled = enabled
-        )
-    }
 }

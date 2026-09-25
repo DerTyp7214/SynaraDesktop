@@ -26,6 +26,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import dev.dertyp.core.isURL
 import dev.dertyp.currentTimeMillis
+import dev.dertyp.synara.onboarding.OnboardingHost
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.screens.HomeScreen
 import dev.dertyp.synara.screens.LoginScreen
@@ -163,6 +164,7 @@ fun SynaraView() {
 
                     QueueSyncPrompts()
                     SettingsSyncPrompts()
+                    OnboardingHost()
                 }
 
                 if (showPerformanceOverlay) {

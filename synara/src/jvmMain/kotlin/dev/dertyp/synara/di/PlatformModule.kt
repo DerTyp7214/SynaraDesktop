@@ -24,12 +24,16 @@ import dev.dertyp.synara.game.GAME_AUDIO_PLAYER
 import dev.dertyp.synara.player.AudioPlayer
 import dev.dertyp.synara.player.ISynaraApi
 import dev.dertyp.synara.player.JvmAudioPlayer
+import dev.dertyp.synara.player.JvmPodcastAudioEngine
 import dev.dertyp.synara.player.LinuxMediaManager
 import dev.dertyp.synara.player.LocalHttpServer
 import dev.dertyp.synara.player.MacMediaManager
+import dev.dertyp.synara.player.PlayerSwitcher
 import dev.dertyp.synara.player.SynaraApiImpl
 import dev.dertyp.synara.player.SystemMediaManager
 import dev.dertyp.synara.player.WindowsMediaManager
+import dev.dertyp.synara.podcast.PODCAST_AUDIO_PLAYER
+import dev.dertyp.synara.podcast.PodcastAudioEngine
 import dev.dertyp.synara.services.DownloadManager
 import dev.dertyp.synara.services.IDownloadManager
 import dev.dertyp.synara.services.JvmLocalStorageService
@@ -46,6 +50,7 @@ import org.koin.core.module.Module
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.named
 import org.koin.core.module.dsl.singleOf
+import org.koin.core.qualifier.named
 import org.koin.dsl.bind
 import org.koin.dsl.module
 import org.koin.java.KoinJavaComponent.getKoin
@@ -54,6 +59,8 @@ import java.io.File
 actual fun platformModule(): Module = module {
     singleOf(::JvmAudioPlayer) bind AudioPlayer::class
     singleOf(::JvmAudioPlayer) { named(GAME_AUDIO_PLAYER); bind<AudioPlayer>() }
+    singleOf(::JvmAudioPlayer) { named(PODCAST_AUDIO_PLAYER); bind<AudioPlayer>() }
+    single<PodcastAudioEngine> { JvmPodcastAudioEngine(get(named(PODCAST_AUDIO_PLAYER)), get()) }
     singleOf(::JvmLocalStorageService) bind LocalStorageService::class
     singleOf(::JvmVideoFrameService) bind VideoFrameService::class
     singleOf(::DownloadManager) bind IDownloadManager::class
@@ -122,6 +129,7 @@ actual fun platformInit() {
     logger.info(LogTag("platform"), "Application directory: ${storageService.getDataDir()}")
 
     koin.get<Database>()
+    koin.get<PlayerSwitcher>()
 
     try {
         val mediaManager = koin.get<SystemMediaManager>()

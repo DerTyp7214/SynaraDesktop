@@ -7,7 +7,11 @@ import androidx.compose.material3.Typography
 import androidx.compose.runtime.*
 import dev.dertyp.synara.Config
 import dev.dertyp.synara.animateColorSchemeAsState
+import dev.dertyp.synara.player.ActivePlayer
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.player.PlayerSwitcher
+import dev.dertyp.synara.podcast.PodcastPlayer
+import dev.dertyp.synara.podcast.artworkId
 import dev.dertyp.synara.ui.LocalIconFilled
 import dev.dertyp.synara.ui.LocalIconPack
 import dev.dertyp.synara.ui.LocalIconStyle
@@ -66,9 +70,22 @@ fun SynaraColorScheme(isDarkTheme: Boolean = isAppDark()): ColorScheme {
     
     val playerModel: PlayerModel = koinInject()
     val currentSong by playerModel.currentSong.collectAsState()
+    val podcastPlayer: PodcastPlayer = koinInject()
+    val currentEpisode by podcastPlayer.currentEpisode.collectAsState()
+    val playerSwitcher: PlayerSwitcher = koinInject()
+    val activePlayer by playerSwitcher.active.collectAsState()
+
+    val hasActiveContent = when (activePlayer) {
+        ActivePlayer.SONGS -> currentSong != null
+        ActivePlayer.PODCAST -> currentEpisode != null
+    }
+    val activeCoverId = when (activePlayer) {
+        ActivePlayer.SONGS -> currentSong?.coverId
+        ActivePlayer.PODCAST -> currentEpisode?.artworkId
+    }
     
     val coverScheme by rememberCoverScheme(
-        coverId = if (useSongColor) currentSong?.coverId else null,
+        coverId = if (useSongColor) activeCoverId else null,
         isDark = isDarkTheme
     )
 
@@ -76,7 +93,7 @@ fun SynaraColorScheme(isDarkTheme: Boolean = isAppDark()): ColorScheme {
 
     val targetColorScheme = when {
         usePywal && pywalScheme != null -> pywalScheme
-        useSongColor && currentSong != null -> coverScheme
+        useSongColor && hasActiveContent -> coverScheme
         else -> if (isDarkTheme) darkColorScheme else lightColorScheme
     }
 

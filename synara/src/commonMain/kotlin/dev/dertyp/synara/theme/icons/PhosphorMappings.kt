@@ -81,13 +81,15 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.Confirm) val Check = PhIcons.Regular.Check
     @MapTo(SynaraIcons.OpenInNew) val ArrowSquareOut = PhIcons.Regular.ArrowSquareOut
     @MapTo(SynaraIcons.ErrorCircle) val WarningCircle = PhIcons.Regular.WarningCircle
-    @MapTo(SynaraIcons.SyncCircle) val ArrowClockwise = PhIcons.Regular.ArrowClockwise
+    @MapTo(SynaraIcons.SyncCircle)
+    val ArrowClockwise = PhIcons.Regular.ArrowClockwise
     @MapTo(SynaraIcons.Circle) val Circle = PhIcons.Regular.Circle
     @MapTo(SynaraIcons.History) val ClockAfternoon = PhIcons.Regular.ClockAfternoon
     @MapTo(SynaraIcons.Link) val Link = PhIcons.Regular.Link
     @MapTo(SynaraIcons.Download) val DownloadSimple = PhIcons.Regular.DownloadSimple
     @MapTo(SynaraIcons.Discovery)
     @MapTo(SynaraIcons.TagRemaster)
+    @MapTo(SynaraIcons.Onboarding)
     val Sparkle = PhIcons.Regular.Sparkle
     @MapTo(SynaraIcons.Radio) val Radio = PhIcons.Regular.Radio
     @MapTo(SynaraIcons.Collections) val Folders = PhIcons.Regular.Folders
@@ -100,7 +102,9 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.Trophy) val Trophy = PhIcons.Regular.Trophy
     @MapTo(SynaraIcons.TagProd) val FadersHorizontal = PhIcons.Regular.FadersHorizontal
     @MapTo(SynaraIcons.TagMix) val Waveform = PhIcons.Regular.Waveform
-    @MapTo(SynaraIcons.TagLive) val MicrophoneStage = PhIcons.Regular.MicrophoneStage
+    @MapTo(SynaraIcons.TagLive)
+    @MapTo(SynaraIcons.Podcast)
+    val MicrophoneStage = PhIcons.Regular.MicrophoneStage
     @MapTo(SynaraIcons.TagAcoustic) val Guitar = PhIcons.Regular.Guitar
     @MapTo(SynaraIcons.TagInstrumental) val PianoKeys = PhIcons.Regular.PianoKeys
     @MapTo(SynaraIcons.TagEdit) val Scissors = PhIcons.Regular.Scissors
@@ -110,4 +114,12 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.TimecodeChapter) val BracketsSquare = PhIcons.Regular.BracketsSquare
     @MapTo(SynaraIcons.TimecodeMarker) val Flag = PhIcons.Regular.Flag
     @MapTo(SynaraIcons.TimecodeNote) val Note = PhIcons.Regular.Note
+    @MapTo(SynaraIcons.PlaybackSpeed) val Gauge = PhIcons.Regular.Gauge
+    @MapTo(SynaraIcons.Transcript) val Subtitles = PhIcons.Regular.Subtitles
+    @MapTo(SynaraIcons.ServerStorage) val HardDrives = PhIcons.Regular.HardDrives
+    @MapTo(SynaraIcons.MarkPlayed) val Checks = PhIcons.Regular.Checks
+    @MapTo(SynaraIcons.SwitchPlayer) val ArrowsLeftRight = PhIcons.Regular.ArrowsLeftRight
+    @MapTo(SynaraIcons.RemoteControl) val DeviceMobileSpeaker = PhIcons.Regular.DeviceMobileSpeaker
+    @MapTo(SynaraIcons.Globe) val Globe = PhIcons.Regular.Globe
+    @MapTo(SynaraIcons.AddFeed) val Rss = PhIcons.Regular.Rss
 }

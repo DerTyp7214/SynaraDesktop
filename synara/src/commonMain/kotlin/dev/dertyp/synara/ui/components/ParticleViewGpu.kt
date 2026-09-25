@@ -8,7 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import coil3.size.SizeResolver
-import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.player.PlayerSwitcher
 import dev.dertyp.synara.ui.models.PerformanceMonitor
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import org.koin.compose.koinInject
@@ -21,7 +21,7 @@ expect fun ParticleViewGpu(
     center: State<Offset> = mutableStateOf(Offset.Unspecified),
     emit: State<Boolean> = mutableStateOf(true),
     centerResolver: SizeResolver? = null,
-    playerModel: PlayerModel = koinInject(),
+    playerSwitcher: PlayerSwitcher = koinInject(),
     globalStateModel: GlobalStateModel = koinInject(),
     performanceMonitor: PerformanceMonitor = koinInject(),
 )

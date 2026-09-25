@@ -1,6 +1,6 @@
 package dev.dertyp.synara.ui.components
 
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -8,26 +8,32 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.ui.SynaraIcons
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 import org.koin.compose.koinInject
 
 data class LyricLine(
     val time: Long,
-    val content: String
+    val content: String,
+    val label: String? = null
 )
 
 @Composable
@@ -38,19 +44,87 @@ fun LyricsView(
     position: StateFlow<Long> = playerModel.currentPosition,
     onSeek: (Long) -> Unit = { playerModel.seekTo(it) }
 ) {
-    val currentPosition by position.collectAsState()
-
     val lyrics = song?.lyrics ?: ""
     val parsedLyrics = remember(lyrics) { parseLyrics(lyrics) }
+
+    TimedLinesView(
+        lines = parsedLyrics,
+        position = position,
+        onSeek = onSeek,
+        modifier = modifier,
+        textStyle = MaterialTheme.typography.headlineMedium.copy(
+            fontWeight = FontWeight.Bold,
+            fontSize = 32.sp,
+            lineHeight = 40.sp,
+            textAlign = TextAlign.Center
+        ),
+        key = { _, line -> line.time.toString() + line.content },
+        followLabel = null
+    )
+}
+
+@Composable
+fun LyricsView(
+    lines: List<LyricLine>,
+    position: StateFlow<Long>,
+    onSeek: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+    textStyle: TextStyle = MaterialTheme.typography.headlineSmall.copy(
+        fontWeight = FontWeight.Bold,
+        fontSize = 24.sp,
+        lineHeight = 32.sp,
+        textAlign = TextAlign.Center
+    ),
+    followLabel: String? = null
+) {
+    TimedLinesView(
+        lines = lines,
+        position = position,
+        onSeek = onSeek,
+        modifier = modifier,
+        textStyle = textStyle,
+        key = { index, _ -> index },
+        followLabel = followLabel
+    )
+}
+
+@Composable
+private fun TimedLinesView(
+    lines: List<LyricLine>,
+    position: StateFlow<Long>,
+    onSeek: (Long) -> Unit,
+    modifier: Modifier,
+    textStyle: TextStyle,
+    key: (Int, LyricLine) -> Any,
+    followLabel: String?
+) {
+    val currentPosition by position.collectAsState()
+
+    val parsedLyrics = lines
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    var follow by remember(lines) { mutableStateOf(true) }
+    var programmaticScroll by remember { mutableStateOf(false) }
 
     val activeIndex = remember(parsedLyrics, currentPosition) {
         parsedLyrics.indexOfLast { it.time <= currentPosition }.coerceAtLeast(0)
     }
 
-    LaunchedEffect(activeIndex) {
-        if (parsedLyrics.isNotEmpty() && activeIndex >= 0) {
-            listState.animateScrollToItem(activeIndex, scrollOffset = -200)
+    if (followLabel != null) {
+        LaunchedEffect(listState) {
+            snapshotFlow { listState.isScrollInProgress && !programmaticScroll }
+                .collect { if (it) follow = false }
+        }
+    }
+
+    LaunchedEffect(activeIndex, follow) {
+        if (follow && parsedLyrics.isNotEmpty() && activeIndex >= 0) {
+            programmaticScroll = true
+            try {
+                listState.animateScrollToItem(activeIndex, scrollOffset = -200)
+            } finally {
+                programmaticScroll = false
+            }
         }
     }
 
@@ -78,7 +152,7 @@ fun LyricsView(
         ) {
             itemsIndexed(
                 items = parsedLyrics,
-                key = { _, line -> line.time.toString() + line.content }
+                key = key
             ) { index, line ->
                 val isActive = index == activeIndex
                 val color by animateColorAsState(
@@ -91,23 +165,78 @@ fun LyricsView(
                     label = "lyricScale"
                 )
 
-                Text(
-                    text = line.content,
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 32.sp,
-                        lineHeight = 40.sp,
-                        textAlign = TextAlign.Center
-                    ),
-                    color = color,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .scale(scale)
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable { onSeek(line.time) }
-                        .padding(vertical = 12.dp, horizontal = 16.dp)
-                )
+                if (line.label != null) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .scale(scale)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onSeek(line.time) }
+                            .padding(vertical = 12.dp, horizontal = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = line.label,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = color.copy(alpha = color.alpha * 0.8f),
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = line.content,
+                            style = textStyle,
+                            color = color,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                } else {
+                    Text(
+                        text = line.content,
+                        style = textStyle,
+                        color = color,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .scale(scale)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onSeek(line.time) }
+                            .padding(vertical = 12.dp, horizontal = 16.dp)
+                    )
+                }
+            }
+        }
+
+        if (followLabel != null) {
+            AnimatedVisibility(
+                visible = !follow,
+                enter = fadeIn() + scaleIn(),
+                exit = fadeOut() + scaleOut(),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 32.dp)
+            ) {
+                SynaraSmallFab(
+                    onClick = {
+                        follow = true
+                        scope.launch {
+                            programmaticScroll = true
+                            try {
+                                listState.animateScrollToItem(activeIndex, scrollOffset = -200)
+                            } finally {
+                                programmaticScroll = false
+                            }
+                        }
+                    },
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Icon(
+                        SynaraIcons.Transcript.get(),
+                        contentDescription = followLabel,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }

@@ -26,7 +26,7 @@ import androidx.compose.ui.platform.LocalDensity
 import coil3.size.SizeResolver
 import coil3.size.pxOrElse
 import dev.dertyp.synara.Config
-import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.player.PlayerSwitcher
 import dev.dertyp.synara.ui.models.PerformanceMonitor
 import dev.dertyp.synara.utils.OSUtils
 import dev.dertyp.synara.viewmodels.GlobalStateModel
@@ -51,13 +51,13 @@ actual fun ParticleViewGpu(
     center: State<Offset>,
     emit: State<Boolean>,
     centerResolver: SizeResolver?,
-    playerModel: PlayerModel,
+    playerSwitcher: PlayerSwitcher,
     globalStateModel: GlobalStateModel,
     performanceMonitor: PerformanceMonitor,
 ) {
-    val isPlaying by playerModel.isPlaying.collectAsState()
+    val isPlaying by playerSwitcher.isPlaying.collectAsState()
     val isPlayerExpanded by globalStateModel.isPlayerExpanded.collectAsState()
-    val audioIntensity by playerModel.audioIntensity.collectAsState()
+    val audioIntensity by playerSwitcher.audioIntensity.collectAsState()
     val isObserved by performanceMonitor.isObserved.collectAsState()
 
     val emitParticles by remember(emit.value, isPlaying, isPlayerExpanded) {
