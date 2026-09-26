@@ -64,6 +64,23 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.10.2",
+                        date = "2026-09-26",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Improved, "Lower CPU use of the visualizer (fewer per-frame allocations and gradient uploads)."),
+                            Change(ChangeType.Improved, "Lower CPU use of the particles and the player background.")
+                        )
+                    ),
+                    ChangelogEntry(
+                        version = "3.10.1",
+                        date = "2026-09-26",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Stereo visualizer: left and right channels drive the two halves of mirrored layouts and the ring, or are overlaid in non-mirrored layouts. On by default, with a switch per preset.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.10.0",
                         date = "2026-09-26",
                         isPrerelease = true,

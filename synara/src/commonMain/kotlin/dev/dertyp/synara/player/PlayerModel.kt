@@ -140,6 +140,7 @@ class PlayerModel(
     val bitsPerSample: StateFlow<Int> = audioPlayer.bitsPerSample
     val bitRate: StateFlow<Long> = audioPlayer.bitRate
     val fftData: StateFlow<FloatArray> = audioPlayer.fftData
+    val stereoFftData: StateFlow<StereoSpectrum> = audioPlayer.stereoFftData
 
     val availableOutputDevices: StateFlow<List<String>> = audioPlayer.availableOutputDevices
     val currentOutputDevice: StateFlow<String?> = audioPlayer.currentOutputDevice

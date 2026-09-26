@@ -1,6 +1,7 @@
 package dev.dertyp.synara.podcast
 
 import dev.dertyp.data.PodcastEpisode
+import dev.dertyp.synara.player.StereoSpectrum
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -12,6 +13,7 @@ interface PodcastAudioEngine {
     val isPlaying: StateFlow<Boolean>
     val isLoading: StateFlow<Boolean>
     val fftData: StateFlow<FloatArray>
+    val stereoFftData: StateFlow<StereoSpectrum>
     val sampleRate: StateFlow<Int>
     val finished: SharedFlow<Unit>
     val errors: SharedFlow<PodcastPlayerError>

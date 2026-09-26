@@ -1,13 +1,14 @@
 package dev.dertyp.synara.ui.components.visualizer
 
 import dev.dertyp.synara.settings.*
+import kotlin.math.min
 import kotlin.math.pow
 
 interface VisualizerReaction {
     fun update(
-        fft: FloatArray,
+        spectra: Array<FloatArray>,
         isPlaying: Boolean,
-        heights: FloatArray,
+        heights: Array<FloatArray>,
         bandCount: Int,
         heightPx: Float,
         minHeightPx: Float,
@@ -16,6 +17,20 @@ interface VisualizerReaction {
 }
 
 const val DEFAULT_SAMPLE_RATE = 44100
+
+internal fun channelCount(spectra: Array<FloatArray>, heights: Array<FloatArray>): Int = min(spectra.size, heights.size)
+
+internal fun sharedBandCount(heights: Array<FloatArray>, channels: Int, bandCount: Int): Int {
+    var count = bandCount
+    for (c in 0 until channels) count = min(count, heights[c].size)
+    return count
+}
+
+internal fun sharedBinCount(spectra: Array<FloatArray>, channels: Int): Int {
+    var bins = spectra[0].size
+    for (c in 1 until channels) bins = min(bins, spectra[c].size)
+    return bins
+}
 
 fun speedFactor(speed: Float): Float = 2f.pow((speed.coerceIn(0f, 1f) - 0.5f) * 4f)
 

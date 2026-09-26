@@ -82,6 +82,9 @@
     <string name="visualizer_render_wave">Welle</string>
     <string name="visualizer_mirrored">Gespiegelt</string>
     <string name="visualizer_mirrored_summary">Bass in der Mitte, nach außen verteilt</string>
+    <string name="visualizer_stereo">Stereo</string>
+    <string name="visualizer_stereo_split_summary">Linke und rechte Hälfte</string>
+    <string name="visualizer_stereo_overlay_summary">Links und rechts überlagert</string>
     <string name="visualizer_anchor">Ausrichtung</string>
     <string name="visualizer_anchor_center">Mitte</string>
     <string name="visualizer_anchor_bottom">Unten</string>

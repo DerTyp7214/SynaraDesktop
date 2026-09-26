@@ -25,17 +25,19 @@ class SynaraReaction(
     private var edgesKey = -1L
 
     override fun update(
-        fft: FloatArray,
+        spectra: Array<FloatArray>,
         isPlaying: Boolean,
-        heights: FloatArray,
+        heights: Array<FloatArray>,
         bandCount: Int,
         heightPx: Float,
         minHeightPx: Float,
         deltaMs: Long
     ) {
-        val count = bandCount.coerceAtMost(heights.size)
+        val channels = channelCount(spectra, heights)
+        if (channels <= 0) return
+        val count = sharedBandCount(heights, channels, bandCount)
         if (count <= 0) return
-        val binCount = fft.size
+        val binCount = sharedBinCount(spectra, channels)
         val active = isPlaying && binCount > 1
 
         if (active) {
@@ -57,25 +59,29 @@ class SynaraReaction(
         val lastBin = if (active) lastBinOf(edges, binCount) else 0
         var loudest = 0f
 
-        for (i in 0 until count) {
-            val targetHeight = if (active) {
-                val startBin = floor(edges[i]).toInt().coerceIn(0, lastBin)
-                val endBin = floor(edges[i + 1]).toInt().coerceIn(startBin, lastBin)
-                var maxMagnitude = 0f
-                for (j in startBin..endBin) {
-                    maxMagnitude = maxOf(maxMagnitude, fft[j])
+        for (c in 0 until channels) {
+            val fft = spectra[c]
+            val channelHeights = heights[c]
+            for (i in 0 until count) {
+                val targetHeight = if (active) {
+                    val startBin = floor(edges[i]).toInt().coerceIn(0, lastBin)
+                    val endBin = floor(edges[i + 1]).toInt().coerceIn(startBin, lastBin)
+                    var maxMagnitude = 0f
+                    for (j in startBin..endBin) {
+                        maxMagnitude = maxOf(maxMagnitude, fft[j])
+                    }
+                    if (maxMagnitude > loudest) loudest = maxMagnitude
+                    val db = if (maxMagnitude > SILENCE) 20f * log10(maxMagnitude) else floorDb
+                    val targetNormalized = ((db - floorDb) / (topDb - floorDb)).coerceIn(0f, 1f)
+                    (targetNormalized * heightPx).coerceAtLeast(minHeightPx)
+                } else {
+                    minHeightPx
                 }
-                if (maxMagnitude > loudest) loudest = maxMagnitude
-                val db = if (maxMagnitude > SILENCE) 20f * log10(maxMagnitude) else floorDb
-                val targetNormalized = ((db - floorDb) / (topDb - floorDb)).coerceIn(0f, 1f)
-                (targetNormalized * heightPx).coerceAtLeast(minHeightPx)
-            } else {
-                minHeightPx
-            }
 
-            val prev = heights[i]
-            val alpha = if (targetHeight > prev) riseAlpha else fallAlpha
-            heights[i] = prev + (targetHeight - prev) * alpha
+                val prev = channelHeights[i]
+                val alpha = if (targetHeight > prev) riseAlpha else fallAlpha
+                channelHeights[i] = prev + (targetHeight - prev) * alpha
+            }
         }
 
         if (autoGain && active && loudest > SILENCE) adjustCeiling(20f * log10(loudest), deltaMs)

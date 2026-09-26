@@ -15,6 +15,7 @@ interface AudioPlayer {
     val bitsPerSample: StateFlow<Int>
     val bitRate: StateFlow<Long>
     val fftData: StateFlow<FloatArray>
+    val stereoFftData: StateFlow<StereoSpectrum>
 
     val availableOutputDevices: StateFlow<List<String>>
     val currentOutputDevice: StateFlow<String?>

@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -31,6 +32,7 @@ import dev.dertyp.synara.ui.models.PerformanceMonitor
 import dev.dertyp.synara.utils.OSUtils
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import org.jetbrains.skia.BlendMode
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.VertexMode
@@ -42,6 +44,76 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
+import org.jetbrains.skia.Canvas as SkiaCanvas
+
+private const val NUM_BUCKETS = 100
+private const val HEX_CORNERS = 6
+private const val HEX_VERTICES = HEX_CORNERS + 1
+private const val HEX_INDICES = HEX_CORNERS * 3
+private const val CHUNK_PARTICLES = 9_000
+private const val PARTICLE_MARGIN = 100f
+private const val OPAQUE_BLACK = 0xFF000000.toInt()
+
+internal class ParticleSystem(val capacity: Int) {
+    val x = FloatArray(capacity)
+    val y = FloatArray(capacity)
+    val life = FloatArray(capacity)
+    private val vx = FloatArray(capacity)
+    private val vy = FloatArray(capacity)
+    private val decay = FloatArray(capacity)
+    var count = 0
+        private set
+
+    fun spawn(spawnCount: Int, originX: Float, originY: Float, offset: Int, velocity: Float, decayRate: Float) {
+        var current = count
+        repeat(spawnCount) {
+            if (current < capacity) {
+                val angle = Random.nextDouble(0.0, 2.0 * PI)
+                val cosA = cos(angle).toFloat()
+                val sinA = sin(angle).toFloat()
+
+                x[current] = originX + cosA * offset * (1f - (.4f * Random.nextFloat()))
+                y[current] = originY + sinA * offset * (1f - (.4f * Random.nextFloat()))
+                vx[current] = cosA * velocity
+                vy[current] = sinA * velocity
+                decay[current] = decayRate
+                life[current] = 1f
+                current++
+            }
+        }
+        count = current
+    }
+
+    fun update(normalizedDt: Float, width: Float, height: Float) {
+        var current = count
+        var i = 0
+        while (i < current) {
+            x[i] += vx[i] * normalizedDt
+            y[i] += vy[i] * normalizedDt
+            life[i] -= decay[i] * normalizedDt
+
+            val isOutOfBounds = x[i] < -PARTICLE_MARGIN || x[i] > width + PARTICLE_MARGIN ||
+                    y[i] < -PARTICLE_MARGIN || y[i] > height + PARTICLE_MARGIN
+
+            val isDead = life[i] <= 0f || isOutOfBounds
+            if (isDead) {
+                val lastIdx = current - 1
+                if (i != lastIdx) {
+                    x[i] = x[lastIdx]
+                    y[i] = y[lastIdx]
+                    vx[i] = vx[lastIdx]
+                    vy[i] = vy[lastIdx]
+                    decay[i] = decay[lastIdx]
+                    life[i] = life[lastIdx]
+                }
+                current--
+            } else {
+                i++
+            }
+        }
+        count = current
+    }
+}
 
 @Composable
 actual fun ParticleViewGpu(
@@ -78,12 +150,7 @@ actual fun ParticleViewGpu(
         if (OSUtils.isMac) d / 2f else d
     }
 
-    val particleX = remember(particleCap) { FloatArray(particleCap) }
-    val particleY = remember(particleCap) { FloatArray(particleCap) }
-    val particleVX = remember(particleCap) { FloatArray(particleCap) }
-    val particleVY = remember(particleCap) { FloatArray(particleCap) }
-    val particleDecay = remember(particleCap) { FloatArray(particleCap) }
-    val particleLife = remember(particleCap) { FloatArray(particleCap) }
+    val particles = remember(particleCap) { ParticleSystem(particleCap) }
     var activeCount by remember(particleCap) { mutableIntStateOf(0) }
 
     var tick by remember { mutableLongStateOf(0L) }
@@ -116,13 +183,26 @@ actual fun ParticleViewGpu(
 
     LaunchedEffect(particleCap) {
         var frameTime = 0L
+        var lastInterval = 0L
         var smoothedIntensity = 0f
         var lastStatsTime = 0L
         var frameCount = 0
 
         while (true) {
+            var resumed = false
+            if (activeCount == 0 && !emitParticles && !isObserved) {
+                snapshotFlow { activeCount == 0 && !emitParticles && !isObserved }.first { !it }
+                resumed = true
+            }
+
             withFrameNanos { time ->
-                val dt = if (frameTime == 0L) 0f else (time - frameTime) / 1E9f
+                val interval = when {
+                    frameTime == 0L -> 0L
+                    resumed -> lastInterval
+                    else -> time - frameTime
+                }
+                lastInterval = interval
+                val dt = interval / 1E9f
                 val deltaMillis = dt * 1000f
                 frameTime = time
 
@@ -135,78 +215,158 @@ actual fun ParticleViewGpu(
                     }
                 }
 
-                val target = if (emitParticles) audioIntensity else 0f
+                val emitting = emitParticles
+                val target = if (emitting) audioIntensity else 0f
                 val lerpFactor = (deltaMillis / 12.5f).coerceIn(0f, 1f)
                 val alpha = if (target > smoothedIntensity) 1f - 0.15f.pow(lerpFactor) else 1f - 0.90f.pow(lerpFactor)
                 smoothedIntensity += (target - smoothedIntensity) * alpha
 
                 val normalizedDt = (dt * 60f).coerceIn(0f, 2f)
-                var currentCount = activeCount
 
-                if (emitParticles && particleMultiplier > 0) {
+                val multiplier = particleMultiplier
+                if (emitting && multiplier > 0) {
                     val intensity = smoothedIntensity
-                    val baseSpeed = (2..5).random() * intensity
+                    val baseSpeed = Random.nextInt(2, 6) * intensity
                     val speed = baseSpeed * speedMultiplier * .6f
                     val velocity = (speed * speed * speed / 4f).coerceAtLeast(1f)
                     val decayRate = max(0.001f * baseSpeed, 0.0005f)
 
-                    val x = if (center.value.isSpecified) center.value.x else canvasSize.width / 2f
-                    val y = if (center.value.isSpecified) center.value.y else canvasSize.height / 2f
+                    val centerValue = center.value
+                    val x = if (centerValue.isSpecified) centerValue.x else canvasSize.width / 2f
+                    val y = if (centerValue.isSpecified) centerValue.y else canvasSize.height / 2f
 
-                    val spawnCount = (baseSpeed.pow(particleMultiplier) * intensity * 2).roundToInt()
+                    val spawnCount = (baseSpeed.pow(multiplier) * intensity * 2).roundToInt()
                         .coerceAtMost(2000)
 
-                    repeat(spawnCount) {
-                        if (currentCount < particleCap) {
-                            val angle = Random.nextDouble(0.0, 2.0 * PI)
-                            val cosA = cos(angle).toFloat()
-                            val sinA = sin(angle).toFloat()
-
-                            particleX[currentCount] = x + cosA * centerOffsetPx * (1f - (.4f * Random.nextFloat()))
-                            particleY[currentCount] = y + sinA * centerOffsetPx * (1f - (.4f * Random.nextFloat()))
-                            particleVX[currentCount] = cosA * velocity
-                            particleVY[currentCount] = sinA * velocity
-                            particleDecay[currentCount] = decayRate
-                            particleLife[currentCount] = 1f
-                            currentCount++
-                        }
-                    }
+                    particles.spawn(spawnCount, x, y, centerOffsetPx, velocity, decayRate)
                 }
 
-                var i = 0
-                while (i < currentCount) {
-                    particleX[i] += particleVX[i] * normalizedDt
-                    particleY[i] += particleVY[i] * normalizedDt
-                    particleLife[i] -= particleDecay[i] * normalizedDt
+                particles.update(normalizedDt, canvasSize.width, canvasSize.height)
 
-                    val margin = 100f
-                    val isOutOfBounds = particleX[i] < -margin || particleX[i] > canvasSize.width + margin ||
-                            particleY[i] < -margin || particleY[i] > canvasSize.height + margin
-
-                    val isDead = particleLife[i] <= 0f || isOutOfBounds
-                    if (isDead) {
-                        val lastIdx = currentCount - 1
-                        if (i != lastIdx) {
-                            particleX[i] = particleX[lastIdx]
-                            particleY[i] = particleY[lastIdx]
-                            particleVX[i] = particleVX[lastIdx]
-                            particleVY[i] = particleVY[lastIdx]
-                            particleDecay[i] = particleDecay[lastIdx]
-                            particleLife[i] = particleLife[lastIdx]
-                        }
-                        currentCount--
-                    } else {
-                        i++
-                    }
-                }
-
-                activeCount = currentCount
+                activeCount = particles.count
                 tick = time
             }
         }
     }
 
-    if (activeCount == 0 && !isPlayerExpanded) return
+    val hidden by remember { derivedStateOf { activeCount == 0 && !isPlayerExpanded } }
+    if (hidden) return
+
+    ParticleCanvas(
+        modifier = modifier
+            .fillMaxSize()
+            .onSizeChanged { size ->
+                if (size.width > 0 && size.height > 0) {
+                    canvasSize.width = size.width.toFloat()
+                    canvasSize.height = size.height.toFloat()
+                }
+            },
+        color = color,
+        highlightColor = highlightColor,
+        particleX = particles.x,
+        particleY = particles.y,
+        particleLife = particles.life,
+        count = { activeCount },
+        tick = { tick }
+    )
+}
+
+private class ParticleMesh {
+    private val sizeClasses = IntArray(8) { 64 shl it } + CHUNK_PARTICLES
+    private val positions = arrayOfNulls<FloatArray>(sizeClasses.size)
+    private val indices = arrayOfNulls<ShortArray>(sizeClasses.size)
+    private val colors = arrayOfNulls<IntArray>(sizeClasses.size)
+
+    private var sizeClass = 0
+    private var colored = false
+    private var particleCount = 0
+
+    val isFull: Boolean get() = particleCount == CHUNK_PARTICLES
+
+    fun begin(remaining: Int, withColors: Boolean) {
+        val needed = remaining.coerceAtMost(CHUNK_PARTICLES)
+        var c = 0
+        while (sizeClasses[c] < needed) c++
+        sizeClass = c
+        particleCount = 0
+        if (positions[c] == null) {
+            val size = sizeClasses[c]
+            positions[c] = FloatArray(size * HEX_VERTICES * 2)
+            indices[c] = ShortArray(size * HEX_INDICES).also { fanIndices(it, size) }
+        }
+        colored = withColors
+        if (withColors && colors[c] == null) colors[c] = IntArray(sizeClasses[c] * HEX_VERTICES)
+    }
+
+    fun add(x: Float, y: Float, radius: Float, hexOffsets: FloatArray, color: Int) {
+        val cols = colors[sizeClass]!!
+        cols.fill(color, particleCount * HEX_VERTICES, (particleCount + 1) * HEX_VERTICES)
+        add(x, y, radius, hexOffsets)
+    }
+
+    fun add(x: Float, y: Float, radius: Float, hexOffsets: FloatArray) {
+        val pos = positions[sizeClass]!!
+        var v = particleCount * HEX_VERTICES * 2
+        pos[v++] = x
+        pos[v++] = y
+        for (j in 0 until HEX_CORNERS) {
+            pos[v++] = x + hexOffsets[j * 2] * radius
+            pos[v++] = y + hexOffsets[j * 2 + 1] * radius
+        }
+        particleCount++
+    }
+
+    fun draw(canvas: SkiaCanvas, paint: Paint) {
+        if (particleCount == 0) return
+        val pos = positions[sizeClass]!!
+        val used = particleCount * HEX_VERTICES * 2
+        if (used < pos.size) {
+            val lastX = pos[used - 2]
+            val lastY = pos[used - 1]
+            var v = used
+            while (v < pos.size) {
+                pos[v++] = lastX
+                pos[v++] = lastY
+            }
+        }
+        if (colored) {
+            val cols = colors[sizeClass]!!
+            val usedVertices = particleCount * HEX_VERTICES
+            cols.fill(cols[usedVertices - 1], usedVertices, cols.size)
+            canvas.drawVertices(VertexMode.TRIANGLES, pos, cols, null, indices[sizeClass], BlendMode.DST, paint)
+        } else {
+            canvas.drawVertices(VertexMode.TRIANGLES, pos, null, null, indices[sizeClass], BlendMode.SRC_OVER, paint)
+        }
+        particleCount = 0
+    }
+
+    private fun fanIndices(target: ShortArray, size: Int) {
+        var k = 0
+        for (p in 0 until size) {
+            val base = p * HEX_VERTICES
+            for (j in 0 until HEX_CORNERS) {
+                target[k++] = base.toShort()
+                target[k++] = (base + 1 + j).toShort()
+                target[k++] = (base + 1 + (j + 1) % HEX_CORNERS).toShort()
+            }
+        }
+    }
+}
+
+@Composable
+internal fun ParticleCanvas(
+    modifier: Modifier,
+    color: Color,
+    highlightColor: Color,
+    particleX: FloatArray,
+    particleY: FloatArray,
+    particleLife: FloatArray,
+    count: () -> Int,
+    tick: () -> Long,
+    onSingleDraw: ((Boolean) -> Unit)? = null,
+) {
+    val density = LocalDensity.current.density
+    val particleCap = particleX.size
 
     val paint = remember {
         Paint().apply {
@@ -220,11 +380,12 @@ actual fun ParticleViewGpu(
         }
     }
 
-    val numBuckets = 100
-    val bucketCounts = remember { IntArray(numBuckets) }
-    val bucketStarts = remember { IntArray(numBuckets + 1) }
+    val bucketCounts = remember { IntArray(NUM_BUCKETS) }
+    val bucketStarts = remember { IntArray(NUM_BUCKETS + 1) }
+    val bucketOffsets = remember { IntArray(NUM_BUCKETS) }
     val sortedIndices = remember(particleCap) { IntArray(particleCap) }
-    val bucketPositions = remember(particleCap) { FloatArray(particleCap * 36) }
+    val bucketColors = remember { IntArray(NUM_BUCKETS) }
+    val mesh = remember { ParticleMesh() }
 
     val hexOffsets = remember {
         FloatArray(12).apply {
@@ -236,18 +397,10 @@ actual fun ParticleViewGpu(
         }
     }
 
-    Canvas(
-        modifier = modifier
-            .fillMaxSize()
-            .onSizeChanged { size ->
-                if (size.width > 0 && size.height > 0) {
-                    canvasSize.width = size.width.toFloat()
-                    canvasSize.height = size.height.toFloat()
-                }
-            }
-    ) {
+    Canvas(modifier = modifier) {
         @Suppress("unused")
-        val redraw = tick
+        val redraw = tick()
+        val activeCount = count()
 
         val pSize = 2f * density
 
@@ -267,80 +420,94 @@ actual fun ParticleViewGpu(
             bucketCounts.fill(0)
 
             for (i in 0 until activeCount) {
-                val bucket = (particleLife[i].coerceIn(0f, 0.999f) * numBuckets).toInt()
+                val bucket = (particleLife[i].coerceIn(0f, 0.999f) * NUM_BUCKETS).toInt()
                 bucketCounts[bucket]++
             }
 
             bucketStarts[0] = 0
-            for (b in 0 until numBuckets) {
+            for (b in 0 until NUM_BUCKETS) {
                 bucketStarts[b + 1] = bucketStarts[b] + bucketCounts[b]
             }
 
-            val currentOffsets = bucketCounts.copyOf()
-            currentOffsets.fill(0)
+            bucketOffsets.fill(0)
             for (i in 0 until activeCount) {
-                val bucket = (particleLife[i].coerceIn(0f, 0.999f) * numBuckets).toInt()
-                val pos = bucketStarts[bucket] + currentOffsets[bucket]
+                val bucket = (particleLife[i].coerceIn(0f, 0.999f) * NUM_BUCKETS).toInt()
+                val pos = bucketStarts[bucket] + bucketOffsets[bucket]
                 sortedIndices[pos] = i
-                currentOffsets[bucket]++
+                bucketOffsets[bucket]++
             }
 
-            for (b in 0 until numBuckets) {
-                val count = bucketCounts[b]
-                if (count == 0) continue
+            var allOpaque = true
+            for (b in 0 until NUM_BUCKETS) {
+                if (bucketCounts[b] == 0) continue
 
-                val start = bucketStarts[b]
-                val midLife = (b + 0.5f) / numBuckets
+                val midLife = (b + 0.5f) / NUM_BUCKETS
 
                 val curTopA = topA * midLife
                 val outA = curTopA + botA * (1f - curTopA)
-                
-                if (outA > 0f) {
+
+                bucketColors[b] = if (outA > 0f) {
                     val invTopA = 1f - curTopA
                     val outR = (topR * curTopA + botR * botA * invTopA) / outA
                     val outG = (topG * curTopA + botG * botA * invTopA) / outA
                     val outB = (topB * curTopA + botB * botA * invTopA) / outA
-                    
+
                     val rInt = (outR * 255f + 0.5f).toInt().coerceIn(0, 255)
                     val gInt = (outG * 255f + 0.5f).toInt().coerceIn(0, 255)
                     val bInt = (outB * 255f + 0.5f).toInt().coerceIn(0, 255)
                     val aInt = (outA * 255f + 0.5f).toInt().coerceIn(0, 255)
-                    paint.color = (aInt shl 24) or (rInt shl 16) or (gInt shl 8) or bInt
+                    (aInt shl 24) or (rInt shl 16) or (gInt shl 8) or bInt
                 } else {
-                    paint.color = 0
+                    0
                 }
+                if (bucketColors[b] ushr 24 != 255) allOpaque = false
+            }
 
-                val radius = pSize * midLife
-                var vIdx = 0
+            onSingleDraw?.invoke(allOpaque)
 
-                for (i in 0 until count) {
-                    val pIdx = sortedIndices[start + i]
-                    val x = particleX[pIdx]
-                    val y = particleY[pIdx]
+            if (allOpaque) {
+                paint.color = OPAQUE_BLACK
+                var remaining = activeCount
+                if (remaining > 0) mesh.begin(remaining, true)
+                for (b in 0 until NUM_BUCKETS) {
+                    val bucketCount = bucketCounts[b]
+                    if (bucketCount == 0) continue
 
-                    for (j in 0 until 6) {
-                        val nextJ = (j + 1) % 6
+                    val start = bucketStarts[b]
+                    val radius = pSize * ((b + 0.5f) / NUM_BUCKETS)
+                    val bucketColor = bucketColors[b]
 
-                        bucketPositions[vIdx++] = x
-                        bucketPositions[vIdx++] = y
-
-                        bucketPositions[vIdx++] = x + hexOffsets[j * 2] * radius
-                        bucketPositions[vIdx++] = y + hexOffsets[j * 2 + 1] * radius
-
-                        bucketPositions[vIdx++] = x + hexOffsets[nextJ * 2] * radius
-                        bucketPositions[vIdx++] = y + hexOffsets[nextJ * 2 + 1] * radius
+                    for (i in 0 until bucketCount) {
+                        val pIdx = sortedIndices[start + i]
+                        mesh.add(particleX[pIdx], particleY[pIdx], radius, hexOffsets, bucketColor)
+                        remaining--
+                        if (mesh.isFull) {
+                            mesh.draw(skiaCanvas, paint)
+                            if (remaining > 0) mesh.begin(remaining, true)
+                        }
                     }
                 }
+                mesh.draw(skiaCanvas, paint)
+            } else {
+                for (b in 0 until NUM_BUCKETS) {
+                    val bucketCount = bucketCounts[b]
+                    if (bucketCount == 0) continue
 
-                skiaCanvas.drawVertices(
-                    VertexMode.TRIANGLES,
-                    bucketPositions.copyOfRange(0, vIdx),
-                    null,
-                    null,
-                    null,
-                    BlendMode.SRC_OVER,
-                    paint
-                )
+                    val start = bucketStarts[b]
+                    val radius = pSize * ((b + 0.5f) / NUM_BUCKETS)
+                    paint.color = bucketColors[b]
+
+                    mesh.begin(bucketCount, false)
+                    for (i in 0 until bucketCount) {
+                        val pIdx = sortedIndices[start + i]
+                        mesh.add(particleX[pIdx], particleY[pIdx], radius, hexOffsets)
+                        if (mesh.isFull) {
+                            mesh.draw(skiaCanvas, paint)
+                            mesh.begin(bucketCount - i - 1, false)
+                        }
+                    }
+                    mesh.draw(skiaCanvas, paint)
+                }
             }
         }
     }

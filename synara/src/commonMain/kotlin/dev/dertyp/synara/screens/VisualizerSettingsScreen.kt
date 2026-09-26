@@ -26,6 +26,7 @@ import dev.dertyp.synara.Config
 import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.PlayerSwitcher
+import dev.dertyp.synara.player.StereoSpectrum
 import dev.dertyp.synara.settings.*
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.ColorPicker
@@ -240,42 +241,63 @@ class VisualizerSettingsScreen : Screen {
     @Composable
     private fun rememberSyntheticSource(enabled: Boolean): VisualizerSource {
         val fft = remember { MutableStateFlow(FloatArray(SYNTHETIC_BINS)) }
+        val stereoFft = remember { MutableStateFlow(StereoSpectrum.EMPTY) }
         val playing = remember { MutableStateFlow(true) }
         val sampleRate = remember { MutableStateFlow(SYNTHETIC_SAMPLE_RATE) }
-        val source = remember { VisualizerSource(fftData = fft.asStateFlow(), isPlaying = playing.asStateFlow(), sampleRate = sampleRate.asStateFlow()) }
+        val source = remember {
+            VisualizerSource(
+                fftData = fft.asStateFlow(),
+                stereoFftData = stereoFft.asStateFlow(),
+                isPlaying = playing.asStateFlow(),
+                sampleRate = sampleRate.asStateFlow()
+            )
+        }
 
         LaunchedEffect(enabled) {
             if (!enabled) return@LaunchedEffect
             val random = Random(7)
             val jitter = FloatArray(SYNTHETIC_BINS)
+            val stereoBuffers = Array(2) { StereoSpectrum(FloatArray(SYNTHETIC_BINS), FloatArray(SYNTHETIC_BINS)) }
+            val monoBuffers = Array(2) { FloatArray(SYNTHETIC_BINS) }
+            var buffer = 0
             var startNanos = -1L
             while (true) {
                 withFrameNanos { now ->
                     if (startNanos < 0) startNanos = now
                     val t = (now - startNanos) / 1_000_000_000f
-                    fft.value = syntheticSpectrum(t, random, jitter)
+                    val stereo = stereoBuffers[buffer]
+                    val mono = monoBuffers[buffer]
+                    buffer = 1 - buffer
+                    syntheticStereoSpectrum(t, random, jitter, stereo.left, stereo.right)
+                    stereoFft.value = stereo
+                    for (i in 0 until SYNTHETIC_BINS) mono[i] = (stereo.left[i] + stereo.right[i]) * 0.5f
+                    fft.value = mono
                 }
             }
         }
         return source
     }
 
-    private fun syntheticSpectrum(t: Float, random: Random, jitter: FloatArray): FloatArray {
+    private fun syntheticStereoSpectrum(t: Float, random: Random, jitter: FloatArray, left: FloatArray, right: FloatArray) {
         val binHz = SYNTHETIC_SAMPLE_RATE / 2f / SYNTHETIC_BINS
         val beatPhase = (t * BEATS_PER_SECOND) % 1f
         val kick = exp(-beatPhase * 7f)
         val sweepCenter = log2(300f) + (sin(t * 0.35f) * 0.5f + 0.5f) * (log2(9000f) - log2(300f))
         val shimmer = 0.5f + 0.5f * sin(t * 2.3f)
-        return FloatArray(SYNTHETIC_BINS) { i ->
+        val pan = sin(t * (2f * PI.toFloat() / STEREO_PAN_PERIOD_SECONDS))
+        val leftGain = 0.5f + 0.5f * pan
+        val rightGain = 1f - leftGain
+        for (i in 0 until SYNTHETIC_BINS) {
             val hz = max(i * binHz, 1f)
             val octave = log2(hz)
             jitter[i] = jitter[i] * 0.7f + (random.nextFloat() * 2f - 1f) * 0.3f
-            var db = -24f - 5.5f * log2(1f + hz / 150f)
-            db += 16f * kick * exp(-((octave - log2(70f)) / 0.8f).pow(2))
-            db += 10f * exp(-((octave - sweepCenter) / 0.6f).pow(2))
-            db += 6f * shimmer * exp(-((octave - log2(3500f)) / 1.2f).pow(2))
-            db += jitter[i] * 5f
-            10f.pow(db / 20f).coerceIn(0f, 1f)
+            val centeredDb = -24f - 5.5f * log2(1f + hz / 150f) +
+                16f * kick * exp(-((octave - log2(70f)) / 0.8f).pow(2)) +
+                jitter[i] * 5f
+            val midDb = 10f * exp(-((octave - sweepCenter) / 0.6f).pow(2))
+            val shimmerDb = 6f * shimmer * exp(-((octave - log2(3500f)) / 1.2f).pow(2))
+            left[i] = 10f.pow((centeredDb + (midDb + shimmerDb) * leftGain) / 20f).coerceIn(0f, 1f)
+            right[i] = 10f.pow((centeredDb + (midDb + shimmerDb) * rightGain) / 20f).coerceIn(0f, 1f)
         }
     }
 
@@ -622,6 +644,12 @@ class VisualizerSettingsScreen : Screen {
             label = { it.label }
         ) { p, v -> p.copy(reaction = v) }
 
+        PresetSwitch(
+            title = Res.string.visualizer_stereo,
+            summary = if (preset.mirrored) Res.string.visualizer_stereo_split_summary else Res.string.visualizer_stereo_overlay_summary,
+            checked = preset.stereo
+        ) { p, v -> p.copy(stereo = v) }
+
         PresetSlider(Res.string.visualizer_low_hz, preset.lowHz, VisualizerLimits.lowHz, 5f, ::formatHz) { p, v -> p.copy(lowHz = v) }
         PresetSlider(Res.string.visualizer_high_hz, preset.highHz, VisualizerLimits.highHz, 500f, ::formatHz) { p, v -> p.copy(highHz = v) }
 
@@ -725,6 +753,7 @@ class VisualizerSettingsScreen : Screen {
         const val SYNTHETIC_BINS = 512
         const val SYNTHETIC_SAMPLE_RATE = 44100
         const val BEATS_PER_SECOND = 2f
+        const val STEREO_PAN_PERIOD_SECONDS = 4f
         const val MIN_DB_WINDOW = 5f
     }
 }

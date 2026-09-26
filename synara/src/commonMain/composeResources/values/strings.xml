@@ -82,6 +82,9 @@
     <string name="visualizer_render_wave">Wave</string>
     <string name="visualizer_mirrored">Mirrored</string>
     <string name="visualizer_mirrored_summary">Bass in the middle, spreading outward</string>
+    <string name="visualizer_stereo">Stereo</string>
+    <string name="visualizer_stereo_split_summary">Left and right halves</string>
+    <string name="visualizer_stereo_overlay_summary">Left and right overlaid</string>
     <string name="visualizer_anchor">Alignment</string>
     <string name="visualizer_anchor_center">Center</string>
     <string name="visualizer_anchor_bottom">Bottom</string>

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.ColorFilter
@@ -66,21 +67,15 @@ fun BlurredVideoCoverBackground(
             val coverLuminance = rememberCoverLuminance(coverId)
 
             var manualSmoothedIntensity by remember { mutableFloatStateOf(0f) }
-            LaunchedEffect(audioIntensity, isPlaying) {
-                var lastTime = 0L
+            val launchIntensity = Snapshot.withoutReadObservation { audioIntensity }
+            LaunchedEffect(isPlaying) {
+                val clock = BackgroundIntensityClock(launchIntensity)
                 while (true) {
                     withFrameMillis { time ->
-                        val dt = if (lastTime == 0L) 16L else time - lastTime
-                        lastTime = time
-
-                        val target = if (isPlaying) audioIntensity else 0f
-                        val lerpFactor = (dt / 16.67f).coerceIn(0f, 1f)
-
-                        val riseAlpha = 1f - 0.70f.pow(lerpFactor)
-                        val fallAlpha = 1f - 0.96f.pow(lerpFactor)
-
-                        val alphaValue = if (target > manualSmoothedIntensity) riseAlpha else fallAlpha
-                        manualSmoothedIntensity += (target - manualSmoothedIntensity) * alphaValue
+                        val intensity = audioIntensity
+                        val dt = clock.frameDelta(time, intensity)
+                        val target = if (isPlaying) intensity else 0f
+                        manualSmoothedIntensity = smoothBackgroundIntensity(manualSmoothedIntensity, target, dt)
                     }
                 }
             }
@@ -89,13 +84,13 @@ fun BlurredVideoCoverBackground(
 
             val audioModifier = if (audioReactive) {
                 Modifier.adjustColors(
-                    saturation = .4f + manualSmoothedIntensity.pow(2),
-                    brightness = baseBrightness + manualSmoothedIntensity.pow(2) * (0.3f * (1f - coverLuminance * 0.5f))
+                    saturation = { .4f + manualSmoothedIntensity.pow(2) },
+                    brightness = { baseBrightness + manualSmoothedIntensity.pow(2) * (0.3f * (1f - coverLuminance * 0.5f)) }
                 )
             } else {
                 Modifier.adjustColors(
-                    saturation = 1f,
-                    brightness = baseBrightness
+                    saturation = { 1f },
+                    brightness = { baseBrightness }
                 )
             }
 
@@ -169,16 +164,42 @@ fun BlurredVideoCoverBackground(
     }
 }
 
+internal class BackgroundIntensityClock(private var keyIntensity: Float) {
+    private var lastTime = 0L
+
+    fun frameDelta(time: Long, intensity: Float): Long {
+        val dt = if (lastTime == 0L) 16L else time - lastTime
+        lastTime = time
+        if (!intensity.equals(keyIntensity)) {
+            keyIntensity = intensity
+            lastTime = 0L
+        }
+        return dt
+    }
+}
+
+internal fun smoothBackgroundIntensity(current: Float, target: Float, dt: Long): Float {
+    val lerpFactor = (dt / 16.67f).coerceIn(0f, 1f)
+
+    val riseAlpha = 1f - 0.70f.pow(lerpFactor)
+    val fallAlpha = 1f - 0.96f.pow(lerpFactor)
+
+    val alphaValue = if (target > current) riseAlpha else fallAlpha
+    return current + (target - current) * alphaValue
+}
+
 private fun Modifier.adjustColors(
-    saturation: Float = 1f,
-    brightness: Float = 1f
+    saturation: () -> Float,
+    brightness: () -> Float
 ): Modifier = this.graphicsLayer {
+    val saturationValue = saturation()
+    val brightnessValue = brightness()
     val matrix = ColorMatrix().apply {
-        setToSaturation(saturation)
+        setToSaturation(saturationValue)
 
         for (row in 0..2) {
             for (col in 0..4) {
-                this[row, col] *= brightness
+                this[row, col] *= brightnessValue
             }
         }
     }

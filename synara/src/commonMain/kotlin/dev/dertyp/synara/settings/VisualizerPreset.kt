@@ -29,6 +29,7 @@ data class VisualizerPreset(
     val shape: VisualizerShape = VisualizerShape.Strip,
     val renderMode: VisualizerRenderMode = VisualizerRenderMode.Bars,
     val mirrored: Boolean = true,
+    val stereo: Boolean = true,
     val anchor: VisualizerAnchor = VisualizerAnchor.Center,
     val barWidth: Float = 5f,
     val barGap: Float = 1f,

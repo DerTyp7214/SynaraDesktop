@@ -134,8 +134,15 @@ class JvmAudioPlayer(
     private val _currentOutputDevice = MutableStateFlow<String?>(null)
     override val currentOutputDevice = _currentOutputDevice.asStateFlow()
 
-    private val fftAnalyzer = FftAnalyzer(1024)
+    private val fftAnalyzer = FftAnalyzer(FFT_SIZE)
     override val fftData = fftAnalyzer.fftData
+
+    private val _stereoFftData = MutableStateFlow(StereoSpectrum.EMPTY)
+    override val stereoFftData: StateFlow<StereoSpectrum> = _stereoFftData.asStateFlow()
+
+    private val fftMixScratch = ShortArray(FFT_SIZE)
+    private val fftLeftScratch = ShortArray(FFT_SIZE)
+    private val fftRightScratch = ShortArray(FFT_SIZE)
 
     private val _onFinished = MutableSharedFlow<Unit>()
     override val onFinished = _onFinished.asSharedFlow()
@@ -411,6 +418,8 @@ class JvmAudioPlayer(
                 val sampleRate = session.sampleRate
                 val channels = session.channels
                 loudnessCompensation = MonoMix.loudnessCompensation(channels).toFloat()
+                val mixWeights = MonoMix.coefficients(channels)
+                val (leftWeights, rightWeights) = MonoMix.sideCoefficients(channels)
                 val alFormat = nativeFormatFor(channels) ?: run {
                     val reason = if (supportsMultiChannelFormats) "unsupported channel count"
                     else "AL_EXT_MCFORMATS unavailable"
@@ -428,7 +437,7 @@ class JvmAudioPlayer(
                 var contentFramesPlayedBase = totalSamplesPlayedBase
                 val queuedChunks = ArrayDeque<PcmChunk>()
 
-                val fftQueue = ArrayDeque<Pair<Long, FloatArray>>()
+                val fftQueue = ArrayDeque<FftFrame>()
                 var totalSamplesQueued = totalSamplesPlayedBase
 
                 var uploadFailed = false
@@ -448,8 +457,12 @@ class JvmAudioPlayer(
                     val framesInThisBuffer = pcm.remaining() / channels
                     val fftStepFrames = 256
                     for (offset in 0 until framesInThisBuffer step fftStepFrames) {
-                        val mags = processFftAt(pcm, channels, offset)
-                        fftQueue.add((totalSamplesQueued + offset) to mags)
+                        fftQueue.add(
+                            processFftAt(
+                                pcm, channels, offset, totalSamplesQueued + offset,
+                                mixWeights, leftWeights, rightWeights
+                            )
+                        )
                     }
                     return framesInThisBuffer
                 }
@@ -559,15 +572,16 @@ class JvmAudioPlayer(
                     while (fftQueue.size > 1) {
                         val it = fftQueue.iterator()
                         it.next() // current
-                        if (it.next().first <= currentTotalSamples) {
+                        if (it.next().startFrame <= currentTotalSamples) {
                             fftQueue.removeFirst()
                         } else {
                             break
                         }
                     }
-                    fftQueue.peekFirst()?.let { (start, mags) ->
-                        if (start <= currentTotalSamples) {
-                            fftAnalyzer.updateData(mags)
+                    fftQueue.peekFirst()?.let { frame ->
+                        if (frame.startFrame <= currentTotalSamples) {
+                            fftAnalyzer.updateData(frame.mix)
+                            _stereoFftData.value = frame.stereo
                         }
                     }
 
@@ -591,33 +605,55 @@ class JvmAudioPlayer(
                 coroutineContext.cancelChildren()
                 _isPlaying.value = false
                 fftAnalyzer.updateData(FloatArray(fftAnalyzer.fftData.value.size))
+                _stereoFftData.value = StereoSpectrum.EMPTY
             }
         }
     }
 
-    private fun processFftAt(buffer: ShortBuffer, channels: Int, frameOffset: Int): FloatArray {
-        val fftSize = 1024
-        val pcm = ShortArray(fftSize)
+    private fun processFftAt(
+        buffer: ShortBuffer,
+        channels: Int,
+        frameOffset: Int,
+        startFrame: Long,
+        mixWeights: DoubleArray,
+        leftWeights: FloatArray,
+        rightWeights: FloatArray
+    ): FftFrame {
         val startPos = buffer.position() + (frameOffset * channels)
         val framesInFullBuffer = buffer.remaining() / channels
-        val framesToRead = (framesInFullBuffer - frameOffset).coerceAtMost(fftSize)
+        val framesToRead = (framesInFullBuffer - frameOffset).coerceIn(0, FFT_SIZE)
 
         if (channels == 1) {
             for (i in 0 until framesToRead) {
-                pcm[i] = buffer.get(startPos + i)
+                fftMixScratch[i] = buffer.get(startPos + i)
             }
-        } else {
-            val weights = MonoMix.coefficients(channels)
-            for (i in 0 until framesToRead) {
-                val offset = startPos + i * channels
-                var sum = 0.0
-                for (channel in 0 until channels) {
-                    sum += buffer.get(offset + channel) * weights[channel]
-                }
-                pcm[i] = MonoMix.toPcm16(sum)
-            }
+            fftMixScratch.fill(0, framesToRead, FFT_SIZE)
+            val mix = fftAnalyzer.getMagnitudes(fftMixScratch)
+            return FftFrame(startFrame, mix, StereoSpectrum(mix, mix))
         }
-        return fftAnalyzer.getMagnitudes(pcm)
+
+        for (i in 0 until framesToRead) {
+            val offset = startPos + i * channels
+            var sum = 0.0
+            var leftSum = 0.0
+            var rightSum = 0.0
+            for (channel in 0 until channels) {
+                val sample = buffer.get(offset + channel)
+                sum += sample * mixWeights[channel]
+                leftSum += sample * leftWeights[channel]
+                rightSum += sample * rightWeights[channel]
+            }
+            fftMixScratch[i] = MonoMix.toPcm16(sum)
+            fftLeftScratch[i] = MonoMix.toPcm16(leftSum)
+            fftRightScratch[i] = MonoMix.toPcm16(rightSum)
+        }
+        fftMixScratch.fill(0, framesToRead, FFT_SIZE)
+        fftLeftScratch.fill(0, framesToRead, FFT_SIZE)
+        fftRightScratch.fill(0, framesToRead, FFT_SIZE)
+        val mix = fftAnalyzer.getMagnitudes(fftMixScratch)
+        val left = fftAnalyzer.getMagnitudes(fftLeftScratch)
+        val right = fftAnalyzer.getMagnitudes(fftRightScratch)
+        return FftFrame(startFrame, mix, StereoSpectrum(left, right))
     }
 
     override fun release() {
@@ -639,7 +675,10 @@ class JvmAudioPlayer(
         }
     }
 
+    private class FftFrame(val startFrame: Long, val mix: FloatArray, val stereo: StereoSpectrum)
+
     companion object {
         private const val MAX_SOURCE_GAIN = 4f
+        private const val FFT_SIZE = 1024
     }
 }

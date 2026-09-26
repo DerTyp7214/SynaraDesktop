@@ -1,5 +1,6 @@
 package dev.dertyp.synara.player.audio
 
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
@@ -51,9 +52,11 @@ object MonoMix {
         }
     }
 
-    fun coefficients(channels: Int): DoubleArray {
-        if (channels <= 0) return DoubleArray(0)
+    private class SideVectors(val left: DoubleArray, val right: DoubleArray, val norm: Double)
 
+    private val sideVectorCache = ConcurrentHashMap<Int, SideVectors>()
+
+    private fun sideVectors(channels: Int): SideVectors = sideVectorCache.getOrPut(channels) {
         val left = DoubleArray(channels)
         val right = DoubleArray(channels)
         roles(channels).forEachIndexed { index, role ->
@@ -70,12 +73,30 @@ object MonoMix {
                 Role.SURROUND_RIGHT -> right[index] = ATTENUATION
             }
         }
+        SideVectors(left, right, max(left.sum(), right.sum()))
+    }
 
-        val norm = max(left.sum(), right.sum())
+    fun coefficients(channels: Int): DoubleArray {
+        if (channels <= 0) return DoubleArray(0)
+
+        val vectors = sideVectors(channels)
+        val norm = vectors.norm
         val gain = loudnessCompensation(channels)
         return DoubleArray(channels) {
-            if (norm > 0.0) gain * (left[it] + right[it]) / (2.0 * norm) else 0.0
+            if (norm > 0.0) gain * (vectors.left[it] + vectors.right[it]) / (2.0 * norm) else 0.0
         }
+    }
+
+    fun sideCoefficients(channels: Int): Pair<FloatArray, FloatArray> {
+        if (channels <= 0) return FloatArray(0) to FloatArray(0)
+
+        val vectors = sideVectors(channels)
+        val norm = vectors.norm
+        val gain = loudnessCompensation(channels)
+        fun side(values: DoubleArray) = FloatArray(channels) {
+            if (norm > 0.0) (gain * values[it] / norm).toFloat() else 0f
+        }
+        return side(vectors.left) to side(vectors.right)
     }
 
     fun loudnessCompensation(channels: Int): Double = when {

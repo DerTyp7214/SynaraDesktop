@@ -30,30 +30,34 @@ class MonstercatReaction(
         private set
 
     private var warmingUp = true
-    private var velocities = FloatArray(0)
-    private var targets = FloatArray(0)
+    private var velocities = emptyArray<FloatArray>()
+    private var targets = emptyArray<FloatArray>()
+    private var levels = FloatArray(0)
     private var edges = FloatArray(0)
     private var gains = FloatArray(0)
     private var falloffs = FloatArray(0)
     private var edgesKey = -1L
 
     override fun update(
-        fft: FloatArray,
+        spectra: Array<FloatArray>,
         isPlaying: Boolean,
-        heights: FloatArray,
+        heights: Array<FloatArray>,
         bandCount: Int,
         heightPx: Float,
         minHeightPx: Float,
         deltaMs: Long
     ) {
-        val count = bandCount.coerceAtMost(heights.size)
+        val channels = channelCount(spectra, heights)
+        if (channels <= 0) return
+        val count = sharedBandCount(heights, channels, bandCount)
         if (count <= 0) return
-        if (velocities.size != count) {
-            velocities = FloatArray(count)
-            targets = FloatArray(count)
+        if (velocities.size != channels || velocities[0].size != count) {
+            velocities = Array(channels) { FloatArray(count) }
+            targets = Array(channels) { FloatArray(count) }
         }
+        if (levels.size != count) levels = FloatArray(count)
 
-        val binCount = fft.size
+        val binCount = sharedBinCount(spectra, channels)
         if (isPlaying && binCount > 1) {
             val key = count.toLong() shl 32 or binCount.toLong()
             if (key != edgesKey) {
@@ -62,46 +66,54 @@ class MonstercatReaction(
                 falloffs = bandFalloffs(count, bassFalloff, falloff, bassSpread)
                 edgesKey = key
             }
-            val levels = bandLevels(fft, edges)
             var loudest = 0f
             var silent = true
-            for (i in 0 until count) {
-                if (levels[i] >= NOISE_FLOOR) silent = false
-                val value = if (autoGain) {
-                    levels[i] * gains[i] * sensitivity
-                } else {
-                    (levels[i] - floorMagnitude).coerceAtLeast(0f) / gainRange * gains[i]
+            for (c in 0 until channels) {
+                val channelTargets = targets[c]
+                bandLevels(spectra[c], edges, levels)
+                for (i in 0 until count) {
+                    if (levels[i] >= NOISE_FLOOR) silent = false
+                    val value = if (autoGain) {
+                        levels[i] * gains[i] * sensitivity
+                    } else {
+                        (levels[i] - floorMagnitude).coerceAtLeast(0f) / gainRange * gains[i]
+                    }
+                    if (value > loudest) loudest = value
+                    channelTargets[i] = value
                 }
-                if (value > loudest) loudest = value
-                targets[i] = value
-            }
-            applyFalloff(targets, falloffs)
-            for (i in 0 until count) {
-                targets[i] = ((targets[i] * headroom).coerceAtMost(1f) * heightPx).coerceAtLeast(minHeightPx)
+                applyFalloff(channelTargets, falloffs)
+                for (i in 0 until count) {
+                    channelTargets[i] = ((channelTargets[i] * headroom).coerceAtMost(1f) * heightPx).coerceAtLeast(minHeightPx)
+                }
             }
             if (autoGain) adjustSensitivity(loudest, silent, deltaMs)
         } else {
-            targets.fill(minHeightPx)
+            for (c in 0 until channels) targets[c].fill(minHeightPx)
         }
 
         val frames = deltaMs.toFloat() / FRAME_MS
         val riseAlpha = 1f - riseNoiseReduction.pow(frames)
         val gravity = 2f * heightPx / (fallDurationMs * fallDurationMs)
-        for (i in 0 until count) {
-            val target = targets[i]
-            val current = heights[i]
-            if (target >= current) {
-                heights[i] = current + (target - current) * riseAlpha
-                velocities[i] = 0f
-            } else {
-                velocities[i] += gravity * deltaMs
-                heights[i] = (current - velocities[i] * deltaMs).coerceAtLeast(target)
-                if (heights[i] <= target) velocities[i] = 0f
+        for (c in 0 until channels) {
+            val channelTargets = targets[c]
+            val channelVelocities = velocities[c]
+            val channelHeights = heights[c]
+            for (i in 0 until count) {
+                val target = channelTargets[i]
+                val current = channelHeights[i]
+                if (target >= current) {
+                    channelHeights[i] = current + (target - current) * riseAlpha
+                    channelVelocities[i] = 0f
+                } else {
+                    channelVelocities[i] += gravity * deltaMs
+                    channelHeights[i] = (current - channelVelocities[i] * deltaMs).coerceAtLeast(target)
+                    if (channelHeights[i] <= target) channelVelocities[i] = 0f
+                }
             }
         }
     }
 
-    internal fun currentTargets(): FloatArray = targets.copyOf()
+    internal fun currentTargets(channel: Int = 0): FloatArray = targets.getOrNull(channel)?.copyOf() ?: FloatArray(0)
 
     private fun adjustSensitivity(loudest: Float, silent: Boolean, deltaMs: Long) {
         if (silent) return
@@ -184,14 +196,17 @@ class MonstercatReaction(
             }
         }
 
-        fun bandLevels(fft: FloatArray, edges: FloatArray): FloatArray {
+        fun bandLevels(fft: FloatArray, edges: FloatArray): FloatArray =
+            bandLevels(fft, edges, FloatArray(edges.size - 1))
+
+        fun bandLevels(fft: FloatArray, edges: FloatArray, out: FloatArray): FloatArray {
             val bandCount = edges.size - 1
             val lastBin = fft.size - 1
             val firstBin = 1.coerceAtMost(lastBin)
-            return FloatArray(bandCount) { i ->
+            for (i in 0 until bandCount) {
                 val lo = edges[i]
                 val hi = edges[i + 1]
-                if (hi - lo < 1f) {
+                val level = if (hi - lo < 1f) {
                     val center = ((lo + hi) / 2f).coerceIn(firstBin.toFloat(), lastBin.toFloat())
                     val index = floor(center).toInt()
                     val next = (index + 1).coerceAtMost(lastBin)
@@ -204,7 +219,9 @@ class MonstercatReaction(
                     for (j in start..end) if (fft[j] > peak) peak = fft[j]
                     peak
                 }
+                out[i] = level
             }
+            return out
         }
 
         fun applyFalloff(values: FloatArray, falloff: Float) {

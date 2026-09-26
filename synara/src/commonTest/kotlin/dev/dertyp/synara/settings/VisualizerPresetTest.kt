@@ -34,6 +34,12 @@ class VisualizerPresetTest {
     }
 
     @Test
+    fun oldJsonWithoutStereoDecodesToTrue() {
+        val decoded = VisualizerPresets.decode("""[{"id":"user.old","name":"Old"}]""")
+        assertTrue(decoded.single().stereo)
+    }
+
+    @Test
     fun garbageDecodesToEmptyList() {
         assertEquals(emptyList<VisualizerPreset>(), VisualizerPresets.decode("not json at all"))
         assertEquals(emptyList<VisualizerPreset>(), VisualizerPresets.decode("""{"id":"x","name":"y"}"""))
@@ -104,6 +110,11 @@ class VisualizerPresetTest {
                 )
             )
         )
+    }
+
+    @Test
+    fun builtInsAreStereo() {
+        assertTrue(VisualizerPresets.builtIns.all { it.stereo })
     }
 
     @Test

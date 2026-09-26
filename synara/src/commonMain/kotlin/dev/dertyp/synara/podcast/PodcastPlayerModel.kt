@@ -11,6 +11,7 @@ import dev.dertyp.logging.Logger
 import dev.dertyp.services.IPodcastService
 import dev.dertyp.synara.Config
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.player.StereoSpectrum
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.settings.SettingsFactory
 import dev.dertyp.synara.utils.SynaraDispatchers
@@ -89,6 +90,7 @@ class PodcastPlayerModel(
 
     override val volume: StateFlow<Float> = playerModel.volume
     override val fftData: StateFlow<FloatArray> = engine.fftData
+    override val stereoFftData: StateFlow<StereoSpectrum> = engine.stereoFftData
     override val sampleRate: StateFlow<Int> = engine.sampleRate
 
     override val hasContent: StateFlow<Boolean> = combine(_queue, Config.isPodcastsEnabled) { q, enabled ->

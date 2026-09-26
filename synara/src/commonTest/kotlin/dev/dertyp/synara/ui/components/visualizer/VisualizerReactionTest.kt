@@ -15,6 +15,16 @@ class VisualizerReactionTest {
     private val minHeightPx = 3f
     private val binWidth = MonstercatReaction.binWidthHz(512)
 
+    private fun VisualizerReaction.updateMono(
+        fft: FloatArray,
+        isPlaying: Boolean,
+        heights: FloatArray,
+        bandCount: Int,
+        heightPx: Float,
+        minHeightPx: Float,
+        deltaMs: Long
+    ) = update(arrayOf(fft), isPlaying, arrayOf(heights), bandCount, heightPx, minHeightPx, deltaMs)
+
     private fun loudFft(size: Int = 512) = FloatArray(size) { 0.1f }
 
     private fun pinkFft(size: Int = 512, scale: Float = 0.5f) =
@@ -116,8 +126,8 @@ class VisualizerReactionTest {
         val second = FloatArray(bands) { minHeightPx }
         repeat(300) {
             val (fft, playing) = frames(it)
-            a.update(fft, playing, first, bands, heightPx, minHeightPx, 16L)
-            b.update(fft, playing, second, bands, heightPx, minHeightPx, 16L)
+            a.updateMono(fft, playing, first, bands, heightPx, minHeightPx, 16L)
+            b.updateMono(fft, playing, second, bands, heightPx, minHeightPx, 16L)
             for (i in 0 until bands) assertEquals(first[i], second[i])
         }
     }
@@ -173,8 +183,8 @@ class VisualizerReactionTest {
         val wideHeights = FloatArray(8) { minHeightPx }
         val narrowHeights = FloatArray(8) { minHeightPx }
         repeat(50) {
-            wide.update(fft, true, wideHeights, 8, heightPx, minHeightPx, 16L)
-            narrow.update(fft, true, narrowHeights, 8, heightPx, minHeightPx, 16L)
+            wide.updateMono(fft, true, wideHeights, 8, heightPx, minHeightPx, 16L)
+            narrow.updateMono(fft, true, narrowHeights, 8, heightPx, minHeightPx, 16L)
         }
         assertTrue(wideHeights.any { it > heightPx * 0.9f })
         assertTrue(narrowHeights.all { abs(it - minHeightPx) < 0.01f })
@@ -189,8 +199,8 @@ class VisualizerReactionTest {
         val wideHeights = FloatArray(8) { minHeightPx }
         val narrowHeights = FloatArray(8) { minHeightPx }
         repeat(50) {
-            wide.update(fft, true, wideHeights, 8, heightPx, minHeightPx, 16L)
-            narrow.update(fft, true, narrowHeights, 8, heightPx, minHeightPx, 16L)
+            wide.updateMono(fft, true, wideHeights, 8, heightPx, minHeightPx, 16L)
+            narrow.updateMono(fft, true, narrowHeights, 8, heightPx, minHeightPx, 16L)
         }
         assertTrue(wideHeights.any { it > minHeightPx + 1f })
         assertTrue(narrowHeights.all { abs(it - minHeightPx) < 0.01f })
@@ -230,8 +240,8 @@ class VisualizerReactionTest {
         val fixedHeights = FloatArray(8) { minHeightPx }
         val autoHeights = FloatArray(8) { minHeightPx }
         repeat(600) {
-            fixed.update(quiet, true, fixedHeights, 8, heightPx, minHeightPx, 16L)
-            auto.update(quiet, true, autoHeights, 8, heightPx, minHeightPx, 16L)
+            fixed.updateMono(quiet, true, fixedHeights, 8, heightPx, minHeightPx, 16L)
+            auto.updateMono(quiet, true, autoHeights, 8, heightPx, minHeightPx, 16L)
         }
         assertEquals(-20f, fixed.ceilingDb)
         assertTrue(auto.ceilingDb < -40f)
@@ -242,17 +252,17 @@ class VisualizerReactionTest {
     fun monstercatFixedGainIgnoresLevelChanges() {
         val loud = MonstercatReaction(autoGain = false, minDb = -60f, maxDb = -20f)
         val heights = FloatArray(16) { minHeightPx }
-        repeat(300) { loud.update(loudFft(), true, heights, 16, heightPx, minHeightPx, 16L) }
+        repeat(300) { loud.updateMono(loudFft(), true, heights, 16, heightPx, minHeightPx, 16L) }
         assertEquals(1f, loud.sensitivity)
         assertTrue(heights.all { it > heightPx * 0.8f })
 
         val silentFloor = MonstercatReaction(autoGain = false, minDb = -30f, maxDb = -20f)
         val quietHeights = FloatArray(16) { minHeightPx }
-        repeat(300) { silentFloor.update(FloatArray(512) { 0.005f }, true, quietHeights, 16, heightPx, minHeightPx, 16L) }
+        repeat(300) { silentFloor.updateMono(FloatArray(512) { 0.005f }, true, quietHeights, 16, heightPx, minHeightPx, 16L) }
         assertTrue(quietHeights.all { abs(it - minHeightPx) < 0.01f })
 
         val auto = MonstercatReaction()
-        repeat(300) { auto.update(loudFft(), true, FloatArray(16) { minHeightPx }, 16, heightPx, minHeightPx, 16L) }
+        repeat(300) { auto.updateMono(loudFft(), true, FloatArray(16) { minHeightPx }, 16, heightPx, minHeightPx, 16L) }
         assertTrue(auto.sensitivity != 1f)
     }
 
@@ -261,7 +271,7 @@ class VisualizerReactionTest {
         val halfCount = 20
         val reaction = MonstercatReaction()
         val heights = FloatArray(halfCount) { minHeightPx }
-        repeat(200) { reaction.update(pinkFft(), true, heights, halfCount, heightPx, minHeightPx, 16L) }
+        repeat(200) { reaction.updateMono(pinkFft(), true, heights, halfCount, heightPx, minHeightPx, 16L) }
         val targets = reaction.currentTargets()
         assertEquals(halfCount, targets.size)
         assertTrue(heights.all { it > minHeightPx })
@@ -272,14 +282,14 @@ class VisualizerReactionTest {
     fun monstercatRisesQuicklyWithNoiseReduction() {
         val reaction = MonstercatReaction()
         val heights = FloatArray(16) { minHeightPx }
-        repeat(200) { reaction.update(pinkFft(), true, heights, 16, heightPx, minHeightPx, 16L) }
+        repeat(200) { reaction.updateMono(pinkFft(), true, heights, 16, heightPx, minHeightPx, 16L) }
         heights.fill(minHeightPx)
-        reaction.update(pinkFft(), true, heights, 16, heightPx, minHeightPx, 16L)
+        reaction.updateMono(pinkFft(), true, heights, 16, heightPx, minHeightPx, 16L)
         val targets = reaction.currentTargets()
         val peak = targets.indices.maxBy { targets[it] }
         val expected = minHeightPx + (targets[peak] - minHeightPx) * 0.7f
         assertTrue(abs(heights[peak] - expected) < 0.01f)
-        repeat(3) { reaction.update(pinkFft(), true, heights, 16, heightPx, minHeightPx, 16L) }
+        repeat(3) { reaction.updateMono(pinkFft(), true, heights, 16, heightPx, minHeightPx, 16L) }
         assertTrue(heights[peak] > targets[peak] * 0.95f)
     }
 
@@ -287,9 +297,9 @@ class VisualizerReactionTest {
     fun monstercatFallsWithoutHold() {
         val reaction = MonstercatReaction()
         val heights = FloatArray(8) { minHeightPx }
-        repeat(200) { reaction.update(pinkFft(), true, heights, 8, heightPx, minHeightPx, 16L) }
+        repeat(200) { reaction.updateMono(pinkFft(), true, heights, 8, heightPx, minHeightPx, 16L) }
         val peak = heights.copyOf()
-        reaction.update(pinkFft(), false, heights, 8, heightPx, minHeightPx, 16L)
+        reaction.updateMono(pinkFft(), false, heights, 8, heightPx, minHeightPx, 16L)
         assertTrue(heights.indices.all { heights[it] < peak[it] || peak[it] == minHeightPx })
     }
 
@@ -297,11 +307,11 @@ class VisualizerReactionTest {
     fun monstercatGravityReachesMinimumHeight() {
         val reaction = MonstercatReaction()
         val heights = FloatArray(8) { minHeightPx }
-        repeat(200) { reaction.update(pinkFft(), true, heights, 8, heightPx, minHeightPx, 16L) }
+        repeat(200) { reaction.updateMono(pinkFft(), true, heights, 8, heightPx, minHeightPx, 16L) }
         val drops = mutableListOf<Float>()
         var previous = heights[0]
         repeat(200) {
-            reaction.update(pinkFft(), false, heights, 8, heightPx, minHeightPx, 16L)
+            reaction.updateMono(pinkFft(), false, heights, 8, heightPx, minHeightPx, 16L)
             drops += previous - heights[0]
             previous = heights[0]
         }
@@ -315,9 +325,9 @@ class VisualizerReactionTest {
     fun synaraRisesQuicklyAndSettlesAtMinimumWhenStopped() {
         val reaction = SynaraReaction()
         val heights = FloatArray(8) { minHeightPx }
-        reaction.update(loudFft(), true, heights, 8, heightPx, minHeightPx, 16L)
+        reaction.updateMono(loudFft(), true, heights, 8, heightPx, minHeightPx, 16L)
         assertTrue(heights.all { it > minHeightPx })
-        repeat(500) { reaction.update(loudFft(), false, heights, 8, heightPx, minHeightPx, 16L) }
+        repeat(500) { reaction.updateMono(loudFft(), false, heights, 8, heightPx, minHeightPx, 16L) }
         assertTrue(heights.all { abs(it - minHeightPx) < 0.01f })
     }
 
@@ -326,7 +336,7 @@ class VisualizerReactionTest {
         val barCount = 60
         val reaction = MonstercatReaction()
         val heights = FloatArray(barCount) { minHeightPx }
-        repeat(1000) { reaction.update(pinkFft(), true, heights, barCount, heightPx, minHeightPx, 16L) }
+        repeat(1000) { reaction.updateMono(pinkFft(), true, heights, barCount, heightPx, minHeightPx, 16L) }
         val targets = reaction.currentTargets()
         val max = targets.max()
         val median = targets.sorted()[barCount / 2]
@@ -341,7 +351,7 @@ class VisualizerReactionTest {
     fun monstercatSilenceKeepsSensitivity() {
         val reaction = MonstercatReaction()
         val heights = FloatArray(16) { minHeightPx }
-        repeat(500) { reaction.update(FloatArray(512), true, heights, 16, heightPx, minHeightPx, 16L) }
+        repeat(500) { reaction.updateMono(FloatArray(512), true, heights, 16, heightPx, minHeightPx, 16L) }
         assertEquals(1f, reaction.sensitivity)
     }
 
@@ -349,9 +359,9 @@ class VisualizerReactionTest {
     fun monstercatSilenceAfterMusicKeepsSensitivity() {
         val reaction = MonstercatReaction()
         val heights = FloatArray(16) { minHeightPx }
-        repeat(300) { reaction.update(pinkFft(), true, heights, 16, heightPx, minHeightPx, 16L) }
+        repeat(300) { reaction.updateMono(pinkFft(), true, heights, 16, heightPx, minHeightPx, 16L) }
         val settled = reaction.sensitivity
-        repeat(500) { reaction.update(FloatArray(512), true, heights, 16, heightPx, minHeightPx, 16L) }
+        repeat(500) { reaction.updateMono(FloatArray(512), true, heights, 16, heightPx, minHeightPx, 16L) }
         assertEquals(settled, reaction.sensitivity)
     }
 
@@ -359,10 +369,10 @@ class VisualizerReactionTest {
     fun monstercatSensitivityRecoversAfterLoudPassage() {
         val reaction = MonstercatReaction()
         val heights = FloatArray(16) { minHeightPx }
-        repeat(300) { reaction.update(loudFft(), true, heights, 16, heightPx, minHeightPx, 16L) }
+        repeat(300) { reaction.updateMono(loudFft(), true, heights, 16, heightPx, minHeightPx, 16L) }
         val afterLoud = reaction.sensitivity
         val quiet = FloatArray(512) { 0.005f }
-        repeat(300) { reaction.update(quiet, true, heights, 16, heightPx, minHeightPx, 16L) }
+        repeat(300) { reaction.updateMono(quiet, true, heights, 16, heightPx, minHeightPx, 16L) }
         assertTrue(reaction.sensitivity > afterLoud * 1.5f)
     }
 
@@ -411,7 +421,7 @@ class VisualizerReactionTest {
         var trough = Float.MAX_VALUE
         for (i in 0 until 1900) {
             val t = i * 16f
-            reaction.update(kickFrame(t, random), true, heights, bands, heightPx, minHeightPx, 16L)
+            reaction.updateMono(kickFrame(t, random), true, heights, bands, heightPx, minHeightPx, 16L)
             if (t < 10000f) continue
             val bassMean = bass.map { heights[it] }.average().toFloat() / heightPx
             bassSum += bassMean
@@ -444,5 +454,87 @@ class VisualizerReactionTest {
         assertTrue(beatTroughs.average() < beatPeaks.average() * 0.6)
         assertTrue(trebleMean > 0.15f)
         assertTrue(trebleMax < 0.9f)
+    }
+
+    private fun assertHardPannedLeftMatchesMono(stereo: VisualizerReaction, mono: VisualizerReaction, frames: (Int) -> FloatArray) {
+        val bands = 24
+        val left = FloatArray(bands) { minHeightPx }
+        val right = FloatArray(bands) { minHeightPx }
+        val single = FloatArray(bands) { minHeightPx }
+        val silence = FloatArray(512)
+        repeat(400) {
+            val fft = frames(it)
+            stereo.update(arrayOf(fft, silence), true, arrayOf(left, right), bands, heightPx, minHeightPx, 16L)
+            mono.updateMono(fft, true, single, bands, heightPx, minHeightPx, 16L)
+            for (i in 0 until bands) {
+                assertEquals(single[i], left[i])
+                assertEquals(minHeightPx, right[i])
+            }
+        }
+    }
+
+    @Test
+    fun synaraSharedGainKeepsSilentSideDownAndLoudSideAtMonoLevel() {
+        val stereo = SynaraReaction(autoGain = true)
+        val mono = SynaraReaction(autoGain = true)
+        val quiet = FloatArray(512) { 0.002f }
+        assertHardPannedLeftMatchesMono(stereo, mono) { quiet }
+        assertEquals(mono.ceilingDb, stereo.ceilingDb)
+        assertTrue(stereo.ceilingDb < -40f)
+    }
+
+    @Test
+    fun monstercatSharedGainKeepsSilentSideDownAndLoudSideAtMonoLevel() {
+        val stereo = MonstercatReaction()
+        val mono = MonstercatReaction()
+        val random = Random(11)
+        val frames = Array(400) { kickFrame(it * 16f, random) }
+        assertHardPannedLeftMatchesMono(stereo, mono) { frames[it] }
+        assertEquals(mono.sensitivity, stereo.sensitivity)
+        assertTrue(stereo.sensitivity != 1f)
+    }
+
+    @Test
+    fun sharedGainFollowsTheLouderChannel() {
+        val stereo = MonstercatReaction()
+        val loudOnly = MonstercatReaction()
+        val bands = 16
+        val quiet = FloatArray(512) { 0.005f }
+        repeat(300) {
+            stereo.update(arrayOf(loudFft(), quiet), true, arrayOf(FloatArray(bands) { minHeightPx }, FloatArray(bands) { minHeightPx }), bands, heightPx, minHeightPx, 16L)
+            loudOnly.updateMono(loudFft(), true, FloatArray(bands) { minHeightPx }, bands, heightPx, minHeightPx, 16L)
+        }
+        assertEquals(loudOnly.sensitivity, stereo.sensitivity)
+    }
+
+    @Test
+    fun monstercatChannelsKeepIndependentMotion() {
+        val bands = 20
+        val stereo = MonstercatReaction(autoGain = false)
+        val leftOnly = MonstercatReaction(autoGain = false)
+        val rightOnly = MonstercatReaction(autoGain = false)
+        val left = FloatArray(bands) { minHeightPx }
+        val right = FloatArray(bands) { minHeightPx }
+        val leftMono = FloatArray(bands) { minHeightPx }
+        val rightMono = FloatArray(bands) { minHeightPx }
+        val random = Random(13)
+        var diverged = false
+        repeat(400) {
+            val kick = kickFrame(it * 16f, random)
+            val pink = if (it % 90 < 45) pinkFft() else FloatArray(512)
+            val playing = it < 350
+            stereo.update(arrayOf(kick, pink), playing, arrayOf(left, right), bands, heightPx, minHeightPx, 16L)
+            leftOnly.updateMono(kick, playing, leftMono, bands, heightPx, minHeightPx, 16L)
+            rightOnly.updateMono(pink, playing, rightMono, bands, heightPx, minHeightPx, 16L)
+            for (i in 0 until bands) {
+                assertEquals(leftMono[i], left[i])
+                assertEquals(rightMono[i], right[i])
+            }
+            assertTrue(stereo.currentTargets(0).contentEquals(leftOnly.currentTargets()))
+            assertTrue(stereo.currentTargets(1).contentEquals(rightOnly.currentTargets()))
+            if (playing && left.indices.any { left[it] != right[it] }) diverged = true
+        }
+        assertTrue(diverged)
+        assertTrue(left.all { it == minHeightPx } && right.all { it == minHeightPx })
     }
 }

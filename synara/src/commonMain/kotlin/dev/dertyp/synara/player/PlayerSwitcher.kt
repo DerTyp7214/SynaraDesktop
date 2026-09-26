@@ -35,6 +35,10 @@ class PlayerSwitcher(
         .flatMapLatest { if (it == ActivePlayer.PODCAST) podcastPlayer.fftData else playerModel.fftData }
         .stateIn(scope, SharingStarted.Eagerly, FloatArray(0))
 
+    val stereoFftData: StateFlow<StereoSpectrum> = _active
+        .flatMapLatest { if (it == ActivePlayer.PODCAST) podcastPlayer.stereoFftData else playerModel.stereoFftData }
+        .stateIn(scope, SharingStarted.Eagerly, StereoSpectrum.EMPTY)
+
     val audioIntensity: StateFlow<Float> = _active
         .flatMapLatest { if (it == ActivePlayer.PODCAST) podcastIntensity else playerModel.audioIntensity }
         .stateIn(scope, SharingStarted.Eagerly, 0f)
