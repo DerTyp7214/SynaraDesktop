@@ -54,6 +54,11 @@ sealed class PlaybackSource {
     }
 
     @Serializable
+    data object SuperLikedSongs : PlaybackSource() {
+        override val id: String = "super_liked_songs"
+    }
+
+    @Serializable
     data class Radio(
         val sessionId: PlatformUUID,
         val name: String? = null
@@ -69,6 +74,7 @@ fun PlaybackSource.toQueueSource(songService: ISongService): QueueSource? {
     return when (this) {
         is PlaybackSource.AllSongs -> AllSongsQueueSource(songService, tags = tags, invertTags = invertTags)
         PlaybackSource.LikedSongs -> LikedSongsQueueSource(songService)
+        PlaybackSource.SuperLikedSongs -> SuperLikedSongsQueueSource(songService)
         is PlaybackSource.Album -> AlbumQueueSource(songService, albumId)
         is PlaybackSource.Artist -> ArtistQueueSource(songService, artistId)
         is PlaybackSource.Playlist -> PlaylistQueueSource(songService, playlistId, true)

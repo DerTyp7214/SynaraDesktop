@@ -21,6 +21,7 @@ import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraFab
+import dev.dertyp.synara.viewmodels.LikedFilter
 import dev.dertyp.synara.viewmodels.LikedSongsScreenModel
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.*
@@ -34,28 +35,52 @@ class LikedSongsScreen : Screen {
         val screenModel = getScreenModel<LikedSongsScreenModel>()
         RegisterRefreshTarget(screenModel)
         val state by screenModel.state.collectAsState()
+        val filter by screenModel.filter.collectAsState()
 
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                TopAppBar(
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                    ),
-                    title = {
-                        Text(stringResource(Res.string.favorite))
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = { navigator.pop() }) {
-                            Icon(SynaraIcons.Back.get(), contentDescription = stringResource(Res.string.back))
+                Column {
+                    TopAppBar(
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent,
+                        ),
+                        title = {
+                            Text(stringResource(Res.string.favorite))
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = { navigator.pop() }) {
+                                Icon(SynaraIcons.Back.get(), contentDescription = stringResource(Res.string.back))
+                            }
+                        },
+                        actions = {
+                            IconButton(onClick = { screenModel.downloadFavorites() }) {
+                                Icon(SynaraIcons.Download.get(), contentDescription = stringResource(Res.string.menu_download))
+                            }
                         }
-                    },
-                    actions = {
-                        IconButton(onClick = { screenModel.downloadFavorites() }) {
-                            Icon(SynaraIcons.Download.get(), contentDescription = stringResource(Res.string.menu_download))
-                        }
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = filter == LikedFilter.All,
+                            onClick = { screenModel.setFilter(LikedFilter.All) },
+                            elevation = FilterChipDefaults.filterChipElevation(elevation = 0.dp, hoveredElevation = 0.dp, pressedElevation = 0.dp),
+                            label = { Text(stringResource(Res.string.liked_filter_all)) }
+                        )
+                        FilterChip(
+                            selected = filter == LikedFilter.Super,
+                            onClick = { screenModel.setFilter(LikedFilter.Super) },
+                            elevation = FilterChipDefaults.filterChipElevation(elevation = 0.dp, hoveredElevation = 0.dp, pressedElevation = 0.dp),
+                            label = { Text(stringResource(Res.string.liked_filter_super)) }
+                        )
                     }
-                )
+                }
             },
             floatingActionButton = {
                 if (state is LikedSongsScreenModel.LikedSongsState.Success) {
@@ -78,11 +103,19 @@ class LikedSongsScreen : Screen {
                         )
                     }
                     is LikedSongsScreenModel.LikedSongsState.Success -> {
-                        LikedSongsList(
-                            songs = currentState.songs,
-                            hasNextPage = currentState.hasNextPage,
-                            screenModel = screenModel
-                        )
+                        if (currentState.songs.isEmpty() && filter == LikedFilter.Super) {
+                            Text(
+                                text = stringResource(Res.string.liked_filter_super_empty),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.align(Alignment.Center).padding(16.dp)
+                            )
+                        } else {
+                            LikedSongsList(
+                                songs = currentState.songs,
+                                hasNextPage = currentState.hasNextPage,
+                                screenModel = screenModel
+                            )
+                        }
                     }
                 }
             }

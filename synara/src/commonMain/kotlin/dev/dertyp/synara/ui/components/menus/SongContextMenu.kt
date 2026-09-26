@@ -12,6 +12,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.PlatformUUID
 import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.CollectionItemType
+import dev.dertyp.data.LikeLevel
 import dev.dertyp.data.UserCapability
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.core.textTitle
@@ -365,6 +366,28 @@ fun SongContextMenu(
                     contentDescription = null,
                     modifier = Modifier.size(20.dp),
                     tint = if (isFavorite) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                )
+            }
+        )
+
+        val isSuperLiked = song.likeLevel == LikeLevel.SUPER
+        DropdownMenuItem(
+            text = {
+                Text(
+                    if (isSuperLiked) stringResource(Res.string.remove_super_like)
+                    else stringResource(Res.string.super_like)
+                )
+            },
+            onClick = {
+                playerModel.toggleSuperLike(song)
+                onDismissRequest()
+            },
+            leadingIcon = {
+                Icon(
+                    SynaraIcons.SuperLiked.get(),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = if (isSuperLiked) MaterialTheme.colorScheme.tertiary else LocalContentColor.current
                 )
             }
         )

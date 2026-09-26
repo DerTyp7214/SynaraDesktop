@@ -251,6 +251,14 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `USER` |  |
 | `GENERATED` |  |
 
+### LikeLevel
+
+| Value | Description |
+| :--- | :--- |
+| `NONE` |  |
+| `LIKE` |  |
+| `SUPER` |  |
+
 ### SearchFilter
 
 | Value | Description |
@@ -412,5 +420,7 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `isFavourite` | Boolean? |  |
 | `userSongCreatedAt` | PlatformDate? |  |
 | `userSongUpdatedAt` | PlatformDate? |  |
+| `likeLevel` | [LikeLevel](#likelevel)? |  |
+| `superLikedAt` | PlatformDate? |  |
 | `playbackTags` | List<[TimecodeTag](#timecodetag)> |  |
 

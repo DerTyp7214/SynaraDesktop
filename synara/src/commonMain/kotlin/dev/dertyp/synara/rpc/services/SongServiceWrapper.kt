@@ -14,6 +14,10 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
         return manager.getService<ISongService>().setLiked(id, liked, addedAt)
     }
 
+    override suspend fun setLikeLevel(id: PlatformUUID, level: LikeLevel): UserSong? {
+        return manager.getService<ISongService>().setLikeLevel(id, level)
+    }
+
     override suspend fun setLyrics(id: PlatformUUID, lyrics: List<String>): UserSong? {
         return manager.getService<ISongService>().setLyrics(id, lyrics)
     }
@@ -85,6 +89,10 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
 
     override suspend fun likedSongs(page: Int, pageSize: Int, explicit: Boolean): PaginatedResponse<UserSong> {
         return manager.getService<ISongService>().likedSongs(page, pageSize, explicit)
+    }
+
+    override suspend fun superLikedSongs(page: Int, pageSize: Int, explicit: Boolean): PaginatedResponse<UserSong> {
+        return manager.getService<ISongService>().superLikedSongs(page, pageSize, explicit)
     }
 
     override suspend fun allSongs(
@@ -171,6 +179,10 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
 
     override fun likedSongIds(explicit: Boolean): Flow<PlatformUUID> {
         return manager.getService<ISongService>().likedSongIds(explicit)
+    }
+
+    override fun superLikedSongIds(explicit: Boolean): Flow<PlatformUUID> {
+        return manager.getService<ISongService>().superLikedSongIds(explicit)
     }
 
     override fun songIdsByArtist(artistId: PlatformUUID): Flow<PlatformUUID> {

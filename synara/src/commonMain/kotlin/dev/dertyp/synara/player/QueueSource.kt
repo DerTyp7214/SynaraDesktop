@@ -130,6 +130,20 @@ class LikedSongsQueueSource(
     }
 }
 
+class SuperLikedSongsQueueSource(
+    private val songService: ISongService,
+    private val explicit: Boolean = true,
+    id: String = "super_liked_songs"
+) : BasePagedQueueSource(id) {
+    override suspend fun fetchPage(page: Int, pageSize: Int): PaginatedResponse<UserSong> {
+        return songService.superLikedSongs(page, pageSize, explicit)
+    }
+
+    override fun fetchIdFlow(): Flow<PlatformUUID> {
+        return songService.superLikedSongIds(explicit)
+    }
+}
+
 class SearchQueueSource(
     private val songService: ISongService,
     private val query: String,

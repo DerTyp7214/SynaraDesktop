@@ -45,6 +45,7 @@ object DownloadedSongs : UUIDTable("song") {
 
     // UserSong fields
     val isFavourite = bool("favourite").default(false)
+    val superLikedAt = long("superLikedAt").nullable()
     val createdAt = long("createdAt").nullable()
     val updatedAt = long("updatedAt").nullable()
 

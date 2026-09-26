@@ -253,6 +253,12 @@
     <string name="delete">Löschen</string>
     <string name="remove_from_favorites">Aus Favoriten entfernen</string>
     <string name="add_to_favorites">Zu Favoriten hinzufügen</string>
+    <string name="super_like">Super-Like</string>
+    <string name="remove_super_like">Super-Like entfernen</string>
+    <string name="super_like_hint">Gedrückt halten oder rechtsklicken für Super-Like</string>
+    <string name="liked_filter_all">Alle</string>
+    <string name="liked_filter_super">Super-Likes</string>
+    <string name="liked_filter_super_empty">Noch keine Super-Likes</string>
 
     <!-- Song Info -->
     <string name="song_info_title">Song-Informationen</string>

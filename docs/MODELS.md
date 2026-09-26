@@ -77,6 +77,7 @@ Services: [RPC_SERVICES.md](RPC_SERVICES.md) · REST routes: [REST_API.md](REST_
 - [InsertablePlaylist](#devdertypdatainsertableplaylist)
 - [InsertableRadioChannel](#devdertypdatainsertableradiochannel)
 - [InsertableSong](#devdertypdatainsertablesong)
+- [LikeLevel](#devdertypdatalikelevel)
 - [LinkUnmatchedTrackRequest](#devdertypdatalinkunmatchedtrackrequest)
 - [LinkUnmatchedTrackResult](#devdertypdatalinkunmatchedtrackresult)
 - [ListenBackupConfig](#devdertypdatalistenbackupconfig)
@@ -84,6 +85,8 @@ Services: [RPC_SERVICES.md](RPC_SERVICES.md) · REST routes: [REST_API.md](REST_
 - [ListenBackupState](#devdertypdatalistenbackupstate)
 - [ListenBrainzStatus](#devdertypdatalistenbrainzstatus)
 - [ListenClock](#devdertypdatalistenclock)
+- [ListenedAlbum](#devdertypdatalistenedalbum)
+- [ListenedArtist](#devdertypdatalistenedartist)
 - [ListenedSong](#devdertypdatalistenedsong)
 - [ListeningStats](#devdertypdatalisteningstats)
 - [ListeningStreaks](#devdertypdatalisteningstreaks)
@@ -1091,6 +1094,15 @@ Configuration for creating or updating a song record.
 | `atmos` | [AudioInfo](#devdertypdataaudioinfo)? | Properties of the Dolby Atmos variant; probed by the server when null and atmosPath is set. |
 | `tags` | `List`<[TitleTag](#devdertypdatatitletag)> | Version markers; when empty the server splits them off the title. |
 
+### LikeLevel <a name="devdertypdatalikelevel"></a>
+How strongly a user likes a song. A super like also counts as a like everywhere likes are used.
+
+| Value | Description |
+| :--- | :--- |
+| `NONE` | The song is not liked. |
+| `LIKE` | The song is liked. |
+| `SUPER` | The song is super liked. It is also a liked song. |
+
 ### LinkUnmatchedTrackRequest <a name="devdertypdatalinkunmatchedtrackrequest"></a>
 Request to link a user's unmatched listens of a track to a library song, identified by recording MSID and/or MBID.
 
@@ -1159,6 +1171,22 @@ Distribution of listens over the hours of the day and days of the week, in the r
 | :--- | :--- | :--- |
 | `hourOfDay` | `List`<`Long`> | Listen counts per hour of day; 24 entries, index 0 = 00:00-00:59. |
 | `dayOfWeek` | `List`<`Long`> | Listen counts per day of week; 7 entries, index 0 = Monday. |
+
+### ListenedAlbum <a name="devdertypdatalistenedalbum"></a>
+An album from the user's listen history, with when one of its songs was last played.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `album` | [Album](#devdertypdataalbum) | The listened album. |
+| `lastListenedAt` | `Long` | When a song of the album was last played (epoch milliseconds). |
+
+### ListenedArtist <a name="devdertypdatalistenedartist"></a>
+An artist from the user's listen history, with when one of their songs was last played.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `artist` | [Artist](#devdertypdataartist) | The listened artist. |
+| `lastListenedAt` | `Long` | When a song of the artist was last played (epoch milliseconds). |
 
 ### ListenedSong <a name="devdertypdatalistenedsong"></a>
 A song from the user's listen history, with when it was played.
@@ -2523,6 +2551,8 @@ Extends track metadata with user-specific information like favorite status.
 | `isFavourite` | `Boolean`? | Whether the current user has marked this song as a favorite. |
 | `userSongCreatedAt` | `PlatformDate`? | Timestamp of when the song record was created. |
 | `userSongUpdatedAt` | `PlatformDate`? | Timestamp of the last update to the song metadata. |
+| `likeLevel` | [LikeLevel](#devdertypdatalikelevel)? | The current user's like level of this song. isFavourite is true for both LIKE and SUPER. |
+| `superLikedAt` | `PlatformDate`? | Timestamp of when the current user super liked this song, or null if it is not super liked. |
 | `playbackTags` | `List`<[TimecodeTag](#devdertypdatatimecodetag)> | The requesting user's timecode tags on this song whose action is not NONE, ordered by position. Read-only. Tags are changed through ITimecodeTagService, and the full list including passive tags comes from ITimecodeTagService.getTags. |
 
 ### BackupInfo <a name="devdertypservicesbackupinfo"></a>

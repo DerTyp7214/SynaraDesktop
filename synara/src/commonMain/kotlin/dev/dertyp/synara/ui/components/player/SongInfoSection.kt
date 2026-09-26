@@ -20,6 +20,8 @@ import dev.dertyp.data.UserSong
 import dev.dertyp.data.effectiveAudio
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.ArtistsText
+import dev.dertyp.synara.ui.components.LikeButton
+import dev.dertyp.synara.ui.components.effectiveLikeLevel
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.TitleTagChipStyle
 import dev.dertyp.synara.ui.components.TitleTagChips
@@ -38,6 +40,7 @@ fun SongInfoSection(
     onToggleExpanded: () -> Unit,
     onArtistClick: () -> Unit,
     onLikeClick: () -> Unit,
+    onSuperLikeClick: () -> Unit,
     onSecondaryClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -171,16 +174,12 @@ fun SongInfoSection(
         }
 
         if (currentSong != null) {
-            IconButton(
+            LikeButton(
+                likeLevel = currentSong.effectiveLikeLevel,
                 onClick = onLikeClick,
+                onSuperClick = onSuperLikeClick,
                 modifier = Modifier.offset(y = (-8).dp)
-            ) {
-                Icon(
-                    if (currentSong.isFavourite == true) SynaraIcons.IsFavorite.get() else SynaraIcons.IsNotFavorite.get(),
-                    contentDescription = stringResource(Res.string.favorite),
-                    tint = if (currentSong.isFavourite == true) MaterialTheme.colorScheme.primary else LocalContentColor.current
-                )
-            }
+            )
         }
     }
 }

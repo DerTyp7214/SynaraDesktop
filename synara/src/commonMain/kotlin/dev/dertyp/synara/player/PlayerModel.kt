@@ -6,6 +6,7 @@ import com.russhwolf.settings.Settings
 import dev.dertyp.PlatformUUID
 import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.InsertablePlaylist
+import dev.dertyp.data.LikeLevel
 import dev.dertyp.data.PlaybackState
 import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
@@ -604,6 +605,7 @@ class PlayerModel(
             is PlaybackSource.Playlist -> userPlaylistService.byId(source.playlistId)?.name
             is PlaybackSource.AllSongs -> getString(Res.string.songs)
             is PlaybackSource.LikedSongs -> getString(Res.string.favorite)
+            is PlaybackSource.SuperLikedSongs -> getString(Res.string.liked_filter_super)
             is PlaybackSource.Radio -> source.name ?: getString(Res.string.radio)
             is PlaybackSource.Manual -> null
         }
@@ -879,6 +881,23 @@ class PlayerModel(
         scope.launch {
             try {
                 val updated = songService.setLiked(song.id, !(song.isFavourite ?: false)) ?: return@launch
+                songCache.put(updated)
+                songCache.notifyLikedSongsChanged()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun toggleSuperLike() {
+        _currentSong.value?.let { toggleSuperLike(it) }
+    }
+
+    fun toggleSuperLike(song: UserSong) {
+        scope.launch {
+            try {
+                val level = if (song.likeLevel == LikeLevel.SUPER) LikeLevel.LIKE else LikeLevel.SUPER
+                val updated = songService.setLikeLevel(song.id, level) ?: return@launch
                 songCache.put(updated)
                 songCache.notifyLikedSongsChanged()
             } catch (e: Exception) {

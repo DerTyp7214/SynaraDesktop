@@ -553,7 +553,7 @@ Monitoring and tracking of background scheduled tasks.
 | `getGroupedLogsFlow` | - | `Flow`<`Map`<`String`, `List`<[ScheduledTaskLog](MODELS.md#devdertypdatascheduledtasklog)>>> | **Admin** | SecurityException | Stream real-time updates for all background task progress and completion. |
 
 ### IScrobbleService <a name="devdertypservicesiscrobbleservice"></a>
-Submit playback scrobbles and observe the current user's recently listened songs.
+Submit playback scrobbles and observe the current user's recently listened songs, artists and albums.
 
 | Function | Parameters | Returns | Permissions | Errors | Description |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -561,7 +561,12 @@ Submit playback scrobbles and observe the current user's recently listened songs
 | `reportPlayback` | `report` ([PlaybackReport](MODELS.md#devdertypdataplaybackreport)): The current playback state. | `Long` | - |  | Report playback progress for the current user: call on play, pause, resume, seek and every 10-15 seconds while playing. Returns the server's epoch milliseconds at receipt so clients can align their clocks. |
 | `clearNowPlaying` | - | `Unit` | - |  | Clear the current user's now-playing state, e.g. when playback stops. |
 | `listened` | `request` ([ScrobbleRequest](MODELS.md#devdertypdatascrobblerequest)): The completed listen. | `Unit` | - |  | Record that the current user finished listening to a library song. |
-| `recentListensFlow` | `limit` (`Int`): Maximum number of recent songs to return; clamped to 1..1000. | `Flow`<[RecentListens](MODELS.md#devdertypdatarecentlistens)> | - |  | Stream the current user's recently listened songs and current now-playing, re-emitting on changes (debounced 100ms). |
+| `recentListens` | `limit` (`Int`): Maximum number of recent songs to return. Clamped to 1..1000. | [RecentListens](MODELS.md#devdertypdatarecentlistens) | - |  | Get the current user's recently listened songs and current now-playing once. |
+| `recentListensFlow` | `limit` (`Int`): Maximum number of recent songs to return. Clamped to 1..1000. | `Flow`<[RecentListens](MODELS.md#devdertypdatarecentlistens)> | - |  | Stream the current user's recently listened songs and current now-playing, re-emitting on changes (debounced 100ms). |
+| `recentArtists` | `limit` (`Int`): Maximum number of artists to return. Clamped to 1..1000. | `List`<[ListenedArtist](MODELS.md#devdertypdatalistenedartist)> | - |  | Get the current user's recently listened artists, most recently played first. |
+| `recentArtistsFlow` | `limit` (`Int`): Maximum number of artists to return. Clamped to 1..1000. | `Flow`<`List`<[ListenedArtist](MODELS.md#devdertypdatalistenedartist)>> | - |  | Stream the current user's recently listened artists, most recently played first, re-emitting on changes (debounced 100ms). |
+| `recentAlbums` | `limit` (`Int`): Maximum number of albums to return. Clamped to 1..1000. | `List`<[ListenedAlbum](MODELS.md#devdertypdatalistenedalbum)> | - |  | Get the current user's recently listened albums, most recently played first. |
+| `recentAlbumsFlow` | `limit` (`Int`): Maximum number of albums to return. Clamped to 1..1000. | `Flow`<`List`<[ListenedAlbum](MODELS.md#devdertypdatalistenedalbum)>> | - |  | Stream the current user's recently listened albums, most recently played first, re-emitting on changes (debounced 100ms). |
 
 ### IServerStatsService <a name="devdertypservicesiserverstatsservice"></a>
 Basic server health and performance monitoring.
@@ -586,6 +591,7 @@ The primary interface for song discovery, streaming, and metadata.
 | Function | Parameters | Returns | Permissions | Errors | Description |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `setLiked` | `id` (`PlatformUUID`): The unique UUID of the song.<br>`liked` (`Boolean`): Whether to mark as liked.<br>`addedAt` (`PlatformInstant`?): Optional timestamp of when it was added. | [UserSong](MODELS.md#devdertypdatausersong)? | - |  | Toggle favorite status. |
+| `setLikeLevel` | `id` (`PlatformUUID`): The unique UUID of the song.<br>`level` ([LikeLevel](MODELS.md#devdertypdatalikelevel)): The new like level. NONE removes the like and the super like. | [UserSong](MODELS.md#devdertypdatausersong)? | - |  | Set the like level of a song. A super like also counts as a like. Changing between LIKE and SUPER keeps the song's position among the liked songs. |
 | `setLyrics` | `id` (`PlatformUUID`): The song unique identifier.<br>`lyrics` (`List`<`String`>): List of lyric lines. | [UserSong](MODELS.md#devdertypdatausersong)? | `EDIT` |  | Manually set song lyrics. |
 | `setArtists` | `id` (`PlatformUUID`): The song unique identifier.<br>`artistIds` (`List`<`PlatformUUID`>): Collection of artist IDs. | [UserSong](MODELS.md#devdertypdatausersong)? | `EDIT` |  | Update song artists. |
 | `updateSong` | `song` ([Song](MODELS.md#devdertypdatasong)): The song with its updated editable fields. | [UserSong](MODELS.md#devdertypdatausersong)? | `EDIT` |  | Update a song's editable metadata (title, artists and their credited names, MusicBrainz link, album, lyrics, release date, track and disc number). |
@@ -604,6 +610,7 @@ The primary interface for song discovery, streaming, and metadata.
 | `byOriginalUrls` | `urls` (`Collection`<`String`>): Collection of original platform URLs. | `Map`<`String`, [UserSong](MODELS.md#devdertypdatausersong)?> | - |  | Find songs by their original platform URLs, returning a mapping. |
 | `byOriginalTracks` | `tracks` (`Collection`<[Track](MODELS.md#devdertypservicesmetadataimetadataservicetrack)>): Collection of track metadata. | `List`<[UserSong](MODELS.md#devdertypdatausersong)> | - |  | Find songs matching external metadata records. |
 | `likedSongs` | `page` (`Int`): Page index.<br>`pageSize` (`Int`): Number of items per page.<br>`explicit` (`Boolean`): Whether to include explicit content. | [PaginatedResponse](MODELS.md#devdertypdatapaginatedresponse)<[UserSong](MODELS.md#devdertypdatausersong)> | - |  | Get all songs liked by the current user. |
+| `superLikedSongs` | `page` (`Int`): Page index.<br>`pageSize` (`Int`): Number of items per page.<br>`explicit` (`Boolean`): Whether to include explicit content. | [PaginatedResponse](MODELS.md#devdertypdatapaginatedresponse)<[UserSong](MODELS.md#devdertypdatausersong)> | - |  | Get all songs super liked by the current user, most recently super liked first. |
 | `exportFavouritesAsCsv` | - | `String` | - |  | Export all favorited songs as a CSV string. |
 | `allSongs` | `page` (`Int`): Page index.<br>`pageSize` (`Int`): Number of items per page.<br>`explicit` (`Boolean`): Whether to include explicit content.<br>`tags` (`List`<[SongTag](MODELS.md#devdertypdatasongtag)>): Filter by specific tags.<br>`invertTags` (`Boolean`): Invert the tag filter. | [PaginatedResponse](MODELS.md#devdertypdatapaginatedresponse)<[UserSong](MODELS.md#devdertypdatausersong)> | - |  | Get all songs with optional filtering. |
 | `byColor` | `page` (`Int`): Page index.<br>`pageSize` (`Int`): Number of items per page.<br>`color` (`Int`): The target color in ARGB format.<br>`range` (`Int`): The allowed range (0-255).<br>`explicit` (`Boolean`): Whether to include explicit content. | [PaginatedResponse](MODELS.md#devdertypdatapaginatedresponse)<[UserSong](MODELS.md#devdertypdatausersong)> | - |  | Search for songs by color. |
@@ -618,6 +625,7 @@ The primary interface for song discovery, streaming, and metadata.
 | `getDownloadSize` | `id` (`PlatformUUID`): The song unique identifier.<br>`quality` (`Int`): The requested quality.<br>`force` (`Boolean`): Whether to force re-transcoding and duration check.<br>`format` ([AudioFormat](MODELS.md#devdertypdataaudioformat)): The target audio format. | `Long` | - |  | Get the size of the song audio for a specific quality. |
 | `allSongIds` | `explicit` (`Boolean`): Whether to include explicit content.<br>`tags` (`List`<[SongTag](MODELS.md#devdertypdatasongtag)>): Filter by specific tags.<br>`invertTags` (`Boolean`): Invert the tag filter. | `Flow`<`PlatformUUID`> | - |  | Stream all song IDs with optional filtering. |
 | `likedSongIds` | `explicit` (`Boolean`): Whether to include explicit content. | `Flow`<`PlatformUUID`> | - |  | Stream all IDs of songs liked by the current user. |
+| `superLikedSongIds` | `explicit` (`Boolean`): Whether to include explicit content. | `Flow`<`PlatformUUID`> | - |  | Stream all IDs of songs super liked by the current user, most recently super liked first. |
 | `songIdsByArtist` | `artistId` (`PlatformUUID`): The artist unique identifier. | `Flow`<`PlatformUUID`> | - |  | Stream song IDs belonging to an artist. |
 | `songIdsByAlbum` | `albumId` (`PlatformUUID`): The album unique identifier. | `Flow`<`PlatformUUID`> | - |  | Stream song IDs belonging to an album. |
 | `songIdsByPlaylist` | `playlistId` (`PlatformUUID`): The playlist unique identifier. | `Flow`<`PlatformUUID`> | - |  | Stream song IDs belonging to a system playlist. |

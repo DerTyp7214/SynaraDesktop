@@ -441,6 +441,7 @@ fun PlayerBar(
                                             onToggleExpanded = { globalState.togglePlayerExpanded() },
                                             onArtistClick = { globalState.setPlayerExpanded(false) },
                                             onLikeClick = { currentSong?.let { playerModel.toggleLike(it) } },
+                                            onSuperLikeClick = { currentSong?.let { playerModel.toggleSuperLike(it) } },
                                             onSecondaryClick = { showSongContextMenu = true },
                                             modifier = Modifier.weight(1f)
                                         )

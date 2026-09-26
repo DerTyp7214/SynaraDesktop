@@ -32,10 +32,7 @@ import dev.dertyp.synara.services.IDownloadManager
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.menus.SongContextMenu
 import kotlinx.coroutines.flow.filterIsInstance
-import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
-import synara.synara.generated.resources.Res
-import synara.synara.generated.resources.favorite
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -51,7 +48,8 @@ fun SongItem(
     playerModel: PlayerModel = koinInject(),
     songCache: SongCache = koinInject(),
     downloadManager: IDownloadManager = koinInject<IDownloadManager>(),
-    onToggleLike: () -> Unit = { playerModel.toggleLike(song) },
+    onToggleLike: (UserSong) -> Unit = { playerModel.toggleLike(it) },
+    onToggleSuperLike: (UserSong) -> Unit = { playerModel.toggleSuperLike(it) },
     isInQueue: Boolean = false,
     isInPlaylist: Boolean = false,
     onRemoveFromPlaylist: (() -> Unit)? = null,
@@ -207,14 +205,13 @@ fun SongItem(
                     trailingContent()
                 } else {
                     if (showLike) {
-                        IconButton(onClick = onToggleLike) {
-                            Icon(
-                                if (currentSongState.isFavourite == true) SynaraIcons.IsFavorite.get() else SynaraIcons.IsNotFavorite.get(),
-                                contentDescription = stringResource(Res.string.favorite),
-                                modifier = Modifier.size(20.dp),
-                                tint = if (currentSongState.isFavourite == true) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                        LikeButton(
+                            likeLevel = currentSongState.effectiveLikeLevel,
+                            onClick = { onToggleLike(currentSongState) },
+                            onSuperClick = { onToggleSuperLike(currentSongState) },
+                            iconSize = 20.dp,
+                            neutralTint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
 
                     if (onPlayNext != null) {

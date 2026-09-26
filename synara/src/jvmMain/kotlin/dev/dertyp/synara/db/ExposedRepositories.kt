@@ -773,7 +773,13 @@ private fun mapSongs(rows: List<ResultRow>): List<UserSong> {
             genres = genres[songId].orEmpty(),
             isFavourite = row[DownloadedSongs.isFavourite],
             userSongCreatedAt = row[DownloadedSongs.createdAt]?.let { platformDateFromEpochMilliseconds(it) },
-            userSongUpdatedAt = row[DownloadedSongs.updatedAt]?.let { platformDateFromEpochMilliseconds(it) }
+            userSongUpdatedAt = row[DownloadedSongs.updatedAt]?.let { platformDateFromEpochMilliseconds(it) },
+            likeLevel = when {
+                row[DownloadedSongs.superLikedAt] != null -> LikeLevel.SUPER
+                row[DownloadedSongs.isFavourite] -> LikeLevel.LIKE
+                else -> LikeLevel.NONE
+            },
+            superLikedAt = row[DownloadedSongs.superLikedAt]?.let { platformDateFromEpochMilliseconds(it) }
         )
     }
 }
@@ -830,6 +836,7 @@ private fun saveSongMetadataInternal(song: UserSong, explicitlySaved: Boolean) {
         it[musicBrainzId] = song.musicBrainzId
         if (explicitlySaved) it[DownloadedSongs.explicitlySaved] = true
         it[isFavourite] = song.isFavourite ?: false
+        it[superLikedAt] = song.superLikedAt?.toEpochMilliseconds()
         it[createdAt] = song.userSongCreatedAt?.toEpochMilliseconds()
         it[updatedAt] = song.userSongUpdatedAt?.toEpochMilliseconds()
     }

@@ -16,6 +16,7 @@ object MaterialMappings {
     @MapTo(SynaraIcons.IsFavorite, fillMode = FillMode.Filled)
     @MapTo(SynaraIcons.IsNotFavorite, fillMode = FillMode.Outlined)
     val Favorite = MaterialSymbols.Rounded.Favorite
+    @MapTo(SynaraIcons.SuperLiked, fillMode = FillMode.Filled) val Star = MaterialSymbols.Rounded.Star
     @MapTo(SynaraIcons.Songs)
     @MapTo(SynaraIcons.TagAcoustic)
     val Music_note = MaterialSymbols.Rounded.Music_note

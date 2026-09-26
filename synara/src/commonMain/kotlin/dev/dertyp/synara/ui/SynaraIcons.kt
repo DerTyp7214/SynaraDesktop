@@ -51,7 +51,7 @@ val LocalIconStyle = compositionLocalOf<SynaraIconStyle> { MaterialSymbolStyle.R
 val LocalIconFilled = compositionLocalOf { false }
 
 enum class SynaraIcons {
-    Dashboard, Search, Library, Settings, IsFavorite, IsNotFavorite, Songs, Refresh, Back, SideMenu, Clear, MoreOptions, 
+    Dashboard, Search, Library, Settings, IsFavorite, IsNotFavorite, SuperLiked, Songs, Refresh, Back, SideMenu, Clear, MoreOptions, 
     Play, Pause, SkipNext, SkipPrevious, Shuffle, Repeat, RepeatOne, PlayNext, AddToPlaylist, Albums, Artists, 
     AlbumVersions, Expiration, DeviceGeneric, DeviceMobile, DeviceDesktop, Upload, Add, Delete, DragHandle, Info, ThemeLight, 
     ThemeDark, ChevronDown, ChevronRight, ChevronUp, ChevronLeft, Filter, FilterOff, VolumeHigh, VolumeOff, VolumeMute, VolumeLow, Success,

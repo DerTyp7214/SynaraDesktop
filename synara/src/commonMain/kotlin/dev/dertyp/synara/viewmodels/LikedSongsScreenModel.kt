@@ -2,14 +2,22 @@ package dev.dertyp.synara.viewmodels
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import dev.dertyp.data.LikeLevel
+import dev.dertyp.data.PaginatedResponse
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.ISongService
 import dev.dertyp.synara.player.*
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.services.IDownloadManager
+import dev.dertyp.synara.ui.components.effectiveLikeLevel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+
+enum class LikedFilter {
+    All, Super
+}
 
 class LikedSongsScreenModel(
     private val rpcServiceManager: RpcServiceManager,
@@ -25,6 +33,9 @@ class LikedSongsScreenModel(
 
     private val _state = MutableStateFlow<LikedSongsState>(LikedSongsState.Loading)
     val state = _state.asStateFlow()
+
+    private val _filter = MutableStateFlow(LikedFilter.All)
+    val filter: StateFlow<LikedFilter> = _filter.asStateFlow()
 
     private var currentPage = 0
     private val pageSize = 50
@@ -47,7 +58,9 @@ class LikedSongsScreenModel(
                             val songs = currentState.songs.toMutableList()
                             val index = songs.indexOfFirst { it.id == updatedSong.id }
                             if (index != -1) {
-                                if (updatedSong.isFavourite == false) {
+                                val shouldRemove = updatedSong.isFavourite == false ||
+                                    (_filter.value == LikedFilter.Super && updatedSong.effectiveLikeLevel != LikeLevel.SUPER)
+                                if (shouldRemove) {
                                     songs.removeAt(index)
                                 } else {
                                     songs[index] = updatedSong
@@ -73,10 +86,26 @@ class LikedSongsScreenModel(
         refresher.refresh()
     }
 
+    fun setFilter(filter: LikedFilter) {
+        if (_filter.value == filter) return
+        _filter.value = filter
+        currentPage = 0
+        hasNextPage = true
+        ++generation
+        loadLikedSongs()
+    }
+
+    private suspend fun fetchPage(page: Int): PaginatedResponse<UserSong> {
+        return when (_filter.value) {
+            LikedFilter.All -> songService.likedSongs(page, pageSize, true)
+            LikedFilter.Super -> songService.superLikedSongs(page, pageSize, true)
+        }
+    }
+
     private suspend fun reload() {
         val requestGeneration = ++generation
         try {
-            val songsResponse = songService.likedSongs(0, pageSize, true)
+            val songsResponse = fetchPage(0)
             if (requestGeneration != generation) return
             _state.value = LikedSongsState.Success(
                 songs = songsResponse.data,
@@ -96,22 +125,22 @@ class LikedSongsScreenModel(
         if (isFetching) return
         isFetching = true
         val requestGeneration = generation
-        
+
         screenModelScope.launch {
             if (currentPage == 0) {
                 _state.value = LikedSongsState.Loading
             }
-            
+
             try {
-                val songsResponse = songService.likedSongs(currentPage, pageSize, true)
+                val songsResponse = fetchPage(currentPage)
                 if (requestGeneration != generation) return@launch
                 val currentSongs = if (currentPage == 0) emptyList() else (_state.value as? LikedSongsState.Success)?.songs ?: emptyList()
-                
+
                 _state.value = LikedSongsState.Success(
                     songs = currentSongs + songsResponse.data,
                     hasNextPage = songsResponse.hasNextPage
                 )
-                
+
                 hasNextPage = songsResponse.hasNextPage
                 if (hasNextPage) {
                     currentPage++
@@ -132,8 +161,14 @@ class LikedSongsScreenModel(
         }
     }
 
+    private val playbackSource: PlaybackSource
+        get() = when (_filter.value) {
+            LikedFilter.All -> PlaybackSource.LikedSongs
+            LikedFilter.Super -> PlaybackSource.SuperLikedSongs
+        }
+
     fun playAll() {
-        playerModel.playQueue(PlaybackQueue(source = PlaybackSource.LikedSongs))
+        playerModel.playQueue(PlaybackQueue(source = playbackSource))
     }
 
     fun playSong(song: UserSong) {
@@ -141,7 +176,7 @@ class LikedSongsScreenModel(
         if (currentState is LikedSongsState.Success) {
             val index = currentState.songs.indexOf(song)
             playerModel.playQueue(
-                PlaybackQueue(source = PlaybackSource.LikedSongs),
+                PlaybackQueue(source = playbackSource),
                 startIndex = if (index != -1) index else 0
             )
         }

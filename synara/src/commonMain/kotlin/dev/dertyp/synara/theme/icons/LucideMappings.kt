@@ -13,6 +13,7 @@ object LucideMappings {
     @MapTo(SynaraIcons.Settings) val Settings = Lucide.Settings
     @MapTo(SynaraIcons.IsFavorite) val HeartOff = Lucide.HeartOff
     @MapTo(SynaraIcons.IsNotFavorite) val Heart = Lucide.Heart
+    @MapTo(SynaraIcons.SuperLiked) val Star = Lucide.Star
     @MapTo(SynaraIcons.Songs)
     @MapTo(SynaraIcons.TagCover)
     val Music = Lucide.Music

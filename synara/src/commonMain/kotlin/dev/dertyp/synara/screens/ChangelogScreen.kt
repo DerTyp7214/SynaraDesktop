@@ -64,6 +64,16 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.9.0",
+                        date = "2026-09-26",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "**Super likes**: hold or right-click the heart to super like a song. Super liked songs show a glowing star in the player bar, song lists and the song menu."),
+                            Change(ChangeType.New, "**Super likes filter**: Favorites can show only your super liked songs and play them as their own queue."),
+                            Change(ChangeType.Improved, "**Offline super likes**: downloaded songs keep their super like.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.8.0",
                         date = "2026-09-25",
                         isPrerelease = true,

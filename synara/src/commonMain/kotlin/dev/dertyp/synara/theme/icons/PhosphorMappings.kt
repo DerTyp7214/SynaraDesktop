@@ -16,6 +16,7 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.IsFavorite, fillMode = FillMode.Filled)
     @MapTo(SynaraIcons.IsNotFavorite, fillMode = FillMode.Outlined)
     val Heart = PhIcons.Regular.Heart
+    @MapTo(SynaraIcons.SuperLiked, fillMode = FillMode.Filled) val Star = PhIcons.Regular.Star
     @MapTo(SynaraIcons.Songs) val MusicNote = PhIcons.Regular.MusicNote
     @MapTo(SynaraIcons.Refresh)
     @MapTo(SynaraIcons.Sync)
