@@ -4,8 +4,10 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import com.russhwolf.settings.Settings
+import dev.dertyp.randomPlatformUUID
 import dev.dertyp.synara.settings.SettingKey
-import dev.dertyp.synara.settings.VisualizerStyle
+import dev.dertyp.synara.settings.VisualizerPreset
+import dev.dertyp.synara.settings.VisualizerPresets
 import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.getOrNull
 import dev.dertyp.synara.settings.put
@@ -131,14 +133,33 @@ object Config : KoinComponent {
     private val _particleMultiplier = MutableStateFlow(settings.get(SettingKey.ParticleMultiplier, 2.5f))
     val particleMultiplier: StateFlow<Float> = _particleMultiplier.asStateFlow()
 
-    private val _visualizerStyle = MutableStateFlow(
-        try {
-            VisualizerStyle.valueOf(settings.get(SettingKey.VisualizerStyle, VisualizerStyle.Synara.name))
-        } catch (_: Exception) {
-            VisualizerStyle.Synara
-        }
+    private val _userVisualizerPresets = MutableStateFlow(
+        VisualizerPresets.decode(settings.getOrNull(SettingKey.VisualizerPresets))
     )
-    val visualizerStyle: StateFlow<VisualizerStyle> = _visualizerStyle.asStateFlow()
+    val userVisualizerPresets: StateFlow<List<VisualizerPreset>> = _userVisualizerPresets.asStateFlow()
+
+    private val _visualizerPresets = MutableStateFlow(VisualizerPresets.builtIns + _userVisualizerPresets.value)
+    val visualizerPresets: StateFlow<List<VisualizerPreset>> = _visualizerPresets.asStateFlow()
+
+    private val _activeVisualizerPresetId = MutableStateFlow(
+        VisualizerPresets.resolveActiveId(
+            settings.getOrNull(SettingKey.VisualizerActivePreset),
+            settings.getOrNull(SettingKey.VisualizerStyle),
+            _userVisualizerPresets.value
+        )
+    )
+    val activeVisualizerPresetId: StateFlow<String> = _activeVisualizerPresetId.asStateFlow()
+
+    private val _activeVisualizerPreset = MutableStateFlow(
+        findVisualizerPreset(_visualizerPresets.value, _activeVisualizerPresetId.value)
+    )
+    val activeVisualizerPreset: StateFlow<VisualizerPreset> = _activeVisualizerPreset.asStateFlow()
+
+    private val _visualizerDraft = MutableStateFlow<VisualizerPreset?>(null)
+    val visualizerDraft: StateFlow<VisualizerPreset?> = _visualizerDraft.asStateFlow()
+
+    private val _effectiveVisualizerPreset = MutableStateFlow(_activeVisualizerPreset.value)
+    val effectiveVisualizerPreset: StateFlow<VisualizerPreset> = _effectiveVisualizerPreset.asStateFlow()
 
     // Window
     private val _hideOnClose = MutableStateFlow(settings.get(SettingKey.HideOnClose, true))
@@ -367,10 +388,85 @@ object Config : KoinComponent {
         settings.put(SettingKey.ParticleMultiplier, multiplier)
     }
 
-    fun setVisualizerStyle(style: VisualizerStyle) {
-        _visualizerStyle.value = style
-        settings.put(SettingKey.VisualizerStyle, style.name)
+    fun selectVisualizerPreset(id: String) {
+        _visualizerDraft.value = null
+        setActiveVisualizerPresetId(id)
     }
+
+    fun updateVisualizerDraft(transform: (VisualizerPreset) -> VisualizerPreset) {
+        val active = _activeVisualizerPreset.value
+        val updated = transform(_visualizerDraft.value ?: active).copy(id = active.id, builtIn = active.builtIn)
+        _visualizerDraft.value = updated.takeIf { it != active }
+        refreshVisualizerPresets()
+    }
+
+    fun resetVisualizerDraft() {
+        _visualizerDraft.value = null
+        refreshVisualizerPresets()
+    }
+
+    fun saveVisualizerDraft(): Boolean {
+        val active = _activeVisualizerPreset.value
+        if (active.builtIn) return false
+        val draft = _visualizerDraft.value ?: return true
+        _visualizerDraft.value = null
+        setUserVisualizerPresets(_userVisualizerPresets.value.map { if (it.id == active.id) draft else it })
+        return true
+    }
+
+    fun saveVisualizerDraftAs(name: String): String {
+        val preset = (_visualizerDraft.value ?: _activeVisualizerPreset.value).copy(
+            id = randomPlatformUUID().toString(),
+            name = name,
+            builtIn = false
+        )
+        _visualizerDraft.value = null
+        setUserVisualizerPresets(_userVisualizerPresets.value + preset)
+        setActiveVisualizerPresetId(preset.id)
+        return preset.id
+    }
+
+    fun renameVisualizerPreset(id: String, name: String) {
+        if (_userVisualizerPresets.value.none { it.id == id }) return
+        _visualizerDraft.value?.let { draft ->
+            if (draft.id == id) _visualizerDraft.value = draft.copy(name = name)
+        }
+        setUserVisualizerPresets(_userVisualizerPresets.value.map { if (it.id == id) it.copy(name = name) else it })
+    }
+
+    fun deleteVisualizerPreset(id: String) {
+        if (_userVisualizerPresets.value.none { it.id == id }) return
+        setUserVisualizerPresets(_userVisualizerPresets.value.filterNot { it.id == id })
+        if (_activeVisualizerPresetId.value == id) selectVisualizerPreset(VisualizerPresets.SYNARA_ID)
+    }
+
+    fun setUserVisualizerPresets(presets: List<VisualizerPreset>) {
+        val userPresets = presets
+            .filterNot { preset -> preset.builtIn || VisualizerPresets.builtIns.any { it.id == preset.id } }
+            .distinctBy { it.id }
+        _userVisualizerPresets.value = userPresets
+        _visualizerPresets.value = VisualizerPresets.builtIns + userPresets
+        settings.put(SettingKey.VisualizerPresets, VisualizerPresets.encode(userPresets))
+        refreshVisualizerPresets()
+    }
+
+    fun setActiveVisualizerPresetId(id: String) {
+        if (_activeVisualizerPresetId.value != id) _visualizerDraft.value = null
+        _activeVisualizerPresetId.value = id
+        settings.put(SettingKey.VisualizerActivePreset, id)
+        refreshVisualizerPresets()
+    }
+
+    private fun refreshVisualizerPresets() {
+        val active = findVisualizerPreset(_visualizerPresets.value, _activeVisualizerPresetId.value)
+        _activeVisualizerPreset.value = active
+        val draft = _visualizerDraft.value?.takeIf { it.id == active.id && it != active }
+        _visualizerDraft.value = draft
+        _effectiveVisualizerPreset.value = draft ?: active
+    }
+
+    private fun findVisualizerPreset(presets: List<VisualizerPreset>, id: String): VisualizerPreset =
+        presets.firstOrNull { it.id == id } ?: VisualizerPresets.builtIns.first()
 
     fun setHideOnClose(hide: Boolean) {
         _hideOnClose.value = hide

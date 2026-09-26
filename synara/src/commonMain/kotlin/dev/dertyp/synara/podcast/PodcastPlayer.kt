@@ -22,6 +22,7 @@ interface PodcastPlayer {
     val speed: StateFlow<Float>
     val volume: StateFlow<Float>
     val fftData: StateFlow<FloatArray>
+    val sampleRate: StateFlow<Int>
     val hasContent: StateFlow<Boolean>
     val errors: SharedFlow<PodcastPlayerError>
 

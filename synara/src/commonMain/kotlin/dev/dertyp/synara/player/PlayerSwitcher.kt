@@ -43,6 +43,10 @@ class PlayerSwitcher(
         .flatMapLatest { if (it == ActivePlayer.PODCAST) podcastPlayer.isPlaying else playerModel.isPlaying }
         .stateIn(scope, SharingStarted.Eagerly, false)
 
+    val sampleRate: StateFlow<Int> = _active
+        .flatMapLatest { if (it == ActivePlayer.PODCAST) podcastPlayer.sampleRate else playerModel.sampleRate }
+        .stateIn(scope, SharingStarted.Eagerly, 0)
+
     init {
         scope.launch {
             playerModel.isPlaying.filter { it }.collect {

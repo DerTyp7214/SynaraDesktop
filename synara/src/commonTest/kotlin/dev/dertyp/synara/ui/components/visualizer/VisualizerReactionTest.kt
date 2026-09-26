@@ -1,5 +1,6 @@
 package dev.dertyp.synara.ui.components.visualizer
 
+import dev.dertyp.synara.settings.*
 import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.pow
@@ -107,10 +108,152 @@ class VisualizerReactionTest {
         assertEquals(45f, values[0])
     }
 
+    private fun preset(id: String) = VisualizerPresets.builtIns.first { it.id == id }
+
+    private fun assertSameHeights(a: VisualizerReaction, b: VisualizerReaction, frames: (Int) -> Pair<FloatArray, Boolean>) {
+        val bands = 24
+        val first = FloatArray(bands) { minHeightPx }
+        val second = FloatArray(bands) { minHeightPx }
+        repeat(300) {
+            val (fft, playing) = frames(it)
+            a.update(fft, playing, first, bands, heightPx, minHeightPx, 16L)
+            b.update(fft, playing, second, bands, heightPx, minHeightPx, 16L)
+            for (i in 0 until bands) assertEquals(first[i], second[i])
+        }
+    }
+
     @Test
-    fun reactionsDeclareTheirLayout() {
-        assertTrue(SynaraReaction().mirrored)
-        assertTrue(MonstercatReaction().mirrored)
+    fun speedsAtHalfKeepTheOriginalConstants() {
+        assertEquals(1f, speedFactor(0.5f))
+        assertEquals(0.2f, scaledBase(SynaraReaction.RISE_BASE, 0.5f))
+        assertEquals(0.88f, scaledBase(SynaraReaction.FALL_BASE, 0.5f))
+        assertEquals(0.3f, scaledBase(MonstercatReaction.RISE_NOISE_REDUCTION, 0.5f))
+        assertEquals(600f, MonstercatReaction.FALL_DURATION_MS / speedFactor(0.5f))
+        assertTrue(scaledBase(SynaraReaction.RISE_BASE, 1f) < 0.2f)
+        assertTrue(scaledBase(SynaraReaction.RISE_BASE, 0f) > 0.2f)
+        assertTrue(scaledBase(SynaraReaction.FALL_BASE, 1f) < 0.88f)
+        assertTrue(scaledBase(SynaraReaction.FALL_BASE, 0f) > 0.88f)
+    }
+
+    @Test
+    fun monstercatPresetReactsLikeTheDefaultReaction() {
+        val random = Random(3)
+        assertSameHeights(
+            preset(VisualizerPresets.MONSTERCAT_ID).createReaction(44100),
+            MonstercatReaction()
+        ) { i -> kickFrame(i * 16f, random).let { frame -> frame to (i < 250) } }
+    }
+
+    @Test
+    fun synaraPresetReactsLikeTheDefaultReaction() {
+        assertSameHeights(
+            preset(VisualizerPresets.SYNARA_ID).createReaction(44100),
+            SynaraReaction()
+        ) { i -> loudFft() to (i < 150) }
+    }
+
+    @Test
+    fun unknownSampleRateFallsBackToDefault() {
+        val random = Random(5)
+        assertSameHeights(
+            preset(VisualizerPresets.MONSTERCAT_ID).createReaction(0),
+            preset(VisualizerPresets.MONSTERCAT_ID).createReaction(DEFAULT_SAMPLE_RATE)
+        ) { i -> kickFrame(i * 16f, random) to true }
+    }
+
+    @Test
+    fun synaraHzRangeRestrictsCountedBins() {
+        val sampleRate = 44100f
+        val binWidthHz = sampleRate / 2f / 512
+        val fft = FloatArray(512)
+        val toneBin = (5000f / binWidthHz).toInt()
+        fft[toneBin] = 0.1f
+        val wide = SynaraReaction(lowHz = 20f, highHz = 11025f, sampleRate = sampleRate)
+        val narrow = SynaraReaction(lowHz = 20f, highHz = 2000f, sampleRate = sampleRate)
+        val wideHeights = FloatArray(8) { minHeightPx }
+        val narrowHeights = FloatArray(8) { minHeightPx }
+        repeat(50) {
+            wide.update(fft, true, wideHeights, 8, heightPx, minHeightPx, 16L)
+            narrow.update(fft, true, narrowHeights, 8, heightPx, minHeightPx, 16L)
+        }
+        assertTrue(wideHeights.any { it > heightPx * 0.9f })
+        assertTrue(narrowHeights.all { abs(it - minHeightPx) < 0.01f })
+    }
+
+    @Test
+    fun monstercatHzRangeRestrictsCountedBins() {
+        val fft = FloatArray(512)
+        fft[(10000f / binWidth).toInt()] = 0.1f
+        val wide = MonstercatReaction(highHz = 16000f)
+        val narrow = MonstercatReaction(highHz = 4000f)
+        val wideHeights = FloatArray(8) { minHeightPx }
+        val narrowHeights = FloatArray(8) { minHeightPx }
+        repeat(50) {
+            wide.update(fft, true, wideHeights, 8, heightPx, minHeightPx, 16L)
+            narrow.update(fft, true, narrowHeights, 8, heightPx, minHeightPx, 16L)
+        }
+        assertTrue(wideHeights.any { it > minHeightPx + 1f })
+        assertTrue(narrowHeights.all { abs(it - minHeightPx) < 0.01f })
+    }
+
+    @Test
+    fun logAndLinearBandEdgesDiffer() {
+        val log = MonstercatReaction.bandEdgeFrequencies(10, lowHz = 100f, highHz = 10000f, scale = FrequencyScale.Log)
+        val linear = MonstercatReaction.bandEdgeFrequencies(10, lowHz = 100f, highHz = 10000f, scale = FrequencyScale.Linear)
+        assertTrue(abs(log.first() - 100f) < 0.01f && abs(linear.first() - 100f) < 0.01f)
+        assertTrue(abs(log.last() - 10000f) < 1f && abs(linear.last() - 10000f) < 1f)
+        for (i in 1 until 11) {
+            assertTrue(abs(log[i] / log[i - 1] - 10f.pow(0.2f)) < 0.001f)
+            assertTrue(abs((linear[i] - linear[i - 1]) - 990f) < 0.1f)
+        }
+        assertTrue(log[5] < linear[5])
+
+        val synaraLog = SynaraReaction.bandEdgeBins(10, 512, 44100f, 100f, 10000f, FrequencyScale.Log)
+        val synaraLinear = SynaraReaction.bandEdgeBins(10, 512, 44100f, 100f, 10000f, FrequencyScale.Linear)
+        assertTrue(abs(synaraLog.first() - synaraLinear.first()) < 0.001f)
+        assertTrue(abs(synaraLog.last() - synaraLinear.last()) < 0.001f)
+        assertTrue(synaraLog[5] < synaraLinear[5])
+    }
+
+    @Test
+    fun synaraLinearRangeStartsAtTheFirstBin() {
+        val edges = SynaraReaction.bandEdgeBins(8, 512, 44100f, 20f, 11025f, FrequencyScale.Linear)
+        assertEquals(0, edges.first().toInt())
+        assertTrue(abs(edges.last() - 256f) < 0.01f)
+    }
+
+    @Test
+    fun synaraFixedGainKeepsWindowWhileAutoGainAdapts() {
+        val quiet = FloatArray(512) { 0.002f }
+        val fixed = SynaraReaction(lowHz = 20f, highHz = 11025f, autoGain = false)
+        val auto = SynaraReaction(lowHz = 20f, highHz = 11025f, autoGain = true)
+        val fixedHeights = FloatArray(8) { minHeightPx }
+        val autoHeights = FloatArray(8) { minHeightPx }
+        repeat(600) {
+            fixed.update(quiet, true, fixedHeights, 8, heightPx, minHeightPx, 16L)
+            auto.update(quiet, true, autoHeights, 8, heightPx, minHeightPx, 16L)
+        }
+        assertEquals(-20f, fixed.ceilingDb)
+        assertTrue(auto.ceilingDb < -40f)
+        assertTrue(autoHeights.average() > fixedHeights.average() * 2)
+    }
+
+    @Test
+    fun monstercatFixedGainIgnoresLevelChanges() {
+        val loud = MonstercatReaction(autoGain = false, minDb = -60f, maxDb = -20f)
+        val heights = FloatArray(16) { minHeightPx }
+        repeat(300) { loud.update(loudFft(), true, heights, 16, heightPx, minHeightPx, 16L) }
+        assertEquals(1f, loud.sensitivity)
+        assertTrue(heights.all { it > heightPx * 0.8f })
+
+        val silentFloor = MonstercatReaction(autoGain = false, minDb = -30f, maxDb = -20f)
+        val quietHeights = FloatArray(16) { minHeightPx }
+        repeat(300) { silentFloor.update(FloatArray(512) { 0.005f }, true, quietHeights, 16, heightPx, minHeightPx, 16L) }
+        assertTrue(quietHeights.all { abs(it - minHeightPx) < 0.01f })
+
+        val auto = MonstercatReaction()
+        repeat(300) { auto.update(loudFft(), true, FloatArray(16) { minHeightPx }, 16, heightPx, minHeightPx, 16L) }
+        assertTrue(auto.sensitivity != 1f)
     }
 
     @Test

@@ -1,5 +1,6 @@
 package dev.dertyp.synara.ui.components.visualizer
 
+import dev.dertyp.synara.settings.FrequencyScale
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.pow
@@ -9,14 +10,21 @@ class MonstercatReaction(
     private val falloff: Float = 2f,
     private val bassFalloff: Float = 1.5f,
     private val bassSpread: Float = 0.25f,
-    private val fallDurationMs: Float = 600f,
-    private val riseNoiseReduction: Float = 0.3f,
+    private val fallDurationMs: Float = FALL_DURATION_MS,
+    private val riseNoiseReduction: Float = RISE_NOISE_REDUCTION,
     private val trebleTilt: Float = 0.5f,
     private val tiltCornerHz: Float = TILT_CORNER_HZ,
     private val headroom: Float = 0.92f,
-    private val sampleRate: Float = SAMPLE_RATE
+    private val sampleRate: Float = SAMPLE_RATE,
+    private val lowHz: Float = LOW_HZ,
+    private val highHz: Float = HIGH_HZ,
+    private val scale: FrequencyScale = FrequencyScale.Log,
+    private val autoGain: Boolean = true,
+    minDb: Float = -60f,
+    maxDb: Float = -20f
 ) : VisualizerReaction {
-    override val mirrored = true
+    private val floorMagnitude = 10f.pow(minDb / 20f)
+    private val gainRange = (10f.pow(maxDb / 20f) - floorMagnitude).coerceAtLeast(1e-6f)
 
     var sensitivity = 1f
         private set
@@ -49,7 +57,7 @@ class MonstercatReaction(
         if (isPlaying && binCount > 1) {
             val key = count.toLong() shl 32 or binCount.toLong()
             if (key != edgesKey) {
-                edges = bandEdges(count, binCount, sampleRate)
+                edges = bandEdges(count, binCount, sampleRate, lowHz, highHz, scale)
                 gains = bandGains(edges, binCount, sampleRate, trebleTilt, tiltCornerHz)
                 falloffs = bandFalloffs(count, bassFalloff, falloff, bassSpread)
                 edgesKey = key
@@ -59,7 +67,11 @@ class MonstercatReaction(
             var silent = true
             for (i in 0 until count) {
                 if (levels[i] >= NOISE_FLOOR) silent = false
-                val value = levels[i] * gains[i] * sensitivity
+                val value = if (autoGain) {
+                    levels[i] * gains[i] * sensitivity
+                } else {
+                    (levels[i] - floorMagnitude).coerceAtLeast(0f) / gainRange * gains[i]
+                }
                 if (value > loudest) loudest = value
                 targets[i] = value
             }
@@ -67,7 +79,7 @@ class MonstercatReaction(
             for (i in 0 until count) {
                 targets[i] = ((targets[i] * headroom).coerceAtMost(1f) * heightPx).coerceAtLeast(minHeightPx)
             }
-            adjustSensitivity(loudest, silent, deltaMs)
+            if (autoGain) adjustSensitivity(loudest, silent, deltaMs)
         } else {
             targets.fill(minHeightPx)
         }
@@ -107,6 +119,8 @@ class MonstercatReaction(
         const val SAMPLE_RATE = 44100f
         const val LOW_HZ = 40f
         const val HIGH_HZ = 16000f
+        const val FALL_DURATION_MS = 600f
+        const val RISE_NOISE_REDUCTION = 0.3f
         const val TILT_CORNER_HZ = 250f
         const val FRAME_MS = 16f
         const val NOISE_FLOOR = 1e-4f
@@ -122,16 +136,30 @@ class MonstercatReaction(
             bandCount: Int,
             sampleRate: Float = SAMPLE_RATE,
             lowHz: Float = LOW_HZ,
-            highHz: Float = HIGH_HZ
+            highHz: Float = HIGH_HZ,
+            scale: FrequencyScale = FrequencyScale.Log
         ): FloatArray {
             val high = highHz.coerceAtMost(sampleRate / 2f)
-            val ratio = high / lowHz
-            return FloatArray(bandCount + 1) { i -> lowHz * ratio.pow(i.toFloat() / bandCount) }
+            val low = lowHz.coerceIn(1f, high)
+            return when (scale) {
+                FrequencyScale.Log -> {
+                    val ratio = high / low
+                    FloatArray(bandCount + 1) { i -> low * ratio.pow(i.toFloat() / bandCount) }
+                }
+                FrequencyScale.Linear -> FloatArray(bandCount + 1) { i -> low + (high - low) * i / bandCount }
+            }
         }
 
-        fun bandEdges(bandCount: Int, binCount: Int, sampleRate: Float = SAMPLE_RATE): FloatArray {
+        fun bandEdges(
+            bandCount: Int,
+            binCount: Int,
+            sampleRate: Float = SAMPLE_RATE,
+            lowHz: Float = LOW_HZ,
+            highHz: Float = HIGH_HZ,
+            scale: FrequencyScale = FrequencyScale.Log
+        ): FloatArray {
             val width = binWidthHz(binCount, sampleRate)
-            return bandEdgeFrequencies(bandCount, sampleRate).let { hz -> FloatArray(hz.size) { hz[it] / width } }
+            return bandEdgeFrequencies(bandCount, sampleRate, lowHz, highHz, scale).let { hz -> FloatArray(hz.size) { hz[it] / width } }
         }
 
         fun bandGains(

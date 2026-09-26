@@ -12,6 +12,7 @@ interface PodcastAudioEngine {
     val isPlaying: StateFlow<Boolean>
     val isLoading: StateFlow<Boolean>
     val fftData: StateFlow<FloatArray>
+    val sampleRate: StateFlow<Int>
     val finished: SharedFlow<Unit>
     val errors: SharedFlow<PodcastPlayerError>
 

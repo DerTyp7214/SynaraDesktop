@@ -89,6 +89,7 @@ class PodcastPlayerModel(
 
     override val volume: StateFlow<Float> = playerModel.volume
     override val fftData: StateFlow<FloatArray> = engine.fftData
+    override val sampleRate: StateFlow<Int> = engine.sampleRate
 
     override val hasContent: StateFlow<Boolean> = combine(_queue, Config.isPodcastsEnabled) { q, enabled ->
         enabled && q.isNotEmpty()

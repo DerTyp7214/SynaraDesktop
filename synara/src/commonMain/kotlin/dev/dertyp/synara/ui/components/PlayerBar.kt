@@ -21,7 +21,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.isShiftPressed
@@ -42,6 +41,7 @@ import dev.dertyp.data.OnlineDevice
 import dev.dertyp.data.PodcastEpisode
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.IAnimatedImageService
+import dev.dertyp.synara.Config
 import dev.dertyp.synara.animateColorSchemeAsState
 import dev.dertyp.synara.player.*
 import dev.dertyp.synara.podcast.PodcastPlayer
@@ -50,6 +50,8 @@ import dev.dertyp.synara.podcast.artworkId
 import dev.dertyp.synara.rpc.PresenceService
 import dev.dertyp.synara.screens.podcasts.PodcastShowScreen
 import dev.dertyp.synara.scrobble.ScrobblerService
+import dev.dertyp.synara.settings.VisualizerLimits
+import dev.dertyp.synara.settings.VisualizerShape
 import dev.dertyp.synara.theme.createColorSchemeFromSeeds
 import dev.dertyp.synara.theme.isAppDark
 import dev.dertyp.synara.theme.rememberCoverScheme
@@ -364,7 +366,7 @@ fun PlayerBar(
                     val sizeResolver = rememberConstraintsSizeResolver()
                     val coverCenter = remember { mutableStateOf(Offset.Unspecified) }
 
-                    val (colorA, colorB) = sort(
+                    val (colorA, colorB) = sortByLuminance(
                         MaterialTheme.colorScheme.primaryContainer,
                         MaterialTheme.colorScheme.tertiary
                     )
@@ -744,6 +746,17 @@ private fun ExpandedPlayerContent(
 
     val sideContentShowing = isQueueShowing || isLyricsShowing || isTagsShowing
 
+    val visualizerPreset by Config.effectiveVisualizerPreset.collectAsState()
+    val visualizerColors = rememberVisualizerColors(
+        visualizerPreset,
+        if (isPodcast) currentEpisode?.artworkId else currentSong?.coverId
+    )
+    val coverVisualizerPreset = remember(visualizerPreset, isRemote) {
+        if (isRemote) visualizerPreset.copy(shape = VisualizerShape.Strip) else visualizerPreset
+    }
+    val visualizerHeight = visualizerPreset.height.coerceIn(VisualizerLimits.height).dp
+    val visualizerWidthFraction = visualizerPreset.widthFraction.coerceIn(VisualizerLimits.widthFraction)
+
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val totalWidth = maxWidth
         val isHorizontal = totalWidth > 800.dp
@@ -856,9 +869,9 @@ private fun ExpandedPlayerContent(
                     ) {
                         Spacer(modifier = Modifier.weight(.5f))
 
-                        LargeCover(
-                            cover = cover,
-                            sizeResolver = sizeResolver,
+                        VisualizerAroundCover(
+                            preset = coverVisualizerPreset,
+                            colors = visualizerColors,
                             modifier = Modifier
                                 .sizeIn(maxHeight = 400.dp, maxWidth = 400.dp)
                                 .aspectRatio(1f)
@@ -874,24 +887,25 @@ private fun ExpandedPlayerContent(
 
                                     coverCenter.value = relativePosition + localCenter
                                 }
-                        )
+                        ) {
+                            LargeCover(
+                                cover = cover,
+                                sizeResolver = sizeResolver,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
 
-                        if (isRemote) {
+                        if (isRemote || visualizerPreset.shape == VisualizerShape.Radial) {
                             Spacer(modifier = Modifier.weight(.5f))
                         } else {
                             Spacer(modifier = Modifier.weight(.3f))
 
-                            val (colorA, colorB) = sort(
-                                MaterialTheme.colorScheme.primaryContainer,
-                                MaterialTheme.colorScheme.tertiary
-                            )
-
                             VisualizerView(
+                                preset = visualizerPreset,
+                                colors = visualizerColors,
                                 modifier = Modifier
-                                    .fillMaxWidth(visualizerWidthScale)
-                                    .requiredHeight(120.dp),
-                                highlightColor = colorA,
-                                color = colorB
+                                    .fillMaxWidth(visualizerWidthScale * visualizerWidthFraction)
+                                    .requiredHeight(visualizerHeight)
                             )
 
                             Spacer(modifier = Modifier.weight(.2f))
@@ -961,9 +975,9 @@ private fun ExpandedPlayerContent(
                             ) {
                                 Spacer(modifier = Modifier.weight(1f))
 
-                                LargeCover(
-                                    cover = cover,
-                                    sizeResolver = sizeResolver,
+                                VisualizerAroundCover(
+                                    preset = coverVisualizerPreset,
+                                    colors = visualizerColors,
                                     modifier = Modifier
                                         .sizeIn(maxHeight = 360.dp, maxWidth = 360.dp)
                                         .aspectRatio(1f)
@@ -980,24 +994,25 @@ private fun ExpandedPlayerContent(
 
                                             coverCenter.value = relativePosition + localCenter
                                         }
-                                )
+                                ) {
+                                    LargeCover(
+                                        cover = cover,
+                                        sizeResolver = sizeResolver,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
 
-                                if (isRemote) {
+                                if (isRemote || visualizerPreset.shape == VisualizerShape.Radial) {
                                     Spacer(modifier = Modifier.weight(.9f))
                                 } else {
                                     Spacer(modifier = Modifier.weight(.6f))
 
-                                    val (colorA, colorB) = sort(
-                                        MaterialTheme.colorScheme.primaryContainer,
-                                        MaterialTheme.colorScheme.tertiary
-                                    )
-
                                     VisualizerView(
+                                        preset = visualizerPreset,
+                                        colors = visualizerColors,
                                         modifier = Modifier
-                                            .fillMaxWidth(0.9f)
-                                            .requiredHeight(120.dp),
-                                        highlightColor = colorA,
-                                        color = colorB
+                                            .fillMaxWidth(0.9f * visualizerWidthFraction)
+                                            .requiredHeight(visualizerHeight)
                                     )
 
                                     Spacer(modifier = Modifier.weight(.3f))
@@ -1046,9 +1061,6 @@ private fun ExpandedPlayerContent(
         }
     }
 }
-
-private fun sort(a: Color, b: Color): Pair<Color, Color> =
-    if (a.luminance() > b.luminance()) a to b else b to a
 
 private data class CoverSource(
     val key: Any?,

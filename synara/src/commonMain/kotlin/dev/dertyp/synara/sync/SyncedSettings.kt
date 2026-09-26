@@ -4,7 +4,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import dev.dertyp.serializers.AppJson
 import dev.dertyp.synara.Config
-import dev.dertyp.synara.settings.VisualizerStyle
+import dev.dertyp.synara.settings.VisualizerPreset
+import dev.dertyp.synara.settings.VisualizerPresets
 import dev.dertyp.synara.ui.IconPackType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -170,6 +171,20 @@ class SyncedSettingsRegistry(private val cipher: SecretsCipher) {
         setter = { setter(it) }
     )
 
+    private fun visualizerPresets(
+        key: String,
+        flow: StateFlow<List<VisualizerPreset>>,
+        setter: (List<VisualizerPreset>) -> Unit
+    ): SyncedSetting<List<VisualizerPreset>> = SyncedSetting(
+        key = key,
+        group = SyncGroup.GENERAL,
+        flow = flow,
+        default = emptyList(),
+        encoder = { VisualizerPresets.encode(it) },
+        decoder = { json -> AppJson.decodeFromString<List<VisualizerPreset>>(json).filterNot { it.builtIn } },
+        setter = { setter(it) }
+    )
+
     /**
      * A credential. The encoder returns null while the secrets are locked, so nothing is ever
      * uploaded in the clear; an empty local value counts as "not set".
@@ -227,7 +242,12 @@ class SyncedSettingsRegistry(private val cipher: SecretsCipher) {
         string("desktop.icon_style", Config.iconStyle, "rounded") { Config.setIconStyle(it) },
         boolean("desktop.icon_filled", Config.iconFilled, false) { Config.setIconFilled(it) },
         enum("desktop.icon_pack", Config.iconPack, IconPackType.MaterialSymbols) { Config.setIconPack(it) },
-        enum("desktop.visualizer_style", Config.visualizerStyle, VisualizerStyle.Synara) { Config.setVisualizerStyle(it) },
+        visualizerPresets("desktop.visualizer_presets", Config.userVisualizerPresets) {
+            Config.setUserVisualizerPresets(it)
+        },
+        string("desktop.visualizer_active_preset", Config.activeVisualizerPresetId, VisualizerPresets.SYNARA_ID) {
+            Config.setActiveVisualizerPresetId(it)
+        },
         int("desktop.streaming_quality", Config.streamingQuality, 0) { Config.setStreamingQuality(it) },
         nullableString("desktop.language", Config.language) { Config.setLanguage(it) },
 

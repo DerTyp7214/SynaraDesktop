@@ -65,7 +65,6 @@ import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.QueueSyncService
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.scrobble.LastFmScrobbler
-import dev.dertyp.synara.settings.VisualizerStyle
 import dev.dertyp.synara.sync.DeviceIdentity
 import dev.dertyp.synara.sync.SecretsLockState
 import dev.dertyp.synara.sync.SettingsSyncService
@@ -189,7 +188,8 @@ import synara.synara.generated.resources.task_manager
 import synara.synara.generated.resources.theme
 import synara.synara.generated.resources.use_pywal
 import synara.synara.generated.resources.use_song_color
-import synara.synara.generated.resources.visualizer_style
+import synara.synara.generated.resources.visualizer
+import synara.synara.generated.resources.visualizer_active_preset
 import synara.synara.generated.resources.window
 import kotlin.math.roundToInt
 
@@ -210,7 +210,7 @@ class SettingsScreen : Screen {
         val useSongColor by Config.useSongColor.collectAsState()
         val usePywal by Config.usePywal.collectAsState()
         val particleMultiplier by Config.particleMultiplier.collectAsState()
-        val visualizerStyle by Config.visualizerStyle.collectAsState()
+        val activeVisualizerPreset by Config.activeVisualizerPreset.collectAsState()
         val hideOnClose by Config.hideOnClose.collectAsState()
         val showTitleTagsInText by Config.showTitleTagsInText.collectAsState()
 
@@ -375,10 +375,29 @@ class SettingsScreen : Screen {
                         iconFilled = iconFilled
                     )
 
-                    VisualizerStyleSetting(
-                        currentStyle = visualizerStyle,
-                        onStyleSelected = { Config.setVisualizerStyle(it) }
-                    )
+                    SettingsCard(onClick = { navigator.push(VisualizerSettingsScreen()) }) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(Res.string.visualizer),
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Text(
+                                    text = stringResource(Res.string.visualizer_active_preset, activeVisualizerPreset.name),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Icon(
+                                imageVector = SynaraIcons.ChevronRight.get(),
+                                contentDescription = null
+                            )
+                        }
+                    }
 
                     ParticleMultiplierSetting(
                         multiplier = particleMultiplier,
@@ -1411,55 +1430,6 @@ class SettingsScreen : Screen {
     }
 
     @Composable
-    private fun SettingSwitch(
-        title: String,
-        checked: Boolean,
-        onCheckedChange: (Boolean) -> Unit,
-        useElevatedCard: Boolean = true,
-        summary: String? = null,
-        enabled: Boolean = true
-    ) {
-        val rowContent = @Composable { modifier: Modifier ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(modifier),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = if (enabled) MaterialTheme.colorScheme.onSurface
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (summary != null) {
-                        Text(
-                            text = summary,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                Switch(
-                    checked = checked,
-                    onCheckedChange = { onCheckedChange(it) },
-                    enabled = enabled
-                )
-            }
-        }
-
-        if (useElevatedCard) {
-            SettingsCard(onClick = if (enabled) ({ onCheckedChange(!checked) }) else null) {
-                rowContent(Modifier)
-            }
-        } else {
-            rowContent(Modifier.clickable(enabled = enabled) { onCheckedChange(!checked) }.padding(16.dp))
-        }
-    }
-
-    @Composable
     private fun LanguageSetting(currentLanguage: String?) {
         var expanded by remember { mutableStateOf(false) }
         val languages = listOf(
@@ -1813,56 +1783,134 @@ class SettingsScreen : Screen {
         )
     }
 
-    @OptIn(ExperimentalMaterial3Api::class)
-    @Composable
-    private fun VisualizerStyleSetting(currentStyle: VisualizerStyle, onStyleSelected: (VisualizerStyle) -> Unit) {
-        SettingsCard {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = stringResource(Res.string.visualizer_style),
-                    style = MaterialTheme.typography.titleMedium
-                )
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    VisualizerStyle.entries.forEachIndexed { index, style ->
-                        SegmentedButton(
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = VisualizerStyle.entries.size),
-                            onClick = { onStyleSelected(style) },
-                            selected = style == currentStyle,
-                            label = { Text(stringResource(style.label)) }
-                        )
-                    }
-                }
-            }
-        }
-    }
-
     @Composable
     private fun ParticleMultiplierSetting(multiplier: Float, onMultiplierChange: (Float) -> Unit) {
-        SettingsCard {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+        SettingSlider(
+            title = stringResource(Res.string.particle_multiplier),
+            value = multiplier,
+            valueText = ((multiplier * 10).roundToInt() / 10f).toString(),
+            onValueChange = onMultiplierChange,
+            valueRange = 0f..10f,
+            steps = 99
+        )
+    }
+}
+
+@Composable
+internal fun SettingSwitch(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    useElevatedCard: Boolean = true,
+    summary: String? = null,
+    enabled: Boolean = true
+) {
+    val rowContent = @Composable { modifier: Modifier ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(modifier),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (enabled) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (summary != null) {
                     Text(
-                        text = stringResource(Res.string.particle_multiplier),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = ((multiplier * 10).roundToInt() / 10f).toString(),
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = summary,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Slider(
-                    value = multiplier,
-                    onValueChange = { onMultiplierChange(it) },
-                    valueRange = 0f..10f,
-                    steps = 99
+            }
+            Switch(
+                checked = checked,
+                onCheckedChange = { onCheckedChange(it) },
+                enabled = enabled
+            )
+        }
+    }
+
+    if (useElevatedCard) {
+        SettingsCard(onClick = if (enabled) ({ onCheckedChange(!checked) }) else null) {
+            rowContent(Modifier)
+        }
+    } else {
+        rowContent(Modifier.clickable(enabled = enabled) { onCheckedChange(!checked) }.padding(16.dp))
+    }
+}
+
+@Composable
+internal fun SettingSlider(
+    title: String,
+    value: Float,
+    valueText: String,
+    onValueChange: (Float) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int = 0,
+    enabled: Boolean = true
+) {
+    SettingsCard {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (enabled) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Text(
+                    text = valueText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Slider(
+                value = value.coerceIn(valueRange),
+                onValueChange = { onValueChange(it) },
+                valueRange = valueRange,
+                steps = steps,
+                enabled = enabled
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun <T> SettingSegmentedRow(
+    title: String,
+    options: List<T>,
+    selected: T,
+    label: @Composable (T) -> String,
+    onSelected: (T) -> Unit
+) {
+    SettingsCard {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium
+            )
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                options.forEachIndexed { index, option ->
+                    SegmentedButton(
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                        onClick = { onSelected(option) },
+                        selected = option == selected,
+                        label = { Text(label(option)) }
+                    )
+                }
             }
         }
     }

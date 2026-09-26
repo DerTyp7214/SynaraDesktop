@@ -26,6 +26,7 @@ class JvmPodcastAudioEngine(
     override val isPlaying: StateFlow<Boolean> = player.isPlaying
     override val isLoading: StateFlow<Boolean> = player.isLoading
     override val fftData: StateFlow<FloatArray> = player.fftData
+    override val sampleRate: StateFlow<Int> = player.sampleRate
     override val finished: SharedFlow<Unit> = player.onFinished
 
     private val _errors = MutableSharedFlow<PodcastPlayerError>(extraBufferCapacity = 8)

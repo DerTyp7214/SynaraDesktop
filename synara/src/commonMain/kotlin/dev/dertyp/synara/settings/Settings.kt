@@ -83,6 +83,8 @@ sealed class SettingKey<T>(val name: String) {
     // Visualizer
     data object ParticleMultiplier : SettingKey<Float>("particle_multiplier")
     data object VisualizerStyle : SettingKey<String>("visualizer_style")
+    data object VisualizerPresets : SettingKey<String>("visualizer_presets")
+    data object VisualizerActivePreset : SettingKey<String>("visualizer_active_preset")
 
     // UI
     data object IconStyle : SettingKey<String>("icon_style")
@@ -165,7 +167,8 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.QueueSyncDeviceName, is SettingKey.DeviceId,
         is SettingKey.SettingsSyncUserId, is SettingKey.SecretsSyncEncKey,
         is SettingKey.SecretsSyncMacKey, is SettingKey.SecretsSyncSaltFingerprint,
-        is SettingKey.AudioOutputDevice, is SettingKey.VisualizerStyle -> getStringOrNull(key.name) as T?
+        is SettingKey.AudioOutputDevice, is SettingKey.VisualizerStyle,
+        is SettingKey.VisualizerPresets, is SettingKey.VisualizerActivePreset -> getStringOrNull(key.name) as T?
 
         is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor,
         is SettingKey.ProxyPort, is SettingKey.AudioBufferSize, is SettingKey.AudioBufferCount,

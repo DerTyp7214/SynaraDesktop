@@ -64,6 +64,19 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.10.0",
+                        date = "2026-09-26",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "**Visualizer presets**: a new visualizer page in the settings lets you shape the visualizer with a live preview and save your setups as named presets that sync across your desktops. Built-in presets like Minimal, Neon, Flow and Halo are ready to pick."),
+                            Change(ChangeType.New, "**Radial visualizer**: the bars can circle around the cover instead of sitting in a strip, optionally rotating."),
+                            Change(ChangeType.New, "**Wave mode**: draw the spectrum as a smooth wave instead of bars, filled, outlined or both."),
+                            Change(ChangeType.New, "**Visualizer colors**: take the colors from the theme, from the cover or pick your own, blended by height, as a gradient across the bars or from base to tip."),
+                            Change(ChangeType.New, "**Visualizer tuning**: choose the frequency range, a log or linear scale, automatic or fixed sensitivity, how fast bars rise and fall, bar size, spacing and height, and the strength of the flame and glow effects."),
+                            Change(ChangeType.Improved, "The visualizer uses the actual sample rate of the playing song, so high-resolution tracks show the right frequencies.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.9.0",
                         date = "2026-09-26",
                         isPrerelease = true,
