@@ -48,8 +48,7 @@ import org.jetbrains.skia.Canvas as SkiaCanvas
 
 private const val NUM_BUCKETS = 100
 private const val HEX_CORNERS = 6
-private const val HEX_VERTICES = HEX_CORNERS + 1
-private const val HEX_INDICES = HEX_CORNERS * 3
+private const val HEX_VERTICES = HEX_CORNERS * 3
 private const val CHUNK_PARTICLES = 9_000
 private const val PARTICLE_MARGIN = 100f
 private const val OPAQUE_BLACK = 0xFF000000.toInt()
@@ -274,7 +273,6 @@ actual fun ParticleViewGpu(
 private class ParticleMesh {
     private val sizeClasses = IntArray(8) { 64 shl it } + CHUNK_PARTICLES
     private val positions = arrayOfNulls<FloatArray>(sizeClasses.size)
-    private val indices = arrayOfNulls<ShortArray>(sizeClasses.size)
     private val colors = arrayOfNulls<IntArray>(sizeClasses.size)
 
     private var sizeClass = 0
@@ -289,11 +287,7 @@ private class ParticleMesh {
         while (sizeClasses[c] < needed) c++
         sizeClass = c
         particleCount = 0
-        if (positions[c] == null) {
-            val size = sizeClasses[c]
-            positions[c] = FloatArray(size * HEX_VERTICES * 2)
-            indices[c] = ShortArray(size * HEX_INDICES).also { fanIndices(it, size) }
-        }
+        if (positions[c] == null) positions[c] = FloatArray(sizeClasses[c] * HEX_VERTICES * 2)
         colored = withColors
         if (withColors && colors[c] == null) colors[c] = IntArray(sizeClasses[c] * HEX_VERTICES)
     }
@@ -307,11 +301,14 @@ private class ParticleMesh {
     fun add(x: Float, y: Float, radius: Float, hexOffsets: FloatArray) {
         val pos = positions[sizeClass]!!
         var v = particleCount * HEX_VERTICES * 2
-        pos[v++] = x
-        pos[v++] = y
         for (j in 0 until HEX_CORNERS) {
+            val next = (j + 1) % HEX_CORNERS
+            pos[v++] = x
+            pos[v++] = y
             pos[v++] = x + hexOffsets[j * 2] * radius
             pos[v++] = y + hexOffsets[j * 2 + 1] * radius
+            pos[v++] = x + hexOffsets[next * 2] * radius
+            pos[v++] = y + hexOffsets[next * 2 + 1] * radius
         }
         particleCount++
     }
@@ -333,23 +330,11 @@ private class ParticleMesh {
             val cols = colors[sizeClass]!!
             val usedVertices = particleCount * HEX_VERTICES
             cols.fill(cols[usedVertices - 1], usedVertices, cols.size)
-            canvas.drawVertices(VertexMode.TRIANGLES, pos, cols, null, indices[sizeClass], BlendMode.DST, paint)
+            canvas.drawVertices(VertexMode.TRIANGLES, pos, cols, null, null, BlendMode.DST, paint)
         } else {
-            canvas.drawVertices(VertexMode.TRIANGLES, pos, null, null, indices[sizeClass], BlendMode.SRC_OVER, paint)
+            canvas.drawVertices(VertexMode.TRIANGLES, pos, null, null, null, BlendMode.SRC_OVER, paint)
         }
         particleCount = 0
-    }
-
-    private fun fanIndices(target: ShortArray, size: Int) {
-        var k = 0
-        for (p in 0 until size) {
-            val base = p * HEX_VERTICES
-            for (j in 0 until HEX_CORNERS) {
-                target[k++] = base.toShort()
-                target[k++] = (base + 1 + j).toShort()
-                target[k++] = (base + 1 + (j + 1) % HEX_CORNERS).toShort()
-            }
-        }
     }
 }
 

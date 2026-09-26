@@ -64,6 +64,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.10.3",
+                        date = "2026-09-27",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Fixed, "Memory leak in the particle effect that could grow until the app crashed.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.10.2",
                         date = "2026-09-26",
                         isPrerelease = true,
