@@ -14,7 +14,6 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -32,7 +31,6 @@ import dev.dertyp.synara.ui.models.PerformanceMonitor
 import dev.dertyp.synara.utils.OSUtils
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import org.jetbrains.skia.BlendMode
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.VertexMode
@@ -52,6 +50,14 @@ private const val HEX_VERTICES = HEX_CORNERS * 3
 private const val CHUNK_PARTICLES = 9_000
 private const val PARTICLE_MARGIN = 100f
 private const val OPAQUE_BLACK = 0xFF000000.toInt()
+
+private class ParticleLoopState {
+    var frameTime = 0L
+    var lastInterval = 0L
+    var smoothedIntensity = 0f
+    var lastStatsTime = 0L
+    var frameCount = 0
+}
 
 internal class ParticleSystem(val capacity: Int) {
     val x = FloatArray(capacity)
@@ -180,51 +186,47 @@ actual fun ParticleViewGpu(
         }
     }
 
-    LaunchedEffect(particleCap) {
-        var frameTime = 0L
-        var lastInterval = 0L
-        var smoothedIntensity = 0f
-        var lastStatsTime = 0L
-        var frameCount = 0
+    val loopState = remember(particleCap) { ParticleLoopState() }
+    val active by remember { derivedStateOf { activeCount > 0 || emitParticles || isObserved } }
+    var loopGeneration by remember(particleCap) { mutableIntStateOf(0) }
+
+    LaunchedEffect(particleCap, active, loopGeneration) {
+        if (!active) return@LaunchedEffect
+        var resumed = true
 
         while (true) {
-            var resumed = false
-            if (activeCount == 0 && !emitParticles && !isObserved) {
-                snapshotFlow { activeCount == 0 && !emitParticles && !isObserved }.first { !it }
-                resumed = true
-            }
-
             withFrameNanos { time ->
                 val interval = when {
-                    frameTime == 0L -> 0L
-                    resumed -> lastInterval
-                    else -> time - frameTime
+                    loopState.frameTime == 0L -> 0L
+                    resumed -> loopState.lastInterval
+                    else -> time - loopState.frameTime
                 }
-                lastInterval = interval
+                resumed = false
+                loopState.lastInterval = interval
                 val dt = interval / 1E9f
                 val deltaMillis = dt * 1000f
-                frameTime = time
+                loopState.frameTime = time
 
                 if (isObserved) {
-                    frameCount++
-                    if (time - lastStatsTime >= 1E9) {
-                        performanceMonitor.updateParticleStats(activeCount, frameCount)
-                        frameCount = 0
-                        lastStatsTime = time
+                    loopState.frameCount++
+                    if (time - loopState.lastStatsTime >= 1E9) {
+                        performanceMonitor.updateParticleStats(activeCount, loopState.frameCount)
+                        loopState.frameCount = 0
+                        loopState.lastStatsTime = time
                     }
                 }
 
                 val emitting = emitParticles
                 val target = if (emitting) audioIntensity else 0f
                 val lerpFactor = (deltaMillis / 12.5f).coerceIn(0f, 1f)
-                val alpha = if (target > smoothedIntensity) 1f - 0.15f.pow(lerpFactor) else 1f - 0.90f.pow(lerpFactor)
-                smoothedIntensity += (target - smoothedIntensity) * alpha
+                val alpha = if (target > loopState.smoothedIntensity) 1f - 0.15f.pow(lerpFactor) else 1f - 0.90f.pow(lerpFactor)
+                loopState.smoothedIntensity += (target - loopState.smoothedIntensity) * alpha
 
                 val normalizedDt = (dt * 60f).coerceIn(0f, 2f)
 
                 val multiplier = particleMultiplier
                 if (emitting && multiplier > 0) {
-                    val intensity = smoothedIntensity
+                    val intensity = loopState.smoothedIntensity
                     val baseSpeed = Random.nextInt(2, 6) * intensity
                     val speed = baseSpeed * speedMultiplier * .6f
                     val velocity = (speed * speed * speed / 4f).coerceAtLeast(1f)
@@ -244,6 +246,11 @@ actual fun ParticleViewGpu(
 
                 activeCount = particles.count
                 tick = time
+            }
+
+            if (activeCount == 0 && !emitParticles && !isObserved) {
+                loopGeneration++
+                return@LaunchedEffect
             }
         }
     }

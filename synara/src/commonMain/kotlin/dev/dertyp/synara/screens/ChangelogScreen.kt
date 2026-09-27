@@ -64,6 +64,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.10.4",
+                        date = "2026-09-27",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Fixed, "The app could freeze completely when the next song started.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.10.3",
                         date = "2026-09-27",
                         isPrerelease = true,
