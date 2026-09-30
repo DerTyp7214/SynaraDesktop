@@ -10,6 +10,7 @@ import dev.dertyp.synara.player.QueueSyncService
 import dev.dertyp.synara.player.RemoteControlService
 import dev.dertyp.synara.player.SongCache
 import dev.dertyp.synara.player.TimecodeTagAutomation
+import dev.dertyp.synara.rpc.ChangeHub
 import dev.dertyp.synara.rpc.PresenceService
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.services.UserPlaylistServiceWrapper
@@ -29,6 +30,7 @@ class GlobalStateModel(
     private val userPlaylistService: UserPlaylistServiceWrapper,
     private val scrobblerService: ScrobblerService,
     private val presenceService: PresenceService,
+    private val changeHub: ChangeHub,
     private val queueSyncService: QueueSyncService,
     private val remoteControlService: RemoteControlService,
     private val timecodeTagAutomation: TimecodeTagAutomation,
@@ -142,6 +144,7 @@ class GlobalStateModel(
         }
 
         presenceService.start()
+        changeHub.start()
         queueSyncService.start()
         remoteControlService.start()
         timecodeTagAutomation.start()

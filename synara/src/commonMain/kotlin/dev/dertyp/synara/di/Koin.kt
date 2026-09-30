@@ -28,6 +28,7 @@ import dev.dertyp.synara.player.SongCache
 import dev.dertyp.synara.player.TimecodeTagAutomation
 import dev.dertyp.synara.player.TimecodeTagStore
 import dev.dertyp.synara.podcast.*
+import dev.dertyp.synara.rpc.ChangeHub
 import dev.dertyp.synara.rpc.PresenceService
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.ServerClock
@@ -128,6 +129,7 @@ val appModule = module {
     singleOf(::PlayerModel)
     singleOf(::DeviceIdentity)
     singleOf(::PresenceService)
+    singleOf(::ChangeHub)
     singleOf(::QueueSyncService)
     singleOf(::RemoteControlService)
     singleOf(::RemotePlaybackController)
@@ -199,6 +201,7 @@ val appModule = module {
     singleOf(::PlaybackServiceWrapper) bind IPlaybackService::class
     singleOf(::QueueServiceWrapper) bind IQueueService::class
     singleOf(::ClientRequestServiceWrapper) bind IClientRequestService::class
+    singleOf(::ChangeServiceWrapper) bind IChangeService::class
     singleOf(::RemoteControlServiceWrapper) bind IRemoteControlService::class
     singleOf(::ClientSettingsServiceWrapper) bind IClientSettingsService::class
     singleOf(::PlaylistServiceWrapper) bind IPlaylistService::class

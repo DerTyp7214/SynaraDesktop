@@ -2,6 +2,7 @@ package dev.dertyp.synara.rpc
 
 import dev.dertyp.PlatformUUID
 import dev.dertyp.currentTimeMillis
+import dev.dertyp.data.ChangeTopic
 import dev.dertyp.data.ClientCapability
 import dev.dertyp.data.ClientDescription
 import dev.dertyp.data.ClientRequest
@@ -36,12 +37,12 @@ class PresenceService(
     private val clientRequestService: IClientRequestService,
     private val deviceIdentity: DeviceIdentity,
     private val rpcServiceManager: RpcServiceManager,
+    private val changeHub: ChangeHub,
     private val logger: Logger,
     private val dispatchers: SynaraDispatchers
 ) {
     companion object {
         private val STREAM_RETRY_DELAY = 5.seconds
-        private val DEVICE_POLL_INTERVAL = 15.seconds
         val CONTROLLED_WINDOW = 10.minutes
     }
 
@@ -95,7 +96,7 @@ class PresenceService(
                 }
                 try {
                     coroutineScope {
-                        launch { pollLoop() }
+                        launch { changeHub.refreshOn(ChangeTopic.ONLINE_DEVICES) { loadOnlineDevices() } }
                         launch { refreshes.collect { loadOnlineDevices() } }
                         connectLoop(description(gate))
                     }
@@ -164,13 +165,6 @@ class PresenceService(
             }
             _isConnected.value = false
             delay(STREAM_RETRY_DELAY)
-        }
-    }
-
-    private suspend fun pollLoop() {
-        while (currentCoroutineContext().isActive) {
-            loadOnlineDevices()
-            delay(DEVICE_POLL_INTERVAL)
         }
     }
 

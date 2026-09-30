@@ -36,6 +36,8 @@ kover = "0.9.8"
 concentus = "1.0.2"
 vorbis-java = "0.8"
 jlayer = "1.0.1"
+junitJupiter = "6.1.2"
+mockk = "1.14.11"
 
 [libraries]
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coilCompose" }
@@ -114,6 +116,10 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 concentus = { module = "io.github.jaredmdobson:concentus", version.ref = "concentus" }
 vorbis-java = { module = "org.gagravarr:vorbis-java-core", version.ref = "vorbis-java" }
 jlayer = { module = "javazoom:jlayer", version.ref = "jlayer" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junitJupiter" }
+junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junitJupiter" }
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 
 [plugins]
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

@@ -64,6 +64,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.11.1",
+                        date = "2026-10-01",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Improved, "Other devices show up and disappear in the device list right away instead of after up to 15 seconds."),
+                            Change(ChangeType.Improved, "The app keeps a single change stream open to the server instead of one stream per screen.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.11.0",
                         date = "2026-09-30",
                         isPrerelease = true,

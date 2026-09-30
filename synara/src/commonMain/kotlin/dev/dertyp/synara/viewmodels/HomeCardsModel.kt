@@ -2,7 +2,9 @@ package dev.dertyp.synara.viewmodels
 
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import dev.dertyp.data.ChangeTopic
 import dev.dertyp.services.IUiService
+import dev.dertyp.synara.rpc.ChangeHub
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.utils.SynaraDispatchers
 import dev.dertyp.ui.UiContributionInfo
@@ -17,6 +19,7 @@ import kotlinx.coroutines.launch
 class HomeCardsModel(
     private val uiService: IUiService,
     private val rpcServiceManager: RpcServiceManager,
+    private val changeHub: ChangeHub,
     private val dispatchers: SynaraDispatchers,
 ) : StateScreenModel<HomeCardsModel.HomeCardsState>(HomeCardsState()) {
 
@@ -41,15 +44,8 @@ class HomeCardsModel(
                     } catch (_: Throwable) {
                     }
                 }
-                try {
-                    uiService.getHomeCardsFlow().collect { layout -> apply(layout) }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Throwable) {
-                    try {
-                        apply(uiService.getHomeCards())
-                    } catch (_: Throwable) {
-                    }
+                launch {
+                    changeHub.refreshOn(ChangeTopic.HOME_CARDS) { apply(uiService.getHomeCards()) }
                 }
             }
         }
