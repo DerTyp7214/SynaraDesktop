@@ -65,6 +65,7 @@ import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.QueueSyncService
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.scrobble.LastFmScrobbler
+import dev.dertyp.synara.settings.FullscreenHudLimits
 import dev.dertyp.synara.sync.DeviceIdentity
 import dev.dertyp.synara.sync.SecretsLockState
 import dev.dertyp.synara.sync.SettingsSyncService
@@ -87,6 +88,7 @@ import dev.dertyp.ui.UiSlots
 import dev.dertyp.synara.viewmodels.SetupScreenModel
 import dev.dertyp.synara.viewmodels.TestConnectionResult
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import synara.synara.generated.resources.Res
@@ -120,6 +122,10 @@ import synara.synara.generated.resources.enable_listenbrainz
 import synara.synara.generated.resources.enable_server_scrobbling
 import synara.synara.generated.resources.enable_proxy
 import synara.synara.generated.resources.hide_on_close
+import synara.synara.generated.resources.duration_seconds
+import synara.synara.generated.resources.settings_fullscreen_hud_auto_hide_delay
+import synara.synara.generated.resources.settings_fullscreen_hud_auto_hide_summary
+import synara.synara.generated.resources.settings_fullscreen_hud_auto_hide_title
 import synara.synara.generated.resources.icon_filled
 import synara.synara.generated.resources.icon_pack
 import synara.synara.generated.resources.icon_style
@@ -212,6 +218,8 @@ class SettingsScreen : Screen {
         val particleMultiplier by Config.particleMultiplier.collectAsState()
         val activeVisualizerPreset by Config.activeVisualizerPreset.collectAsState()
         val hideOnClose by Config.hideOnClose.collectAsState()
+        val fullscreenHudAutoHide by Config.fullscreenHudAutoHide.collectAsState()
+        val fullscreenHudAutoHideDelay by Config.fullscreenHudAutoHideDelay.collectAsState()
         val showTitleTagsInText by Config.showTitleTagsInText.collectAsState()
 
         val isProxyEnabled by Config.isProxyEnabled.collectAsState()
@@ -414,6 +422,13 @@ class SettingsScreen : Screen {
                         title = stringResource(Res.string.hide_on_close),
                         checked = hideOnClose,
                         onCheckedChange = { Config.setHideOnClose(it) }
+                    )
+
+                    FullscreenHudSettings(
+                        autoHide = fullscreenHudAutoHide,
+                        delaySeconds = fullscreenHudAutoHideDelay,
+                        onAutoHideChange = { Config.setFullscreenHudAutoHide(it) },
+                        onDelayChange = { Config.setFullscreenHudAutoHideDelay(it) }
                     )
 
                     SettingSwitch(
@@ -1794,6 +1809,32 @@ class SettingsScreen : Screen {
             steps = 99
         )
     }
+}
+
+@Composable
+internal fun FullscreenHudSettings(
+    autoHide: Boolean,
+    delaySeconds: Int,
+    onAutoHideChange: (Boolean) -> Unit,
+    onDelayChange: (Int) -> Unit
+) {
+    SettingSwitch(
+        title = stringResource(Res.string.settings_fullscreen_hud_auto_hide_title),
+        summary = stringResource(Res.string.settings_fullscreen_hud_auto_hide_summary),
+        checked = autoHide,
+        onCheckedChange = onAutoHideChange
+    )
+
+    val range = FullscreenHudLimits.delaySeconds
+    SettingSlider(
+        title = stringResource(Res.string.settings_fullscreen_hud_auto_hide_delay),
+        value = delaySeconds.toFloat(),
+        valueText = pluralStringResource(Res.plurals.duration_seconds, delaySeconds, delaySeconds),
+        onValueChange = { onDelayChange(FullscreenHudLimits.clampDelay(it.roundToInt())) },
+        valueRange = range.first.toFloat()..range.last.toFloat(),
+        steps = range.last - range.first - 1,
+        enabled = autoHide
+    )
 }
 
 @Composable

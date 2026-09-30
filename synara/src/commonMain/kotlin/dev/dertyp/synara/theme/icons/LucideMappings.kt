@@ -80,6 +80,8 @@ object LucideMappings {
     @MapTo(SynaraIcons.Queue) val ListMusic = Lucide.ListMusic
     @MapTo(SynaraIcons.FullscreenEnter) val Maximize = Lucide.Maximize
     @MapTo(SynaraIcons.FullscreenExit) val Minimize = Lucide.Minimize
+    @MapTo(SynaraIcons.HudAutoHideOn) val EyeOff = Lucide.EyeOff
+    @MapTo(SynaraIcons.HudAutoHideOff) val Eye = Lucide.Eye
     @MapTo(SynaraIcons.RemoveFromPlaylist) val ListX = Lucide.ListX
     @MapTo(SynaraIcons.RemoveFromQueue) val CircleMinus = Lucide.CircleMinus
     @MapTo(SynaraIcons.ArtistMerge) val GitMerge = Lucide.GitMerge

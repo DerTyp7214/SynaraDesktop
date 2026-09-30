@@ -64,6 +64,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.11.0",
+                        date = "2026-09-30",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "**Distraction-free fullscreen**: the fullscreen player can hide all of its controls, including lyrics, queue and tags, after a while without mouse movement, so only the cover, visualizer and particles remain and move into the freed space. Turn it on with the new button at the top of the fullscreen player or in Settings > Window, choose the delay from 1 to 30 seconds, and move the mouse to bring the controls back. The setting syncs across your desktops.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.10.4",
                         date = "2026-09-27",
                         isPrerelease = true,

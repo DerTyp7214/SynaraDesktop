@@ -75,6 +75,8 @@ object MaterialMappings {
     @MapTo(SynaraIcons.Queue) val Queue_music = MaterialSymbols.Rounded.Queue_music
     @MapTo(SynaraIcons.FullscreenEnter) val Fullscreen = MaterialSymbols.Rounded.Fullscreen
     @MapTo(SynaraIcons.FullscreenExit) val Fullscreen_exit = MaterialSymbols.Rounded.Fullscreen_exit
+    @MapTo(SynaraIcons.HudAutoHideOn) val Visibility_off = MaterialSymbols.Rounded.Visibility_off
+    @MapTo(SynaraIcons.HudAutoHideOff) val Visibility = MaterialSymbols.Rounded.Visibility
     @MapTo(SynaraIcons.RemoveFromPlaylist) val Playlist_remove = MaterialSymbols.Rounded.Playlist_remove
     @MapTo(SynaraIcons.RemoveFromQueue) val Do_not_disturb_on = MaterialSymbols.Rounded.Do_not_disturb_on
     @MapTo(SynaraIcons.ArtistMerge) val Merge = MaterialSymbols.Rounded.Merge

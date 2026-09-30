@@ -27,6 +27,7 @@ import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -55,6 +56,7 @@ import dev.dertyp.synara.settings.VisualizerShape
 import dev.dertyp.synara.theme.createColorSchemeFromSeeds
 import dev.dertyp.synara.theme.isAppDark
 import dev.dertyp.synara.theme.rememberCoverScheme
+import dev.dertyp.synara.ui.LocalPlayerHudIdle
 import dev.dertyp.synara.ui.LocalWindowActions
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.menus.EpisodeContextMenu
@@ -66,6 +68,8 @@ import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
@@ -162,6 +166,23 @@ fun PlayerBar(
 
     val isExpanded by globalState.isPlayerExpanded.collectAsState()
     val windowActions = LocalWindowActions.current
+    val isAnyOverlayOpen by globalState.isAnyOverlayOpen.collectAsState()
+    val hudAutoHide by Config.fullscreenHudAutoHide.collectAsState()
+    val hudHidden = playerHudHidden(
+        autoHide = hudAutoHide,
+        isFullscreen = windowActions.isFullscreen,
+        isExpanded = isExpanded,
+        idle = LocalPlayerHudIdle.current,
+        overlayOpen = isAnyOverlayOpen
+    )
+    val hud = rememberPlayerHud(hudHidden)
+    val isQueueShowing by globalState.isQueueExpanded.collectAsState()
+    val isLyricsShowing by globalState.isLyricsExpanded.collectAsState()
+    val isTagsExpanded by globalState.isTagsExpanded.collectAsState()
+    val visualizerShape by remember {
+        Config.effectiveVisualizerPreset.map { it.shape }.distinctUntilChanged()
+    }.collectAsState(Config.effectiveVisualizerPreset.value.shape)
+    val heightPx = with(LocalDensity.current) { height.toPx() }
 
     val focusRequester = remember { FocusRequester() }
 
@@ -174,6 +195,12 @@ fun PlayerBar(
     LaunchedEffect(isExpanded) {
         if (!isExpanded && windowActions.isFullscreen) {
             windowActions.setFullscreen(false)
+        }
+    }
+
+    LaunchedEffect(hudHidden) {
+        if (hudHidden) {
+            focusRequester.requestFocus()
         }
     }
 
@@ -293,6 +320,19 @@ fun PlayerBar(
     ) {
         val totalMaxWidth = maxWidth
         val totalMaxHeight = maxHeight
+        val panelOpen = totalMaxWidth > ExpandedPlayerHorizontalMinWidth &&
+            sidePanelShowing(isQueueShowing, isLyricsShowing, isTagsExpanded, isPodcast)
+        val hudShift = remember(hud, visualizerShape, isRemote, heightPx, panelOpen) {
+            derivedStateOf {
+                hudShiftOffsets(
+                    strip = visualizerShape != VisualizerShape.Radial,
+                    isRemote = isRemote,
+                    height = heightPx,
+                    topBar = hud.topBarHeight.intValue.toFloat(),
+                    panelWidth = if (panelOpen) hud.panelWidth.intValue.toFloat() else 0f
+                )
+            }
+        }
 
         val animatedHeight by animateDpAsState(
             targetValue = if (isExpanded) totalMaxHeight else height,
@@ -355,258 +395,264 @@ fun PlayerBar(
             MaterialTheme(
                 colorScheme = animatedScheme
             ) {
-                BlurredVideoCoverBackground(
-                    imageId = coverImageId,
-                    animatedImageId = if (isPodcast) null else currentSong?.animatedCoverId,
-                    alpha = blurredAlpha,
-                    audioReactive = true,
-                    modifier = Modifier.fillMaxSize(),
-                    onFrame = { videoFrameSeeds.value = it }
-                ) {
-                    val sizeResolver = rememberConstraintsSizeResolver()
-                    val coverCenter = remember { mutableStateOf(Offset.Unspecified) }
-
-                    val (colorA, colorB) = sortByLuminance(
-                        MaterialTheme.colorScheme.primaryContainer,
-                        MaterialTheme.colorScheme.tertiary
-                    )
-
-                    ParticleViewGpu(
+                CompositionLocalProvider(LocalPlayerHudHidden provides hudHidden) {
+                    BlurredVideoCoverBackground(
+                        imageId = coverImageId,
+                        animatedImageId = if (isPodcast) null else currentSong?.animatedCoverId,
+                        alpha = blurredAlpha,
+                        audioReactive = true,
                         modifier = Modifier.fillMaxSize(),
-                        color = colorA.copy(alpha = .7f),
-                        highlightColor = colorB,
-                        centerResolver = sizeResolver,
-                        center = coverCenter
-                    )
+                        onFrame = { videoFrameSeeds.value = it }
+                    ) {
+                        val sizeResolver = rememberConstraintsSizeResolver()
+                        val coverCenter = remember { mutableStateOf(Offset.Unspecified) }
+                        val particleCenter = rememberHudShiftedCenter(coverCenter, hud.progress) { hudShift.value.cover }
 
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
-                        ) {
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = isExpanded && animatedHeight > 200.dp,
-                                enter = fadeIn(tween(200, delayMillis = 100)),
-                                exit = fadeOut(tween(200)),
-                                modifier = Modifier.fillMaxSize()
+                        val (colorA, colorB) = sortByLuminance(
+                            MaterialTheme.colorScheme.primaryContainer,
+                            MaterialTheme.colorScheme.tertiary
+                        )
+
+                        ParticleViewGpu(
+                            modifier = Modifier.fillMaxSize(),
+                            color = colorA.copy(alpha = .7f),
+                            highlightColor = colorB,
+                            centerResolver = sizeResolver,
+                            center = particleCenter
+                        )
+
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
                             ) {
-                                ExpandedPlayerContent(
-                                    currentSong = currentSong,
-                                    sizeResolver = sizeResolver,
-                                    parentCoordinates = parentCoordinates,
-                                    coverCenter = coverCenter,
-                                    isRemote = isRemote,
-                                    position = if (isPodcast) podcastPlayer.position else surface.currentPosition,
-                                    duration = duration,
-                                    onSeek = { seekTo(it) },
-                                    currentEpisode = if (isPodcast) currentEpisode else null,
-                                    isPodcast = isPodcast,
-                                    onCollapse = {
-                                        globalState.setPlayerExpanded(false)
-                                    }
-                                )
-                            }
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(height)
-                        ) {
-                            val isCompact = totalMaxWidth < 850.dp
-
-                            Column(
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = isExpanded && animatedHeight > 200.dp,
+                                    enter = fadeIn(tween(200, delayMillis = 100)),
+                                    exit = fadeOut(tween(200)),
+                                    modifier = Modifier.fillMaxSize()
                                 ) {
-                                    if (isPodcast) {
-                                        EpisodeInfoSection(
-                                            episode = currentEpisode,
-                                            onToggleExpanded = { globalState.togglePlayerExpanded() },
-                                            onShowClick = { openShow(it) },
-                                            onSecondaryClick = { showEpisodeContextMenu = true },
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                    } else {
-                                        SongInfoSection(
-                                            currentSong = currentSong,
-                                            liveBitRate = if (isRemote) 0L else liveBitRate,
-                                            liveSampleRate = if (isRemote) 0 else liveSampleRate,
-                                            liveBitsPerSample = if (isRemote) 0 else liveBitsPerSample,
-                                            onToggleExpanded = { globalState.togglePlayerExpanded() },
-                                            onArtistClick = { globalState.setPlayerExpanded(false) },
-                                            onLikeClick = { currentSong?.let { playerModel.toggleLike(it) } },
-                                            onSuperLikeClick = { currentSong?.let { playerModel.toggleSuperLike(it) } },
-                                            onSecondaryClick = { showSongContextMenu = true },
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                    }
+                                    ExpandedPlayerContent(
+                                        currentSong = currentSong,
+                                        sizeResolver = sizeResolver,
+                                        parentCoordinates = parentCoordinates,
+                                        coverCenter = coverCenter,
+                                        isRemote = isRemote,
+                                        position = if (isPodcast) podcastPlayer.position else surface.currentPosition,
+                                        duration = duration,
+                                        onSeek = { seekTo(it) },
+                                        currentEpisode = if (isPodcast) currentEpisode else null,
+                                        isPodcast = isPodcast,
+                                        hud = hud,
+                                        hudShift = hudShift,
+                                        onCollapse = {
+                                            globalState.setPlayerExpanded(false)
+                                        }
+                                    )
+                                }
+                            }
 
-                                    if (isPodcast) {
-                                        PlayerControls(
-                                            isPlaying = isPlaying,
-                                            currentSongExists = hasMedia,
-                                            onSkipPrevious = { podcastPlayer.skipPrevious() },
-                                            onTogglePlayPause = { podcastPlayer.togglePlayPause() },
-                                            onSkipNext = { podcastPlayer.skipNext() },
-                                            modifier = Modifier.weight(1.2f),
-                                            skipPreviousDescription = stringResource(Res.string.podcast_previous_episode),
-                                            skipNextDescription = stringResource(Res.string.podcast_next_episode),
-                                            leading = {
-                                                IconButton(
-                                                    onClick = { podcastPlayer.skipBack() },
-                                                    enabled = hasMedia
-                                                ) {
-                                                    SkipIntervalIcon(
-                                                        seconds = (PodcastPlayer.SKIP_BACK_MS / 1000).toInt(),
-                                                        forward = false,
-                                                        contentDescription = stringResource(Res.string.podcast_skip_back),
-                                                        modifier = Modifier.size(24.dp)
-                                                    )
-                                                }
-                                            },
-                                            trailing = {
-                                                IconButton(
-                                                    onClick = { podcastPlayer.skipForward() },
-                                                    enabled = hasMedia
-                                                ) {
-                                                    SkipIntervalIcon(
-                                                        seconds = (PodcastPlayer.SKIP_FORWARD_MS / 1000).toInt(),
-                                                        forward = true,
-                                                        contentDescription = stringResource(Res.string.podcast_skip_forward),
-                                                        modifier = Modifier.size(24.dp)
-                                                    )
-                                                }
-                                            }
-                                        )
-                                    } else {
-                                        PlayerControls(
-                                            isPlaying = isPlaying,
-                                            currentSongExists = currentSong != null,
-                                            onSkipPrevious = { surface.skipPrevious() },
-                                            onTogglePlayPause = { surface.togglePlayPause() },
-                                            onSkipNext = { surface.skipNext() },
-                                            modifier = Modifier.weight(1.2f)
-                                        )
-                                    }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(height)
+                                    .hudChrome(hud)
+                            ) {
+                                val isCompact = totalMaxWidth < 850.dp
 
-                                    val deviceMenu: (@Composable () -> Unit)? =
-                                        if (isPodcast || controllableDevices.isEmpty()) {
-                                            null
+                                Column(
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        if (isPodcast) {
+                                            EpisodeInfoSection(
+                                                episode = currentEpisode,
+                                                onToggleExpanded = { globalState.togglePlayerExpanded() },
+                                                onShowClick = { openShow(it) },
+                                                onSecondaryClick = { showEpisodeContextMenu = true },
+                                                modifier = Modifier.weight(1f)
+                                            )
                                         } else {
-                                            {
-                                                DeviceMenuButton(
-                                                    devices = controllableDevices,
-                                                    target = target,
-                                                    onOpen = { presence.refreshOnlineDevices() },
-                                                    onSelect = { remote.select(it) }
-                                                )
-                                            }
+                                            SongInfoSection(
+                                                currentSong = currentSong,
+                                                liveBitRate = if (isRemote) 0L else liveBitRate,
+                                                liveSampleRate = if (isRemote) 0 else liveSampleRate,
+                                                liveBitsPerSample = if (isRemote) 0 else liveBitsPerSample,
+                                                onToggleExpanded = { globalState.togglePlayerExpanded() },
+                                                onArtistClick = { globalState.setPlayerExpanded(false) },
+                                                onLikeClick = { currentSong?.let { playerModel.toggleLike(it) } },
+                                                onSuperLikeClick = { currentSong?.let { playerModel.toggleSuperLike(it) } },
+                                                onSecondaryClick = { showSongContextMenu = true },
+                                                modifier = Modifier.weight(1f)
+                                            )
                                         }
 
-                                    val switcherChip: (@Composable () -> Unit)? =
-                                        if (bothPlayersAvailable) {
-                                            {
-                                                PlayerSwitcherChip(
-                                                    active = activePlayer,
-                                                    onSelect = { playerSwitcher.select(it) }
-                                                )
-                                            }
-                                        } else null
-
-                                    val speedButton: (@Composable () -> Unit)? =
                                         if (isPodcast) {
-                                            {
-                                                SpeedButton(
-                                                    speed = podcastSpeed,
-                                                    onSpeedChange = { podcastPlayer.setSpeed(it) },
-                                                    enabled = hasMedia
-                                                )
-                                            }
-                                        } else null
+                                            PlayerControls(
+                                                isPlaying = isPlaying,
+                                                currentSongExists = hasMedia,
+                                                onSkipPrevious = { podcastPlayer.skipPrevious() },
+                                                onTogglePlayPause = { podcastPlayer.togglePlayPause() },
+                                                onSkipNext = { podcastPlayer.skipNext() },
+                                                modifier = Modifier.weight(1.2f),
+                                                skipPreviousDescription = stringResource(Res.string.podcast_previous_episode),
+                                                skipNextDescription = stringResource(Res.string.podcast_next_episode),
+                                                leading = {
+                                                    IconButton(
+                                                        onClick = { podcastPlayer.skipBack() },
+                                                        enabled = hasMedia
+                                                    ) {
+                                                        SkipIntervalIcon(
+                                                            seconds = (PodcastPlayer.SKIP_BACK_MS / 1000).toInt(),
+                                                            forward = false,
+                                                            contentDescription = stringResource(Res.string.podcast_skip_back),
+                                                            modifier = Modifier.size(24.dp)
+                                                        )
+                                                    }
+                                                },
+                                                trailing = {
+                                                    IconButton(
+                                                        onClick = { podcastPlayer.skipForward() },
+                                                        enabled = hasMedia
+                                                    ) {
+                                                        SkipIntervalIcon(
+                                                            seconds = (PodcastPlayer.SKIP_FORWARD_MS / 1000).toInt(),
+                                                            forward = true,
+                                                            contentDescription = stringResource(Res.string.podcast_skip_forward),
+                                                            modifier = Modifier.size(24.dp)
+                                                        )
+                                                    }
+                                                }
+                                            )
+                                        } else {
+                                            PlayerControls(
+                                                isPlaying = isPlaying,
+                                                currentSongExists = currentSong != null,
+                                                onSkipPrevious = { surface.skipPrevious() },
+                                                onTogglePlayPause = { surface.togglePlayPause() },
+                                                onSkipNext = { surface.skipNext() },
+                                                modifier = Modifier.weight(1.2f)
+                                            )
+                                        }
 
-                                    PlayerActions(
-                                        shuffleMode = shuffleMode,
-                                        repeatMode = repeatMode,
-                                        volume = volume,
+                                        val deviceMenu: (@Composable () -> Unit)? =
+                                            if (isPodcast || controllableDevices.isEmpty()) {
+                                                null
+                                            } else {
+                                                {
+                                                    DeviceMenuButton(
+                                                        devices = controllableDevices,
+                                                        target = target,
+                                                        onOpen = { presence.refreshOnlineDevices() },
+                                                        onSelect = { remote.select(it) }
+                                                    )
+                                                }
+                                            }
+
+                                        val switcherChip: (@Composable () -> Unit)? =
+                                            if (bothPlayersAvailable) {
+                                                {
+                                                    PlayerSwitcherChip(
+                                                        active = activePlayer,
+                                                        onSelect = { playerSwitcher.select(it) }
+                                                    )
+                                                }
+                                            } else null
+
+                                        val speedButton: (@Composable () -> Unit)? =
+                                            if (isPodcast) {
+                                                {
+                                                    SpeedButton(
+                                                        speed = podcastSpeed,
+                                                        onSpeedChange = { podcastPlayer.setSpeed(it) },
+                                                        enabled = hasMedia
+                                                    )
+                                                }
+                                            } else null
+
+                                        PlayerActions(
+                                            shuffleMode = shuffleMode,
+                                            repeatMode = repeatMode,
+                                            volume = volume,
+                                            currentSongExists = hasMedia,
+                                            isCompact = isCompact,
+                                            onToggleShuffle = { surface.toggleShuffle() },
+                                            onToggleRepeat = { surface.toggleRepeat() },
+                                            onVolumeChange = { setVolume(it) },
+                                            modifier = Modifier.weight(1f),
+                                            showVolume = supportsVolume,
+                                            deviceMenu = deviceMenu,
+                                            playerSwitcher = switcherChip,
+                                            playbackActions = speedButton,
+                                            playbackActionsWidth = SpeedButtonWidth
+                                        )
+                                    }
+
+                                    PlayerProgressBar(
+                                        currentPosition = currentPosition,
+                                        duration = duration,
                                         currentSongExists = hasMedia,
-                                        isCompact = isCompact,
-                                        onToggleShuffle = { surface.toggleShuffle() },
-                                        onToggleRepeat = { surface.toggleRepeat() },
-                                        onVolumeChange = { setVolume(it) },
-                                        modifier = Modifier.weight(1f),
-                                        showVolume = supportsVolume,
-                                        deviceMenu = deviceMenu,
-                                        playerSwitcher = switcherChip,
-                                        playbackActions = speedButton,
-                                        playbackActionsWidth = SpeedButtonWidth
+                                        onSeek = {
+                                            isSeeking = true
+                                            seekPosition = (it * duration).toLong()
+                                        },
+                                        onSeekFinished = {
+                                            seekTo(seekPosition)
+                                            isSeeking = false
+                                            isWaitingForPosition = true
+                                        },
+                                        tags = if (isPodcast) emptyList() else timecodeTags
                                     )
                                 }
 
-                                PlayerProgressBar(
-                                    currentPosition = currentPosition,
-                                    duration = duration,
-                                    currentSongExists = hasMedia,
-                                    onSeek = {
-                                        isSeeking = true
-                                        seekPosition = (it * duration).toLong()
-                                    },
-                                    onSeekFinished = {
-                                        seekTo(seekPosition)
-                                        isSeeking = false
-                                        isWaitingForPosition = true
-                                    },
-                                    tags = if (isPodcast) emptyList() else timecodeTags
-                                )
-                            }
-
-                            val controlledDevice = target
-                            val controller = controlledBy
-                            if (!isPodcast) {
-                                if (controlledDevice != null) {
-                                    Text(
-                                        text = stringResource(
-                                            Res.string.remote_control_controlling,
-                                            controlledDevice.deviceName
-                                        ),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier
-                                            .align(Alignment.TopEnd)
-                                            .padding(top = 10.dp, end = 16.dp)
-                                    )
-                                } else if (controller != null) {
-                                    val controllerName = controller.deviceName?.takeIf { it.isNotBlank() }
-                                    Text(
-                                        text = if (controllerName != null) {
-                                            stringResource(Res.string.remote_control_controlled_by, controllerName)
-                                        } else {
-                                            stringResource(Res.string.remote_control_controlled_remotely)
-                                        },
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier
-                                            .align(Alignment.TopEnd)
-                                            .padding(top = 10.dp, end = 16.dp)
-                                    )
-                                } else {
-                                    currentSong?.let { song ->
-                                        PlayerScrobbleIndicator(
-                                            currentSong = song,
-                                            scrobbledFor = scrobbledFor,
-                                            triggeredSong = triggeredSong,
-                                            scrobblerService = scrobblerService,
+                                val controlledDevice = target
+                                val controller = controlledBy
+                                if (!isPodcast) {
+                                    if (controlledDevice != null) {
+                                        Text(
+                                            text = stringResource(
+                                                Res.string.remote_control_controlling,
+                                                controlledDevice.deviceName
+                                            ),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier
                                                 .align(Alignment.TopEnd)
                                                 .padding(top = 10.dp, end = 16.dp)
                                         )
+                                    } else if (controller != null) {
+                                        val controllerName = controller.deviceName?.takeIf { it.isNotBlank() }
+                                        Text(
+                                            text = if (controllerName != null) {
+                                                stringResource(Res.string.remote_control_controlled_by, controllerName)
+                                            } else {
+                                                stringResource(Res.string.remote_control_controlled_remotely)
+                                            },
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .padding(top = 10.dp, end = 16.dp)
+                                        )
+                                    } else {
+                                        currentSong?.let { song ->
+                                            PlayerScrobbleIndicator(
+                                                currentSong = song,
+                                                scrobbledFor = scrobbledFor,
+                                                triggeredSong = triggeredSong,
+                                                scrobblerService = scrobblerService,
+                                                modifier = Modifier
+                                                    .align(Alignment.TopEnd)
+                                                    .padding(top = 10.dp, end = 16.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -721,9 +767,12 @@ private fun ExpandedPlayerContent(
     onCollapse: () -> Unit,
     currentEpisode: PodcastEpisode? = null,
     isPodcast: Boolean = false,
+    hud: PlayerHud,
+    hudShift: State<HudShift>,
     globalState: GlobalStateModel = koinInject()
 ) {
     val windowActions = LocalWindowActions.current
+    val hudAutoHide by Config.fullscreenHudAutoHide.collectAsState()
     val isQueueShowing by globalState.isQueueExpanded.collectAsState()
     val isLyricsShowing by globalState.isLyricsExpanded.collectAsState()
     val tagsExpanded by globalState.isTagsExpanded.collectAsState()
@@ -744,7 +793,7 @@ private fun ExpandedPlayerContent(
         )
     }
 
-    val sideContentShowing = isQueueShowing || isLyricsShowing || isTagsShowing
+    val sideContentShowing = sidePanelShowing(isQueueShowing, isLyricsShowing, tagsExpanded, isPodcast)
 
     val visualizerPreset by Config.effectiveVisualizerPreset.collectAsState()
     val visualizerColors = rememberVisualizerColors(
@@ -759,7 +808,7 @@ private fun ExpandedPlayerContent(
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val totalWidth = maxWidth
-        val isHorizontal = totalWidth > 800.dp
+        val isHorizontal = totalWidth > ExpandedPlayerHorizontalMinWidth
 
         Column(
             modifier = Modifier
@@ -778,7 +827,8 @@ private fun ExpandedPlayerContent(
                     .fillMaxWidth()
                     .onPointerEvent(PointerEventType.Enter) { isTopBarHovered = true }
                     .onPointerEvent(PointerEventType.Exit) { isTopBarHovered = false }
-                    .graphicsLayer { alpha = topBarAlpha },
+                    .onSizeChanged { hud.topBarHeight.intValue = it.height }
+                    .hudChrome(hud) { topBarAlpha },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -835,6 +885,11 @@ private fun ExpandedPlayerContent(
                             tint = if (isQueueShowing) MaterialTheme.colorScheme.primary else LocalContentColor.current
                         )
                     }
+
+                    FullscreenHudToggle(
+                        autoHide = hudAutoHide,
+                        onToggle = { Config.setFullscreenHudAutoHide(!hudAutoHide) }
+                    )
                 }
 
                 IconButton(onClick = { windowActions.toggleFullscreen() }) {
@@ -848,7 +903,10 @@ private fun ExpandedPlayerContent(
 
             if (isHorizontal) {
                 Row(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .onSizeChanged { hud.contentWidth.intValue = it.width },
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     val sideContentWeight by animateFloatAsState(
@@ -858,7 +916,7 @@ private fun ExpandedPlayerContent(
                     )
 
                     val visualizerWidthScale by animateFloatAsState(
-                        targetValue = if (sideContentShowing) 0.95f else 0.8f,
+                        targetValue = if (sideContentShowing) LINE_WIDTH_SCALE_WITH_PANEL else LINE_WIDTH_SCALE_ALONE,
                         animationSpec = tween(500),
                         label = "visualizerWidthScale"
                     )
@@ -869,9 +927,7 @@ private fun ExpandedPlayerContent(
                     ) {
                         Spacer(modifier = Modifier.weight(.5f))
 
-                        VisualizerAroundCover(
-                            preset = coverVisualizerPreset,
-                            colors = visualizerColors,
+                        Box(
                             modifier = Modifier
                                 .sizeIn(maxHeight = 400.dp, maxWidth = 400.dp)
                                 .aspectRatio(1f)
@@ -888,11 +944,19 @@ private fun ExpandedPlayerContent(
                                     coverCenter.value = relativePosition + localCenter
                                 }
                         ) {
-                            LargeCover(
-                                cover = cover,
-                                sizeResolver = sizeResolver,
-                                modifier = Modifier.fillMaxSize()
-                            )
+                            VisualizerAroundCover(
+                                preset = coverVisualizerPreset,
+                                colors = visualizerColors,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .hudShift(hud.progress) { hudShift.value.cover }
+                            ) {
+                                LargeCover(
+                                    cover = cover,
+                                    sizeResolver = sizeResolver,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
 
                         if (isRemote || visualizerPreset.shape == VisualizerShape.Radial) {
@@ -904,8 +968,11 @@ private fun ExpandedPlayerContent(
                                 preset = visualizerPreset,
                                 colors = visualizerColors,
                                 modifier = Modifier
-                                    .fillMaxWidth(visualizerWidthScale * visualizerWidthFraction)
+                                    .hudLineWidth(hud.progress, visualizerWidthScale * visualizerWidthFraction) {
+                                        hud.contentWidth.intValue * LINE_WIDTH_SCALE_ALONE * visualizerWidthFraction
+                                    }
                                     .requiredHeight(visualizerHeight)
+                                    .hudShift(hud.progress) { hudShift.value.line }
                             )
 
                             Spacer(modifier = Modifier.weight(.2f))
@@ -916,7 +983,11 @@ private fun ExpandedPlayerContent(
                         visible = sideContentShowing,
                         enter = expandHorizontally(tween(500)) + fadeIn(tween(350, 150)),
                         exit = shrinkHorizontally(tween(500)) + fadeOut(tween(350)),
-                        modifier = Modifier.weight(sideContentWeight).fillMaxHeight()
+                        modifier = Modifier
+                            .weight(sideContentWeight)
+                            .fillMaxHeight()
+                            .onSizeChanged { hud.panelWidth.intValue = it.width }
+                            .hudChrome(hud)
                     ) {
                         Surface(
                             modifier = Modifier.fillMaxSize().padding(start = 24.dp),
@@ -975,9 +1046,7 @@ private fun ExpandedPlayerContent(
                             ) {
                                 Spacer(modifier = Modifier.weight(1f))
 
-                                VisualizerAroundCover(
-                                    preset = coverVisualizerPreset,
-                                    colors = visualizerColors,
+                                Box(
                                     modifier = Modifier
                                         .sizeIn(maxHeight = 360.dp, maxWidth = 360.dp)
                                         .aspectRatio(1f)
@@ -995,11 +1064,19 @@ private fun ExpandedPlayerContent(
                                             coverCenter.value = relativePosition + localCenter
                                         }
                                 ) {
-                                    LargeCover(
-                                        cover = cover,
-                                        sizeResolver = sizeResolver,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
+                                    VisualizerAroundCover(
+                                        preset = coverVisualizerPreset,
+                                        colors = visualizerColors,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .hudShift(hud.progress) { hudShift.value.cover }
+                                    ) {
+                                        LargeCover(
+                                            cover = cover,
+                                            sizeResolver = sizeResolver,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
                                 }
 
                                 if (isRemote || visualizerPreset.shape == VisualizerShape.Radial) {
@@ -1013,6 +1090,7 @@ private fun ExpandedPlayerContent(
                                         modifier = Modifier
                                             .fillMaxWidth(0.9f * visualizerWidthFraction)
                                             .requiredHeight(visualizerHeight)
+                                            .hudShift(hud.progress) { hudShift.value.line }
                                     )
 
                                     Spacer(modifier = Modifier.weight(.3f))
@@ -1022,9 +1100,9 @@ private fun ExpandedPlayerContent(
 
                         "queue" -> {
                             if (isPodcast) {
-                                PodcastQueueView(modifier = Modifier.fillMaxSize())
+                                PodcastQueueView(modifier = Modifier.fillMaxSize().hudChrome(hud))
                             } else {
-                                QueueView(modifier = Modifier.fillMaxSize())
+                                QueueView(modifier = Modifier.fillMaxSize().hudChrome(hud))
                             }
                         }
 
@@ -1034,11 +1112,11 @@ private fun ExpandedPlayerContent(
                                     episode = currentEpisode,
                                     position = position,
                                     onSeek = onSeek,
-                                    modifier = Modifier.fillMaxSize()
+                                    modifier = Modifier.fillMaxSize().hudChrome(hud)
                                 )
                             } else {
                                 LyricsView(
-                                    modifier = Modifier.fillMaxSize(),
+                                    modifier = Modifier.fillMaxSize().hudChrome(hud),
                                     song = currentSong,
                                     position = position,
                                     onSeek = onSeek
@@ -1048,7 +1126,7 @@ private fun ExpandedPlayerContent(
 
                         "tags" -> {
                             TimecodeTagsView(
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = Modifier.fillMaxSize().hudChrome(hud),
                                 song = currentSong,
                                 position = position,
                                 durationMs = duration,
@@ -1061,6 +1139,9 @@ private fun ExpandedPlayerContent(
         }
     }
 }
+
+private const val LINE_WIDTH_SCALE_WITH_PANEL = 0.95f
+private const val LINE_WIDTH_SCALE_ALONE = 0.8f
 
 private data class CoverSource(
     val key: Any?,
@@ -1205,7 +1286,7 @@ fun VolumeControl(
             }
         }
 
-        if (isCompact && showPopup) {
+        if (isCompact && showPopup && !LocalPlayerHudHidden.current) {
             val popupHeight = 180.dp
             val popupWidth = 48.dp
 

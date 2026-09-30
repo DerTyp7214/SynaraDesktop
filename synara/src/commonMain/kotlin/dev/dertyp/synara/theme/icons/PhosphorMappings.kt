@@ -75,6 +75,8 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.Queue) val ListDashes = PhIcons.Regular.ListDashes
     @MapTo(SynaraIcons.FullscreenEnter) val ArrowsOut = PhIcons.Regular.ArrowsOut
     @MapTo(SynaraIcons.FullscreenExit) val ArrowsIn = PhIcons.Regular.ArrowsIn
+    @MapTo(SynaraIcons.HudAutoHideOn) val EyeSlash = PhIcons.Regular.EyeSlash
+    @MapTo(SynaraIcons.HudAutoHideOff) val Eye = PhIcons.Regular.Eye
     @MapTo(SynaraIcons.RemoveFromPlaylist) val ListChecks = PhIcons.Regular.ListChecks
     @MapTo(SynaraIcons.RemoveFromQueue) val MinusCircle = PhIcons.Regular.MinusCircle
     @MapTo(SynaraIcons.ArtistMerge) val GitMerge = PhIcons.Regular.GitMerge

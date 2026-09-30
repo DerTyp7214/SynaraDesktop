@@ -368,6 +368,11 @@
     <!-- Window -->
     <string name="window">Window</string>
     <string name="hide_on_close">Minimize to tray on close</string>
+    <string name="settings_fullscreen_hud_auto_hide_title">Hide controls in fullscreen</string>
+    <string name="settings_fullscreen_hud_auto_hide_summary">Hides all player controls after a while without mouse movement. The cover, visualizer and particles stay.</string>
+    <string name="settings_fullscreen_hud_auto_hide_delay">Hide controls after</string>
+    <string name="fullscreen_hud_auto_hide_enable">Hide controls automatically</string>
+    <string name="fullscreen_hud_auto_hide_disable">Keep controls visible</string>
 
     <!-- Performance -->
     <string name="performance">Performance</string>

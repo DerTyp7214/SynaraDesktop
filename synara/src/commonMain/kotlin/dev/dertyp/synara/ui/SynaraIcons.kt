@@ -55,7 +55,7 @@ enum class SynaraIcons {
     Play, Pause, SkipNext, SkipPrevious, Shuffle, Repeat, RepeatOne, PlayNext, AddToPlaylist, Albums, Artists, 
     AlbumVersions, Expiration, DeviceGeneric, DeviceMobile, DeviceDesktop, Upload, Add, Delete, DragHandle, Info, ThemeLight, 
     ThemeDark, ChevronDown, ChevronRight, ChevronUp, ChevronLeft, Filter, FilterOff, VolumeHigh, VolumeOff, VolumeMute, VolumeLow, Success,
-    Pending, ExpandDown, ExpandUp, Lyrics, Queue, FullscreenEnter, FullscreenExit, RemoveFromPlaylist, RemoveFromQueue,
+    Pending, ExpandDown, ExpandUp, Lyrics, Queue, FullscreenEnter, FullscreenExit, HudAutoHideOn, HudAutoHideOff, RemoveFromPlaylist, RemoveFromQueue,
     ArtistMerge, ArtistSplit, Close, Confirm, OpenInNew, Edit,
     CheckCircle, ErrorCircle, SyncCircle, Circle, History,
     Sync, Link, Download, Discovery,

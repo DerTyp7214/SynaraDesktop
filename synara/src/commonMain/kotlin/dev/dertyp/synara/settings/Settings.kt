@@ -98,6 +98,8 @@ sealed class SettingKey<T>(val name: String) {
 
     // Window
     data object HideOnClose : SettingKey<Boolean>("hide_on_close")
+    data object FullscreenHudAutoHide : SettingKey<Boolean>("fullscreen_hud_auto_hide")
+    data object FullscreenHudAutoHideDelay : SettingKey<Int>("fullscreen_hud_auto_hide_delay")
 
     // Downloads
     data object DownloadFavorites : SettingKey<Boolean>("download_favorites")
@@ -172,7 +174,8 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
 
         is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor,
         is SettingKey.ProxyPort, is SettingKey.AudioBufferSize, is SettingKey.AudioBufferCount,
-        is SettingKey.AudioTargetSampleRate, is SettingKey.StreamingQuality -> getIntOrNull(
+        is SettingKey.AudioTargetSampleRate, is SettingKey.StreamingQuality,
+        is SettingKey.FullscreenHudAutoHideDelay -> getIntOrNull(
             key.name
         ) as T?
 
@@ -183,6 +186,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.IsServerScrobblingEnabled,
         is SettingKey.IsListenBrainzEnabled, is SettingKey.IsLastFmEnabled,
         is SettingKey.IsDiscordRpcEnabled, is SettingKey.HideOnClose,
+        is SettingKey.FullscreenHudAutoHide,
         is SettingKey.IsProxyEnabled, is SettingKey.ProxySsl, is SettingKey.Ssl,
         is SettingKey.SslConfirmed,
         is SettingKey.NeedsUserIdMigration, is SettingKey.IconFilled,

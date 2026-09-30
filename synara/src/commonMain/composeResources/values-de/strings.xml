@@ -366,6 +366,11 @@
     <!-- Window -->
     <string name="window">Fenster</string>
     <string name="hide_on_close">Beim Schließen in den Infobereich minimieren</string>
+    <string name="settings_fullscreen_hud_auto_hide_title">Steuerelemente im Vollbild ausblenden</string>
+    <string name="settings_fullscreen_hud_auto_hide_summary">Blendet alle Player-Steuerelemente aus, wenn die Maus eine Weile nicht bewegt wird. Cover, Visualizer und Partikel bleiben sichtbar.</string>
+    <string name="settings_fullscreen_hud_auto_hide_delay">Steuerelemente ausblenden nach</string>
+    <string name="fullscreen_hud_auto_hide_enable">Steuerelemente automatisch ausblenden</string>
+    <string name="fullscreen_hud_auto_hide_disable">Steuerelemente eingeblendet lassen</string>
 
     <!-- Performance -->
     <string name="performance">Leistung</string>

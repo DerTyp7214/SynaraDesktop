@@ -181,7 +181,7 @@ private fun TimecodeTagOverlay(
 
         val tag = hovered
         val x = hoverX
-        if (tag != null) {
+        if (tag != null && !LocalPlayerHudHidden.current) {
             val tooltipOffset = with(density) { IntOffset(x.toInt(), -32.dp.roundToPx()) }
             Popup(offset = tooltipOffset) {
                 Surface(

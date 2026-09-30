@@ -16,8 +16,6 @@ import androidx.compose.ui.draganddrop.DragAndDropTarget
 import androidx.compose.ui.draganddrop.DragData
 import androidx.compose.ui.draganddrop.dragData
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.Navigator
@@ -25,7 +23,6 @@ import cafe.adriel.voyager.transitions.SlideTransition
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import dev.dertyp.core.isURL
-import dev.dertyp.currentTimeMillis
 import dev.dertyp.synara.onboarding.OnboardingHost
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.screens.HomeScreen
@@ -34,6 +31,7 @@ import dev.dertyp.synara.screens.SetupScreen
 import dev.dertyp.synara.screens.TaskManagerScreen
 import dev.dertyp.synara.theme.SynaraTheme
 import dev.dertyp.synara.ui.DetachedWindow
+import dev.dertyp.synara.ui.FullscreenIdleBox
 import dev.dertyp.synara.ui.LocalWindowActions
 import dev.dertyp.synara.ui.components.ConnectionBanners
 import dev.dertyp.synara.ui.components.LocalHazeState
@@ -43,9 +41,7 @@ import dev.dertyp.synara.ui.components.SettingsSyncPrompts
 import dev.dertyp.synara.ui.server.rememberUiShareHookDispatcher
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import dev.dertyp.ui.UiHookEvent
-import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
-import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -63,17 +59,8 @@ fun SynaraView() {
         label = "Blur"
     )
 
-    var lastPointerMoveTime by remember { mutableLongStateOf(currentTimeMillis()) }
-
-    LaunchedEffect(lastPointerMoveTime, windowActions.isFullscreen, isAnyOverlayOpen) {
-        if (windowActions.isFullscreen && !isAnyOverlayOpen) {
-            windowActions.setCursorVisible(true)
-            delay(3.seconds)
-            windowActions.setCursorVisible(false)
-        } else {
-            windowActions.setCursorVisible(true)
-        }
-    }
+    val hudAutoHide by Config.fullscreenHudAutoHide.collectAsState()
+    val hudAutoHideDelay by Config.fullscreenHudAutoHideDelay.collectAsState()
 
     LaunchedEffect(language) {
         customAppLocale = language
@@ -102,15 +89,14 @@ fun SynaraView() {
 
     AppEnvironment {
         CompositionLocalProvider(LocalHazeState provides hazeState) {
-            Box(
+            FullscreenIdleBox(
+                windowActions = windowActions,
+                overlayOpen = isAnyOverlayOpen,
+                hudAutoHide = hudAutoHide,
+                hudDelaySeconds = hudAutoHideDelay,
                 modifier = Modifier
                     .fillMaxSize()
                     .hazeSource(hazeState)
-                    .onPointerEvent(PointerEventType.Move) {
-                        if (windowActions.isFullscreen) {
-                            lastPointerMoveTime = currentTimeMillis()
-                        }
-                    }
             ) {
                 Navigator(CircularLoadingScreen()) { navigator ->
                     LaunchedEffect(connectionState) {

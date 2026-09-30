@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import com.russhwolf.settings.Settings
 import dev.dertyp.randomPlatformUUID
+import dev.dertyp.synara.settings.FullscreenHudLimits
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.VisualizerPreset
 import dev.dertyp.synara.settings.VisualizerPresets
@@ -164,6 +165,16 @@ object Config : KoinComponent {
     // Window
     private val _hideOnClose = MutableStateFlow(settings.get(SettingKey.HideOnClose, true))
     val hideOnClose: StateFlow<Boolean> = _hideOnClose.asStateFlow()
+
+    private val _fullscreenHudAutoHide = MutableStateFlow(settings.get(SettingKey.FullscreenHudAutoHide, false))
+    val fullscreenHudAutoHide: StateFlow<Boolean> = _fullscreenHudAutoHide.asStateFlow()
+
+    private val _fullscreenHudAutoHideDelay = MutableStateFlow(
+        FullscreenHudLimits.clampDelay(
+            settings.get(SettingKey.FullscreenHudAutoHideDelay, FullscreenHudLimits.DEFAULT_DELAY_SECONDS)
+        )
+    )
+    val fullscreenHudAutoHideDelay: StateFlow<Int> = _fullscreenHudAutoHideDelay.asStateFlow()
 
     private val _showPerformanceOverlay = MutableStateFlow(settings.get(SettingKey.ShowPerformanceOverlay, false))
     val showPerformanceOverlay: StateFlow<Boolean> = _showPerformanceOverlay.asStateFlow()
@@ -471,6 +482,17 @@ object Config : KoinComponent {
     fun setHideOnClose(hide: Boolean) {
         _hideOnClose.value = hide
         settings.put(SettingKey.HideOnClose, hide)
+    }
+
+    fun setFullscreenHudAutoHide(enabled: Boolean) {
+        _fullscreenHudAutoHide.value = enabled
+        settings.put(SettingKey.FullscreenHudAutoHide, enabled)
+    }
+
+    fun setFullscreenHudAutoHideDelay(seconds: Int) {
+        val clamped = FullscreenHudLimits.clampDelay(seconds)
+        _fullscreenHudAutoHideDelay.value = clamped
+        settings.put(SettingKey.FullscreenHudAutoHideDelay, clamped)
     }
 
     fun setShowPerformanceOverlay(show: Boolean) {

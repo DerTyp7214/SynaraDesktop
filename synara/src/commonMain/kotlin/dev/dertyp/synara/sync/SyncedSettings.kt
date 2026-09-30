@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import dev.dertyp.serializers.AppJson
 import dev.dertyp.synara.Config
+import dev.dertyp.synara.settings.FullscreenHudLimits
 import dev.dertyp.synara.settings.VisualizerPreset
 import dev.dertyp.synara.settings.VisualizerPresets
 import dev.dertyp.synara.ui.IconPackType
@@ -59,8 +60,9 @@ class SyncedSetting<T> internal constructor(
 /**
  * The set of synced settings. Keys without a prefix are shared with every client, `desktop.` keys
  * only ever move between desktop installations. Anything bound to one installation (server/auth,
- * proxy, audio device, volume, pywal, Discord, window, performance overlay, downloads and the sync
- * bookkeeping itself) is deliberately absent.
+ * proxy, audio device, volume, pywal, Discord, window placement and tray behaviour, performance
+ * overlay, downloads and the sync bookkeeping itself) is deliberately absent. Look-and-feel
+ * preferences such as the fullscreen HUD auto-hide and its delay are synced.
  */
 class SyncedSettingsRegistry(private val cipher: SecretsCipher) {
 
@@ -249,6 +251,14 @@ class SyncedSettingsRegistry(private val cipher: SecretsCipher) {
             Config.setActiveVisualizerPresetId(it)
         },
         int("desktop.streaming_quality", Config.streamingQuality, 0) { Config.setStreamingQuality(it) },
+        boolean("desktop.fullscreen_hud_auto_hide", Config.fullscreenHudAutoHide, false) {
+            Config.setFullscreenHudAutoHide(it)
+        },
+        int(
+            "desktop.fullscreen_hud_auto_hide_delay",
+            Config.fullscreenHudAutoHideDelay,
+            FullscreenHudLimits.DEFAULT_DELAY_SECONDS
+        ) { Config.setFullscreenHudAutoHideDelay(it) },
         nullableString("desktop.language", Config.language) { Config.setLanguage(it) },
 
         // Secrets group
