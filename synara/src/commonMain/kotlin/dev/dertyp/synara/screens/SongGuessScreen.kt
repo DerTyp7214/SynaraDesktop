@@ -19,7 +19,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
-import dev.dertyp.core.joinArtists
+import dev.dertyp.synara.ui.components.creditText
 import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.formatDateTime
 import dev.dertyp.synara.game.*
@@ -402,7 +402,7 @@ class SongGuessScreen : Screen {
                                 TitleTagChips(tags = song.tags)
                             }
                             Text(
-                                song.artists.joinArtists(),
+                                song.artists.creditText(),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,

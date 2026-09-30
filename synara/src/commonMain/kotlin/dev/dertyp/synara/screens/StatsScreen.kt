@@ -30,6 +30,7 @@ import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SettingsCard
+import dev.dertyp.synara.ui.components.creditText
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.formatListenedTime
 import dev.dertyp.synara.ui.models.SnackbarManager
@@ -643,7 +644,7 @@ class StatsScreen : Screen {
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        text = song.artists.joinToString(", ") { it.name },
+                                        text = song.artists.creditText(),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,

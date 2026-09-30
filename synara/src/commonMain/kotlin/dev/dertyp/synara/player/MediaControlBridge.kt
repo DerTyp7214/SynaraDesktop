@@ -1,7 +1,8 @@
 package dev.dertyp.synara.player
 
 import dev.dertyp.PlatformUUID
-import dev.dertyp.core.joinArtists
+import dev.dertyp.synara.ui.components.creditText
+import dev.dertyp.synara.ui.components.creditedDisplayName
 import dev.dertyp.data.PodcastEpisode
 import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
@@ -140,8 +141,8 @@ class MediaControlBridge(
     private fun UserSong.toMetadata() = NowPlayingMetadata(
         trackId = id.toString(),
         title = textTitle(),
-        artists = artists.map { it.name },
-        artist = artists.joinArtists(),
+        artists = artists.map { it.creditedDisplayName() },
+        artist = artists.creditText(),
         album = album?.name,
         durationMs = duration,
         imageId = coverId,

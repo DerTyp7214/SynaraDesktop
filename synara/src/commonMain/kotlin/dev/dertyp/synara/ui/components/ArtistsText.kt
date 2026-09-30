@@ -26,6 +26,18 @@ import dev.dertyp.PlatformUUID
 import dev.dertyp.data.Artist
 import dev.dertyp.synara.screens.ArtistScreen
 
+fun Artist.creditedDisplayName(): String = creditedName?.takeIf { it.isNotBlank() } ?: name
+
+fun List<Artist>.creditSeparator(index: Int): String? =
+    if (index < lastIndex) this[index].joinPhrase?.takeIf { it.isNotEmpty() } ?: ", " else null
+
+fun List<Artist>.creditText(): String = buildString {
+    this@creditText.forEachIndexed { index, artist ->
+        append(artist.creditedDisplayName())
+        this@creditText.creditSeparator(index)?.let { append(it) }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class, ExperimentalComposeUiApi::class)
 @Composable
 fun ArtistsText(
@@ -38,15 +50,14 @@ fun ArtistsText(
     onArtistClick: (() -> Unit)? = null
 ) {
     val navigator = LocalNavigator.current
-    val sortedArtists = remember(artists) { artists.sortedBy { it.name } }
 
     if (maxLines == 1) {
         var hoveredArtistId by remember { mutableStateOf<String?>(null) }
         val onSurfaceColor = MaterialTheme.colorScheme.onSurface
 
-        val annotatedString = remember(sortedArtists, color, hoveredArtistId, onSurfaceColor) {
+        val annotatedString = remember(artists, color, hoveredArtistId, onSurfaceColor) {
             buildAnnotatedString {
-                sortedArtists.forEachIndexed { index, artist ->
+                artists.forEachIndexed { index, artist ->
                     val isHovered = artist.id.toString() == hoveredArtistId
                     pushStringAnnotation("artistId", artist.id.toString())
                     withStyle(
@@ -56,12 +67,10 @@ fun ArtistsText(
                             background = if (isHovered) onSurfaceColor.copy(alpha = 0.1f) else Color.Transparent
                         )
                     ) {
-                        append(artist.name)
+                        append(artist.creditedDisplayName())
                     }
                     pop()
-                    if (index < sortedArtists.size - 1) {
-                        append(", ")
-                    }
+                    artists.creditSeparator(index)?.let { append(it) }
                 }
             }
         }
@@ -106,11 +115,11 @@ fun ArtistsText(
             modifier = modifier,
             maxItemsInEachRow = Int.MAX_VALUE
         ) {
-            sortedArtists.forEachIndexed { index, artist ->
+            artists.forEachIndexed { index, artist ->
                 var isHovered by remember { mutableStateOf(false) }
 
                 Text(
-                    text = artist.name,
+                    text = artist.creditedDisplayName(),
                     style = style.copy(
                         textDecoration = if (isHovered) TextDecoration.Underline else TextDecoration.None
                     ),
@@ -133,9 +142,9 @@ fun ArtistsText(
                         .padding(horizontal = 2.dp)
                 )
 
-                if (index < sortedArtists.size - 1) {
+                artists.creditSeparator(index)?.let { separator ->
                     Text(
-                        text = ", ",
+                        text = separator,
                         style = style,
                         color = color
                     )

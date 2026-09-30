@@ -64,6 +64,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.11.2",
+                        date = "2026-10-01",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Improved, "Artists are shown the way they are credited, in credit order with their join phrases such as \"feat.\" and \"&\"."),
+                            Change(ChangeType.Improved, "Last.fm and ListenBrainz scrobbles, media controls and Discord use the credited artist text.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.11.1",
                         date = "2026-10-01",
                         isPrerelease = true,

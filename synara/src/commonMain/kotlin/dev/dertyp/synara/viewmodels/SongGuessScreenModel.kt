@@ -5,6 +5,7 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import dev.dertyp.PlatformUUID
 import dev.dertyp.core.cleanTitle
 import dev.dertyp.core.joinArtists
+import dev.dertyp.synara.ui.components.creditText
 import dev.dertyp.core.stripAccents
 import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.Artist
@@ -339,7 +340,7 @@ class SongGuessScreenModel(
     fun selectGuess(song: UserSong) = mutableState.update {
         it.copy(
             selectedGuess = song,
-            guessQuery = "${song.displayTitle} — ${song.artists.joinArtists()}",
+            guessQuery = "${song.displayTitle} — ${song.artists.creditText()}",
             suggestions = emptyList()
         )
     }
@@ -388,7 +389,7 @@ class SongGuessScreenModel(
         val result = RoundResult(
             songId = song.id,
             title = song.displayTitle,
-            artist = song.artists.joinArtists(),
+            artist = song.artists.creditText(),
             coverId = song.coverId,
             attemptsUsed = s.attempt + 1,
             solved = solved,

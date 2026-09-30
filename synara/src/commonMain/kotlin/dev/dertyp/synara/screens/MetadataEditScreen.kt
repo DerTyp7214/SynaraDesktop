@@ -18,6 +18,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import coil3.compose.AsyncImage
 import dev.dertyp.PlatformUUID
 import dev.dertyp.core.joinArtists
+import dev.dertyp.synara.ui.components.creditText
 import dev.dertyp.data.Artist
 import dev.dertyp.data.MusicBrainzRecording
 import dev.dertyp.data.TitleTag
@@ -175,7 +176,7 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
                                 modifier = Modifier.fillMaxWidth()
                             )
                             Text(
-                                text = artists.joinArtists(),
+                                text = artists.creditText(),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -423,7 +424,7 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
                                 )
                                 InfoItem(
                                     stringResource(Res.string.metadata_artist),
-                                    artists.joinArtists()
+                                    artists.creditText()
                                 )
                                 InfoItem(
                                     stringResource(Res.string.metadata_album),

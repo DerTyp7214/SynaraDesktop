@@ -9,6 +9,7 @@ import dev.dertyp.synara.core.textTitle
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.ui.SynaraIcons
+import dev.dertyp.synara.ui.components.creditText
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -152,7 +153,7 @@ class LastFmScrobbler(
             "method" to if (isNowPlaying) "track.updateNowPlaying" else "track.scrobble",
             "api_key" to apiKey,
             "sk" to sessionKey,
-            "artist" to song.artists.joinToString(", ") { it.name },
+            "artist" to song.artists.creditText(),
             "track" to song.textTitle()
         )
         song.album?.name?.let { params["album"] = it }

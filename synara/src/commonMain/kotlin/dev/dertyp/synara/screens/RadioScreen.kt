@@ -26,6 +26,7 @@ import dev.dertyp.synara.core.displayTitle
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SettingsCard
+import dev.dertyp.synara.ui.components.creditText
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.dialogs.SynaraDialog
 import dev.dertyp.synara.utils.pickImageBytes
@@ -498,7 +499,7 @@ class RadioScreen : Screen {
                                     imageId = match.song.coverId,
                                     fallbackIcon = SynaraIcons.Songs,
                                     title = match.song.displayTitle,
-                                    subtitle = match.song.artists.joinToString(", ") { it.name },
+                                    subtitle = match.song.artists.creditText(),
                                     actionIcon = SynaraIcons.Delete,
                                     onAction = {
                                         screenModel.removeChannelItem(
@@ -561,7 +562,7 @@ class RadioScreen : Screen {
                                 imageId = song.coverId,
                                 fallbackIcon = SynaraIcons.Songs,
                                 title = song.displayTitle,
-                                subtitle = song.artists.joinToString(", ") { it.name },
+                                subtitle = song.artists.creditText(),
                                 actionIcon = SynaraIcons.Add,
                                 onAction = {
                                     screenModel.addChannelItem(

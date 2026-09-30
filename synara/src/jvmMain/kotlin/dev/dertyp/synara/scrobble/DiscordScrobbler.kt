@@ -3,7 +3,7 @@ package dev.dertyp.synara.scrobble
 import com.russhwolf.settings.Settings
 import dev.dertyp.PlatformUUID
 import dev.dertyp.core.cleanTitle
-import dev.dertyp.core.joinArtists
+import dev.dertyp.synara.ui.components.creditText
 import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
 import dev.dertyp.services.metadata.IMetadataService
@@ -142,7 +142,7 @@ actual class DiscordScrobbler actual constructor(
         val activity = buildJsonObject {
             put("type", 2)
             put("details", pad(song.textTitle()))
-            put("state", pad(song.artists.joinArtists()))
+            put("state", pad(song.artists.creditText()))
 
             put("assets", buildJsonObject {
                 put("large_image", imageUrl ?: "synara-icon")

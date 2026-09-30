@@ -12,7 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import dev.dertyp.core.joinArtists
+import dev.dertyp.synara.ui.components.creditText
 import dev.dertyp.data.UserSong
 import dev.dertyp.data.effectiveAudio
 import dev.dertyp.synara.core.displayTags
@@ -50,7 +50,7 @@ fun SongInfoDialog(
                         song.tags.displayTags.joinToString { it.label }
                     )
                 }
-                InfoItem(stringResource(Res.string.metadata_artist), song.artists.joinArtists())
+                InfoItem(stringResource(Res.string.metadata_artist), song.artists.creditText())
                 InfoItem(stringResource(Res.string.metadata_album), song.album?.name ?: "-")
                 InfoItem(
                     stringResource(Res.string.metadata_release_date),

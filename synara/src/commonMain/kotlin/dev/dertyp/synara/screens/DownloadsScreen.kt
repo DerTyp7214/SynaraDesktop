@@ -17,6 +17,7 @@ import dev.dertyp.synara.formatBytes
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.TitleTagChips
+import dev.dertyp.synara.ui.components.creditText
 import dev.dertyp.synara.viewmodels.DownloadsScreenModel
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.*
@@ -131,7 +132,7 @@ class DownloadsScreen : Screen {
                             TitleTagChips(tags = download.song.tags)
                         }
                         Text(
-                            text = download.song.artists.joinToString { it.name },
+                            text = download.song.artists.creditText(),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

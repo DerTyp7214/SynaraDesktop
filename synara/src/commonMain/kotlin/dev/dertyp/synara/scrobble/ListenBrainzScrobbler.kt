@@ -12,6 +12,7 @@ import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.ui.SynaraIcons
+import dev.dertyp.synara.ui.components.creditText
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.UserAgent
@@ -170,7 +171,7 @@ class ListenBrainzScrobbler(
                     trackMetadata = TrackMetadata(
                         artistName = recording?.artistCredit?.joinToString("") {
                             (it.name ?: it.artist?.name) + (it.joinphrase ?: "")
-                        } ?: song.artists.joinToString(" & ") { it.name },
+                        } ?: song.artists.creditText(),
                         trackName = recording?.title ?: song.title.cleanTitle(),
                         releaseName = release?.title ?: song.album?.name?.cleanTitle()
                         ?: song.title.cleanTitle(),
