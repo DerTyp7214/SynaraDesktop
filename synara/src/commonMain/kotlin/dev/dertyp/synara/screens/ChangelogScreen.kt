@@ -64,6 +64,16 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.12.0",
+                        date = "2026-10-02",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Song filters can include or exclude each tag."),
+                            Change(ChangeType.New, "Songs can be filtered by title tags such as remix, live or mix."),
+                            Change(ChangeType.Improved, "Each filter chip cycles through off, include and exclude, and excluded tags are marked with a cross.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.11.2",
                         date = "2026-10-01",
                         isPrerelease = true,

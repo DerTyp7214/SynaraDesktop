@@ -3,9 +3,15 @@ package dev.dertyp.synara.player
 
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.SongTag
+import dev.dertyp.data.TitleTagKind
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.ISongService
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.UseContextualSerialization
 import kotlin.random.Random
 
@@ -40,12 +46,20 @@ sealed class PlaybackSource {
         override val id: String = "artist_$artistId"
     }
 
-    @Serializable
+    @Serializable(with = AllSongsSerializer::class)
     data class AllSongs(
         val tags: List<SongTag> = emptyList(),
-        val invertTags: Boolean = false
+        val excludeTags: List<SongTag> = emptyList(),
+        val titleTags: List<TitleTagKind> = emptyList(),
+        val excludeTitleTags: List<TitleTagKind> = emptyList()
     ) : PlaybackSource() {
-        override val id: String = "all_songs${if (tags.isNotEmpty()) "_${tags.joinToString("_")}_$invertTags" else ""}"
+        override val id: String = buildString {
+            append("all_songs")
+            appendFilter("t", tags)
+            appendFilter("xt", excludeTags)
+            appendFilter("tt", titleTags)
+            appendFilter("xtt", excludeTitleTags)
+        }
     }
 
     @Serializable
@@ -67,12 +81,67 @@ sealed class PlaybackSource {
     }
 }
 
+private fun StringBuilder.appendFilter(key: String, values: List<Enum<*>>) {
+    if (values.isEmpty()) return
+    append('_').append(key).append(':').append(values.joinToString(",") { it.name })
+}
+
+@Serializable
+@SerialName("dev.dertyp.synara.player.PlaybackSource.AllSongs")
+private class AllSongsSurrogate(
+    val tags: List<SongTag> = emptyList(),
+    val invertTags: Boolean = false,
+    val excludeTags: List<SongTag> = emptyList(),
+    val titleTags: List<TitleTagKind> = emptyList(),
+    val excludeTitleTags: List<TitleTagKind> = emptyList()
+)
+
+internal object AllSongsSerializer : KSerializer<PlaybackSource.AllSongs> {
+    override val descriptor: SerialDescriptor = AllSongsSurrogate.serializer().descriptor
+
+    override fun serialize(encoder: Encoder, value: PlaybackSource.AllSongs) {
+        encoder.encodeSerializableValue(
+            AllSongsSurrogate.serializer(),
+            AllSongsSurrogate(
+                tags = value.tags,
+                excludeTags = value.excludeTags,
+                titleTags = value.titleTags,
+                excludeTitleTags = value.excludeTitleTags
+            )
+        )
+    }
+
+    override fun deserialize(decoder: Decoder): PlaybackSource.AllSongs {
+        val surrogate = decoder.decodeSerializableValue(AllSongsSurrogate.serializer())
+        return if (surrogate.invertTags) {
+            PlaybackSource.AllSongs(
+                excludeTags = (surrogate.excludeTags + surrogate.tags).distinct(),
+                titleTags = surrogate.titleTags,
+                excludeTitleTags = surrogate.excludeTitleTags
+            )
+        } else {
+            PlaybackSource.AllSongs(
+                tags = surrogate.tags,
+                excludeTags = surrogate.excludeTags,
+                titleTags = surrogate.titleTags,
+                excludeTitleTags = surrogate.excludeTitleTags
+            )
+        }
+    }
+}
+
 val PlaybackSource.isEndless: Boolean
     get() = this is PlaybackSource.Radio
 
 fun PlaybackSource.toQueueSource(songService: ISongService): QueueSource? {
     return when (this) {
-        is PlaybackSource.AllSongs -> AllSongsQueueSource(songService, tags = tags, invertTags = invertTags)
+        is PlaybackSource.AllSongs -> AllSongsQueueSource(
+            songService,
+            tags = tags,
+            excludeTags = excludeTags,
+            titleTags = titleTags,
+            excludeTitleTags = excludeTitleTags
+        )
         PlaybackSource.LikedSongs -> LikedSongsQueueSource(songService)
         PlaybackSource.SuperLikedSongs -> SuperLikedSongsQueueSource(songService)
         is PlaybackSource.Album -> AlbumQueueSource(songService, albumId)

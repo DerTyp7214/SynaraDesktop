@@ -100,9 +100,11 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
         pageSize: Int,
         explicit: Boolean,
         tags: List<SongTag>,
-        invertTags: Boolean
+        excludeTags: List<SongTag>,
+        titleTags: List<TitleTagKind>,
+        excludeTitleTags: List<TitleTagKind>
     ): PaginatedResponse<UserSong> {
-        return manager.getService<ISongService>().allSongs(page, pageSize, explicit, tags, invertTags)
+        return manager.getService<ISongService>().allSongs(page, pageSize, explicit, tags, excludeTags, titleTags, excludeTitleTags)
     }
 
     override suspend fun byColor(
@@ -172,9 +174,11 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
     override fun allSongIds(
         explicit: Boolean,
         tags: List<SongTag>,
-        invertTags: Boolean
+        excludeTags: List<SongTag>,
+        titleTags: List<TitleTagKind>,
+        excludeTitleTags: List<TitleTagKind>
     ): Flow<PlatformUUID> {
-        return manager.getService<ISongService>().allSongIds(explicit, tags, invertTags)
+        return manager.getService<ISongService>().allSongIds(explicit, tags, excludeTags, titleTags, excludeTitleTags)
     }
 
     override fun likedSongIds(explicit: Boolean): Flow<PlatformUUID> {

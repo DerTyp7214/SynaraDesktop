@@ -4,6 +4,7 @@ import dev.dertyp.PlatformUUID
 import dev.dertyp.data.BaseSong
 import dev.dertyp.data.PaginatedResponse
 import dev.dertyp.data.SongTag
+import dev.dertyp.data.TitleTagKind
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.ISongService
 import kotlinx.coroutines.*
@@ -104,15 +105,17 @@ class AllSongsQueueSource(
     private val songService: ISongService,
     private val explicit: Boolean = true,
     private val tags: List<SongTag> = emptyList(),
-    private val invertTags: Boolean = false,
+    private val excludeTags: List<SongTag> = emptyList(),
+    private val titleTags: List<TitleTagKind> = emptyList(),
+    private val excludeTitleTags: List<TitleTagKind> = emptyList(),
     id: String = "all_songs"
 ) : BasePagedQueueSource(id) {
     override suspend fun fetchPage(page: Int, pageSize: Int): PaginatedResponse<UserSong> {
-        return songService.allSongs(page, pageSize, explicit, tags, invertTags)
+        return songService.allSongs(page, pageSize, explicit, tags, excludeTags, titleTags, excludeTitleTags)
     }
 
     override fun fetchIdFlow(): Flow<PlatformUUID> {
-        return songService.allSongIds(explicit, tags, invertTags)
+        return songService.allSongIds(explicit, tags, excludeTags, titleTags, excludeTitleTags)
     }
 }
 

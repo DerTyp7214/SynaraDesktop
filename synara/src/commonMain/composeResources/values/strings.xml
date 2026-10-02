@@ -527,6 +527,8 @@
     <string name="tag_has_lyrics">Lyrics</string>
     <string name="tag_custom_upload">Custom Upload</string>
     <string name="tag_has_musicbrainz_id">MusicBrainz</string>
+    <string name="tag_filter_included">Included</string>
+    <string name="tag_filter_excluded">Excluded</string>
 
     <!-- Downloads -->
     <string name="downloads">Downloads</string>

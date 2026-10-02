@@ -19,13 +19,18 @@ import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.data.SongTag
+import dev.dertyp.data.TitleTagKind
 import dev.dertyp.data.UserSong
+import dev.dertyp.synara.core.icon
+import dev.dertyp.synara.core.localizedName
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraFab
 import dev.dertyp.synara.viewmodels.AllSongsScreenModel
+import dev.dertyp.synara.viewmodels.TagFilterState
 import kotlinx.coroutines.delay
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.*
 import kotlin.time.Duration.Companion.milliseconds
@@ -60,58 +65,30 @@ class AllSongsScreen : Screen {
                     
                     if (state is AllSongsScreenModel.AllSongsState.Success) {
                         val successState = state as AllSongsScreenModel.AllSongsState.Success
-                        Row(
+                        LazyRow(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
                                 .padding(bottom = 8.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            LazyRow(
-                                modifier = Modifier.weight(1f),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                items(SongTag.entries) { tag ->
-                                    FilterChip(
-                                        selected = successState.tags.contains(tag),
-                                        onClick = { screenModel.toggleTag(tag) },
-                                        elevation = FilterChipDefaults.filterChipElevation(elevation = 0.dp, hoveredElevation = 0.dp, pressedElevation = 0.dp),
-                                        label = {
-                                            Text(
-                                                stringResource(
-                                                    when (tag) {
-                                                        SongTag.Q_44_48 -> Res.string.tag_q_44_48
-                                                        SongTag.Q_96 -> Res.string.tag_q_96
-                                                        SongTag.Q_192 -> Res.string.tag_q_192
-                                                        SongTag.B_16 -> Res.string.tag_b_16
-                                                        SongTag.B_24 -> Res.string.tag_b_24
-                                                        SongTag.HAS_LYRICS -> Res.string.tag_has_lyrics
-                                                        SongTag.CUSTOM_UPLOAD -> Res.string.tag_custom_upload
-                                                        SongTag.HAS_MUSICBRAINZ_ID -> Res.string.tag_has_musicbrainz_id
-                                                    }
-                                                )
-                                            )
-                                        }
-                                    )
-                                }
+                            items(SongTag.entries) { tag ->
+                                TriStateFilterChip(
+                                    state = successState.stateOf(tag),
+                                    label = stringResource(tag.label()),
+                                    onClick = { screenModel.cycleTag(tag) }
+                                )
                             }
-                            
-                            Spacer(modifier = Modifier.width(8.dp))
-                            
-                            IconButton(
-                                onClick = { screenModel.setInvertTags(!successState.invertTags) },
-                                colors = if (successState.invertTags) {
-                                    IconButtonDefaults.iconButtonColors(
-                                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                } else {
-                                    IconButtonDefaults.iconButtonColors()
-                                }
-                            ) {
-                                Icon(
-                                    if (successState.invertTags) SynaraIcons.FilterOff.get() else SynaraIcons.Filter.get(),
-                                    contentDescription = "Invert Tags"
+                            item {
+                                VerticalDivider(modifier = Modifier.height(24.dp).padding(horizontal = 4.dp))
+                            }
+                            items(TitleTagKind.entries) { kind ->
+                                TriStateFilterChip(
+                                    state = successState.stateOf(kind),
+                                    label = kind.localizedName(),
+                                    offIcon = kind.icon,
+                                    onClick = { screenModel.cycleTitleTag(kind) }
                                 )
                             }
                         }
@@ -147,6 +124,61 @@ class AllSongsScreen : Screen {
                 }
             }
         }
+    }
+
+    @Composable
+    private fun TriStateFilterChip(
+        state: TagFilterState,
+        label: String,
+        onClick: () -> Unit,
+        offIcon: SynaraIcons? = null
+    ) {
+        val icon = when (state) {
+            TagFilterState.OFF -> offIcon
+            TagFilterState.INCLUDE -> SynaraIcons.Confirm
+            TagFilterState.EXCLUDE -> SynaraIcons.Close
+        }
+        val iconDescription = when (state) {
+            TagFilterState.OFF -> null
+            TagFilterState.INCLUDE -> stringResource(Res.string.tag_filter_included)
+            TagFilterState.EXCLUDE -> stringResource(Res.string.tag_filter_excluded)
+        }
+        val colors = if (state == TagFilterState.EXCLUDE) {
+            FilterChipDefaults.filterChipColors(
+                selectedContainerColor = MaterialTheme.colorScheme.errorContainer,
+                selectedLabelColor = MaterialTheme.colorScheme.onErrorContainer,
+                selectedLeadingIconColor = MaterialTheme.colorScheme.onErrorContainer
+            )
+        } else {
+            FilterChipDefaults.filterChipColors()
+        }
+        FilterChip(
+            selected = state != TagFilterState.OFF,
+            onClick = onClick,
+            elevation = FilterChipDefaults.filterChipElevation(elevation = 0.dp, hoveredElevation = 0.dp, pressedElevation = 0.dp),
+            colors = colors,
+            label = { Text(label) },
+            leadingIcon = icon?.let {
+                {
+                    Icon(
+                        it.get(),
+                        contentDescription = iconDescription,
+                        modifier = Modifier.size(FilterChipDefaults.IconSize)
+                    )
+                }
+            }
+        )
+    }
+
+    private fun SongTag.label(): StringResource = when (this) {
+        SongTag.Q_44_48 -> Res.string.tag_q_44_48
+        SongTag.Q_96 -> Res.string.tag_q_96
+        SongTag.Q_192 -> Res.string.tag_q_192
+        SongTag.B_16 -> Res.string.tag_b_16
+        SongTag.B_24 -> Res.string.tag_b_24
+        SongTag.HAS_LYRICS -> Res.string.tag_has_lyrics
+        SongTag.CUSTOM_UPLOAD -> Res.string.tag_custom_upload
+        SongTag.HAS_MUSICBRAINZ_ID -> Res.string.tag_has_musicbrainz_id
     }
 
     @Composable

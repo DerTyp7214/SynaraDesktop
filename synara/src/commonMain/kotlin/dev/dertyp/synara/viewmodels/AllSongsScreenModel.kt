@@ -3,6 +3,7 @@ package dev.dertyp.synara.viewmodels
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import dev.dertyp.data.SongTag
+import dev.dertyp.data.TitleTagKind
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.ISongService
 import dev.dertyp.synara.player.*
@@ -35,6 +36,7 @@ class AllSongsScreenModel(
     val state = _state.asStateFlow()
 
     val pageSize = 150
+    private var pendingFilter = SongFilter()
     private val loadingPages = mutableSetOf<Int>()
 
     init {
@@ -65,22 +67,25 @@ class AllSongsScreenModel(
 
     private fun loadInitialData() {
         screenModelScope.launch(modelDispatcher) {
-            val tags = (_state.value as? AllSongsState.Success)?.tags ?: emptyList()
-            val invertTags = (_state.value as? AllSongsState.Success)?.invertTags ?: false
-            
+            val filter = currentFilter()
             _state.value = AllSongsState.Loading
             try {
-                _state.value = fetchFirstPage(tags, invertTags)
+                _state.value = fetchFirstPage(filter)
             } catch (e: Exception) {
                 _state.value = AllSongsState.Error(e.message ?: "Unknown error")
             }
         }
     }
 
-    private suspend fun fetchFirstPage(tags: List<SongTag>, invertTags: Boolean): AllSongsState.Success {
+    private fun currentFilter(): SongFilter = (_state.value as? AllSongsState.Success)?.filter ?: pendingFilter
+
+    private suspend fun fetchFirstPage(filter: SongFilter): AllSongsState.Success {
         generation++
         loadingPages.clear()
-        val response = songService.allSongs(0, pageSize, true, tags, invertTags)
+        pendingFilter = filter
+        val response = songService.allSongs(
+            0, pageSize, true, filter.tags, filter.excludeTags, filter.titleTags, filter.excludeTitleTags
+        )
         val total = response.total
         val songs = arrayOfNulls<UserSong>(total).toMutableList()
 
@@ -91,8 +96,10 @@ class AllSongsScreenModel(
         return AllSongsState.Success(
             songs = songs,
             total = total,
-            tags = tags,
-            invertTags = invertTags
+            tags = filter.tags,
+            excludeTags = filter.excludeTags,
+            titleTags = filter.titleTags,
+            excludeTitleTags = filter.excludeTitleTags
         )
     }
 
@@ -101,7 +108,7 @@ class AllSongsScreenModel(
         val current = _state.value as? AllSongsState.Success
         val requestGeneration = generation + 1
         try {
-            val refreshed = fetchFirstPage(current?.tags ?: emptyList(), current?.invertTags ?: false)
+            val refreshed = fetchFirstPage(current?.filter ?: pendingFilter)
             if (requestGeneration != generation) return
             _state.value = refreshed
             songCache.refreshCached(refreshed.songs.filterNotNull())
@@ -123,7 +130,15 @@ class AllSongsScreenModel(
         val requestGeneration = generation
         screenModelScope.launch(modelDispatcher) {
             try {
-                val response = songService.allSongs(page, pageSize, true, currentState.tags, currentState.invertTags)
+                val response = songService.allSongs(
+                    page,
+                    pageSize,
+                    true,
+                    currentState.tags,
+                    currentState.excludeTags,
+                    currentState.titleTags,
+                    currentState.excludeTitleTags
+                )
                 if (requestGeneration != generation) return@launch
                 val latestState = _state.value as? AllSongsState.Success ?: return@launch
                 val updatedSongs = latestState.songs.toMutableList()
@@ -143,23 +158,17 @@ class AllSongsScreenModel(
         }
     }
 
-    fun toggleTag(tag: SongTag) {
+    fun cycleTag(tag: SongTag) {
         val currentState = _state.value as? AllSongsState.Success ?: return
-        val currentTags = currentState.tags.toMutableList()
-        if (currentTags.contains(tag)) {
-            currentTags.remove(tag)
-        } else {
-            currentTags.add(tag)
-        }
-        _state.value = currentState.copy(tags = currentTags)
+        val (tags, excludeTags) = cycleFilter(tag, currentState.tags, currentState.excludeTags)
+        _state.value = currentState.copy(tags = tags, excludeTags = excludeTags)
         applyFilters()
     }
 
-    fun setInvertTags(invert: Boolean) {
+    fun cycleTitleTag(kind: TitleTagKind) {
         val currentState = _state.value as? AllSongsState.Success ?: return
-        if (currentState.invertTags == invert) return
-        
-        _state.value = currentState.copy(invertTags = invert)
+        val (titleTags, excludeTitleTags) = cycleFilter(kind, currentState.titleTags, currentState.excludeTitleTags)
+        _state.value = currentState.copy(titleTags = titleTags, excludeTitleTags = excludeTitleTags)
         applyFilters()
     }
 
@@ -174,13 +183,13 @@ class AllSongsScreenModel(
 
     fun playAll() {
         val currentState = _state.value as? AllSongsState.Success ?: return
-        playerModel.playQueue(PlaybackQueue(source = PlaybackSource.AllSongs(tags = currentState.tags, invertTags = currentState.invertTags)))
+        playerModel.playQueue(PlaybackQueue(source = currentState.filter.toPlaybackSource()))
     }
 
     fun playSong(song: UserSong, index: Int) {
         val currentState = _state.value as? AllSongsState.Success ?: return
         playerModel.playQueue(
-            PlaybackQueue(source = PlaybackSource.AllSongs(tags = currentState.tags, invertTags = currentState.invertTags)),
+            PlaybackQueue(source = currentState.filter.toPlaybackSource()),
             startIndex = index
         )
     }
@@ -191,8 +200,46 @@ class AllSongsScreenModel(
             val songs: List<UserSong?>,
             val total: Int,
             val tags: List<SongTag> = emptyList(),
-            val invertTags: Boolean = false
-        ) : AllSongsState()
+            val excludeTags: List<SongTag> = emptyList(),
+            val titleTags: List<TitleTagKind> = emptyList(),
+            val excludeTitleTags: List<TitleTagKind> = emptyList()
+        ) : AllSongsState() {
+            val filter: SongFilter
+                get() = SongFilter(tags, excludeTags, titleTags, excludeTitleTags)
+
+            fun stateOf(tag: SongTag): TagFilterState = filterStateOf(tag, tags, excludeTags)
+
+            fun stateOf(kind: TitleTagKind): TagFilterState = filterStateOf(kind, titleTags, excludeTitleTags)
+        }
         data class Error(val message: String) : AllSongsState()
     }
 }
+
+data class SongFilter(
+    val tags: List<SongTag> = emptyList(),
+    val excludeTags: List<SongTag> = emptyList(),
+    val titleTags: List<TitleTagKind> = emptyList(),
+    val excludeTitleTags: List<TitleTagKind> = emptyList()
+) {
+    fun toPlaybackSource(): PlaybackSource.AllSongs = PlaybackSource.AllSongs(
+        tags = tags,
+        excludeTags = excludeTags,
+        titleTags = titleTags,
+        excludeTitleTags = excludeTitleTags
+    )
+}
+
+enum class TagFilterState { OFF, INCLUDE, EXCLUDE }
+
+fun <T> filterStateOf(item: T, include: List<T>, exclude: List<T>): TagFilterState = when (item) {
+    in include -> TagFilterState.INCLUDE
+    in exclude -> TagFilterState.EXCLUDE
+    else -> TagFilterState.OFF
+}
+
+fun <T> cycleFilter(item: T, include: List<T>, exclude: List<T>): Pair<List<T>, List<T>> =
+    when (filterStateOf(item, include, exclude)) {
+        TagFilterState.OFF -> (include + item) to exclude
+        TagFilterState.INCLUDE -> (include - item) to (exclude + item)
+        TagFilterState.EXCLUDE -> include to (exclude - item)
+    }
