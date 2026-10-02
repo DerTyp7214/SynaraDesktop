@@ -64,6 +64,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.13.0",
+                        date = "2026-10-02",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Server settings pages can ask for a file, which you pick with the system file dialog or paste."),
+                            Change(ChangeType.Improved, "Server pages opened with parameters keep updating live.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.12.0",
                         date = "2026-10-02",
                         isPrerelease = true,

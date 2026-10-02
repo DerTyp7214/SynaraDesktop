@@ -28,16 +28,18 @@ actual fun defaultDeviceName(): String = cachedDeviceName
 
 private val imageExtensions = setOf("png", "jpg", "jpeg", "webp", "bmp", "gif")
 
-actual suspend fun pickImageBytes(): ByteArray? = withContext(Dispatchers.IO) {
-    val dialog = FileDialog(null as Frame?, "Select image", FileDialog.LOAD)
-    dialog.filenameFilter = FilenameFilter { _, name ->
-        name.substringAfterLast('.', "").lowercase() in imageExtensions
-    }
+actual suspend fun pickImageBytes(): ByteArray? = pickFile("Select image", imageExtensions)?.bytes
+
+actual suspend fun pickFile(title: String, extensions: Set<String>): PickedFile? = withContext(Dispatchers.IO) {
+    val allowed = extensions.map { it.removePrefix(".").lowercase() }.toSet()
+    val accepts: (String) -> Boolean = { name -> allowed.isEmpty() || name.substringAfterLast('.', "").lowercase() in allowed }
+    val dialog = FileDialog(null as Frame?, title, FileDialog.LOAD)
+    dialog.filenameFilter = FilenameFilter { _, name -> accepts(name) }
     dialog.isVisible = true
     val directory = dialog.directory ?: return@withContext null
     val fileName = dialog.file ?: return@withContext null
-    if (fileName.substringAfterLast('.', "").lowercase() !in imageExtensions) return@withContext null
+    if (!accepts(fileName)) return@withContext null
     val file = File(directory, fileName)
     if (!file.isFile) return@withContext null
-    file.readBytes()
+    PickedFile(file.name, file.readBytes())
 }

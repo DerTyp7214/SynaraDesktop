@@ -45,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -64,6 +65,7 @@ import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.SynaraMenu
+import dev.dertyp.synara.utils.pickFile
 import dev.dertyp.ui.UiAction
 import dev.dertyp.ui.UiAlign
 import dev.dertyp.ui.UiButtonStyle
@@ -75,9 +77,16 @@ import dev.dertyp.ui.UiTone
 import dev.dertyp.ui.UiValue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
+import kotlin.io.encoding.Base64
 import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.ui_server_file_choose
+import synara.synara.generated.resources.ui_server_file_clear
+import synara.synara.generated.resources.ui_server_file_none
+import synara.synara.generated.resources.ui_server_file_paste
+import synara.synara.generated.resources.ui_server_file_paste_base64
 import synara.synara.generated.resources.ui_server_unsupported_component
 
 @Composable
@@ -111,6 +120,7 @@ fun UiRenderer(
         is UiComponent.Native -> UiNative(component, host, modifier)
         is UiComponent.Fallback -> UiFallback(component, modifier)
         is UiComponent.TextField -> UiTextField(component, host, modifier)
+        is UiComponent.FileField -> UiFileField(component, modifier)
         is UiComponent.NumberField -> UiNumberField(component, modifier)
         is UiComponent.Switch -> UiSwitch(component, modifier)
         is UiComponent.Select -> UiSelect(component, modifier)
@@ -615,8 +625,8 @@ private fun UiLive(component: UiComponent.Live, host: UiHost, modifier: Modifier
     val uiService = koinInject<IUiService>()
     var child by remember(component.key, component.child) { mutableStateOf(component.child) }
 
-    LaunchedEffect(host.contributionId, component.key, host.entityId) {
-        uiService.subscribeLive(host.contributionId, component.key, host.entityId)
+    LaunchedEffect(host.contributionId, component.key, host.context) {
+        uiService.subscribeLiveWithContext(host.contributionId, component.key, host.context)
             .catch { if (it is CancellationException) throw it }
             .collect { update ->
                 child = when (update) {
@@ -712,6 +722,75 @@ private fun UiTextField(component: UiComponent.TextField, host: UiHost, modifier
                 component.toolbar.forEach { UiRenderer(it, host) }
             }
         }
+    }
+}
+
+@Composable
+private fun UiFileField(component: UiComponent.FileField, modifier: Modifier) {
+    val form = rememberFieldForm()
+    val scope = rememberCoroutineScope()
+    remember(component.key, component.value) {
+        form.seed(component.key, UiValue.of(component.value.orEmpty()))
+        component.key
+    }
+    var picked by remember(component.key) { mutableStateOf<Pair<String, String>?>(null) }
+    val value = form.text(component.key).orEmpty()
+    val error = form.errors[component.key] ?: component.error
+    val fileName = picked?.takeIf { it.second == value }?.first
+
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = if (component.required) "${component.label} *" else component.label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedButton(
+                onClick = {
+                    scope.launch {
+                        val file = pickFile(component.label, component.accept.toSet()) ?: return@launch
+                        val content = if (component.binary) Base64.encode(file.bytes) else file.bytes.decodeToString()
+                        form.set(component.key, UiValue.of(content))
+                        picked = file.name to content
+                    }
+                },
+                enabled = component.enabled,
+            ) {
+                Icon(SynaraIcons.Upload.get(), contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(Res.string.ui_server_file_choose))
+            }
+            Text(
+                text = fileName ?: stringResource(Res.string.ui_server_file_none),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            if (fileName != null) {
+                IconButton(onClick = { form.set(component.key, UiValue.of("")) }, enabled = component.enabled) {
+                    Icon(SynaraIcons.Clear.get(), contentDescription = stringResource(Res.string.ui_server_file_clear))
+                }
+            }
+        }
+        if (component.allowPaste && fileName == null) {
+            InternalTextField(
+                value = value,
+                onValueChange = { form.set(component.key, UiValue.of(it)) },
+                modifier = Modifier.fillMaxWidth(),
+                label = {
+                    Text(stringResource(if (component.binary) Res.string.ui_server_file_paste_base64 else Res.string.ui_server_file_paste))
+                },
+                enabled = component.enabled,
+                isError = error != null,
+                singleLine = component.secret,
+                minLines = if (component.secret) 1 else 3,
+                visualTransformation = if (component.secret) PasswordVisualTransformation() else VisualTransformation.None,
+            )
+        }
+        FieldSupport(error, component.helper)
     }
 }
 

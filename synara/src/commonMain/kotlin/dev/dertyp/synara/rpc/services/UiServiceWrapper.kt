@@ -41,6 +41,14 @@ class UiServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manager)
         return manager.getService<IUiService>().subscribeLive(contributionId, key, entityId)
     }
 
+    override fun subscribeWithContext(contributionId: String, context: UiContext): Flow<UiRender> {
+        return manager.getService<IUiService>().subscribeWithContext(contributionId, context)
+    }
+
+    override fun subscribeLiveWithContext(contributionId: String, key: String, context: UiContext): Flow<UiLiveUpdate> {
+        return manager.getService<IUiService>().subscribeLiveWithContext(contributionId, key, context)
+    }
+
     override suspend fun invoke(
         contributionId: String,
         actionId: String,

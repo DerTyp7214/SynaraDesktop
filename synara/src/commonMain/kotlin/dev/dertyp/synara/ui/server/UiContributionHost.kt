@@ -75,7 +75,7 @@ fun UiContributionHost(
             loading = false
         }
         try {
-            uiService.subscribe(contributionId, context.entityId).collect { apply(it) }
+            uiService.subscribeWithContext(contributionId, context).collect { apply(it) }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Throwable) {
