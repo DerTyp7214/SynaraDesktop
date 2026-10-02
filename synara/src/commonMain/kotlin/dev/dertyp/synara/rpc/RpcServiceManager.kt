@@ -12,6 +12,7 @@ import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.getOrNull
 import dev.dertyp.synara.settings.put
+import dev.dertyp.synara.utils.currentTimezoneId
 import dev.dertyp.toEpochMilliseconds
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineScope
@@ -205,6 +206,8 @@ class RpcServiceManager(
     }
 
     override fun uiLocale(): String? = Config.language.value
+
+    override fun uiTimeZone(): String? = currentTimezoneId()
 
     override fun onServerUnreachable() {
         isUsingFallback = !isUsingFallback

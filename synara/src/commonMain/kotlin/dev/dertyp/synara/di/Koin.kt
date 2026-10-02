@@ -46,6 +46,7 @@ import dev.dertyp.synara.ui.models.PerformanceMonitor
 import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.ui.models.TrayState
 import dev.dertyp.synara.utils.AppDispatchers
+import dev.dertyp.synara.utils.currentTimezoneId
 import dev.dertyp.synara.viewmodels.*
 import dev.dertyp.synara.viewmodels.podcasts.PodcastShowScreenModel
 import dev.dertyp.synara.viewmodels.podcasts.PodcastsScreenModel
@@ -88,7 +89,7 @@ private fun buildHttpClient(cbor: Cbor, json: Json): HttpClient {
         install(DefaultRequest) {
             //header(SynaraPackHeader, "true")
             apiVersionHeader()
-            uiHeaders(Config.language.value)
+            uiHeaders(Config.language.value, currentTimezoneId())
         }
         install(Krpc) {
             serialization {

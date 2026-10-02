@@ -64,6 +64,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.13.2",
+                        date = "2026-10-02",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Times on server pages are shown in your own time zone.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.13.1",
                         date = "2026-10-02",
                         isPrerelease = true,
