@@ -64,6 +64,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.13.1",
+                        date = "2026-10-02",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Fixed, "Input fields on server pages no longer show a keyboard Done button on desktop.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.13.0",
                         date = "2026-10-02",
                         isPrerelease = true,

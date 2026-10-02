@@ -120,8 +120,8 @@ fun UiRenderer(
         is UiComponent.Native -> UiNative(component, host, modifier)
         is UiComponent.Fallback -> UiFallback(component, modifier)
         is UiComponent.TextField -> UiTextField(component, host, modifier)
-        is UiComponent.FileField -> UiFileField(component, modifier)
-        is UiComponent.NumberField -> UiNumberField(component, modifier)
+        is UiComponent.FileField -> UiFileField(component, host, modifier)
+        is UiComponent.NumberField -> UiNumberField(component, host, modifier)
         is UiComponent.Switch -> UiSwitch(component, modifier)
         is UiComponent.Select -> UiSelect(component, modifier)
     }
@@ -713,20 +713,25 @@ private fun UiTextField(component: UiComponent.TextField, host: UiHost, modifier
             ),
         )
         FieldSupport(error, component.helper)
-        if (component.toolbar.isNotEmpty()) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                component.toolbar.forEach { UiRenderer(it, host) }
-            }
-        }
+        FieldToolbar(component.toolbar, host)
     }
 }
 
 @Composable
-private fun UiFileField(component: UiComponent.FileField, modifier: Modifier) {
+private fun FieldToolbar(toolbar: List<UiComponent>, host: UiHost) {
+    val items = toolbar.filterNot { it is UiComponent.Button && it.action == UiAction.DismissKeyboard }
+    if (items.isEmpty()) return
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        items.forEach { UiRenderer(it, host) }
+    }
+}
+
+@Composable
+private fun UiFileField(component: UiComponent.FileField, host: UiHost, modifier: Modifier) {
     val form = rememberFieldForm()
     val scope = rememberCoroutineScope()
     remember(component.key, component.value) {
@@ -791,11 +796,12 @@ private fun UiFileField(component: UiComponent.FileField, modifier: Modifier) {
             )
         }
         FieldSupport(error, component.helper)
+        FieldToolbar(component.toolbar, host)
     }
 }
 
 @Composable
-private fun UiNumberField(component: UiComponent.NumberField, modifier: Modifier) {
+private fun UiNumberField(component: UiComponent.NumberField, host: UiHost, modifier: Modifier) {
     val form = rememberFieldForm()
     remember(component.key, component.value) {
         form.seed(component.key, UiValue(number = component.value))
@@ -850,6 +856,7 @@ private fun UiNumberField(component: UiComponent.NumberField, modifier: Modifier
             },
         )
         FieldSupport(error, component.helper)
+        FieldToolbar(component.toolbar, host)
     }
 }
 
