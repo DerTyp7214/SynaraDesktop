@@ -1,6 +1,5 @@
 package dev.dertyp.synara.rpc.services
 
-import dev.dertyp.PlatformInstant
 import dev.dertyp.PlatformUUID
 import dev.dertyp.PrefixedId
 import dev.dertyp.data.*
@@ -10,10 +9,6 @@ import dev.dertyp.synara.rpc.RpcServiceManager
 import kotlinx.coroutines.flow.Flow
 
 class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manager), ISongService {
-    override suspend fun setLiked(id: PlatformUUID, liked: Boolean, addedAt: PlatformInstant?): UserSong? {
-        return manager.getService<ISongService>().setLiked(id, liked, addedAt)
-    }
-
     override suspend fun setLikeLevel(id: PlatformUUID, level: LikeLevel): UserSong? {
         return manager.getService<ISongService>().setLikeLevel(id, level)
     }

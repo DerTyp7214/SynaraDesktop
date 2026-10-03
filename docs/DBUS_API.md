@@ -195,7 +195,7 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | :--- | :--- | :--- |
 | `id` | PlatformUUID |  |
 | `name` | String |  |
-| `artists` | List<[Artist](#artist)> |  |
+| `artists` | List<[ArtistCredit](#artistcredit)> |  |
 | `songCount` | Int |  |
 | `releaseDate` | PlatformLocalDate? |  |
 | `totalDuration` | Long |  |
@@ -205,7 +205,7 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `genres` | List<[Genre](#genre)> |  |
 | `originalId` | String? |  |
 | `barcode` | String? |  |
-| `musicbrainzId` | PlatformUUID? |  |
+| `musicBrainzId` | PlatformUUID? |  |
 | `animatedCoverId` | PlatformUUID? |  |
 | `animatedCoverImageId` | PlatformUUID? |  |
 | `animatedCoverBlurHash` | String? |  |
@@ -222,7 +222,23 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `genres` | List<[Genre](#genre)> |  |
 | `imageId` | PlatformUUID? |  |
 | `blurHash` | String? |  |
-| `musicbrainzId` | PlatformUUID? |  |
+| `musicBrainzId` | PlatformUUID? |  |
+| `isFollowed` | Boolean |  |
+| `creditedName` | String? |  |
+| `joinPhrase` | String? |  |
+
+### ArtistCredit
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `id` | PlatformUUID |  |
+| `name` | String |  |
+| `isGroup` | Boolean |  |
+| `artists` | List<[ArtistCredit](#artistcredit)> |  |
+| `genres` | List<[Genre](#genre)> |  |
+| `imageId` | PlatformUUID? |  |
+| `blurHash` | String? |  |
+| `musicBrainzId` | PlatformUUID? |  |
 | `isFollowed` | Boolean |  |
 | `creditedName` | String? |  |
 | `joinPhrase` | String? |  |
@@ -357,6 +373,7 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `VERSION` |  |
 | `REMASTER` |  |
 | `DEMO` |  |
+| `UNKNOWN` |  |
 
 ### UserPlaylist
 
@@ -389,7 +406,7 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | :--- | :--- | :--- |
 | `id` | PlatformUUID |  |
 | `title` | String |  |
-| `artists` | List<[Artist](#artist)> |  |
+| `artists` | List<[ArtistCredit](#artistcredit)> |  |
 | `album` | [Album](#album)? |  |
 | `duration` | Long |  |
 | `explicit` | Boolean |  |

@@ -58,7 +58,8 @@ class PlayerModel(
     private val modelDispatcher = dispatchers.createNamed("PlayerModel", 2)
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val fileSystem = FileSystem.SYSTEM
-    private val path: Path = settingsFactory.getStatePath("player_state.cbor.zstd").toPath()
+    private val path: Path = settingsFactory.getStatePath("player_state.v2.cbor.zstd").toPath()
+    private val legacyCborPath: Path = settingsFactory.getStatePath("player_state.cbor.zstd").toPath()
     private val oldPath: Path = settingsFactory.getStatePath("player_state.pb").toPath()
 
     private val migrationProtoBuf = ProtoBuf {
@@ -253,14 +254,12 @@ class PlayerModel(
     private fun loadState() {
         try {
             val state = when {
-                fileSystem.exists(path) -> {
-                    val bytes = fileSystem.read(path) { readByteArray() }
-                    val decompressed = try {
-                        decompress(bytes)
-                    } catch (_: Exception) {
-                        bytes
-                    }
-                    cbor.decodeFromByteArray<PlayerState>(decompressed)
+                fileSystem.exists(path) -> cbor.decodeFromByteArray<PlayerState>(readCompressed(path))
+                fileSystem.exists(legacyCborPath) -> {
+                    val migrated = decodeLegacyPlayerState(cbor, readCompressed(legacyCborPath))
+                    writeState(migrated)
+                    fileSystem.delete(legacyCborPath)
+                    migrated
                 }
                 fileSystem.exists(oldPath) -> {
                     val bytes = fileSystem.read(oldPath) { readByteArray() }
@@ -295,14 +294,26 @@ class PlayerModel(
         }
     }
 
+    private fun readCompressed(file: Path): ByteArray {
+        val bytes = fileSystem.read(file) { readByteArray() }
+        return try {
+            decompress(bytes)
+        } catch (_: Exception) {
+            bytes
+        }
+    }
+
+    private fun writeState(state: PlayerState) {
+        val compressed = compress(cbor.encodeToByteArray(state))
+        fileSystem.write(path) {
+            write(compressed)
+        }
+    }
+
     private fun saveState(state: PlayerState) {
         scope.launch(modelDispatcher) {
             try {
-                val bytes = cbor.encodeToByteArray(state)
-                val compressed = compress(bytes)
-                fileSystem.write(path) {
-                    write(compressed)
-                }
+                writeState(state)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -468,7 +479,7 @@ class PlayerModel(
     private suspend fun fetchRadioBatch(sessionId: PlatformUUID): List<QueueEntry> {
         return try {
             withContext(modelDispatcher) {
-                radioService.radioFlow(sessionId)
+                radioService.observeRadio(sessionId)
                     .take(RADIO_BATCH_SIZE)
                     .toList()
                     .map { QueueEntry.FromSource(it) }
@@ -881,7 +892,8 @@ class PlayerModel(
     fun toggleLike(song: UserSong) {
         scope.launch {
             try {
-                val updated = songService.setLiked(song.id, !(song.isFavourite ?: false)) ?: return@launch
+                val level = if (song.isFavourite == true) LikeLevel.NONE else LikeLevel.LIKE
+                val updated = songService.setLikeLevel(song.id, level) ?: return@launch
                 songCache.put(updated)
                 songCache.notifyLikedSongsChanged()
             } catch (e: Exception) {
@@ -1116,14 +1128,14 @@ class PlayerModel(
         return PlaybackState(
             queue = _queue.value.mapIndexed { index, entry ->
                 when (entry) {
-                    is QueueEntry.Explicit -> PlaybackState.QueueEntry.Explicit(entry.song, index.toLong())
+                    is QueueEntry.Explicit -> PlaybackState.QueueEntry.WithSong(entry.song, index.toLong())
                     is QueueEntry.FromSource -> PlaybackState.QueueEntry.FromSource(entry.songId, index.toLong())
                 }
             },
             currentIndex = _currentIndex.value,
             isPlaying = audioPlayer.isPlaying.value,
             positionMs = audioPlayer.currentPosition.value,
-            shuffleMode = _shuffleMode.value,
+            isShuffled = _shuffleMode.value,
             repeatMode = _repeatMode.value
         )
     }

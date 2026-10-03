@@ -1,13 +1,13 @@
 package dev.dertyp.synara.ui.components
 
-import dev.dertyp.data.Artist
+import dev.dertyp.data.ArtistCredit
 import dev.dertyp.randomPlatformUUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class ArtistCreditTextTest {
     private fun artist(name: String, joinPhrase: String? = null, creditedName: String? = null) =
-        Artist(id = randomPlatformUUID(), name = name, isGroup = false, creditedName = creditedName, joinPhrase = joinPhrase)
+        ArtistCredit(id = randomPlatformUUID(), name = name, isGroup = false, creditedName = creditedName, joinPhrase = joinPhrase)
 
     @Test
     fun joinPhrasesAreUsedInCreditOrder() {
@@ -40,6 +40,6 @@ class ArtistCreditTextTest {
 
     @Test
     fun emptyList() {
-        assertEquals("", emptyList<Artist>().creditText())
+        assertEquals("", emptyList<ArtistCredit>().creditText())
     }
 }

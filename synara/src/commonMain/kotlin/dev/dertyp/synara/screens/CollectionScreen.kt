@@ -288,7 +288,7 @@ data class CollectionScreen(val collectionId: PlatformUUID) : Screen {
                                             }
                                         )
                                     }
-                                    if (match.explicitMember) {
+                                    if (match.directMember) {
                                         IconButton(onClick = {
                                             screenModel.removeItem(CollectionItemType.SONG, match.song.id)
                                         }) {

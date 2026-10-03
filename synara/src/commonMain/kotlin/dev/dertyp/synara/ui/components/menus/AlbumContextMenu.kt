@@ -53,7 +53,7 @@ fun AlbumContextMenu(
                 .widthIn(max = 240.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (album.musicbrainzId != null) {
+                if (album.musicBrainzId != null) {
                     Icon(
                         SynaraIcons.MusicBrainz.get(),
                         contentDescription = null,

@@ -486,7 +486,7 @@ class RadioScreen : Screen {
                                 CircularProgressIndicator()
                             }
                         } else if (content != null) {
-                            val explicitSongs = content.songs.data.filter { it.explicitMember }
+                            val explicitSongs = content.songs.data.filter { it.directMember }
                             if (explicitSongs.isEmpty() && content.artists.data.isEmpty() && content.albums.data.isEmpty()) {
                                 Text(
                                     text = stringResource(Res.string.radio_channel_items_empty),

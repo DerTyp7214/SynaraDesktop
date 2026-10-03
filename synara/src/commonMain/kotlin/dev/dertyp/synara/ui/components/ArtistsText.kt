@@ -23,15 +23,17 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.PlatformUUID
-import dev.dertyp.data.Artist
+import dev.dertyp.data.ArtistCredit
 import dev.dertyp.synara.screens.ArtistScreen
 
-fun Artist.creditedDisplayName(): String = creditedName?.takeIf { it.isNotBlank() } ?: name
+fun ArtistCredit.creditedDisplayName(): String = creditedName?.takeIf { it.isNotBlank() } ?: name
 
-fun List<Artist>.creditSeparator(index: Int): String? =
+fun List<ArtistCredit>.creditSeparator(index: Int): String? =
     if (index < lastIndex) this[index].joinPhrase?.takeIf { it.isNotEmpty() } ?: ", " else null
 
-fun List<Artist>.creditText(): String = buildString {
+fun List<ArtistCredit>.joinArtists(): String = sortedBy { it.name }.joinToString(", ") { it.name }
+
+fun List<ArtistCredit>.creditText(): String = buildString {
     this@creditText.forEachIndexed { index, artist ->
         append(artist.creditedDisplayName())
         this@creditText.creditSeparator(index)?.let { append(it) }
@@ -41,7 +43,7 @@ fun List<Artist>.creditText(): String = buildString {
 @OptIn(ExperimentalLayoutApi::class, ExperimentalComposeUiApi::class)
 @Composable
 fun ArtistsText(
-    artists: List<Artist>,
+    artists: List<ArtistCredit>,
     modifier: Modifier = Modifier,
     style: TextStyle = LocalTextStyle.current,
     color: Color = LocalContentColor.current,

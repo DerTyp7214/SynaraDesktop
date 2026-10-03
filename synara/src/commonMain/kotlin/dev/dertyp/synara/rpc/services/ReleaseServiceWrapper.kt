@@ -16,6 +16,10 @@ class ReleaseServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(man
         return manager.getService<IReleaseService>().unfollowArtist(artistId)
     }
 
+    override suspend fun unfollowArtistByMusicBrainzId(musicBrainzId: PlatformUUID): Boolean {
+        return manager.getService<IReleaseService>().unfollowArtistByMusicBrainzId(musicBrainzId)
+    }
+
     override suspend fun getFollowedArtists(): List<FollowedArtist> {
         return manager.getService<IReleaseService>().getFollowedArtists()
     }

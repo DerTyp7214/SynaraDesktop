@@ -536,7 +536,7 @@ class QueueSyncService(
         queueId = entry.queueId,
         position = 0,
         shuffledPosition = null,
-        explicit = entry is QueueEntry.Explicit
+        userAdded = entry is QueueEntry.Explicit
     )
 
     private suspend fun rebase(info: QueueInfo, change: PlayerModel.QueueChange) {
@@ -640,7 +640,7 @@ class QueueSyncService(
         if (songs.isNotEmpty()) songCache.putAll(songs)
 
         val original = items.sortedBy { it.position }
-        val active = if (info.shuffleMode) {
+        val active = if (info.isShuffled) {
             items.sortedBy { it.shuffledPosition ?: Int.MAX_VALUE }
         } else {
             original
@@ -649,7 +649,7 @@ class QueueSyncService(
             original = original.map(::toEntry),
             active = active.map(::toEntry),
             currentIndex = info.currentIndex,
-            shuffle = info.shuffleMode,
+            shuffle = info.isShuffled,
             repeat = info.repeatMode,
             sourceId = info.sourceId
         )
@@ -657,7 +657,7 @@ class QueueSyncService(
 
     private fun toEntry(item: QueueItem): QueueEntry {
         val song = item.song
-        return if (item.explicit && song != null) {
+        return if (item.userAdded && song != null) {
             QueueEntry.Explicit(song, item.queueId)
         } else {
             QueueEntry.FromSource(item.songId, item.queueId)
@@ -690,7 +690,12 @@ class QueueSyncService(
 
             val result = queueService.commitUpload(
                 uploadId,
-                QueueMeta(snapshot.currentIndex, snapshot.shuffle, snapshot.repeat, snapshot.sourceId),
+                QueueMeta(
+                    currentIndex = snapshot.currentIndex,
+                    isShuffled = snapshot.shuffle,
+                    repeatMode = snapshot.repeat,
+                    sourceId = snapshot.sourceId
+                ),
                 requestId
             )
             when (result) {

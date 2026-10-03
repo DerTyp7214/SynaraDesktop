@@ -91,7 +91,7 @@ fun ArtistListItem(
                     modifier = Modifier.weight(1f)
                 )
 
-                if (artist.musicbrainzId != null) {
+                if (artist.musicBrainzId != null) {
                     Icon(
                         SynaraIcons.MusicBrainz.get(),
                         contentDescription = null,

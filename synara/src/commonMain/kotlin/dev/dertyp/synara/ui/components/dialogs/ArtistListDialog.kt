@@ -15,7 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import dev.dertyp.data.Artist
+import dev.dertyp.data.ArtistCredit
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.verticalScrollScrim
@@ -27,8 +27,8 @@ import synara.synara.generated.resources.cancel
 @Composable
 fun ArtistListDialog(
     isOpen: Boolean,
-    artists: List<Artist>,
-    onArtistClick: (Artist) -> Unit,
+    artists: List<ArtistCredit>,
+    onArtistClick: (ArtistCredit) -> Unit,
     onDismissRequest: () -> Unit
 ) {
     SynaraAlertDialog(

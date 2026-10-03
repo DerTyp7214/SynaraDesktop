@@ -120,7 +120,7 @@ class MetadataServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(ma
         return manager.getService<IMetadataService>().getSupportedFeatures(type)
     }
 
-    override suspend fun getAllMetadataTypes(features: Set<IMetadataService.Feature>): List<IMetadataService.MetadataType> {
-        return manager.getService<IMetadataService>().getAllMetadataTypes(features)
+    override suspend fun allMetadataTypes(features: Set<IMetadataService.Feature>): List<IMetadataService.MetadataType> {
+        return manager.getService<IMetadataService>().allMetadataTypes(features)
     }
 }

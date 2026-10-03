@@ -220,7 +220,7 @@ class RemoteControlService(
             isPlaying = playerModel.isPlaying.value,
             positionMs = playerModel.currentPosition.value,
             durationMs = playerModel.duration.value.takeIf { it > 0L },
-            shuffleMode = playerModel.shuffleMode.value,
+            isShuffled = playerModel.shuffleMode.value,
             repeatMode = playerModel.repeatMode.value,
             volume = playerModel.volume.value,
             currentQueueId = entry?.queueId,

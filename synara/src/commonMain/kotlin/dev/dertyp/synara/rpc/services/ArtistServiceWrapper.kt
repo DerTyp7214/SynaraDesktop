@@ -81,8 +81,8 @@ class ArtistServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(mana
         return manager.getService<IArtistService>().setArtistImageByUrl(id, url)
     }
 
-    override fun artistsWithoutMusicBrainzIdFlow(): Flow<Artist> {
-        return manager.getService<IArtistService>().artistsWithoutMusicBrainzIdFlow()
+    override fun artistsWithoutMusicBrainzId(): Flow<Artist> {
+        return manager.getService<IArtistService>().artistsWithoutMusicBrainzId()
     }
 
     override fun artistIdsWithoutMusicBrainzId(): Flow<PlatformUUID> {

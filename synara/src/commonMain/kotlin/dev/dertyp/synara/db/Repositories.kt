@@ -33,7 +33,7 @@ data class RawScrobbleQueueEntry(
 interface RecentlyPlayedRepository {
     suspend fun insertSong(userId: PlatformUUID, song: UserSong, timestamp: Long)
     suspend fun insertAlbum(userId: PlatformUUID, album: Album, timestamp: Long)
-    suspend fun insertArtist(userId: PlatformUUID, artist: Artist, timestamp: Long)
+    suspend fun insertArtist(userId: PlatformUUID, artist: ArtistCredit, timestamp: Long)
 
     suspend fun insertListen(userId: PlatformUUID, song: UserSong, timestamp: Long) {
         insertSong(userId, song, timestamp)

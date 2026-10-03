@@ -17,9 +17,9 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import coil3.compose.AsyncImage
 import dev.dertyp.PlatformUUID
-import dev.dertyp.core.joinArtists
+import dev.dertyp.synara.ui.components.joinArtists
 import dev.dertyp.synara.ui.components.creditText
-import dev.dertyp.data.Artist
+import dev.dertyp.data.ArtistCredit
 import dev.dertyp.data.MusicBrainzRecording
 import dev.dertyp.data.TitleTag
 import dev.dertyp.data.TitleTagKind
@@ -28,6 +28,7 @@ import dev.dertyp.data.effectiveAudio
 import dev.dertyp.services.ISongService
 import dev.dertyp.synara.core.displayTags
 import dev.dertyp.synara.core.localizedName
+import dev.dertyp.synara.core.selectableTitleTagKinds
 import dev.dertyp.synara.core.toSong
 import dev.dertyp.synara.db.LibraryRepository
 import dev.dertyp.synara.scrobble.MusicBrainzService
@@ -60,7 +61,7 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
         var song by remember { mutableStateOf<UserSong?>(null) }
         var title by remember { mutableStateOf("") }
         var tags by remember { mutableStateOf<List<TitleTag>>(emptyList()) }
-        var artists by remember { mutableStateOf<List<Artist>>(emptyList()) }
+        var artists by remember { mutableStateOf<List<ArtistCredit>>(emptyList()) }
         var lyrics by remember { mutableStateOf<List<String>>(emptyList()) }
         var musicBrainzId by remember { mutableStateOf<PlatformUUID?>(null) }
         var mbRecording by remember { mutableStateOf<MusicBrainzRecording?>(null) }
@@ -279,7 +280,7 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
                                                 expanded = kindExpanded,
                                                 onDismissRequest = { kindExpanded = false }
                                             ) {
-                                                TitleTagKind.entries.forEach { kind ->
+                                                selectableTitleTagKinds.forEach { kind ->
                                                     DropdownMenuItem(
                                                         text = { Text(kind.localizedName()) },
                                                         onClick = {

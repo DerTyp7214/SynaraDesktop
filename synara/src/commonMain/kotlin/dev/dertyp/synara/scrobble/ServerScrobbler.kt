@@ -134,7 +134,7 @@ class ServerScrobbler(
         val report = PlaybackReport(
             songId = song.id,
             positionMs = playerModel.currentPosition.value,
-            playing = playing,
+            isPlaying = playing,
             sentAt = serverClock.serverNow()
         )
         val before = currentTimeMillis()

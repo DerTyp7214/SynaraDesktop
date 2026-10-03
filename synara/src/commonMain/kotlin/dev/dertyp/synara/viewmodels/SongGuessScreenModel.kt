@@ -4,7 +4,7 @@ import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import dev.dertyp.PlatformUUID
 import dev.dertyp.core.cleanTitle
-import dev.dertyp.core.joinArtists
+import dev.dertyp.synara.ui.components.joinArtists
 import dev.dertyp.synara.ui.components.creditText
 import dev.dertyp.core.stripAccents
 import dev.dertyp.currentTimeMillis

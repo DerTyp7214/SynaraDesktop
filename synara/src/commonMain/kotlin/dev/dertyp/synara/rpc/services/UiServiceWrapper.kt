@@ -84,8 +84,4 @@ class UiServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manager)
     override suspend fun setHomeCardOrder(contributionIds: List<String>): UiHomeLayout {
         return manager.getService<IUiService>().setHomeCardOrder(contributionIds)
     }
-
-    override fun getHomeCardsFlow(): Flow<UiHomeLayout> {
-        return manager.getService<IUiService>().getHomeCardsFlow()
-    }
 }

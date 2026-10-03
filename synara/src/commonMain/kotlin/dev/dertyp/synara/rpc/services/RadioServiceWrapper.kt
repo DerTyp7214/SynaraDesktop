@@ -12,7 +12,7 @@ class RadioServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manag
         return manager.getService<IRadioService>().createRadioSession(type, seed)
     }
 
-    override fun radioFlow(sessionId: PlatformUUID): Flow<PlatformUUID> {
-        return manager.getService<IRadioService>().radioFlow(sessionId)
+    override fun observeRadio(sessionId: PlatformUUID): Flow<PlatformUUID> {
+        return manager.getService<IRadioService>().observeRadio(sessionId)
     }
 }

@@ -63,7 +63,10 @@ fun TitleTagKind.localizedName(): String = when (this) {
     TitleTagKind.VERSION -> stringResource(Res.string.title_tag_kind_version)
     TitleTagKind.REMASTER -> stringResource(Res.string.title_tag_kind_remaster)
     TitleTagKind.DEMO -> stringResource(Res.string.title_tag_kind_demo)
+    TitleTagKind.UNKNOWN -> stringResource(Res.string.title_tag_kind_unknown)
 }
+
+val selectableTitleTagKinds: List<TitleTagKind> = TitleTagKind.entries - TitleTagKind.UNKNOWN
 
 val TitleTagKind.icon: SynaraIcons
     get() = when (this) {
@@ -79,4 +82,5 @@ val TitleTagKind.icon: SynaraIcons
         TitleTagKind.VERSION -> SynaraIcons.TagVersion
         TitleTagKind.REMASTER -> SynaraIcons.TagRemaster
         TitleTagKind.DEMO -> SynaraIcons.TagDemo
+        TitleTagKind.UNKNOWN -> SynaraIcons.TimecodeTags
     }

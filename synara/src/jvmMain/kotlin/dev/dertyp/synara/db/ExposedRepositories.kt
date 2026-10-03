@@ -6,6 +6,7 @@ import dev.dertyp.data.effectiveAudio
 import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
+import dev.dertyp.synara.core.toCredit
 import dev.dertyp.synara.game.LeaderboardEntry
 import dev.dertyp.synara.game.SavedGame
 import kotlinx.coroutines.channels.BufferOverflow
@@ -60,7 +61,7 @@ class ExposedRecentlyPlayedRepository(
         }
     }
 
-    private fun upsertArtist(userId: PlatformUUID, artist: Artist, timestamp: Long) {
+    private fun upsertArtist(userId: PlatformUUID, artist: ArtistCredit, timestamp: Long) {
         RecentlyPlayedArtists.upsert(RecentlyPlayedArtists.userId, RecentlyPlayedArtists.artistId) {
             it[RecentlyPlayedArtists.userId] = userId
             it[RecentlyPlayedArtists.artistId] = artist.id.toString()
@@ -79,7 +80,7 @@ class ExposedRecentlyPlayedRepository(
         _updates.tryEmit(Unit)
     }
 
-    override suspend fun insertArtist(userId: PlatformUUID, artist: Artist, timestamp: Long) {
+    override suspend fun insertArtist(userId: PlatformUUID, artist: ArtistCredit, timestamp: Long) {
         dbQuery { upsertArtist(userId, artist, timestamp) }
         _updates.tryEmit(Unit)
     }
@@ -170,7 +171,7 @@ class ExposedUserRepository : UserRepository {
                 it[id] = user.id
                 it[username] = user.username
                 it[displayName] = user.displayName
-                it[passwordHash] = user.passwordHash
+                it[passwordHash] = ""
                 it[isAdmin] = user.isAdmin
                 it[profileImage] = user.profileImageId
             }
@@ -185,7 +186,6 @@ class ExposedUserRepository : UserRepository {
                         id = row[DownloadedUsers.id].value,
                         username = row[DownloadedUsers.username],
                         displayName = row[DownloadedUsers.displayName],
-                        passwordHash = row[DownloadedUsers.passwordHash],
                         isAdmin = row[DownloadedUsers.isAdmin],
                         profileImageId = row[DownloadedUsers.profileImage]?.value
                     )
@@ -665,7 +665,7 @@ private fun loadArtists(ids: Collection<UUID>): Map<UUID, Artist> {
                 artists = membersByGroup[id].orEmpty().mapNotNull { build(it) },
                 about = row[DownloadedArtists.about],
                 imageId = row[DownloadedArtists.image]?.value,
-                musicbrainzId = row[DownloadedArtists.musicBrainzId],
+                musicBrainzId = row[DownloadedArtists.musicBrainzId],
                 isFollowed = row[DownloadedArtists.isFollowed],
                 genres = genres[id].orEmpty()
             )
@@ -709,14 +709,14 @@ private fun loadAlbums(ids: Collection<UUID>): Map<UUID, Album> {
         Album(
             id = albumId,
             name = row[DownloadedAlbums.name],
-            artists = artistIdsByAlbum[albumId].orEmpty().mapNotNull { artists[it] },
+            artists = artistIdsByAlbum[albumId].orEmpty().mapNotNull { artists[it]?.toCredit() },
             songCount = row[DownloadedAlbums.songCount],
             releaseDate = row[DownloadedAlbums.releaseDate]?.toPlatformLocalDateISO(),
             totalDuration = row[DownloadedAlbums.totalDuration],
             totalSize = row[DownloadedAlbums.totalSize],
             coverId = row[DownloadedAlbums.cover]?.value,
             originalId = row[DownloadedAlbums.originalId],
-            musicbrainzId = row[DownloadedAlbums.musicBrainzId],
+            musicBrainzId = row[DownloadedAlbums.musicBrainzId],
             genres = genres[albumId].orEmpty()
         )
     }
@@ -748,7 +748,7 @@ private fun mapSongs(rows: List<ResultRow>): List<UserSong> {
             id = songId,
             title = row[DownloadedSongs.title],
             tags = decodeTitleTags(row[DownloadedSongs.tags]),
-            artists = artistIdsBySong[songId].orEmpty().mapNotNull { artists[it] },
+            artists = artistIdsBySong[songId].orEmpty().mapNotNull { artists[it]?.toCredit() },
             album = row[DownloadedSongs.albumId]?.let { albums[it.value] },
             duration = row[DownloadedSongs.duration],
             explicit = row[DownloadedSongs.explicit],
@@ -842,7 +842,7 @@ private fun saveSongMetadataInternal(song: UserSong, explicitlySaved: Boolean) {
     }
 
     song.artists.forEach { artist ->
-        saveArtistMetadataInternal(artist, false)
+        saveArtistCreditInternal(artist)
         DownloadedSongArtists.upsert(DownloadedSongArtists.songId, DownloadedSongArtists.artistId) {
             it[songId] = song.id
             it[artistId] = artist.id
@@ -870,12 +870,12 @@ private fun saveAlbumMetadataInternal(album: Album, explicitlySaved: Boolean) {
         it[totalSize] = album.totalSize
         it[cover] = album.coverId
         it[originalId] = album.originalId
-        it[musicBrainzId] = album.musicbrainzId
+        it[musicBrainzId] = album.musicBrainzId
         if (explicitlySaved) it[DownloadedAlbums.explicitlySaved] = true
     }
 
     album.artists.forEach { artist ->
-        saveArtistMetadataInternal(artist, false)
+        saveArtistCreditInternal(artist)
         DownloadedAlbumArtists.upsert(DownloadedAlbumArtists.albumId, DownloadedAlbumArtists.artistId) {
             it[albumId] = album.id
             it[artistId] = artist.id
@@ -898,23 +898,50 @@ private fun saveArtistMetadataInternal(artist: Artist, explicitlySaved: Boolean)
         it[isGroup] = artist.isGroup
         it[about] = artist.about
         it[image] = artist.imageId
-        it[musicBrainzId] = artist.musicbrainzId
+        it[musicBrainzId] = artist.musicBrainzId
         it[isFollowed] = artist.isFollowed
         if (explicitlySaved) it[DownloadedArtists.explicitlySaved] = true
     }
-    
+
     artist.artists.forEach { member ->
         saveArtistMetadataInternal(member, false)
-        DownloadedArtistMembers.upsert(DownloadedArtistMembers.groupId, DownloadedArtistMembers.memberId) {
-            it[groupId] = artist.id
-            it[memberId] = member.id
-        }
+        saveArtistMember(artist.id, member.id)
     }
-    
-    artist.genres.forEach { genre ->
+
+    saveArtistGenres(artist.id, artist.genres)
+}
+
+private fun saveArtistCreditInternal(artist: ArtistCredit) {
+    DownloadedArtists.upsert(DownloadedArtists.id, onUpdateExclude = listOf(DownloadedArtists.about)) {
+        it[id] = artist.id
+        it[name] = artist.name
+        it[isGroup] = artist.isGroup
+        it[about] = ""
+        it[image] = artist.imageId
+        it[musicBrainzId] = artist.musicBrainzId
+        it[isFollowed] = artist.isFollowed
+    }
+
+    artist.artists.forEach { member ->
+        saveArtistCreditInternal(member)
+        saveArtistMember(artist.id, member.id)
+    }
+
+    saveArtistGenres(artist.id, artist.genres)
+}
+
+private fun saveArtistMember(groupId: PlatformUUID, memberId: PlatformUUID) {
+    DownloadedArtistMembers.upsert(DownloadedArtistMembers.groupId, DownloadedArtistMembers.memberId) {
+        it[this.groupId] = groupId
+        it[this.memberId] = memberId
+    }
+}
+
+private fun saveArtistGenres(artistId: PlatformUUID, genres: List<Genre>) {
+    genres.forEach { genre ->
         val genreId = getOrCreateGenre(genre)
         DownloadedArtistGenres.upsert(DownloadedArtistGenres.artistId, DownloadedArtistGenres.genreId) {
-            it[artistId] = artist.id
+            it[this.artistId] = artistId
             it[this.genreId] = genreId
         }
     }

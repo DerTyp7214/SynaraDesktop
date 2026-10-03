@@ -12,8 +12,8 @@ class ListenBackupServiceWrapper(manager: RpcServiceManager) : BaseServiceWrappe
         return manager.getService<IListenBackupService>().getState()
     }
 
-    override fun getStateFlow(): Flow<ListenBackupState> {
-        return manager.getService<IListenBackupService>().getStateFlow()
+    override fun observeState(): Flow<ListenBackupState> {
+        return manager.getService<IListenBackupService>().observeState()
     }
 
     override suspend fun updateConfig(config: ListenBackupConfig): ListenBackupState {

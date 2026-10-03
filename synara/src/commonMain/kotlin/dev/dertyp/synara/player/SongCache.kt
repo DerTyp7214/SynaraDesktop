@@ -2,7 +2,7 @@ package dev.dertyp.synara.player
 
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.Album
-import dev.dertyp.data.Artist
+import dev.dertyp.data.ArtistCredit
 import dev.dertyp.data.UserSong
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -42,10 +42,9 @@ class SongCache {
         return size
     }
 
-    private fun estimateArtistSize(artist: Artist): Long {
+    private fun estimateArtistSize(artist: ArtistCredit): Long {
         var size = 48L
         size += (artist.name.length * 2) + 24
-        size += (artist.about.length * 2) + 24
         return size
     }
 

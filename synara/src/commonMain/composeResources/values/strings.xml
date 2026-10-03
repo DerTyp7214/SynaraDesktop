@@ -686,6 +686,7 @@
     <string name="title_tag_kind_version">Version</string>
     <string name="title_tag_kind_remaster">Remaster</string>
     <string name="title_tag_kind_demo">Demo</string>
+    <string name="title_tag_kind_unknown">Tag</string>
     <string name="show_title_tags_in_text">Show Version Tags in Titles</string>
     <string name="show_title_tags_in_text_summary">Appends tags like Remix or Live to the title in media controls, Discord, Last.fm and menus</string>
     <string name="metadata_tags">Version tags</string>

@@ -40,7 +40,7 @@ class ListenBackupScreenModel(
             try {
                 rpcServiceManager.awaitAuthentication()
                 try {
-                    listenBackupService.getStateFlow().collect { applyState(it) }
+                    listenBackupService.observeState().collect { applyState(it) }
                 } catch (e: Exception) {
                     applyState(listenBackupService.getState())
                 }

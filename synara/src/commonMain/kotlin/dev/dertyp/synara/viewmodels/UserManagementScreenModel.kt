@@ -46,7 +46,7 @@ class UserManagementScreenModel(
         mutableState.update { it.copy(isLoading = true, error = null) }
         try {
             rpcServiceManager.awaitAuthentication()
-            val users = userService.getAllUsers().sortedBy { it.username.lowercase() }
+            val users = userService.allUsers().sortedBy { it.username.lowercase() }
             mutableState.update { it.copy(users = users, isLoading = false) }
         } catch (e: Exception) {
             mutableState.update { it.copy(isLoading = false, error = e.message ?: "Unknown error") }

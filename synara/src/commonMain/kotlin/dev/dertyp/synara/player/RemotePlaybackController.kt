@@ -253,7 +253,7 @@ class RemotePlaybackController(
         lastStatus = status
         _isPlaying.value = status.isPlaying
         _duration.value = status.durationMs ?: 0L
-        _shuffleMode.value = status.shuffleMode
+        _shuffleMode.value = status.isShuffled
         _repeatMode.value = status.repeatMode
         status.volume?.let { _volume.value = it }
         _currentPosition.value = projectedPosition(status)

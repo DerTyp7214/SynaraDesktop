@@ -10,7 +10,7 @@ class ScheduledTaskLogServiceWrapper(manager: RpcServiceManager) : BaseServiceWr
         return manager.getService<IScheduledTaskLogService>().getGroupedLogs()
     }
 
-    override fun getGroupedLogsFlow(): Flow<Map<String, List<ScheduledTaskLog>>> {
-        return manager.getService<IScheduledTaskLogService>().getGroupedLogsFlow()
+    override fun observeGroupedLogs(): Flow<Map<String, List<ScheduledTaskLog>>> {
+        return manager.getService<IScheduledTaskLogService>().observeGroupedLogs()
     }
 }

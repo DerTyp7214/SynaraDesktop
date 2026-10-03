@@ -49,7 +49,7 @@ class ScheduledTaskLogsScreen : Screen {
         val taskLogService: IScheduledTaskLogService = koinInject()
 
         val groupedLogs by remember {
-            taskLogService.getGroupedLogsFlow().map { logs ->
+            taskLogService.observeGroupedLogs().map { logs ->
                 logs.toSortedMap().mapValues { entry ->
                     entry.value.sortedByDescending { it.startTime }
                 }

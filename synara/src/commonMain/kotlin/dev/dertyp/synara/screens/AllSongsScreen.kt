@@ -19,10 +19,10 @@ import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.data.SongTag
-import dev.dertyp.data.TitleTagKind
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.core.icon
 import dev.dertyp.synara.core.localizedName
+import dev.dertyp.synara.core.selectableTitleTagKinds
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SongItem
@@ -83,7 +83,7 @@ class AllSongsScreen : Screen {
                             item {
                                 VerticalDivider(modifier = Modifier.height(24.dp).padding(horizontal = 4.dp))
                             }
-                            items(TitleTagKind.entries) { kind ->
+                            items(selectableTitleTagKinds) { kind ->
                                 TriStateFilterChip(
                                     state = successState.stateOf(kind),
                                     label = kind.localizedName(),

@@ -5,6 +5,7 @@ import app.cash.sqldelight.coroutines.mapToList
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.Album
 import dev.dertyp.data.Artist
+import dev.dertyp.data.ArtistCredit
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.utils.AppDispatchers
 import dev.dertyp.toPlatformUUID
@@ -26,7 +27,7 @@ class SqlDelightRecentlyPlayedRepository(
         queries.insertAlbum(userId.toString(), album.id.toString(), timestamp, json.encodeToString(album))
     }
 
-    override suspend fun insertArtist(userId: PlatformUUID, artist: Artist, timestamp: Long) {
+    override suspend fun insertArtist(userId: PlatformUUID, artist: ArtistCredit, timestamp: Long) {
         queries.insertArtist(userId.toString(), artist.id.toString(), timestamp, json.encodeToString(artist))
     }
 

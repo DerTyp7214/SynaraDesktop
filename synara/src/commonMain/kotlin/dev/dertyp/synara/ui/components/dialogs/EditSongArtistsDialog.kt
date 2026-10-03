@@ -16,9 +16,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import dev.dertyp.data.Artist
+import dev.dertyp.data.ArtistCredit
 import dev.dertyp.data.BaseSong
 import dev.dertyp.services.IArtistService
 import dev.dertyp.synara.InternalTextField
+import dev.dertyp.synara.core.toCredit
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.verticalScrollScrim
@@ -35,7 +37,7 @@ fun EditSongArtistsDialog(
     isOpen: Boolean,
     song: BaseSong,
     onDismissRequest: () -> Unit,
-    onSave: (List<Artist>) -> Unit,
+    onSave: (List<ArtistCredit>) -> Unit,
     artistService: IArtistService = koinInject()
 ) {
     val scope = rememberCoroutineScope()
@@ -63,7 +65,7 @@ fun EditSongArtistsDialog(
 
     fun addTopSearchResult() {
         if (searchResults.isNotEmpty()) {
-            selectedArtists = selectedArtists + searchResults.first()
+            selectedArtists = selectedArtists + searchResults.first().toCredit()
             searchQuery = ""
             searchResults = emptyList()
         }
@@ -171,7 +173,7 @@ fun EditSongArtistsDialog(
                                     isCreating = true
                                     try {
                                         val newArtist = artistService.createArtist(searchQuery)
-                                        selectedArtists = selectedArtists + newArtist
+                                        selectedArtists = selectedArtists + newArtist.toCredit()
                                         searchQuery = ""
                                     } catch (_: Exception) {
                                     } finally {
@@ -204,7 +206,7 @@ fun EditSongArtistsDialog(
                                 modifier = Modifier
                                     .clip(MaterialTheme.shapes.medium)
                                     .clickable {
-                                        selectedArtists = selectedArtists + result
+                                        selectedArtists = selectedArtists + result.toCredit()
                                         searchQuery = ""
                                         searchResults = emptyList()
                                     }
