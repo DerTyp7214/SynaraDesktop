@@ -4,6 +4,9 @@ import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import dev.dertyp.data.ServerStats
 import dev.dertyp.synara.Config
+import dev.dertyp.synara.db.RECENTLY_PLAYED_ALBUMS_LIMIT
+import dev.dertyp.synara.db.RECENTLY_PLAYED_ARTISTS_LIMIT
+import dev.dertyp.synara.db.RECENTLY_PLAYED_SONGS_LIMIT
 import dev.dertyp.synara.db.RecentlyPlayedRepository
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.services.ServerStatsServiceWrapper
@@ -46,19 +49,19 @@ class HomeScreenModel(
     @OptIn(ExperimentalCoroutinesApi::class)
     val recentSongs = globalState.user.flatMapLatest { user ->
         val userId = user?.id ?: return@flatMapLatest flowOf(emptyList())
-        recentlyPlayedRepository.getSongsFlow(userId, 10)
+        recentlyPlayedRepository.getSongsFlow(userId, RECENTLY_PLAYED_SONGS_LIMIT)
     }.stateIn(screenModelScope, SharingStarted.Eagerly, emptyList())
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val recentAlbums = globalState.user.flatMapLatest { user ->
         val userId = user?.id ?: return@flatMapLatest flowOf(emptyList())
-        recentlyPlayedRepository.getAlbumsFlow(userId, 15)
+        recentlyPlayedRepository.getAlbumsFlow(userId, RECENTLY_PLAYED_ALBUMS_LIMIT)
     }.stateIn(screenModelScope, SharingStarted.Eagerly, emptyList())
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val recentArtists = globalState.user.flatMapLatest { user ->
         val userId = user?.id ?: return@flatMapLatest flowOf(emptyList())
-        recentlyPlayedRepository.getArtistsFlow(userId, 15)
+        recentlyPlayedRepository.getArtistsFlow(userId, RECENTLY_PLAYED_ARTISTS_LIMIT)
     }.stateIn(screenModelScope, SharingStarted.Eagerly, emptyList())
 
     init {

@@ -6,6 +6,10 @@ import dev.dertyp.synara.game.LeaderboardEntry
 import dev.dertyp.synara.game.SavedGame
 import kotlinx.coroutines.flow.Flow
 
+const val RECENTLY_PLAYED_SONGS_LIMIT = 10L
+const val RECENTLY_PLAYED_ALBUMS_LIMIT = 15L
+const val RECENTLY_PLAYED_ARTISTS_LIMIT = 15L
+
 data class LocalHistoryEntry(
     val id: Long,
     val userId: PlatformUUID,

@@ -33,6 +33,46 @@ private fun decodeTitleTags(raw: String): List<TitleTag> {
 
 private fun encodeTitleTags(tags: List<TitleTag>): String = titleTagsJson.encodeToString(tags)
 
+internal fun trimRecentlyPlayed(
+    userIdColumn: Column<EntityID<UUID>>,
+    keyColumn: Column<String>,
+    timestampColumn: Column<Long>,
+    userId: UUID,
+    keep: Long
+) {
+    val table = keyColumn.table
+    val kept = table.select(keyColumn)
+        .where { userIdColumn eq userId }
+        .orderBy(timestampColumn to SortOrder.DESC, keyColumn to SortOrder.ASC)
+        .limit(keep.toInt())
+        .map { it[keyColumn] }
+    table.deleteWhere { (userIdColumn eq userId) and (keyColumn notInList kept) }
+}
+
+internal fun trimRecentlyPlayedSongs(userId: UUID) = trimRecentlyPlayed(
+    RecentlyPlayedSongs.userId,
+    RecentlyPlayedSongs.songId,
+    RecentlyPlayedSongs.timestamp,
+    userId,
+    RECENTLY_PLAYED_SONGS_LIMIT
+)
+
+internal fun trimRecentlyPlayedAlbums(userId: UUID) = trimRecentlyPlayed(
+    RecentlyPlayedAlbums.userId,
+    RecentlyPlayedAlbums.albumId,
+    RecentlyPlayedAlbums.timestamp,
+    userId,
+    RECENTLY_PLAYED_ALBUMS_LIMIT
+)
+
+internal fun trimRecentlyPlayedArtists(userId: UUID) = trimRecentlyPlayed(
+    RecentlyPlayedArtists.userId,
+    RecentlyPlayedArtists.artistId,
+    RecentlyPlayedArtists.timestamp,
+    userId,
+    RECENTLY_PLAYED_ARTISTS_LIMIT
+)
+
 @OptIn(ExperimentalUuidApi::class)
 class ExposedRecentlyPlayedRepository(
     private val songService: ISongService,
@@ -71,25 +111,41 @@ class ExposedRecentlyPlayedRepository(
     }
 
     override suspend fun insertSong(userId: PlatformUUID, song: UserSong, timestamp: Long) {
-        dbQuery { upsertSong(userId, song, timestamp) }
+        dbQuery {
+            upsertSong(userId, song, timestamp)
+            trimRecentlyPlayedSongs(userId)
+        }
         _updates.tryEmit(Unit)
     }
 
     override suspend fun insertAlbum(userId: PlatformUUID, album: Album, timestamp: Long) {
-        dbQuery { upsertAlbum(userId, album, timestamp) }
+        dbQuery {
+            upsertAlbum(userId, album, timestamp)
+            trimRecentlyPlayedAlbums(userId)
+        }
         _updates.tryEmit(Unit)
     }
 
     override suspend fun insertArtist(userId: PlatformUUID, artist: ArtistCredit, timestamp: Long) {
-        dbQuery { upsertArtist(userId, artist, timestamp) }
+        dbQuery {
+            upsertArtist(userId, artist, timestamp)
+            trimRecentlyPlayedArtists(userId)
+        }
         _updates.tryEmit(Unit)
     }
 
     override suspend fun insertListen(userId: PlatformUUID, song: UserSong, timestamp: Long) {
         dbQuery {
             upsertSong(userId, song, timestamp)
-            song.album?.let { upsertAlbum(userId, it, timestamp) }
-            song.artists.forEach { upsertArtist(userId, it, timestamp) }
+            trimRecentlyPlayedSongs(userId)
+            song.album?.let {
+                upsertAlbum(userId, it, timestamp)
+                trimRecentlyPlayedAlbums(userId)
+            }
+            if (song.artists.isNotEmpty()) {
+                song.artists.forEach { upsertArtist(userId, it, timestamp) }
+                trimRecentlyPlayedArtists(userId)
+            }
         }
         _updates.tryEmit(Unit)
     }
