@@ -37,6 +37,10 @@ class AlbumServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manag
         return manager.getService<IAlbumService>().versions(id)
     }
 
+    override suspend fun byVersionGroup(versionGroupId: PlatformUUID, explicit: Boolean): List<Album> {
+        return manager.getService<IAlbumService>().byVersionGroup(versionGroupId, explicit)
+    }
+
     override suspend fun byName(page: Int, pageSize: Int, name: String): PaginatedResponse<Album> {
         return manager.getService<IAlbumService>().byName(page, pageSize, name)
     }
@@ -45,8 +49,8 @@ class AlbumServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manag
         return manager.getService<IAlbumService>().rankedSearch(page, pageSize, query)
     }
 
-    override suspend fun allAlbums(page: Int, pageSize: Int): PaginatedResponse<Album> {
-        return manager.getService<IAlbumService>().allAlbums(page, pageSize)
+    override suspend fun allAlbums(page: Int, pageSize: Int, explicit: Boolean?): PaginatedResponse<Album> {
+        return manager.getService<IAlbumService>().allAlbums(page, pageSize, explicit)
     }
 
     override suspend fun byColor(page: Int, pageSize: Int, color: Int, range: Int): PaginatedResponse<Album> {
@@ -74,8 +78,9 @@ class AlbumServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manag
         pageSize: Int,
         artistId: PlatformUUID,
         singles: Boolean,
+        explicit: Boolean?,
     ): PaginatedResponse<Album> {
-        return manager.getService<IAlbumService>().byArtist(page, pageSize, artistId, singles)
+        return manager.getService<IAlbumService>().byArtist(page, pageSize, artistId, singles, explicit)
     }
 
     override suspend fun extendedMetadata(id: PlatformUUID): AlbumExtendedMetadata? {

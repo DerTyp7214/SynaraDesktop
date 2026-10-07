@@ -24,6 +24,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.CollectionItemType
+import dev.dertyp.data.TitleTag
 import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.formatBytes
 import dev.dertyp.synara.player.PlaybackQueue
@@ -33,6 +34,8 @@ import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraImage
+import dev.dertyp.synara.ui.components.TitleTagChipStyle
+import dev.dertyp.synara.ui.components.TitleTagChips
 import dev.dertyp.synara.ui.server.UiSlot
 import dev.dertyp.synara.utils.pickImageBytes
 import dev.dertyp.synara.viewmodels.CollectionScreenModel
@@ -236,6 +239,7 @@ data class CollectionScreen(val collectionId: PlatformUUID) : Screen {
                                     imageId = album.coverId,
                                     fallbackIcon = SynaraIcons.Albums,
                                     title = album.name,
+                                    tags = album.tags,
                                     onClick = { navigator.push(AlbumScreen(album.id)) },
                                     onRemove = { screenModel.removeItem(CollectionItemType.ALBUM, album.id) }
                                 )
@@ -364,7 +368,8 @@ data class CollectionScreen(val collectionId: PlatformUUID) : Screen {
         title: String,
         onClick: () -> Unit,
         onRemove: () -> Unit,
-        imageShape: androidx.compose.ui.graphics.Shape = MaterialTheme.shapes.extraSmall
+        imageShape: androidx.compose.ui.graphics.Shape = MaterialTheme.shapes.extraSmall,
+        tags: List<TitleTag> = emptyList()
     ) {
         Row(
             modifier = Modifier
@@ -381,13 +386,19 @@ data class CollectionScreen(val collectionId: PlatformUUID) : Screen {
                 shape = imageShape,
                 fallbackIcon = fallbackIcon
             )
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                TitleTagChips(
+                    tags = tags,
+                    style = TitleTagChipStyle.Detailed,
+                    singleLine = true
+                )
+            }
             IconButton(onClick = onRemove) {
                 Icon(
                     SynaraIcons.Close.get(),

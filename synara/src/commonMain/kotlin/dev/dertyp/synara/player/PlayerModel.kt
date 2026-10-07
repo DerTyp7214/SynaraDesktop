@@ -10,6 +10,7 @@ import dev.dertyp.data.LikeLevel
 import dev.dertyp.data.PlaybackState
 import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
+import dev.dertyp.synara.core.textName
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.services.*
 import dev.dertyp.synara.settings.SettingKey
@@ -612,7 +613,7 @@ class PlayerModel(
 
     private suspend fun getSourceDisplayName(source: PlaybackSource): String? {
         return when (source) {
-            is PlaybackSource.Album -> albumService.byId(source.albumId)?.name
+            is PlaybackSource.Album -> albumService.byId(source.albumId)?.textName()
             is PlaybackSource.Artist -> artistService.byId(source.artistId)?.name
             is PlaybackSource.Playlist -> userPlaylistService.byId(source.playlistId)?.name
             is PlaybackSource.AllSongs -> getString(Res.string.songs)

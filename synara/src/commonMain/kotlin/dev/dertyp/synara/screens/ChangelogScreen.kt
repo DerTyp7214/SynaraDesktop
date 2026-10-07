@@ -64,6 +64,18 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.13.5",
+                        date = "2026-10-06",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Albums show their edition, such as Deluxe Edition or 10th Anniversary, as a tag below the album name."),
+                            Change(ChangeType.New, "The album versions list tells editions of the same album apart by their tags."),
+                            Change(ChangeType.New, "Media controls, Discord and menus add the edition to the album name when version tags in titles are enabled."),
+                            Change(ChangeType.Improved, "Downloaded albums keep their edition and stay in their existing folders."),
+                            Change(ChangeType.Improved, "An artist's albums are listed once each, with the other editions folded under the main version.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.13.2",
                         date = "2026-10-02",
                         isPrerelease = true,

@@ -19,6 +19,8 @@ import dev.dertyp.synara.ui.components.creditText
 import dev.dertyp.data.Album
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraImage
+import dev.dertyp.synara.ui.components.TitleTagChipStyle
+import dev.dertyp.synara.ui.components.TitleTagChips
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.Res
 import synara.synara.generated.resources.album_versions
@@ -78,6 +80,12 @@ fun AlbumVersionsDialog(
                                         fontWeight = FontWeight.Medium,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
+                                    )
+                                    TitleTagChips(
+                                        tags = version.tags,
+                                        style = TitleTagChipStyle.Detailed,
+                                        singleLine = true,
+                                        modifier = Modifier.padding(vertical = 2.dp)
                                     )
                                     Text(
                                         text = "${version.artists.creditText()} • ${version.releaseDate?.year ?: ""}",

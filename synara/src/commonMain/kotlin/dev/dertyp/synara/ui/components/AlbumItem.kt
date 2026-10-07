@@ -90,6 +90,13 @@ fun AlbumItem(
                             overflow = TextOverflow.Ellipsis
                         )
 
+                        TitleTagChips(
+                            tags = album.tags,
+                            style = TitleTagChipStyle.Detailed,
+                            singleLine = true,
+                            modifier = Modifier.padding(bottom = 2.dp)
+                        )
+
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (!subText.isNullOrEmpty()) {
                                 Text(
@@ -133,6 +140,13 @@ fun AlbumItem(
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
+                    )
+
+                    TitleTagChips(
+                        tags = album.tags,
+                        style = TitleTagChipStyle.Detailed,
+                        singleLine = true,
+                        modifier = Modifier.padding(vertical = 2.dp)
                     )
 
                     ArtistsText(

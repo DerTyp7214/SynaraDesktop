@@ -2,6 +2,7 @@ package dev.dertyp.synara.core
 
 import androidx.compose.runtime.Composable
 import dev.dertyp.core.withTitleTags
+import dev.dertyp.data.Album
 import dev.dertyp.data.BaseSong
 import dev.dertyp.data.Song
 import dev.dertyp.data.TitleTag
@@ -20,6 +21,12 @@ val BaseSong.displayTitle: String
 
 fun BaseSong.textTitle(showTags: Boolean = Config.showTitleTagsInText.value): String =
     if (showTags) displayTitle else title
+
+val Album.displayName: String
+    get() = name.withTitleTags(tags.displayTags)
+
+fun Album.textName(showTags: Boolean = Config.showTitleTagsInText.value): String =
+    if (showTags) displayName else name
 
 fun UserSong.toSong(): Song = Song(
     id = id,

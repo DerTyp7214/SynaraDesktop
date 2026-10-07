@@ -3,7 +3,6 @@ package dev.dertyp.synara.services
 import com.russhwolf.settings.Settings
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.UserSong
-import dev.dertyp.data.effectiveAudio
 import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
@@ -156,7 +155,9 @@ class DownloadManager(
             while (true) {
                 val response = albumService.byArtist(page, 150, artist.id)
                 if (response.data.isEmpty()) break
-                response.data.forEach { downloadAlbum(it.id, false) }
+                response.data.forEach { album ->
+                    (listOf(album) + album.versions).forEach { downloadAlbum(it.id, false) }
+                }
                 if (!response.hasNextPage) break
                 page++
             }
@@ -211,7 +212,7 @@ class DownloadManager(
                 file.parentFile?.mkdirs()
                 withContext(Dispatchers.IO) {
                     var downloaded = 0L
-                    val total = song.effectiveAudio?.fileSize ?: 0L
+                    val total = song.audio?.fileSize ?: 0L
                     _currentDownload.value = DownloadProgress(song, 0, total)
                     
                     val startTime = System.currentTimeMillis()

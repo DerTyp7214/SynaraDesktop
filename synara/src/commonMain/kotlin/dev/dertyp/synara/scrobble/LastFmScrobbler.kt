@@ -1,6 +1,7 @@
 package dev.dertyp.synara.scrobble
 
 import com.russhwolf.settings.Settings
+import dev.dertyp.core.fullName
 import dev.dertyp.core.md5
 import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.UserSong
@@ -156,7 +157,7 @@ class LastFmScrobbler(
             "artist" to song.artists.creditText(),
             "track" to song.textTitle()
         )
-        song.album?.name?.let { params["album"] = it }
+        song.album?.fullName?.let { params["album"] = it }
         if (!isNowPlaying) {
             params["timestamp"] = (timestamp ?: (currentTimeMillis() / 1000)).toString()
         }

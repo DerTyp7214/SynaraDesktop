@@ -3,6 +3,7 @@ package dev.dertyp.synara.ui.components.dialogs
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -13,9 +14,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.dertyp.synara.ui.components.creditText
+import dev.dertyp.data.TitleTag
 import dev.dertyp.data.UserSong
-import dev.dertyp.data.effectiveAudio
 import dev.dertyp.synara.core.displayTags
+import dev.dertyp.synara.ui.components.TitleTagChipStyle
+import dev.dertyp.synara.ui.components.TitleTagChips
 import dev.dertyp.synara.ui.components.channelLabel
 import dev.dertyp.synara.ui.components.formatFileSize
 import org.jetbrains.compose.resources.stringResource
@@ -51,7 +54,11 @@ fun SongInfoDialog(
                     )
                 }
                 InfoItem(stringResource(Res.string.metadata_artist), song.artists.creditText())
-                InfoItem(stringResource(Res.string.metadata_album), song.album?.name ?: "-")
+                InfoItem(
+                    stringResource(Res.string.metadata_album),
+                    song.album?.name ?: "-",
+                    song.album?.tags.orEmpty()
+                )
                 InfoItem(
                     stringResource(Res.string.metadata_release_date),
                     song.releaseDate?.toString() ?: "-"
@@ -61,7 +68,7 @@ fun SongInfoDialog(
                     "${song.trackNumber} / ${song.discNumber}"
                 )
                 InfoItem(stringResource(Res.string.metadata_copyright), song.copyright.ifBlank { "-" })
-                val audio = song.effectiveAudio
+                val audio = song.audio
                 InfoItem(
                     stringResource(Res.string.metadata_quality),
                     "${(audio?.sampleRate ?: 0) / 1000}kHz / ${audio?.bitsPerSample ?: 0}bit / ${audio?.bitRate ?: 0}kbps"
@@ -90,7 +97,7 @@ fun SongInfoDialog(
 }
 
 @Composable
-private fun InfoItem(label: String, value: String) {
+private fun InfoItem(label: String, value: String, tags: List<TitleTag> = emptyList()) {
     Column {
         Text(
             text = label,
@@ -101,6 +108,11 @@ private fun InfoItem(label: String, value: String) {
         Text(
             text = value,
             style = MaterialTheme.typography.bodyMedium
+        )
+        TitleTagChips(
+            tags = tags,
+            style = TitleTagChipStyle.Detailed,
+            modifier = Modifier.padding(top = 4.dp)
         )
     }
 }

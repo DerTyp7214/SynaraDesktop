@@ -2,7 +2,6 @@ package dev.dertyp.synara.player.audio.source
 
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.UserSong
-import dev.dertyp.data.effectiveAudio
 import dev.dertyp.services.ISongService
 import dev.dertyp.synara.player.audio.AudioSource
 import dev.dertyp.synara.player.audio.FlowInputStream
@@ -21,8 +20,8 @@ class SongAudioSource(
 
     override val cacheKey: String = "$songId:$quality"
     override val durationMsHint: Long? get() = song?.duration
-    override val bitRateHint: Long? get() = song?.effectiveAudio?.bitRate
-    override val formatHint: String? get() = song?.effectiveAudio?.codec
+    override val bitRateHint: Long? get() = song?.audio?.bitRate
+    override val formatHint: String? get() = song?.audio?.codec
 
     override suspend fun prepare(): Boolean {
         if (song == null) song = songLookup(songId)
@@ -30,7 +29,7 @@ class SongAudioSource(
     }
 
     override suspend fun size(): Long {
-        val knownSize = song?.effectiveAudio?.fileSize ?: 0L
+        val knownSize = song?.audio?.fileSize ?: 0L
         return if (quality == 0) {
             if (knownSize > 0) knownSize else songService.getStreamSize(songId)
         } else {

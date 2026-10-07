@@ -24,7 +24,6 @@ import dev.dertyp.data.MusicBrainzRecording
 import dev.dertyp.data.TitleTag
 import dev.dertyp.data.TitleTagKind
 import dev.dertyp.data.UserSong
-import dev.dertyp.data.effectiveAudio
 import dev.dertyp.services.ISongService
 import dev.dertyp.synara.core.displayTags
 import dev.dertyp.synara.core.localizedName
@@ -429,7 +428,8 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
                                 )
                                 InfoItem(
                                     stringResource(Res.string.metadata_album),
-                                    song?.album?.name ?: "-"
+                                    song?.album?.name ?: "-",
+                                    song?.album?.tags.orEmpty()
                                 )
                                 InfoItem(
                                     stringResource(Res.string.metadata_genres),
@@ -447,7 +447,7 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
                                     stringResource(Res.string.metadata_track_disc),
                                     "${song?.trackNumber ?: 0} / ${song?.discNumber ?: 0}"
                                 )
-                                val audio = song?.effectiveAudio
+                                val audio = song?.audio
                                 InfoItem(
                                     stringResource(Res.string.metadata_quality),
                                     "${(audio?.sampleRate ?: 0) / 1000}kHz / ${audio?.bitsPerSample ?: 0}bit / ${audio?.bitRate ?: 0}kbps"
@@ -521,7 +521,7 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
     }
 
     @Composable
-    private fun InfoItem(label: String, value: String) {
+    private fun InfoItem(label: String, value: String, tags: List<TitleTag> = emptyList()) {
         Column {
             Text(
                 text = label,
@@ -532,6 +532,11 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyMedium
+            )
+            TitleTagChips(
+                tags = tags,
+                style = TitleTagChipStyle.Detailed,
+                modifier = Modifier.padding(top = 4.dp)
             )
         }
     }

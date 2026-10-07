@@ -2,12 +2,12 @@ package dev.dertyp.synara.scrobble
 
 import com.russhwolf.settings.Settings
 import dev.dertyp.PlatformUUID
-import dev.dertyp.core.cleanTitle
 import dev.dertyp.synara.ui.components.creditText
 import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
 import dev.dertyp.services.metadata.IMetadataService
 import dev.dertyp.synara.BuildConfig
+import dev.dertyp.synara.core.textName
 import dev.dertyp.synara.core.textTitle
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.settings.SettingKey
@@ -146,7 +146,7 @@ actual class DiscordScrobbler actual constructor(
 
             put("assets", buildJsonObject {
                 put("large_image", imageUrl ?: "synara-icon")
-                put("large_text", pad(song.album?.name?.cleanTitle() ?: "Synara"))
+                put("large_text", pad(song.album?.textName() ?: "Synara"))
             })
 
             val currentPos = playerModel.currentPosition.value

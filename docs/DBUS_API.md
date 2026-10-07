@@ -209,6 +209,9 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `animatedCoverId` | PlatformUUID? |  |
 | `animatedCoverImageId` | PlatformUUID? |  |
 | `animatedCoverBlurHash` | String? |  |
+| `tags` | List<[TitleTag](#titletag)> |  |
+| `versions` | List<[Album](#album)> |  |
+| `versionGroupId` | PlatformUUID? |  |
 
 ### Artist
 
@@ -419,10 +422,6 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `copyright` | String |  |
 | `audio` | [AudioInfo](#audioinfo)? |  |
 | `atmos` | [AudioInfo](#audioinfo)? |  |
-| `sampleRate` | Int? |  |
-| `bitsPerSample` | Int? |  |
-| `bitRate` | Long? |  |
-| `fileSize` | Long? |  |
 | `coverId` | PlatformUUID? |  |
 | `blurHash` | String? |  |
 | `musicBrainzId` | PlatformUUID? |  |
@@ -432,7 +431,6 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `animatedCoverImageId` | PlatformUUID? |  |
 | `animatedCoverBlurHash` | String? |  |
 | `audioStartMs` | Long? |  |
-| `atmosPath` | String? |  |
 | `tags` | List<[TitleTag](#titletag)> |  |
 | `atmosVariantPath` | String? |  |
 | `isFavourite` | Boolean? |  |

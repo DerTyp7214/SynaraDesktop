@@ -21,6 +21,7 @@ import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.Album
+import dev.dertyp.synara.core.textName
 import dev.dertyp.synara.formatHumanReadableDuration
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.ArtistsText
@@ -28,6 +29,8 @@ import dev.dertyp.synara.ui.components.GenresText
 import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraImage
+import dev.dertyp.synara.ui.components.TitleTagChipStyle
+import dev.dertyp.synara.ui.components.TitleTagChips
 import dev.dertyp.synara.ui.components.dialogs.AlbumVersionsDialog
 import dev.dertyp.synara.ui.components.dialogs.FullscreenImageDialog
 import dev.dertyp.synara.ui.components.menus.AlbumContextMenu
@@ -66,7 +69,7 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Transparent,
                     ),
-                    title = { Text(state.album?.name ?: "") },
+                    title = { Text(state.album?.textName() ?: "") },
                     navigationIcon = {
                         IconButton(onClick = { navigator?.pop() }) {
                             Icon(SynaraIcons.Back.get(), contentDescription = null)
@@ -206,7 +209,13 @@ class AlbumScreen(private val albumId: PlatformUUID) : Screen {
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold
                 )
-                
+
+                TitleTagChips(
+                    tags = album.tags,
+                    style = TitleTagChipStyle.Detailed,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+
                 ArtistsText(
                     artists = album.artists,
                     style = MaterialTheme.typography.titleMedium,

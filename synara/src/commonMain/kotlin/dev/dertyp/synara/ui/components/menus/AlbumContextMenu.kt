@@ -12,6 +12,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.data.Album
 import dev.dertyp.data.CollectionItemType
 import dev.dertyp.data.UserCapability
+import dev.dertyp.synara.core.textName
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
@@ -62,7 +63,7 @@ fun AlbumContextMenu(
                     )
                 }
                 Text(
-                    text = album.name,
+                    text = album.textName(),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
@@ -227,9 +228,9 @@ fun AlbumContextMenu(
 
     SimilarSongsDialog(
         isOpen = showSimilarSongsDialog,
-        seed = SimilarSongsSeed.Album(album.id, album.name),
+        seed = SimilarSongsSeed.Album(album.id, album.textName()),
         onConfirm = { criterion, limit ->
-            navigator?.push(SimilarSongsScreen(SimilarSongsSeed.Album(album.id, album.name), criterion, limit))
+            navigator?.push(SimilarSongsScreen(SimilarSongsSeed.Album(album.id, album.textName()), criterion, limit))
         },
         onDismissRequest = { showSimilarSongsDialog = false }
     )

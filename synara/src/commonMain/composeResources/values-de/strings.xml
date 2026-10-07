@@ -686,7 +686,7 @@
     <string name="title_tag_kind_demo">Demo</string>
     <string name="title_tag_kind_unknown">Tag</string>
     <string name="show_title_tags_in_text">Versions-Tags in Titeln anzeigen</string>
-    <string name="show_title_tags_in_text_summary">Hängt Tags wie Remix oder Live in Mediensteuerung, Discord, Last.fm und Menüs an den Titel an</string>
+    <string name="show_title_tags_in_text_summary">Hängt Tags wie Remix oder Live an den Titel und Editionen wie Deluxe Edition an den Albumnamen an, in Mediensteuerung, Discord, Last.fm und Menüs</string>
     <string name="metadata_tags">Versions-Tags</string>
     <string name="edit_title_tags">Versions-Tags bearbeiten</string>
     <string name="add_title_tag">Tag hinzufügen</string>

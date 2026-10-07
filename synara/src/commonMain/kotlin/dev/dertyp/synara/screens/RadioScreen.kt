@@ -21,6 +21,7 @@ import dev.dertyp.data.InsertableRadioChannel
 import dev.dertyp.data.RadioChannel
 import dev.dertyp.data.RadioChannelItemType
 import dev.dertyp.data.RadioType
+import dev.dertyp.data.TitleTag
 import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.core.displayTitle
 import dev.dertyp.synara.ui.SynaraIcons
@@ -28,6 +29,8 @@ import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SettingsCard
 import dev.dertyp.synara.ui.components.creditText
 import dev.dertyp.synara.ui.components.SynaraImage
+import dev.dertyp.synara.ui.components.TitleTagChipStyle
+import dev.dertyp.synara.ui.components.TitleTagChips
 import dev.dertyp.synara.ui.components.dialogs.SynaraDialog
 import dev.dertyp.synara.utils.pickImageBytes
 import dev.dertyp.synara.viewmodels.GlobalStateModel
@@ -527,6 +530,7 @@ class RadioScreen : Screen {
                                     imageId = album.coverId,
                                     fallbackIcon = SynaraIcons.Albums,
                                     title = album.name,
+                                    tags = album.tags,
                                     subtitle = stringResource(Res.string.albums),
                                     actionIcon = SynaraIcons.Delete,
                                     onAction = {
@@ -590,6 +594,7 @@ class RadioScreen : Screen {
                                 imageId = album.coverId,
                                 fallbackIcon = SynaraIcons.Albums,
                                 title = album.name,
+                                tags = album.tags,
                                 subtitle = stringResource(Res.string.albums),
                                 actionIcon = SynaraIcons.Add,
                                 onAction = {
@@ -667,6 +672,7 @@ class RadioScreen : Screen {
         title: String,
         subtitle: String,
         actionIcon: SynaraIcons,
+        tags: List<TitleTag> = emptyList(),
         onAction: () -> Unit
     ) {
         Row(
@@ -687,13 +693,24 @@ class RadioScreen : Screen {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    TitleTagChips(
+                        tags = tags,
+                        style = TitleTagChipStyle.Detailed,
+                        singleLine = true,
+                        dense = true
+                    )
+                }
             }
             IconButton(onClick = onAction) {
                 Icon(actionIcon.get(), contentDescription = null)

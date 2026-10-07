@@ -55,6 +55,7 @@ object DownloadedSongs : UUIDTable("song") {
 
 object DownloadedAlbums : UUIDTable("album") {
     val name = text("name")
+    val tags = text("tags").default("[]")
     val releaseDate = varchar("releaseDate", 128).nullable()
     val songCount = integer("songCount").default(0)
     val cover = reference("cover", DownloadedImages.id, onDelete = ReferenceOption.SET_NULL).nullable()

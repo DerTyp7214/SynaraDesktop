@@ -57,7 +57,7 @@ class ArtistAlbumsScreenModel(
         try {
             coroutineScope {
                 val artistDeferred = async { artistService.byId(artistId) }
-                val albumsDeferred = async { albumService.byArtist(0, Int.MAX_VALUE, artistId) }
+                val albumsDeferred = async { albumService.byArtist(0, Int.MAX_VALUE, artistId, explicit = true) }
 
                 val artist = artistDeferred.await()
                 val albumsResponse = albumsDeferred.await()

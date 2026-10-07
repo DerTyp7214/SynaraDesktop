@@ -20,7 +20,6 @@ import cafe.adriel.voyager.core.screen.ScreenKey
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.PlatformUUID
-import dev.dertyp.core.parseVersions
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.AlbumItem
 import dev.dertyp.synara.ui.components.RegisterRefreshTarget
@@ -80,7 +79,6 @@ class ArtistAlbumsScreen(private val artistId: PlatformUUID) : Screen {
                     }
                     is ArtistAlbumsScreenModel.ArtistAlbumsState.Success -> {
                         val lazyGridState = rememberLazyGridState()
-                        val grouped = currentState.albums.groupBy { it.coverId }.values.toList()
 
                         Box(modifier = Modifier.fillMaxSize()) {
                             LazyVerticalGrid(
@@ -91,13 +89,12 @@ class ArtistAlbumsScreen(private val artistId: PlatformUUID) : Screen {
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
-                                items(grouped) { albumVersions ->
-                                    val (album, versions) = albumVersions.parseVersions()
+                                items(currentState.albums) { album ->
                                     AlbumItem(
                                         album = album,
                                         modifier = Modifier.fillMaxWidth(),
-                                        subText = if (versions.size > 1) {
-                                            stringResource(Res.string.versions_count, versions.size)
+                                        subText = if (album.versions.isNotEmpty()) {
+                                            stringResource(Res.string.versions_count, album.versions.size + 1)
                                         } else {
                                             null
                                         },

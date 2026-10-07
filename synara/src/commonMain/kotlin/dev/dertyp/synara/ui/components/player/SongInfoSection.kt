@@ -17,7 +17,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.dertyp.data.UserSong
-import dev.dertyp.data.effectiveAudio
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.ArtistsText
 import dev.dertyp.synara.ui.components.LikeButton
@@ -114,7 +113,7 @@ fun SongInfoSection(
                 }
 
                 song?.let { s ->
-                    val audio = s.effectiveAudio
+                    val audio = s.audio
                     val bitRate = if (liveBitRate > 0) liveBitRate else (audio?.bitRate ?: 0L)
                     val sampleRate =
                         if (liveSampleRate > 0) liveSampleRate.toLong() else (audio?.sampleRate ?: 0).toLong()

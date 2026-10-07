@@ -1,5 +1,6 @@
 package dev.dertyp.synara.services
 
+import dev.dertyp.core.fullName
 import dev.dertyp.data.BaseSong
 import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.utils.OSUtils
@@ -32,7 +33,7 @@ class JvmLocalStorageService : LocalStorageService {
     override fun linkSongToSystemMusicDir(song: BaseSong) {
         val internalPath = getInternalSongPath(song)
         val extension = internalPath.substringAfterLast('.', "")
-        val albumName = song.album?.name ?: "Unknown Album"
+        val albumName = song.album?.fullName ?: "Unknown Album"
         val songName = song.title
         val songId = song.id.toString()
 
@@ -67,7 +68,7 @@ class JvmLocalStorageService : LocalStorageService {
     }
 
     override fun unlinkSongFromSystemMusicDir(song: BaseSong) {
-        val albumName = song.album?.name ?: "Unknown Album"
+        val albumName = song.album?.fullName ?: "Unknown Album"
         val songName = song.title
         val songId = song.id.toString()
 

@@ -2,7 +2,6 @@ package dev.dertyp.synara.db
 
 import dev.dertyp.*
 import dev.dertyp.data.*
-import dev.dertyp.data.effectiveAudio
 import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
@@ -765,6 +764,7 @@ private fun loadAlbums(ids: Collection<UUID>): Map<UUID, Album> {
         Album(
             id = albumId,
             name = row[DownloadedAlbums.name],
+            tags = decodeTitleTags(row[DownloadedAlbums.tags]),
             artists = artistIdsByAlbum[albumId].orEmpty().mapNotNull { artists[it]?.toCredit() },
             songCount = row[DownloadedAlbums.songCount],
             releaseDate = row[DownloadedAlbums.releaseDate]?.toPlatformLocalDateISO(),
@@ -880,7 +880,7 @@ private fun saveSongMetadataInternal(song: UserSong, explicitlySaved: Boolean) {
         it[trackNumber] = song.trackNumber
         it[discNumber] = song.discNumber
         it[copyright] = song.copyright
-        val songAudio = song.effectiveAudio
+        val songAudio = song.audio
         it[codec] = songAudio?.codec ?: ""
         it[sampleRate] = songAudio?.sampleRate ?: 0
         it[bitsPerSample] = songAudio?.bitsPerSample ?: 0
@@ -920,6 +920,7 @@ private fun saveAlbumMetadataInternal(album: Album, explicitlySaved: Boolean) {
     DownloadedAlbums.upsert(DownloadedAlbums.id) {
         it[id] = album.id
         it[name] = album.name
+        it[tags] = encodeTitleTags(album.tags)
         it[songCount] = album.songCount
         it[releaseDate] = album.releaseDate?.formatISO()
         it[totalDuration] = album.totalDuration

@@ -77,7 +77,7 @@ class ArtistScreenModel(
         coroutineScope {
             val artistDeferred = async { artistService.byId(artistId) }
             val songsDeferred = async { songService.byArtist(0, 5, artistId) }
-            val albumsDeferred = async { albumService.byArtist(0, 20, artistId) }
+            val albumsDeferred = async { albumService.byArtist(0, 10, artistId, explicit = true) }
             val topLikedSongsDeferred = async { songService.likedByArtist(0, 5, artistId, true) }
 
             val artist = artistDeferred.await()

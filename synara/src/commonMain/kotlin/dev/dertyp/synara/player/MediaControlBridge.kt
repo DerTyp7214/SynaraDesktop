@@ -7,6 +7,7 @@ import dev.dertyp.data.PodcastEpisode
 import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
 import dev.dertyp.synara.Config
+import dev.dertyp.synara.core.textName
 import dev.dertyp.synara.core.textTitle
 import dev.dertyp.synara.podcast.PodcastPlayer
 import dev.dertyp.synara.podcast.artworkId
@@ -143,7 +144,7 @@ class MediaControlBridge(
         title = textTitle(),
         artists = artists.map { it.creditedDisplayName() },
         artist = artists.creditText(),
-        album = album?.name,
+        album = album?.textName(),
         durationMs = duration,
         imageId = coverId,
         isPodcast = false
