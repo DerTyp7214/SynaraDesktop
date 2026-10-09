@@ -23,23 +23,21 @@ import androidx.compose.ui.platform.*
 import androidx.compose.ui.scene.CanvasLayersComposeScene
 import androidx.compose.ui.scene.ComposeScene
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ApplicationScope
 import dev.dertyp.synara.Config
-import dev.dertyp.synara.LocalTextField
 import dev.dertyp.synara.theme.AppTheme
 import dev.dertyp.synara.theme.SynaraAppTheme
 import dev.dertyp.synara.theme.isAppDark
-import dev.dertyp.synara.ui.components.SynaraTextField
 import dev.dertyp.synara.ui.components.SynaraTray
 import dev.dertyp.synara.ui.components.WindowDraggableArea
 import dev.dertyp.synara.ui.models.PerformanceMonitor
 import dev.dertyp.synara.utils.OSUtils
 import dev.dertyp.synara.viewmodels.GlobalShortcuts
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Runnable
 import org.jetbrains.skia.*
 import org.koin.core.context.GlobalContext
 import org.lwjgl.glfw.Callbacks.glfwFreeCallbacks
@@ -47,49 +45,9 @@ import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.opengl.GL
 import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.system.MemoryUtil.NULL
+import java.util.concurrent.ConcurrentLinkedQueue
+import kotlin.coroutines.CoroutineContext
 import kotlin.system.exitProcess
-
-@Suppress("DEPRECATION")
-@OptIn(ExperimentalComposeUiApi::class)
-private class GlfwTextInputService : PlatformTextInputService {
-    var onEditCommand: ((List<EditCommand>) -> Unit)? = null
-
-    override fun startInput(
-        value: TextFieldValue,
-        imeOptions: ImeOptions,
-        onEditCommand: (List<EditCommand>) -> Unit,
-        onImeActionPerformed: (ImeAction) -> Unit
-    ) {
-        this.onEditCommand = onEditCommand
-    }
-
-    override fun stopInput() {
-        this.onEditCommand = null
-    }
-
-    override fun showSoftwareKeyboard() {}
-    override fun hideSoftwareKeyboard() {}
-    override fun updateState(oldValue: TextFieldValue?, newValue: TextFieldValue) {}
-}
-
-private class GlfwClipboard(private val windowHandle: Long) : Clipboard {
-    @OptIn(ExperimentalComposeUiApi::class)
-    override suspend fun getClipEntry(): ClipEntry? {
-        val text = glfwGetClipboardString(windowHandle) ?: return null
-        return ClipEntry(AnnotatedString(text))
-    }
-
-    @OptIn(ExperimentalComposeUiApi::class)
-    override suspend fun setClipEntry(clipEntry: ClipEntry?) {
-        val text = (clipEntry?.nativeClipEntry as? AnnotatedString)?.text
-            ?: (clipEntry?.nativeClipEntry as? String)
-            ?: ""
-        glfwSetClipboardString(windowHandle, text)
-    }
-
-    override val nativeClipboard: Any
-        get() = windowHandle
-}
 
 @Suppress("DEPRECATION")
 private class GlfwClipboardManager(private val windowHandle: Long) : ClipboardManager {
@@ -277,8 +235,10 @@ fun runTransparentWindow(
     }
 
     var isWindowFocused by mutableStateOf(true)
-    val textInputService = GlfwTextInputService()
-    val clipboard = GlfwClipboard(windowHandle)
+    val clipboard = TextClipboard(
+        read = { glfwGetClipboardString(windowHandle) },
+        write = { glfwSetClipboardString(windowHandle, it) }
+    )
     val clipboardManager = GlfwClipboardManager(windowHandle)
 
     val performanceMonitor = try {
@@ -293,9 +253,6 @@ fun runTransparentWindow(
             override val isWindowFocused: Boolean get() = isWindowFocused
             override val containerSize: IntSize get() = scenePtr?.size ?: IntSize.Zero
         }
-        @Suppress("DEPRECATION")
-        override val textInputService: PlatformTextInputService = textInputService
-
         override fun setPointerIcon(pointerIcon: PointerIcon) {
             val cursor = when (pointerIcon) {
                 PointerIcon.Hand -> handCursor
@@ -306,9 +263,17 @@ fun runTransparentWindow(
         }
     }
 
+    val sceneTasks = ConcurrentLinkedQueue<Runnable>()
+    val sceneDispatcher = object : CoroutineDispatcher() {
+        override fun dispatch(context: CoroutineContext, block: Runnable) {
+            sceneTasks.add(block)
+            glfwPostEmptyEvent()
+        }
+    }
+
     val scene = CanvasLayersComposeScene(
         density = density,
-        coroutineContext = Dispatchers.Unconfined,
+        coroutineContext = sceneDispatcher,
         platformContext = platformContext,
         invalidate = { glfwPostEmptyEvent() }
     )
@@ -358,34 +323,7 @@ fun runTransparentWindow(
                 LocalIconFilled provides iconFilled,
                 LocalClipboard provides clipboard,
                 LocalClipboardManager provides clipboardManager,
-                LocalWindowActions provides windowActions,
-                LocalTextField provides { value, onValueChange, modifier, enabled, readOnly, textStyle, label, placeholder, leadingIcon, trailingIcon, prefix, suffix, supportingText, isError, visualTransformation, keyboardOptions, keyboardActions, singleLine, maxLines, minLines, interactionSource, shape, colors ->
-                    SynaraTextField(
-                        value = value,
-                        onValueChange = { onValueChange(it) },
-                        modifier = modifier,
-                        enabled = enabled,
-                        readOnly = readOnly,
-                        textStyle = textStyle,
-                        label = label,
-                        placeholder = placeholder,
-                        leadingIcon = leadingIcon,
-                        trailingIcon = trailingIcon,
-                        prefix = prefix,
-                        suffix = suffix,
-                        supportingText = supportingText,
-                        isError = isError,
-                        visualTransformation = visualTransformation,
-                        keyboardOptions = keyboardOptions,
-                        keyboardActions = keyboardActions,
-                        singleLine = singleLine,
-                        maxLines = maxLines,
-                        minLines = minLines,
-                        interactionSource = interactionSource,
-                        shape = shape,
-                        colors = colors
-                    )
-                }
+                LocalWindowActions provides windowActions
             ) {
                 with(applicationScope) {
                     SynaraTray(
@@ -541,8 +479,7 @@ fun runTransparentWindow(
     }
 
     glfwSetCharCallback(windowHandle) { _, codepoint ->
-        val text = String(Character.toChars(codepoint))
-        textInputService.onEditCommand?.invoke(listOf(CommitTextCommand(text, 1)))
+        scene.sendKeyEvent(typedKeyEvent(codepoint))
     }
 
     glfwShowWindow(windowHandle)
@@ -564,6 +501,8 @@ fun runTransparentWindow(
     var lastMonitor: Long = NULL
 
     while (!glfwWindowShouldClose(windowHandle)) {
+        repeat(sceneTasks.size) { sceneTasks.poll()?.run() }
+
         stackPush().use { stack ->
             val wx = stack.mallocInt(1)
             val wy = stack.mallocInt(1)

@@ -19,7 +19,6 @@ import dev.dertyp.data.PodcastDeliveryMode
 import dev.dertyp.data.PodcastRetention
 import dev.dertyp.data.PodcastShow
 import dev.dertyp.data.PodcastShowSettings
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.ui.components.dialogs.SynaraDialog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -95,7 +94,7 @@ fun ShowStorageDialog(
                     )
                 }
 
-                InternalTextField(
+                OutlinedTextField(
                     value = keepText,
                     onValueChange = { value -> keepText = value.filter { it.isDigit() }.take(6) },
                     label = { Text(stringResource(Res.string.podcast_storage_keep_episodes)) },

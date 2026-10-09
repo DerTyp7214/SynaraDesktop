@@ -16,7 +16,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.viewmodels.SetupScreenModel
 import dev.dertyp.synara.viewmodels.TestConnectionResult
 import kotlinx.coroutines.launch
@@ -74,7 +73,7 @@ class SetupScreen : Screen {
                             modifier = Modifier.padding(bottom = 32.dp)
                         )
 
-                        InternalTextField(
+                        OutlinedTextField(
                             value = host,
                             onValueChange = {
                                 host = it
@@ -88,7 +87,7 @@ class SetupScreen : Screen {
                                 onNext = { focusManager.moveFocus(FocusDirection.Down) }
                             )
                         )
-                        InternalTextField(
+                        OutlinedTextField(
                             value = port,
                             onValueChange = {
                                 port = it
@@ -102,7 +101,7 @@ class SetupScreen : Screen {
                                 onNext = { focusManager.moveFocus(FocusDirection.Down) }
                             )
                         )
-                        InternalTextField(
+                        OutlinedTextField(
                             value = path,
                             onValueChange = {
                                 path = it

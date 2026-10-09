@@ -25,7 +25,6 @@ import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.data.ApiKeyInfo
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.formatDateTime
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.RegisterRefreshTarget
@@ -318,7 +317,7 @@ class ApiKeysScreen : Screen {
             title = { Text(stringResource(Res.string.api_key_create)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    InternalTextField(
+                    OutlinedTextField(
                         value = label,
                         onValueChange = { label = it },
                         label = { Text(stringResource(Res.string.api_key_label)) },

@@ -1,5 +1,6 @@
 package dev.dertyp.synara.screens
 
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,7 +42,6 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.formatDateTime
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SettingsCard
@@ -116,7 +116,7 @@ class ListenBackupScreen : Screen {
                                         enabled = !state.isBusy
                                     )
                                 }
-                                InternalTextField(
+                                OutlinedTextField(
                                     value = state.url,
                                     onValueChange = screenModel::setUrl,
                                     label = { Text(stringResource(Res.string.listen_backup_url)) },
@@ -124,7 +124,7 @@ class ListenBackupScreen : Screen {
                                     enabled = !state.isBusy,
                                     modifier = Modifier.fillMaxWidth()
                                 )
-                                InternalTextField(
+                                OutlinedTextField(
                                     value = state.key,
                                     onValueChange = screenModel::setKey,
                                     label = { Text(stringResource(Res.string.listen_backup_key)) },
@@ -136,7 +136,7 @@ class ListenBackupScreen : Screen {
                                     } else null,
                                     modifier = Modifier.fillMaxWidth()
                                 )
-                                InternalTextField(
+                                OutlinedTextField(
                                     value = state.batchSize,
                                     onValueChange = screenModel::setBatchSize,
                                     label = { Text(stringResource(Res.string.listen_backup_batch_size)) },

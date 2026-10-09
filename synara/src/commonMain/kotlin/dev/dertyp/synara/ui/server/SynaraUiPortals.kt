@@ -1,5 +1,6 @@
 package dev.dertyp.synara.ui.server
 
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -9,7 +10,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import dev.dertyp.ui.UiPortals
@@ -25,7 +25,7 @@ object SynaraUiPortals {
             if (name != UiPortals.EXTERNAL_SEARCH) null
             else { _ ->
                 val query by globalState.searchQuery.collectAsState()
-                InternalTextField(
+                OutlinedTextField(
                     value = query,
                     onValueChange = { globalState.setSearchQuery(it) },
                     modifier = Modifier.fillMaxWidth(),

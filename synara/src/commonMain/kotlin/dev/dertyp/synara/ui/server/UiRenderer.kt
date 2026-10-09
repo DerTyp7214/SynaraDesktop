@@ -1,5 +1,6 @@
 package dev.dertyp.synara.ui.server
 
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -61,7 +62,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import dev.dertyp.services.IUiService
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.components.SynaraMenu
@@ -692,7 +692,7 @@ private fun UiTextField(component: UiComponent.TextField, host: UiHost, modifier
     val multiline = component.multiline || component.kind == UiTextKind.MULTILINE_URLS
 
     Column(modifier = modifier.fillMaxWidth()) {
-        InternalTextField(
+        OutlinedTextField(
             value = value,
             onValueChange = { form.set(component.key, UiValue.of(it)) },
             modifier = Modifier.fillMaxWidth(),
@@ -781,7 +781,7 @@ private fun UiFileField(component: UiComponent.FileField, host: UiHost, modifier
             }
         }
         if (component.allowPaste && fileName == null) {
-            InternalTextField(
+            OutlinedTextField(
                 value = value,
                 onValueChange = { form.set(component.key, UiValue.of(it)) },
                 modifier = Modifier.fillMaxWidth(),
@@ -833,7 +833,7 @@ private fun UiNumberField(component: UiComponent.NumberField, host: UiHost, modi
     }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        InternalTextField(
+        OutlinedTextField(
             value = text,
             onValueChange = { commit(it) },
             modifier = Modifier.fillMaxWidth(),

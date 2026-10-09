@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
 import dev.dertyp.synara.ui.components.creditText
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.formatDateTime
 import dev.dertyp.synara.game.*
 import dev.dertyp.synara.ui.SynaraIcons
@@ -223,7 +222,7 @@ class SongGuessScreen : Screen {
                     }
                     Spacer(Modifier.height(8.dp))
                 }
-                InternalTextField(
+                OutlinedTextField(
                     value = state.artistQuery,
                     onValueChange = { screenModel.searchArtists(it) },
                     placeholder = { Text(stringResource(Res.string.song_guess_search_artists)) },
@@ -368,7 +367,7 @@ class SongGuessScreen : Screen {
             }
 
             SettingsCard {
-                InternalTextField(
+                OutlinedTextField(
                     value = state.guessQuery,
                     onValueChange = { screenModel.updateGuess(it) },
                     placeholder = { Text(stringResource(Res.string.song_guess_guess_hint)) },

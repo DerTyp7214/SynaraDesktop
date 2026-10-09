@@ -22,7 +22,6 @@ import androidx.compose.ui.unit.dp
 import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
 import dev.dertyp.services.ILyricsSearch
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.ui.SynaraIcons
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
@@ -162,7 +161,7 @@ fun LyricsEditDialog(
                             val timestampDigits =
                                 "%02d%02d%02d".format(line.minutes, line.seconds, line.hundredths)
 
-                            InternalTextField(
+                            OutlinedTextField(
                                 value = timestampDigits,
                                 onValueChange = { newValue ->
                                     val digits = newValue.filter { it.isDigit() }
@@ -200,7 +199,7 @@ fun LyricsEditDialog(
                                 shape = RoundedCornerShape(8.dp)
                             )
 
-                            InternalTextField(
+                            OutlinedTextField(
                                 value = line.content,
                                 onValueChange = { lines[index] = line.copy(content = it) },
                                 modifier = Modifier.weight(1f),

@@ -8,6 +8,7 @@ import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
 import dev.dertyp.synara.db.*
+import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.put
@@ -33,7 +34,8 @@ class DownloadManager(
     private val playlistService: IUserPlaylistService,
     private val storageService: LocalStorageService,
     private val libraryRepository: LibraryRepository,
-    private val settings: Settings
+    private val settings: Settings,
+    private val rpcManager: RpcServiceManager
 ) : IDownloadManager {
     companion object {
         private const val MAX_SPEED_BYTES_PER_SECOND = 10L * 1024 * 1024
@@ -207,7 +209,7 @@ class DownloadManager(
         val file = File(internalPath)
 
         if (!file.exists()) {
-            val flow = songService.streamSong(song.id, chunkSize = 1024 * 64)
+            val flow = rpcManager.getService<ISongService>(rpcManager.downloadClient).streamSong(song.id, chunkSize = 1024 * 64)
             if (flow != null) {
                 file.parentFile?.mkdirs()
                 withContext(Dispatchers.IO) {

@@ -64,6 +64,16 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.13.6",
+                        date = "2026-10-09",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Improved, "Covers, animated covers and downloads load over their own connections, so they no longer slow down the rest of the app."),
+                            Change(ChangeType.Improved, "Text fields behave like regular ones: selecting with the keyboard or mouse, jumping by word, undo and redo, and copy, cut and paste all work."),
+                            Change(ChangeType.Fixed, "Holding the mouse on a scrollbar no longer freezes the app.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.13.5",
                         date = "2026-10-06",
                         isPrerelease = true,

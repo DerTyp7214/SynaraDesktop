@@ -1,5 +1,6 @@
 package dev.dertyp.synara.screens
 
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -59,7 +60,6 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.synara.Config
 import dev.dertyp.synara.IS_DEBUG
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.formatDateTime
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.QueueSyncService
@@ -604,7 +604,7 @@ class SettingsScreen : Screen {
                                 ),
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
-                                InternalTextField(
+                                OutlinedTextField(
                                     value = listenBrainzToken,
                                     onValueChange = { Config.setListenBrainzToken(it) },
                                     label = { Text(stringResource(Res.string.listenbrainz_token)) },
@@ -842,13 +842,13 @@ class SettingsScreen : Screen {
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    InternalTextField(
+                    OutlinedTextField(
                         value = apiKey,
                         onValueChange = { Config.setLastFmApiKey(it) },
                         label = { Text(stringResource(Res.string.lastfm_api_key)) },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    InternalTextField(
+                    OutlinedTextField(
                         value = sharedSecret,
                         onValueChange = { Config.setLastFmSharedSecret(it) },
                         label = { Text(stringResource(Res.string.lastfm_shared_secret)) },
@@ -916,14 +916,14 @@ class SettingsScreen : Screen {
             title = { Text(stringResource(Res.string.lastfm_auth_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    InternalTextField(
+                    OutlinedTextField(
                         value = usernameInput,
                         onValueChange = { usernameInput = it },
                         label = { Text(stringResource(Res.string.lastfm_username)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
-                    InternalTextField(
+                    OutlinedTextField(
                         value = passwordInput,
                         onValueChange = { passwordInput = it },
                         label = { Text(stringResource(Res.string.lastfm_password)) },
@@ -1052,7 +1052,7 @@ class SettingsScreen : Screen {
                         style = MaterialTheme.typography.headlineSmall
                     )
 
-                    InternalTextField(
+                    OutlinedTextField(
                         value = host,
                         onValueChange = {
                             host = it
@@ -1062,7 +1062,7 @@ class SettingsScreen : Screen {
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    InternalTextField(
+                    OutlinedTextField(
                         value = port,
                         onValueChange = {
                             port = it
@@ -1072,7 +1072,7 @@ class SettingsScreen : Screen {
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    InternalTextField(
+                    OutlinedTextField(
                         value = path,
                         onValueChange = {
                             path = it
@@ -1176,7 +1176,7 @@ class SettingsScreen : Screen {
     ) {
         SettingsCard {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                InternalTextField(
+                OutlinedTextField(
                     value = deviceName,
                     onValueChange = { Config.setQueueSyncDeviceName(it) },
                     label = { Text(stringResource(Res.string.settings_sync_device_name_title)) },

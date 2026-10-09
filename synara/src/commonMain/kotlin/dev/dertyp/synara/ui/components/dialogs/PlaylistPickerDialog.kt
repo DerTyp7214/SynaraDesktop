@@ -13,7 +13,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.dertyp.data.UserPlaylist
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.verticalScrollScrim
@@ -151,7 +150,7 @@ fun CreatePlaylistDialog(
                     text = stringResource(Res.string.playlist_name),
                     style = MaterialTheme.typography.labelLarge
                 )
-                InternalTextField(
+                OutlinedTextField(
                     value = playlistName,
                     onValueChange = { playlistName = it },
                     placeholder = { Text(stringResource(Res.string.playlist_name_hint)) },

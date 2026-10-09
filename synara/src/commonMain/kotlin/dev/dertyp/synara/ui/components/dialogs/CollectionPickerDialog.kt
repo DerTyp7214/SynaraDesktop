@@ -19,7 +19,6 @@ import dev.dertyp.data.MediaCollection
 import dev.dertyp.services.ICollectionService
 import dev.dertyp.synara.ui.models.SnackbarManager
 import org.jetbrains.compose.resources.getString
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.verticalScrollScrim
@@ -187,7 +186,7 @@ fun CollectionPickerDialog(
             onDismissRequest = { showCreate = false },
             title = { Text(stringResource(Res.string.collection_create)) },
             text = {
-                InternalTextField(
+                OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text(stringResource(Res.string.collection_name)) },

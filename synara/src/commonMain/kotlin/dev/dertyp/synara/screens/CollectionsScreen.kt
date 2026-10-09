@@ -18,7 +18,6 @@ import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.data.MediaCollection
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.formatBytes
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.RegisterRefreshTarget
@@ -218,14 +217,14 @@ internal fun CollectionEditDialog(
         title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                InternalTextField(
+                OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text(stringResource(Res.string.collection_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                InternalTextField(
+                OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
                     label = { Text(stringResource(Res.string.collection_description)) },

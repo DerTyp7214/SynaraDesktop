@@ -12,7 +12,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.dertyp.data.PodcastShow
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.ui.components.dialogs.SynaraAlertDialog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -68,7 +67,7 @@ fun AddFeedDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(stringResource(Res.string.podcast_add_feed_description))
-                InternalTextField(
+                OutlinedTextField(
                     value = url,
                     onValueChange = {
                         url = it

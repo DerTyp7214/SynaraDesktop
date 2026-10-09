@@ -25,7 +25,6 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.CollectionItemType
 import dev.dertyp.data.TitleTag
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.formatBytes
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlayerModel
@@ -172,7 +171,7 @@ data class CollectionScreen(val collectionId: PlatformUUID) : Screen {
                     }
 
                     item {
-                        InternalTextField(
+                        OutlinedTextField(
                             value = state.query,
                             onValueChange = { screenModel.setQuery(it) },
                             label = { Text(stringResource(Res.string.search)) },

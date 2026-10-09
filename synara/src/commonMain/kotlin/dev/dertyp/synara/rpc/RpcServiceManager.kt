@@ -20,6 +20,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.rpc.RpcClient
 import kotlinx.rpc.annotations.Rpc
 import kotlinx.rpc.withService
 import kotlinx.serialization.json.Json
@@ -48,6 +49,9 @@ class RpcServiceManager(
         RefreshRejected,
         Other
     }
+
+    val imageClient: RpcClient = pooledClient(3)
+    val downloadClient: RpcClient = pooledClient(1)
 
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Loading)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()

@@ -12,7 +12,6 @@ import dev.dertyp.PlatformUUID
 import dev.dertyp.data.TimecodeTag
 import dev.dertyp.data.TimecodeTagAction
 import dev.dertyp.data.TimecodeTagType
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.player.TimecodeTagRules
 import dev.dertyp.synara.player.TimecodeTagStore
 import dev.dertyp.synara.ui.SynaraIcons
@@ -107,7 +106,7 @@ fun TimecodeTagEditDialog(
                     }
                 }
 
-                InternalTextField(
+                OutlinedTextField(
                     value = text,
                     onValueChange = { text = it.take(1000) },
                     label = { Text(stringResource(Res.string.timecode_text)) },
@@ -235,7 +234,7 @@ private fun TimeField(
     errorText: String,
     onUseCurrent: () -> Unit
 ) {
-    InternalTextField(
+    OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },

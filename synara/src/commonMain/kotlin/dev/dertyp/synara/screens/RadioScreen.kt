@@ -22,7 +22,6 @@ import dev.dertyp.data.RadioChannel
 import dev.dertyp.data.RadioChannelItemType
 import dev.dertyp.data.RadioType
 import dev.dertyp.data.TitleTag
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.core.displayTitle
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.RegisterRefreshTarget
@@ -429,20 +428,20 @@ class RadioScreen : Screen {
                         }
                     }
 
-                    InternalTextField(
+                    OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
                         label = { Text(stringResource(Res.string.radio_channel_name)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    InternalTextField(
+                    OutlinedTextField(
                         value = description,
                         onValueChange = { description = it },
                         label = { Text(stringResource(Res.string.radio_channel_description)) },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    InternalTextField(
+                    OutlinedTextField(
                         value = position,
                         onValueChange = { position = it },
                         label = { Text(stringResource(Res.string.radio_channel_position)) },
@@ -472,7 +471,7 @@ class RadioScreen : Screen {
                             fontWeight = FontWeight.Bold
                         )
 
-                        InternalTextField(
+                        OutlinedTextField(
                             value = contentQuery,
                             onValueChange = {
                                 contentQuery = it
@@ -550,7 +549,7 @@ class RadioScreen : Screen {
                             fontWeight = FontWeight.Bold
                         )
 
-                        InternalTextField(
+                        OutlinedTextField(
                             value = addQuery,
                             onValueChange = {
                                 addQuery = it

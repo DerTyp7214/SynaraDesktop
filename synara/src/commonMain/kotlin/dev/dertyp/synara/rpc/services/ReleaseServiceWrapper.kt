@@ -46,7 +46,7 @@ class ReleaseServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(man
     }
 
     override suspend fun getReleaseImage(releaseId: PlatformUUID, size: Int): ByteArray? {
-        return manager.getService<IReleaseService>().getReleaseImage(releaseId, size)
+        return manager.getService<IReleaseService>(manager.imageClient).getReleaseImage(releaseId, size)
     }
 
     override suspend fun refreshRecentRelease(releaseId: PlatformUUID) {

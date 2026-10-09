@@ -23,7 +23,6 @@ import cafe.adriel.voyager.core.screen.uniqueScreenKey
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.synara.Config
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.PlayerSwitcher
 import dev.dertyp.synara.player.StereoSpectrum
@@ -421,7 +420,7 @@ class VisualizerSettingsScreen : Screen {
             onDismissRequest = onDismiss,
             title = { Text(title) },
             text = {
-                InternalTextField(
+                OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text(stringResource(Res.string.visualizer_preset_name)) },

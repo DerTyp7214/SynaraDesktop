@@ -19,7 +19,6 @@ import dev.dertyp.data.Artist
 import dev.dertyp.data.ArtistCredit
 import dev.dertyp.data.BaseSong
 import dev.dertyp.services.IArtistService
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.core.toCredit
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraImage
@@ -130,7 +129,7 @@ fun EditSongArtistsDialog(
                     }
                 }
 
-                InternalTextField(
+                OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     placeholder = { Text(stringResource(Res.string.edit_song_artists_search_placeholder)) },

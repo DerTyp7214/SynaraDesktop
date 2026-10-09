@@ -22,7 +22,7 @@ class ImageServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manag
     }
 
     override suspend fun getImageData(id: PlatformUUID, size: Int): ByteArray? {
-        return manager.getService<IImageService>().getImageData(id, size)
+        return manager.getService<IImageService>(manager.imageClient).getImageData(id, size)
     }
 
     override suspend fun createImage(bytes: ByteArray, origin: String): PlatformUUID {

@@ -25,7 +25,6 @@ import dev.dertyp.data.PodcastEpisode
 import dev.dertyp.data.PodcastImportState
 import dev.dertyp.data.PodcastIndexResult
 import dev.dertyp.data.UserCapability
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SynaraMenu
@@ -331,7 +330,7 @@ class PodcastsScreen : Screen {
         val showSections = directory !is DirectoryState.Idle
 
         Column(modifier = Modifier.fillMaxSize()) {
-            InternalTextField(
+            OutlinedTextField(
                 value = query,
                 onValueChange = { screenModel.setQuery(it) },
                 placeholder = { Text(stringResource(Res.string.podcast_browse_search_placeholder)) },

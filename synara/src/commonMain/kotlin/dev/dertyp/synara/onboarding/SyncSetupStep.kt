@@ -1,11 +1,11 @@
 package dev.dertyp.synara.onboarding
 
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import dev.dertyp.synara.Config
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.sync.SecretsLockState
 import dev.dertyp.synara.sync.SettingsSyncService
 import dev.dertyp.synara.ui.SynaraIcons
@@ -74,7 +74,7 @@ fun SyncSetupStep(
             )
         )
     ) {
-        InternalTextField(
+        OutlinedTextField(
             value = deviceName,
             onValueChange = { deviceName = it },
             label = { Text(stringResource(Res.string.settings_sync_device_name_title)) },

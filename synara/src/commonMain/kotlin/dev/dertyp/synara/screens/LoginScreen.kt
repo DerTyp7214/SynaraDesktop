@@ -1,5 +1,6 @@
 package dev.dertyp.synara.screens
 
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,7 +44,6 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.viewmodels.LoginResult
@@ -139,7 +139,7 @@ class LoginScreen : Screen {
                             )
                         }
 
-                        InternalTextField(
+                        OutlinedTextField(
                             value = username,
                             onValueChange = { username = it },
                             label = { Text(stringResource(Res.string.username)) },
@@ -150,7 +150,7 @@ class LoginScreen : Screen {
                                 onNext = { focusManager.moveFocus(FocusDirection.Down) }
                             )
                         )
-                        InternalTextField(
+                        OutlinedTextField(
                             value = password,
                             onValueChange = { password = it },
                             label = { Text(stringResource(Res.string.password)) },

@@ -22,7 +22,6 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.data.User
 import dev.dertyp.data.UserCapability
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SettingsCard
@@ -290,14 +289,14 @@ class UserManagementScreen : Screen {
             title = { Text(stringResource(Res.string.user_create)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    InternalTextField(
+                    OutlinedTextField(
                         value = username,
                         onValueChange = { username = it },
                         label = { Text(stringResource(Res.string.user_username)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    InternalTextField(
+                    OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
                         label = { Text(stringResource(Res.string.user_password)) },

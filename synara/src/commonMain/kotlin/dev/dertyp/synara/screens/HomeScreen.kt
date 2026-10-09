@@ -33,7 +33,6 @@ import dev.dertyp.data.ServerStats
 import dev.dertyp.data.UserPlaylist
 import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.Config
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.onboarding.OnboardingCoordinator
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.screens.podcasts.PodcastShowScreen
@@ -642,7 +641,7 @@ class HomeScreen : Screen {
                     }
                 }
 
-                InternalTextField(
+                OutlinedTextField(
                     value = searchQuery,
                     onValueChange = {
                         screenModel.globalState.setSearchQuery(it)

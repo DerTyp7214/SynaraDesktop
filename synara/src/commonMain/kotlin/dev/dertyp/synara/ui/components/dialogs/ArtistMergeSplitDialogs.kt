@@ -19,7 +19,6 @@ import dev.dertyp.data.Artist
 import dev.dertyp.data.MergeArtists
 import dev.dertyp.data.SplitArtist
 import dev.dertyp.services.IArtistService
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.verticalScrollScrim
@@ -88,14 +87,14 @@ fun MergeArtistDialog(
                     .verticalScrollScrim(scrollState, applyScroll = true),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                InternalTextField(
+                OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text(stringResource(Res.string.merge_artist_name_label)) },
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                InternalTextField(
+                OutlinedTextField(
                     value = imageId,
                     onValueChange = { imageId = it },
                     label = { Text(stringResource(Res.string.merge_artist_image_label)) },
@@ -144,7 +143,7 @@ fun MergeArtistDialog(
                     }
                 }
 
-                InternalTextField(
+                OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     placeholder = { Text(stringResource(Res.string.merge_artist_search_placeholder)) },
@@ -282,7 +281,7 @@ fun SplitArtistDialog(
                     .verticalScrollScrim(scrollState, applyScroll = true),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                InternalTextField(
+                OutlinedTextField(
                     value = currentName,
                     onValueChange = { currentName = it },
                     label = { Text(stringResource(Res.string.split_artist_names_label)) },
@@ -494,7 +493,7 @@ fun SetArtistGroupDialog(
                     }
                 }
 
-                InternalTextField(
+                OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     placeholder = { Text(stringResource(Res.string.set_artist_group_search_placeholder)) },

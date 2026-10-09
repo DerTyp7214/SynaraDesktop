@@ -19,8 +19,14 @@ class AnimatedImageServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapp
     override suspend fun getCoverHashes(hashes: List<String>): Map<String, PlatformUUID> =
         manager.getService<IAnimatedImageService>().getCoverHashes(hashes)
 
-    override suspend fun getAnimatedImageData(id: PlatformUUID): ByteArray? =
-        manager.getService<IAnimatedImageService>().getAnimatedImageData(id)
+    override suspend fun getAnimatedImageData(id: PlatformUUID): ByteArray? {
+        val dedicatedClient = manager.getDedicatedClient()
+        return try {
+            manager.getService<IAnimatedImageService>(dedicatedClient).getAnimatedImageData(id)
+        } finally {
+            dedicatedClient.close()
+        }
+    }
 
     override suspend fun createAnimatedImage(bytes: ByteArray, origin: String): PlatformUUID =
         manager.getService<IAnimatedImageService>().createAnimatedImage(bytes, origin)

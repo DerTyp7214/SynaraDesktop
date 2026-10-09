@@ -1,5 +1,6 @@
 package dev.dertyp.synara.ui.components
 
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.sync.SecretsLockState
 import dev.dertyp.synara.sync.SettingsSyncService
 import dev.dertyp.synara.ui.components.dialogs.SynaraAlertDialog
@@ -168,7 +168,7 @@ fun SecretsPassphraseDialog(
                         )
                     }
                 } else {
-                    InternalTextField(
+                    OutlinedTextField(
                         value = passphrase,
                         onValueChange = {
                             passphrase = it
@@ -182,7 +182,7 @@ fun SecretsPassphraseDialog(
                     )
 
                     if (isSetup) {
-                        InternalTextField(
+                        OutlinedTextField(
                             value = confirmPassphrase,
                             onValueChange = { confirmPassphrase = it },
                             label = {

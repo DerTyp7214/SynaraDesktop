@@ -25,7 +25,6 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.TopOrder
 import dev.dertyp.data.TopSongEntry
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.RegisterRefreshTarget
@@ -596,7 +595,7 @@ class StatsScreen : Screen {
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    InternalTextField(
+                    OutlinedTextField(
                         value = query,
                         onValueChange = {
                             query = it

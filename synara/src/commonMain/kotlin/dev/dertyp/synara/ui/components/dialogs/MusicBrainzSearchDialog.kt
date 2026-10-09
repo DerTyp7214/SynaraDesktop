@@ -16,7 +16,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import dev.dertyp.data.MusicBrainzRecording
-import dev.dertyp.synara.InternalTextField
 import dev.dertyp.synara.scrobble.MusicBrainzService
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraImage
@@ -76,7 +75,7 @@ fun MusicBrainzSearchDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                InternalTextField(
+                OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
                     modifier = Modifier.fillMaxWidth(),
