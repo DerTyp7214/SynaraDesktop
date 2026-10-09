@@ -103,7 +103,7 @@ class LinuxSynaraTray : SynaraTray {
 
                 val absoluteIconPath = findAbsoluteIconPath(iconPath)
                 lastExtractedIconPath = absoluteIconPath
-                
+
                 indicator = AppIndicatorLib.INSTANCE.app_indicator_new(
                     "dev.dertyp.synara",
                     absoluteIconPath ?: "application-x-executable",
@@ -146,7 +146,7 @@ class LinuxSynaraTray : SynaraTray {
         try {
             val resource = Thread.currentThread().contextClassLoader.getResource(iconPath)
                 ?: this::class.java.classLoader.getResource(iconPath)
-            
+
             if (resource != null) {
                 val extension = if (iconPath.endsWith(".svg")) ".svg" else ".png"
                 val tempFile = Files.createTempFile("synara-tray", extension)
@@ -175,7 +175,7 @@ class LinuxSynaraTray : SynaraTray {
 
                     val badgeSize = (icon.width * 0.25).toInt()
                     val x = icon.width - badgeSize
-                    
+
                     g2d.color = java.awt.Color(0, 0, 0, 120)
                     g2d.fillOval(x - 1, -1, badgeSize + 2, badgeSize + 2)
                     g2d.color = java.awt.Color(color.toArgb(), true)
@@ -184,10 +184,10 @@ class LinuxSynaraTray : SynaraTray {
 
                     val tempFile = Files.createTempFile("synara-tray-badged", ".png").toFile()
                     tempFile.deleteOnExit()
-                    
+
                     ImageIO.write(bi, "png", tempFile)
                     AppIndicatorLib.INSTANCE.app_indicator_set_icon_full(indicator, tempFile.absolutePath, "synara")
-                    
+
                     lastBadgedIconPath?.let { File(it).delete() }
                     lastBadgedIconPath = tempFile.absolutePath
                 } else {

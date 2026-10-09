@@ -173,7 +173,6 @@ class MacMediaManager(private val bridge: MediaControlBridge) : SystemMediaManag
                     lastPos = currentPos
                 }
             }
-
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -182,7 +181,7 @@ class MacMediaManager(private val bridge: MediaControlBridge) : SystemMediaManag
     private fun setupCommand(command: Pointer, selector: String, target: Pointer) {
         val selEnabled = ObjCRuntime.INSTANCE.sel_registerName("setEnabled:")
         objcMsgSend.invoke(arrayOf(command, selEnabled, 1.toByte()))
-        
+
         val selAddTarget = ObjCRuntime.INSTANCE.sel_registerName("addTarget:action:")
         objcMsgSend.invoke(arrayOf(command, selAddTarget, target, ObjCRuntime.INSTANCE.sel_registerName(selector)))
     }

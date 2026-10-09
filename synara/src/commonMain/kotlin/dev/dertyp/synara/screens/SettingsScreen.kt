@@ -728,7 +728,7 @@ class SettingsScreen : Screen {
         iconFilled: Boolean
     ) {
         val currentPack = currentPackType.getPack()
-        
+
         SettingsCard {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 IconPackPicker(

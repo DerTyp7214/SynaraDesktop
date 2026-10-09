@@ -237,7 +237,7 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold
                 )
-                
+
                 Text(
                     text = "${state.songs.size} ${stringResource(Res.string.songs)}",
                     style = MaterialTheme.typography.bodyMedium,

@@ -330,7 +330,7 @@ class ScheduledTaskLogsScreen : Screen {
                             }
                         }
                     }
-                    
+
                     if (log.details != null && log.details!!.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(

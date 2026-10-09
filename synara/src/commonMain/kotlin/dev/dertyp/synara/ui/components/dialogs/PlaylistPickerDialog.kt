@@ -72,9 +72,9 @@ fun PlaylistPickerDialog(
                                     modifier = Modifier.size(24.dp),
                                     tint = MaterialTheme.colorScheme.primary
                                 )
-                                
+
                                 Spacer(modifier = Modifier.width(16.dp))
-                                
+
                                 Text(
                                     text = stringResource(Res.string.new_playlist),
                                     style = MaterialTheme.typography.bodyLarge,
@@ -105,9 +105,9 @@ fun PlaylistPickerDialog(
                                     size = 48.dp,
                                     fallbackIcon = SynaraIcons.PlayNext
                                 )
-                                
+
                                 Spacer(modifier = Modifier.width(16.dp))
-                                
+
                                 Text(
                                     text = playlist.name,
                                     style = MaterialTheme.typography.bodyLarge,

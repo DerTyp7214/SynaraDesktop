@@ -10,7 +10,7 @@ interface AudioPlayer {
     val duration: StateFlow<Long>
     val volume: StateFlow<Float>
     val onFinished: Flow<Unit>
-    
+
     val sampleRate: StateFlow<Int>
     val bitsPerSample: StateFlow<Int>
     val bitRate: StateFlow<Long>

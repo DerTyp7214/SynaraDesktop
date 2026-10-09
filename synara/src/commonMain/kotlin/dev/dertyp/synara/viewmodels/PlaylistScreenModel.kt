@@ -54,7 +54,7 @@ class PlaylistScreenModel(
             rpcServiceManager.awaitAuthentication()
             loadPlaylist()
         }
-        
+
         screenModelScope.launch(modelDispatcher) {
             songCache.playlistUpdates.collect { update ->
                 when (update) {
@@ -174,7 +174,7 @@ class PlaylistScreenModel(
                     if (isUserPlaylist) {
                         val playlistDeferred = if (currentPage == 0) async { userPlaylistService.byId(playlistId) } else null
                         val songsResponseDeferred = async { songService.byUserPlaylist(currentPage, pageSize, playlistId) }
-                        
+
                         val playlist = playlistDeferred?.await()
                         val songsResponse = songsResponseDeferred.await()
                         if (requestGeneration != generation) return@coroutineScope
@@ -182,7 +182,7 @@ class PlaylistScreenModel(
                         val name = playlist?.name ?: playlistName ?: "Playlist"
                         val imageId = playlist?.imageId ?: playlistImageId
                         val duration = playlist?.totalDuration ?: playlistDuration
-                        
+
                         _state.value = PlaylistState.Success(
                             name = name,
                             imageId = imageId,
@@ -195,7 +195,7 @@ class PlaylistScreenModel(
                     } else {
                         val playlistDeferred = if (currentPage == 0) async { playlistService.byId(playlistId) } else null
                         val songsResponseDeferred = async { songService.byPlaylist(currentPage, pageSize, playlistId) }
-                        
+
                         val playlist = playlistDeferred?.await()
                         val songsResponse = songsResponseDeferred.await()
                         if (requestGeneration != generation) return@coroutineScope
@@ -258,9 +258,9 @@ class PlaylistScreenModel(
     sealed class PlaylistState {
         data object Loading : PlaylistState()
         data class Success(
-            val name: String, 
+            val name: String,
             val imageId: PlatformUUID?,
-            val songs: List<UserSong>, 
+            val songs: List<UserSong>,
             val totalDuration: Long,
             val isUserPlaylist: Boolean,
             val hasNextPage: Boolean

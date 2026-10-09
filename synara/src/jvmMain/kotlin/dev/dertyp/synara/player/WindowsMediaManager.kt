@@ -41,7 +41,7 @@ class WindowsMediaManager(private val bridge: MediaControlBridge) : SystemMediaM
             onSetShuffle = { shuffleMode ->
                 bridge.setShuffle(shuffleMode)
             }
-            
+
             setEnabled(enabled = true)
         }
 
@@ -89,4 +89,3 @@ class WindowsMediaManager(private val bridge: MediaControlBridge) : SystemMediaM
         }
     }
 }
-

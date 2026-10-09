@@ -183,7 +183,7 @@ class StatsScreen : Screen {
                                         ?.takeIf { it.previousListenedMs > 0 }
                                         ?.let { comparison ->
                                             val change = (stats.listenedMs - comparison.previousListenedMs) *
-                                                    100.0 / comparison.previousListenedMs
+                                                100.0 / comparison.previousListenedMs
                                             comparisonText(change)
                                         }
                                 )

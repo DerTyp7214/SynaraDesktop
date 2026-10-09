@@ -275,9 +275,9 @@ class ApiKeysScreen : Screen {
                     }
                     Text(
                         text = stringResource(Res.string.api_key_created, key.createdAt.formatDateTime()) +
-                                " · " + (key.lastUsed?.let {
-                            stringResource(Res.string.api_key_last_used, it.formatDateTime())
-                        } ?: stringResource(Res.string.api_key_never_used)),
+                            " · " + (key.lastUsed?.let {
+                                stringResource(Res.string.api_key_last_used, it.formatDateTime())
+                            } ?: stringResource(Res.string.api_key_never_used)),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

@@ -28,7 +28,7 @@ class DownloadsScreen : Screen {
     override fun Content() {
         val screenModel = getScreenModel<DownloadsScreenModel>()
         val navigator = LocalNavigator.current
-        
+
         val queue by screenModel.queue?.collectAsState(emptyList()) ?: remember { mutableStateOf(emptyList()) }
         val currentDownload by screenModel.currentDownload?.collectAsState(null) ?: remember { mutableStateOf(null) }
 
@@ -72,9 +72,9 @@ class DownloadsScreen : Screen {
                                 style = MaterialTheme.typography.titleMedium,
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
-                            
+
                             DownloadItem(download)
-                            
+
                             Spacer(modifier = Modifier.height(24.dp))
                         }
                     }
@@ -137,7 +137,7 @@ class DownloadsScreen : Screen {
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    
+
                     Text(
                         text = "${download.downloadedBytes.formatBytes()} / ${download.totalBytes.formatBytes()}",
                         style = MaterialTheme.typography.bodySmall,

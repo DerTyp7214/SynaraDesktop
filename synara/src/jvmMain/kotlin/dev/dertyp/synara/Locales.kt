@@ -8,7 +8,7 @@ import java.util.Locale
 actual object LocalAppLocale {
     private var default: Locale? = null
     private val LocalAppLocale = staticCompositionLocalOf { Locale.getDefault().toString() }
-    
+
     actual val current: String
         @Composable get() = LocalAppLocale.current
 
@@ -17,7 +17,7 @@ actual object LocalAppLocale {
         if (default == null) {
             default = Locale.getDefault()
         }
-        val new = when(value) {
+        val new = when (value) {
             null -> default!!
             else -> Locale.forLanguageTag(value)
         }

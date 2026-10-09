@@ -41,9 +41,9 @@ class V1_3__MusicBrainzUUID : BaseJavaMigration() {
                 val sqls = createStatementsMap[tableName] ?: emptyList()
                 for (sql in sqls) {
                     val trimmed = sql.trim()
-                    if (trimmed.startsWith("CREATE TABLE", ignoreCase = true) && 
-                        (trimmed.contains(" \"$tableName\" ", ignoreCase = true) || 
-                         trimmed.contains(" $tableName ", ignoreCase = true))) {
+                    if (trimmed.startsWith("CREATE TABLE", ignoreCase = true) &&
+                        (trimmed.contains(" \"$tableName\" ", ignoreCase = true) ||
+                            trimmed.contains(" $tableName ", ignoreCase = true))) {
                         stmt.execute(sql)
                     }
                 }
@@ -51,10 +51,10 @@ class V1_3__MusicBrainzUUID : BaseJavaMigration() {
                 val colNamesOld = getColumnNames(conn, oldTable)
                 val colNamesNew = tableObject.columns.map { it.name }
                 val commonColumns = colNamesOld.filter { oldCol -> colNamesNew.any { it.equals(oldCol, ignoreCase = true) } }
-                
+
                 val placeholders = commonColumns.joinToString(", ") { "?" }
                 val insertSql = "INSERT INTO \"$tableName\" (${commonColumns.joinToString(", ") { "\"$it\"" }}) VALUES ($placeholders)"
-                
+
                 conn.prepareStatement("SELECT * FROM \"$oldTable\"").use { selectStmt ->
                     selectStmt.executeQuery().use { rs ->
                         conn.prepareStatement(insertSql).use { insertStmt ->

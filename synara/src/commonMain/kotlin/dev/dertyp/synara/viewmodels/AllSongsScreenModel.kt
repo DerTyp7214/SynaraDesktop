@@ -120,7 +120,7 @@ class AllSongsScreenModel(
     fun loadPage(page: Int) {
         val currentState = _state.value as? AllSongsState.Success ?: return
         if (loadingPages.contains(page)) return
-        
+
         val offset = page * pageSize
         if (offset >= currentState.total) return
 
@@ -142,14 +142,14 @@ class AllSongsScreenModel(
                 if (requestGeneration != generation) return@launch
                 val latestState = _state.value as? AllSongsState.Success ?: return@launch
                 val updatedSongs = latestState.songs.toMutableList()
-                
+
                 for (i in response.data.indices) {
                     val index = offset + i
                     if (index < updatedSongs.size) {
                         updatedSongs[index] = response.data[i]
                     }
                 }
-                
+
                 _state.value = latestState.copy(songs = updatedSongs)
             } catch (_: Exception) {
             } finally {

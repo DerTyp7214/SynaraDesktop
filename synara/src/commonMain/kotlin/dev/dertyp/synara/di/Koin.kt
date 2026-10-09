@@ -87,13 +87,13 @@ private fun buildHttpClient(cbor: Cbor, json: Json): HttpClient {
             pingInterval = 15.seconds
         }
         install(DefaultRequest) {
-            //header(SynaraPackHeader, "true")
+            // header(SynaraPackHeader, "true")
             apiVersionHeader()
             uiHeaders(Config.language.value, currentTimezoneId())
         }
         install(Krpc) {
             serialization {
-                //synaraCbor(cbor)
+                // synaraCbor(cbor)
                 cbor(cbor)
             }
         }
@@ -114,7 +114,7 @@ val appModule = module {
 
     singleOf(::SettingsFactory)
     single<Settings> { get<SettingsFactory>().create() }
-    
+
     single { AppDispatchers }
 
     single<Logger> { BaseLogger(StdoutLogPersistence(), get()) }

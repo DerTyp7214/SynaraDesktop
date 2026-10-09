@@ -14,7 +14,7 @@ class SongCache {
     private val maxSize: Int = 10000
     private val cache = LinkedHashMap<PlatformUUID, UserSong>()
     private val mutex = Mutex()
-    
+
     val size: Int get() = cache.size
 
     fun getEstimatedMemoryUsage(): Long {
@@ -74,7 +74,7 @@ class SongCache {
         cache.remove(song.id)
         cache[song.id] = song
         _updates.tryEmit(CacheUpdate.SongUpdated(song))
-        
+
         checkSize()
     }
 

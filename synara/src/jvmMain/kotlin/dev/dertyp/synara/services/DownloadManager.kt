@@ -40,7 +40,7 @@ class DownloadManager(
     }
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-    
+
     private val _queue = MutableStateFlow<List<UserSong>>(emptyList())
     override val queue: StateFlow<List<UserSong>> = _queue.asStateFlow()
 
@@ -134,7 +134,7 @@ class DownloadManager(
         scope.launch {
             val album = albumService.byId(albumId) ?: return@launch
             libraryRepository.saveAlbumMetadata(album, explicitlySaved)
-            
+
             var page = 0
             while (true) {
                 val response = songService.byAlbum(page, 150, album.id)
@@ -150,7 +150,7 @@ class DownloadManager(
         scope.launch {
             val artist = artistService.byId(artistId) ?: return@launch
             libraryRepository.saveArtistMetadata(artist, explicitlySaved)
-            
+
             var page = 0
             while (true) {
                 val response = albumService.byArtist(page, 150, artist.id)
@@ -205,7 +205,7 @@ class DownloadManager(
     private suspend fun performDownload(song: UserSong) {
         val internalPath = storageService.getInternalSongPath(song)
         val file = File(internalPath)
-        
+
         if (!file.exists()) {
             val flow = songService.streamSong(song.id, chunkSize = 1024 * 64)
             if (flow != null) {
@@ -214,7 +214,7 @@ class DownloadManager(
                     var downloaded = 0L
                     val total = song.audio?.fileSize ?: 0L
                     _currentDownload.value = DownloadProgress(song, 0, total)
-                    
+
                     val startTime = System.currentTimeMillis()
 
                     FileOutputStream(file).use { out ->
@@ -239,7 +239,7 @@ class DownloadManager(
                 delay(10.milliseconds)
             }
         }
-        
+
         libraryRepository.saveSongMetadata(song, false)
         _currentDownload.value = null
     }
@@ -339,11 +339,11 @@ class DownloadManager(
                 DownloadedSongArtists.select(DownloadedSongArtists.songId)
                     .where { DownloadedSongArtists.artistId inList explicitlySavedArtists }
                     .forEach { songsToKeep.add(it[DownloadedSongArtists.songId].value) }
-                
+
                 val artistAlbums = DownloadedAlbumArtists.select(DownloadedAlbumArtists.albumId)
                     .where { DownloadedAlbumArtists.artistId inList explicitlySavedArtists }
                     .map { it[DownloadedAlbumArtists.albumId].value }
-                
+
                 if (artistAlbums.isNotEmpty()) {
                     DownloadedSongs.select(DownloadedSongs.id)
                         .where { DownloadedSongs.albumId inList artistAlbums }

@@ -20,7 +20,7 @@ kotlin {
                 implementation(libs.material3)
                 implementation(libs.kotlinx.coroutines.core)
                 implementation(libs.kotlinx.coroutines.swing)
-                
+
                 implementation(libs.lwjgl)
                 implementation(libs.lwjgl.glfw)
                 implementation(libs.lwjgl.opengl)
@@ -55,7 +55,7 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            
+
             val synaraVersion = project(":synara").version.toString()
             packageVersion = synaraVersion.split("-")[0]
             packageName = "Synara"
@@ -63,7 +63,7 @@ compose.desktop {
             val resourcesDir = project(":synara").projectDir.resolve("src/commonMain/resources")
             val commonIcon = resourcesDir.resolve("icon.png")
             val synaraGeneratedIconsDir = project(":synara").layout.buildDirectory.dir("generated/icons")
-            
+
             linux {
                 shortcut = true
                 menuGroup = "Audio"

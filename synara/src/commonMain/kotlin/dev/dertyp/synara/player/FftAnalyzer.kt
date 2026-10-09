@@ -26,7 +26,7 @@ class FftAnalyzer(private val bufferSize: Int = 1024) {
 
     fun getMagnitudes(pcmData: ShortArray): FloatArray {
         val n = min(pcmData.size, bufferSize)
-        
+
         for (i in 0 until n) {
             real[i] = pcmData[i].toFloat() * window[i]
             imag[i] = 0f
@@ -40,7 +40,7 @@ class FftAnalyzer(private val bufferSize: Int = 1024) {
 
         val magnitudes = FloatArray(bufferSize / 2)
         val maxPossibleMag = 32767f * (bufferSize / 2f)
-        
+
         for (i in 0 until bufferSize / 2) {
             val mag = sqrt(real[i] * real[i] + imag[i] * imag[i])
             magnitudes[i] = (mag / maxPossibleMag).coerceIn(0f, 1f)

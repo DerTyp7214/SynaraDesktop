@@ -95,7 +95,7 @@ class JvmAudioPlayer(
 ) : AudioPlayer {
     private val audioDispatcher = newSingleThreadContext("OpenAL-Audio")
     private val scope = CoroutineScope(audioDispatcher + SupervisorJob())
-    
+
     private var device: Long = 0
     private var context: Long = 0
     private var useThreadLocalContext = false
@@ -106,7 +106,7 @@ class JvmAudioPlayer(
     private var sourceId: Int = 0
     private var numBuffers = settings.get(SettingKey.AudioBufferCount, 4)
     private var buffers: IntBuffer = BufferUtils.createIntBuffer(numBuffers)
-    
+
     private val _isPlaying = MutableStateFlow(false)
     override val isPlaying = _isPlaying.asStateFlow()
 
@@ -182,7 +182,7 @@ class JvmAudioPlayer(
     private fun updateAvailableDevices() {
         val devices = ALUtil.getStringList(0L, ALC11.ALC_ALL_DEVICES_SPECIFIER)
         _availableOutputDevices.value = devices ?: emptyList()
-        
+
         if (_currentOutputDevice.value == null) {
             _currentOutputDevice.value = alcGetString(0L, ALC_DEFAULT_DEVICE_SPECIFIER)
         }
@@ -195,7 +195,7 @@ class JvmAudioPlayer(
             device = alcOpenDevice(null as ByteBuffer?)
         }
         if (device == 0L) throw RuntimeException("Failed to open OpenAL device")
-        
+
         val deviceCaps = ALC.createCapabilities(device)
 
         val bufferSize = settings.getOrNull(SettingKey.AudioBufferSize)
@@ -204,7 +204,7 @@ class JvmAudioPlayer(
 
         val attributes = if (bufferSize != null || bufferCount != null || targetSampleRate != null) {
             val list = mutableListOf<Int>()
-            
+
             val freq = targetSampleRate ?: 48000
             val bSize = bufferSize ?: 1024
             val bCount = bufferCount ?: 4
@@ -240,7 +240,7 @@ class JvmAudioPlayer(
 
         context = alcCreateContext(device, attributes)
         if (context == 0L) throw RuntimeException("Failed to create OpenAL context")
-        
+
         useThreadLocalContext = deviceCaps.ALC_EXT_thread_local_context
         if (!makeContextCurrent(context)) {
             throw RuntimeException("Failed to make OpenAL context current")
@@ -271,14 +271,14 @@ class JvmAudioPlayer(
     override fun setOutputDevice(deviceSpecifier: String?) {
         if (_currentOutputDevice.value == deviceSpecifier) return
         _currentOutputDevice.value = deviceSpecifier
-        
+
         scope.launch {
             val wasPlaying = _isPlaying.value
             val currentPos = _currentPosition.value
             val currentSource = lastSource
 
             stopInternal(false, resetPosition = false, resetIsPlaying = false)
-            
+
             if (sourceId != 0) alDeleteSources(sourceId)
             if (buffers.get(0) != 0) alDeleteBuffers(buffers)
             if (context != 0L) {
@@ -528,7 +528,7 @@ class JvmAudioPlayer(
                     }
                     for (i in 0 until processed) {
                         val bufferId = alSourceUnqueueBuffers(sourceId)
-                        
+
                         val size = alGetBufferi(bufferId, AL_SIZE)
                         val bChannels = alGetBufferi(bufferId, AL_CHANNELS)
                         val bBits = alGetBufferi(bufferId, AL_BITS)
@@ -567,7 +567,7 @@ class JvmAudioPlayer(
                         samplesInCurrentBuffer.toLong()
                     }
                     _currentPosition.value = (contentFramesPlayedBase + contentInCurrentBuffer) * 1000 / sampleRate
-                    
+
                     // Sync FFT
                     while (fftQueue.size > 1) {
                         val it = fftQueue.iterator()

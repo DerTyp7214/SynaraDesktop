@@ -21,7 +21,6 @@ data class PlaybackQueue(
     val source: PlaybackSource = PlaybackSource.Manual
 )
 
-
 @Serializable
 sealed class PlaybackSource {
     abstract val id: String

@@ -4,7 +4,6 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
 import dev.dertyp.synara.material.ColorSchemeBuilder
 
-
 fun createColorSchemeFromSeeds(seeds: Triple<Int?, Int?, Int?>, isDark: Boolean): ColorScheme {
     val (primary, secondary, tertiary) = seeds
     val colors = ColorSchemeBuilder(

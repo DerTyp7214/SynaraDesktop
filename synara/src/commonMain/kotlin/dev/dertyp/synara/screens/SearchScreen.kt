@@ -44,7 +44,7 @@ class SearchScreen : Screen {
         val playerModel = koinInject<PlayerModel>()
         val navigator = LocalNavigator.currentOrThrow
         val query by globalState.searchQuery.collectAsState()
-        
+
         val isSearching by screenModel.isSearching.collectAsState()
         val searchMode by screenModel.searchMode.collectAsState()
         val songs by screenModel.songs.collectAsState()

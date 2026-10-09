@@ -88,9 +88,9 @@ fun convertToShortBuffer(
             if (isFloat) {
                 for (i in 0 until samplesCount) {
                     val bits = (data[i * 4].toInt() and 0xFF) or
-                            ((data[i * 4 + 1].toInt() and 0xFF) shl 8) or
-                            ((data[i * 4 + 2].toInt() and 0xFF) shl 16) or
-                            ((data[i * 4 + 3].toInt() and 0xFF) shl 24)
+                        ((data[i * 4 + 1].toInt() and 0xFF) shl 8) or
+                        ((data[i * 4 + 2].toInt() and 0xFF) shl 16) or
+                        ((data[i * 4 + 3].toInt() and 0xFF) shl 24)
                     val sample = Float.fromBits(bits).coerceIn(-1f, 1f)
                     shortBuffer.put((sample * Short.MAX_VALUE).toInt().toShort())
                 }

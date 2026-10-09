@@ -61,7 +61,7 @@ kotlin {
                 implementation(libs.ktor.serialization.kotlinx.cbor)
                 implementation(libs.kotlinx.rpc.krpc.serialization.cbor)
                 implementation(libs.ktor.client.websockets)
-                
+
                 // Persistence
                 implementation(libs.multiplatform.settings.no.arg)
                 implementation(libs.multiplatform.settings.serialization)
@@ -90,7 +90,7 @@ kotlin {
                 // Coil
                 implementation(libs.coil.compose)
                 implementation(libs.coil.network.ktor3)
-                
+
                 // KMPalette
                 implementation(libs.kmpalette.core)
                 implementation(libs.kmpalette.androidx.palette)
@@ -116,11 +116,11 @@ kotlin {
                              * IS_DEBUG is true for 'run' and local builds, false for packaging/release.
                              */
                             object BuildConfig {
-                                const val IS_DEBUG = ${gradle.startParameter.taskNames.none { 
-                                    it.contains("package", ignoreCase = true) || 
+                                const val IS_DEBUG = ${gradle.startParameter.taskNames.none {
+                                it.contains("package", ignoreCase = true) ||
                                     it.contains("release", ignoreCase = true) ||
                                     it.contains("createDistributable", ignoreCase = true)
-                                }}
+                            }}
                                 const val VERSION = "${getVersionName()}"
                                 const val VERSION_CODE = ${getVersionCode()}
                                 const val PRERELEASE = $prerelease
@@ -131,7 +131,7 @@ kotlin {
                 }
             )
         }
-        
+
         commonTest {
             dependencies {
                 implementation(kotlin("test"))
@@ -161,7 +161,7 @@ kotlin {
                 implementation(libs.concentus)
                 implementation(libs.vorbis.java)
                 implementation(libs.jlayer)
-                
+
                 implementation(libs.sqldelight.sqlite.driver)
                 implementation(libs.hikari)
 
@@ -223,13 +223,13 @@ tasks.register("generateIcons") {
     val outputDir = layout.buildDirectory.dir("generated/icons")
     inputs.file(inputIcon)
     outputs.dir(outputDir)
-    
+
     doLast {
         if (!outputDir.get().asFile.exists()) outputDir.get().asFile.mkdirs()
-        
+
         val icoFile = outputDir.get().file("icon.ico").asFile
         val icnsFile = outputDir.get().file("icon.icns").asFile
-        
+
         fun runCommand(vararg args: String): Boolean {
             return try {
                 providers.exec {
@@ -255,12 +255,12 @@ tasks.register("generateIcons") {
             if (!toolDir.exists()) toolDir.mkdirs()
             val binaryName = if (isWindows) "magick.exe" else "magick"
             val binary = File(toolDir, binaryName)
-            
+
             if (!binary.exists()) {
                 logger.lifecycle("ImageMagick not found. Attempting to download binary...")
                 try {
                     val index = URI("https://imagemagick.org/archive/binaries/").toURL().readText()
-                    
+
                     fun findBinary(pattern: String): String? {
                         return """href="($pattern)"""".toRegex().findAll(index)
                             .maxOfOrNull { it.groupValues[1] }?.let { "https://imagemagick.org/archive/binaries/$it" }
@@ -303,12 +303,12 @@ tasks.register("generateIcons") {
                     } else {
                         downloadFile.copyTo(binary, overwrite = true)
                     }
-                    
+
                     if (url.endsWith(".zip") || url.endsWith(".tar.gz") || url.endsWith(".7z")) {
                         toolDir.walkTopDown().find { it.name == binaryName && it.isFile }
                             ?.copyTo(binary, overwrite = true)
                     }
-                    
+
                     if (!isWindows) binary.setExecutable(true)
                 } catch (e: Exception) {
                     logger.warn("Failed to download ImageMagick: ${e.message}")
@@ -327,7 +327,7 @@ tasks.register("generateIcons") {
                 providers.exec {
                     commandLine(*magickExec.toTypedArray(), inputIcon.absolutePath, "-define", "icns:auto-resize=16,32,64,128,256,512,1024", icnsFile.absolutePath)
                 }.result.get()
-                
+
                 logger.lifecycle("Icons generated successfully using ${magickExec.joinToString(" ")}.")
                 iconsGenerated = true
             } catch (e: Exception) {
@@ -343,7 +343,7 @@ tasks.register("generateIcons") {
             } catch (_: Exception) {
                 false
             }
-            
+
             if (success) {
                 logger.lifecycle("ICNS generated successfully using sips. ICO skipped.")
                 iconsGenerated = true
@@ -351,7 +351,7 @@ tasks.register("generateIcons") {
                 logger.warn("sips failed to generate ICNS. Please install ImageMagick (e.g. 'brew install imagemagick') for full icon support.")
             }
         }
-        
+
         if (!iconsGenerated && magickExec == null && (!isMac || !runCommand("sips", "--help"))) {
             logger.error("No image conversion tool found (convert, magick, or sips). Please install ImageMagick.")
         }

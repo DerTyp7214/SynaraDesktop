@@ -73,10 +73,10 @@ fun rememberCoverLuminance(coverId: PlatformUUID?): Float {
                 val height = composeBitmap.height
                 val size = width * height
                 if (size == 0) return@withContext 0.5f
-                
+
                 val pixels = IntArray(size)
                 composeBitmap.readPixels(pixels)
-                
+
                 var sum = 0.0
                 for (p in pixels) {
                     sum += Color(p).luminance()
@@ -125,8 +125,8 @@ fun BlurredCoverBackground(
                         val target = if (isPlaying) audioIntensity else 0f
                         val lerpFactor = (dt / 16.67f).coerceIn(0f, 1f)
 
-                        val riseAlpha = 1f - 0.70f.pow(lerpFactor) 
-                        val fallAlpha = 1f - 0.96f.pow(lerpFactor) 
+                        val riseAlpha = 1f - 0.70f.pow(lerpFactor)
+                        val fallAlpha = 1f - 0.96f.pow(lerpFactor)
 
                         val alpha = if (target > manualSmoothedIntensity) riseAlpha else fallAlpha
                         manualSmoothedIntensity += (target - manualSmoothedIntensity) * alpha

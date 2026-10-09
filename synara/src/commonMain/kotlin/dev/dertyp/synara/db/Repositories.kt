@@ -52,7 +52,7 @@ interface RecentlyPlayedRepository {
     fun getSongsFlow(userId: PlatformUUID, limit: Long): Flow<List<UserSong>>
     fun getAlbumsFlow(userId: PlatformUUID, limit: Long): Flow<List<Album>>
     fun getArtistsFlow(userId: PlatformUUID, limit: Long): Flow<List<Artist>>
-    
+
     suspend fun deleteAllSongs(userId: PlatformUUID)
     suspend fun deleteAllAlbums(userId: PlatformUUID)
     suspend fun deleteAllArtists(userId: PlatformUUID)
@@ -90,7 +90,7 @@ interface LibraryRepository {
     suspend fun saveAlbumMetadata(album: Album, explicitlySaved: Boolean)
     suspend fun saveArtistMetadata(artist: Artist, explicitlySaved: Boolean)
     suspend fun savePlaylistMetadata(playlist: UserPlaylist, explicitlySaved: Boolean)
-    
+
     suspend fun addSongToPlaylist(playlistId: PlatformUUID, songId: PlatformUUID)
     suspend fun addSongsToPlaylist(playlistId: PlatformUUID, songIds: List<PlatformUUID>)
     suspend fun removeSongFromPlaylist(playlistId: PlatformUUID, songId: PlatformUUID)
@@ -112,7 +112,7 @@ interface LibraryRepository {
     suspend fun deleteAlbum(id: PlatformUUID)
     suspend fun deleteArtist(id: PlatformUUID)
     suspend fun deletePlaylist(id: PlatformUUID)
-    
+
     suspend fun getSong(id: PlatformUUID): UserSong?
     suspend fun getAlbum(id: PlatformUUID): Album?
     suspend fun getArtist(id: PlatformUUID): Artist?

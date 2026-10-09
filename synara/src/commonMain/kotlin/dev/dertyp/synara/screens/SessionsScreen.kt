@@ -217,11 +217,11 @@ class SessionsScreen : Screen {
         onDelete: () -> Unit
     ) {
         val isMobile = session.userAgent.contains("Android", ignoreCase = true) ||
-                session.userAgent.contains("iPhone", ignoreCase = true)
+            session.userAgent.contains("iPhone", ignoreCase = true)
         val isDesktop = session.userAgent.contains("Electron", ignoreCase = true) ||
-                session.userAgent.contains("Windows", ignoreCase = true) ||
-                session.userAgent.contains("Macintosh", ignoreCase = true) ||
-                (session.userAgent.contains("Linux", ignoreCase = true) && !session.userAgent.contains("Android", ignoreCase = true))
+            session.userAgent.contains("Windows", ignoreCase = true) ||
+            session.userAgent.contains("Macintosh", ignoreCase = true) ||
+            (session.userAgent.contains("Linux", ignoreCase = true) && !session.userAgent.contains("Android", ignoreCase = true))
 
         ListItem(
             modifier = Modifier.fillMaxWidth(),
@@ -230,8 +230,8 @@ class SessionsScreen : Screen {
                     text = session.userAgent,
                     maxLines = 1,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = if (session.isActive) MaterialTheme.colorScheme.onSurface 
-                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    color = if (session.isActive) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                 )
             },
             supportingContent = {
@@ -239,14 +239,14 @@ class SessionsScreen : Screen {
                     Text(
                         text = stringResource(Res.string.last_active, session.lastActive.formatDateTime()),
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (session.isActive) MaterialTheme.colorScheme.onSurfaceVariant 
-                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                        color = if (session.isActive) MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
                     )
                     Text(
                         text = session.ipAddress,
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (session.isActive) MaterialTheme.colorScheme.onSurfaceVariant 
-                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                        color = if (session.isActive) MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
                     )
                 }
             },
@@ -258,8 +258,8 @@ class SessionsScreen : Screen {
                         else -> SynaraIcons.DeviceGeneric.get()
                     },
                     contentDescription = null,
-                    tint = if (session.isActive) MaterialTheme.colorScheme.primary 
-                           else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    tint = if (session.isActive) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                 )
             },
             trailingContent = {

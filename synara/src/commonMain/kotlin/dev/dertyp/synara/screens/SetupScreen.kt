@@ -76,7 +76,7 @@ class SetupScreen : Screen {
 
                         InternalTextField(
                             value = host,
-                            onValueChange = { 
+                            onValueChange = {
                                 host = it
                                 screenModel.resetTestConnectionResult()
                             },

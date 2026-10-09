@@ -370,7 +370,7 @@ fun PlayerBar(
             val isDark = isAppDark()
             val coverImageId = if (isPodcast) currentEpisode?.artworkId else currentSong?.animatedCoverImageId ?: currentSong?.coverId
             val colorScheme by rememberCoverScheme(coverImageId, isDark = isDark)
-            
+
             val dynamicColorScheme = remember(videoFrameSeeds.value, colorScheme, isDark) {
                 if (videoFrameSeeds.value.first != null) {
                     createColorSchemeFromSeeds(videoFrameSeeds.value, isDark)

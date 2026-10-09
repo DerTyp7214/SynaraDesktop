@@ -108,7 +108,7 @@ fun SimilarSongsDialog(
                         text = stringResource(Res.string.discovery_criterion),
                         style = MaterialTheme.typography.labelLarge
                     )
-                    
+
                     Box {
                         Surface(
                             onClick = { expanded = true },

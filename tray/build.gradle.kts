@@ -6,7 +6,7 @@ plugins {
 
 kotlin {
     jvm()
-    
+
     sourceSets {
         commonMain {
             dependencies {

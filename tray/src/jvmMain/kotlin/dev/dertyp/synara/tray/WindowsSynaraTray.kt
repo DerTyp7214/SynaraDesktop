@@ -28,7 +28,7 @@ class WindowsSynaraTray : SynaraTray {
             } else {
                 val coloredResource = Thread.currentThread().contextClassLoader.getResource("tray.png")
                     ?: this::class.java.classLoader.getResource("tray.png")
-                
+
                 if (coloredResource != null) {
                     ImageIO.read(coloredResource)
                 } else {

@@ -122,7 +122,7 @@ actual fun platformModule(): Module = module {
 
 actual fun platformInit() {
     System.setProperty("compose.accessibility.enable", "false")
-    
+
     val koin = getKoin()
     val logger = koin.get<Logger>()
     val storageService = koin.get<LocalStorageService>()

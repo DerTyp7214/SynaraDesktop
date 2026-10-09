@@ -71,9 +71,9 @@ fun ArtistListDialog(
                                     size = 48.dp,
                                     fallbackIcon = SynaraIcons.Artists
                                 )
-                                
+
                                 Spacer(modifier = Modifier.width(16.dp))
-                                
+
                                 Text(
                                     text = artist.name,
                                     style = MaterialTheme.typography.bodyLarge,

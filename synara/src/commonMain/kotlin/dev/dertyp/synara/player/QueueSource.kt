@@ -59,7 +59,7 @@ abstract class BasePagedQueueSource(override val id: String) : QueueSource {
         cacheMutex.withLock {
             cache[index]?.let { return it }
         }
-        
+
         val page = index / pageSize
 
         val deferred = inFlightMutex.withLock {
@@ -160,7 +160,7 @@ class SearchQueueSource(
     override fun fetchIdFlow(): Flow<PlatformUUID> = flow {
         val firstPage = fetchPage(0, pageSize)
         firstPage.data.forEach { emit(it.id) }
-        
+
         var currentPage = 1
         var fetched = firstPage.data.size
         while (fetched < firstPage.total) {

@@ -314,7 +314,7 @@ fun RecentReleaseDialog(
                     val handledUrls = handlerLinks.map { it.first }.toSet()
                     release.links.filter {
                         !it.contains("musicbrainz.org", ignoreCase = true) &&
-                                it !in handledUrls
+                            it !in handledUrls
                     }
                 }
 
@@ -417,7 +417,7 @@ private fun ReleaseVersionItem(
         val handledUrls = handlerLinks.map { it.first }.toSet()
         version.links.filter {
             !it.contains("musicbrainz.org", ignoreCase = true) &&
-                    it !in handledUrls
+                it !in handledUrls
         }
     }
 

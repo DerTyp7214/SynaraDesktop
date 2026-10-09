@@ -64,10 +64,10 @@ class ColorSchemeBuilder(
     fun build(): Map<Key, Int> {
         val hct = Hct.fromInt(seedColor)
         val palette = TonalPalette.fromInt(seedColor)
-        
-        val secondaryPalette = secondarySeedColor?.let { TonalPalette.fromInt(it) } 
+
+        val secondaryPalette = secondarySeedColor?.let { TonalPalette.fromInt(it) }
             ?: TonalPalette.fromHueAndChroma(hct.hue, 16.0)
-            
+
         val tertiaryPalette = tertiarySeedColor?.let { TonalPalette.fromInt(it) }
             ?: TonalPalette.fromHueAndChroma(hct.hue + 60.0, 24.0)
 

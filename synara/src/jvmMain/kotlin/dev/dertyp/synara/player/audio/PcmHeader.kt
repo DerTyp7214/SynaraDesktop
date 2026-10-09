@@ -225,16 +225,16 @@ data class PcmHeader(
 
         private fun readIntLe(bytes: ByteArray, offset: Int): Int =
             (bytes[offset].toInt() and 0xFF) or
-                    ((bytes[offset + 1].toInt() and 0xFF) shl 8) or
-                    ((bytes[offset + 2].toInt() and 0xFF) shl 16) or
-                    ((bytes[offset + 3].toInt() and 0xFF) shl 24)
+                ((bytes[offset + 1].toInt() and 0xFF) shl 8) or
+                ((bytes[offset + 2].toInt() and 0xFF) shl 16) or
+                ((bytes[offset + 3].toInt() and 0xFF) shl 24)
 
         private fun readShortLe(bytes: ByteArray, offset: Int): Int =
             (bytes[offset].toInt() and 0xFF) or ((bytes[offset + 1].toInt() and 0xFF) shl 8)
 
         private fun readLong(bytes: ByteArray, offset: Int): Long =
             (AiffHeader.readInt(bytes, offset).toLong() shl 32) or
-                    (AiffHeader.readInt(bytes, offset + 4).toLong() and 0xFFFFFFFFL)
+                (AiffHeader.readInt(bytes, offset + 4).toLong() and 0xFFFFFFFFL)
 
         private fun writeInt(bytes: ByteArray, offset: Int, value: Int) {
             bytes[offset] = (value ushr 24).toByte()

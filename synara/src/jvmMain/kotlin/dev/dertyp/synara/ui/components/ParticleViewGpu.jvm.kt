@@ -98,7 +98,7 @@ internal class ParticleSystem(val capacity: Int) {
             life[i] -= decay[i] * normalizedDt
 
             val isOutOfBounds = x[i] < -PARTICLE_MARGIN || x[i] > width + PARTICLE_MARGIN ||
-                    y[i] < -PARTICLE_MARGIN || y[i] > height + PARTICLE_MARGIN
+                y[i] < -PARTICLE_MARGIN || y[i] > height + PARTICLE_MARGIN
 
             val isDead = life[i] <= 0f || isOutOfBounds
             if (isDead) {

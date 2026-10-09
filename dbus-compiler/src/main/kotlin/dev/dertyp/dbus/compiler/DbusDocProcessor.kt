@@ -31,16 +31,16 @@ class DbusDocProcessor(
 
         val anySourceFile = symbols.first().containingFile?.filePath ?: return emptyList()
         val projectRoot = findProjectRoot(File(anySourceFile))
-        
+
         val docPath = options["dbus.doc.path"] ?: "docs"
         val docName = options["dbus.doc.name"] ?: "DBUS_API.md"
-        
+
         val docsDir = if (docPath.startsWith("/")) File(docPath) else File(projectRoot, docPath)
         if (!docsDir.exists()) docsDir.mkdirs()
         val docFile = File(docsDir, docName)
 
         val modelsToDocument = mutableSetOf<KSClassDeclaration>()
-        
+
         symbols.forEach { symbol ->
             symbol.getAllFunctions().forEach { func ->
                 val fDoc = func.annotations.find { it.shortName.asString() == "DbusMethodDoc" }
@@ -91,8 +91,8 @@ class DbusDocProcessor(
         if (decl is KSClassDeclaration && (decl.classKind == ClassKind.CLASS || decl.classKind == ClassKind.ENUM_CLASS)) {
             val qName = decl.qualifiedName?.asString() ?: ""
             val isBuiltIn = qName.startsWith("kotlin.") ||
-                    qName.startsWith("java.") ||
-                    qName.startsWith("dev.dertyp.Platform")
+                qName.startsWith("java.") ||
+                qName.startsWith("dev.dertyp.Platform")
 
             if (!isBuiltIn && !set.any { it.qualifiedName?.asString() == qName }) {
                 set.add(decl)
@@ -117,14 +117,14 @@ class DbusDocProcessor(
         val name = symbol.simpleName.asString()
         val dbusInterface = symbol.annotations.find { it.shortName.asString() == "DBusInterfaceName" }
             ?.arguments?.firstOrNull()?.value as? String ?: name
-            
+
         val docAnnotation = symbol.annotations.find { it.shortName.asString() == "DbusDoc" }
         val description = docAnnotation?.arguments?.firstOrNull()?.value as? String ?: ""
 
         out.writeLine("## Interface: `$dbusInterface`")
         if (description.isNotEmpty()) out.writeLine(description)
         out.writeLine("")
-        
+
         out.writeLine("### Summary")
         out.writeLine("")
         out.writeLine("| Method | Parameters | Returns | Description |")
@@ -138,7 +138,7 @@ class DbusDocProcessor(
             val fName = func.simpleName.asString()
             val fDoc = func.annotations.find { it.shortName.asString() == "DbusMethodDoc" }
             val desc = fDoc?.arguments?.find { it.name?.asString() == "description" }?.value as? String ?: ""
-            
+
             val params = func.parameters.joinToString("<br>") { param ->
                 val pName = param.name?.asString() ?: "arg"
                 val pType = param.type.resolve().toTypeString(documentedModels)
@@ -165,7 +165,7 @@ class DbusDocProcessor(
             val fName = func.simpleName.asString()
             val fDoc = func.annotations.find { it.shortName.asString() == "DbusMethodDoc" }
             val desc = fDoc?.arguments?.find { it.name?.asString() == "description" }?.value as? String ?: ""
-            
+
             out.writeLine("#### `$fName`")
             if (desc.isNotEmpty()) out.writeLine(desc)
             out.writeLine("")
@@ -181,7 +181,7 @@ class DbusDocProcessor(
                     val pType = type.toTypeString(documentedModels)
                     val pDoc = param.annotations.find { it.shortName.asString() == "DbusParamDoc" }
                     val pDesc = pDoc?.arguments?.find { it.name?.asString() == "description" }?.value as? String ?: ""
-                    
+
                     val keyType = if (type.declaration.simpleName.asString() == "Map") type.arguments.getOrNull(0)?.type?.resolve() else null
                     val fullDesc = if (keyType?.declaration is KSClassDeclaration && (keyType.declaration as KSClassDeclaration).classKind == ClassKind.ENUM_CLASS) {
                         val keyName = keyType.declaration.simpleName.asString()
@@ -189,7 +189,7 @@ class DbusDocProcessor(
                     } else {
                         pDesc
                     }
-                    
+
                     out.writeLine("| `$pName` | $pType | $fullDesc |")
                 }
                 out.writeLine("")
@@ -211,7 +211,7 @@ class DbusDocProcessor(
 
         val dest = "org.mpris.MediaPlayer2.synara"
         val path = "/dev/dertyp/synara"
-        
+
         val args = customExample.ifEmpty {
             func.parameters.joinToString(" ") { param ->
                 val type = param.type.resolve()
@@ -227,10 +227,10 @@ class DbusDocProcessor(
                     "Map" -> {
                         val keyType = type.arguments.getOrNull(0)?.type?.resolve()
                         val valueType = type.arguments.getOrNull(1)?.type?.resolve()?.declaration?.simpleName?.asString() ?: "Variant"
-                        
+
                         val dbusKeyType = toDbusTypeName(keyType?.declaration?.simpleName?.asString() ?: "String")
                         val dbusValueType = toDbusTypeName(valueType)
-                        
+
                         val keyEx = if (keyType?.declaration is KSClassDeclaration && (keyType.declaration as KSClassDeclaration).classKind == ClassKind.ENUM_CLASS) {
                             (keyType.declaration as KSClassDeclaration).declarations
                                 .filterIsInstance<KSClassDeclaration>()
@@ -239,7 +239,7 @@ class DbusDocProcessor(
                         } else {
                             "key"
                         }
-                        
+
                         val valEx = if (dbusValueType == "variant") "variant:boolean:${pExample.ifEmpty { "true" }}" else "true"
                         "dict:$dbusKeyType:$dbusValueType:\"$keyEx\",$valEx"
                     }
@@ -250,10 +250,10 @@ class DbusDocProcessor(
 
         val returnsModel = methodAnnotation?.arguments?.find { it.name?.asString() == "returnsModel" }?.value as? KSType
         val isJson = returnsModel != null && returnsModel.declaration.simpleName.asString() != "Any"
-        
+
         val printReply = if (func.returnType?.resolve()?.declaration?.simpleName?.asString() != "Unit" || isJson) "--print-reply=literal " else ""
         val pipe = if (isJson) " | jq ." else ""
-        
+
         return "dbus-send --session $printReply--dest=$dest $path $dbusInterface.$methodName $args$pipe"
     }
 
@@ -275,7 +275,7 @@ class DbusDocProcessor(
         val name = model.simpleName.asString()
         out.writeLine("### $name")
         out.writeLine("")
-        
+
         if (model.classKind == ClassKind.ENUM_CLASS) {
             out.writeLine("| Value | Description |")
             out.writeLine("| :--- | :--- |")
@@ -319,6 +319,6 @@ class DbusDocProcessor(
 }
 
 class DbusDocProcessorProvider : SymbolProcessorProvider {
-    override fun create(environment: SymbolProcessorEnvironment) = 
+    override fun create(environment: SymbolProcessorEnvironment) =
         DbusDocProcessor(environment.codeGenerator, environment.logger, environment.options)
 }

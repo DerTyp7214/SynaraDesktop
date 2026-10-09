@@ -32,7 +32,7 @@ interface IDownloadManager {
     fun downloadArtist(artistId: PlatformUUID, explicitlySaved: Boolean = true)
     fun downloadPlaylist(playlistId: PlatformUUID, explicitlySaved: Boolean = true)
     fun downloadFavorites()
-    
+
     fun removeSong(id: PlatformUUID)
     fun removeAlbum(id: PlatformUUID)
     fun removeArtist(id: PlatformUUID)

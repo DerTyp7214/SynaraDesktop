@@ -82,7 +82,7 @@ class TaskManagerScreen : Screen {
                     title = { Text(stringResource(Res.string.task_manager)) },
                     navigationIcon = {
                         if (navigator != null && (navigator.canPop || detachedActions != null)) {
-                            IconButton(onClick = { 
+                            IconButton(onClick = {
                                 if (navigator.canPop) {
                                     navigator.pop()
                                 } else {
@@ -158,7 +158,7 @@ class TaskManagerScreen : Screen {
                 InfoRow(stringResource(Res.string.heap_used), stats.heapMemory.formatBytes())
                 InfoRow(stringResource(Res.string.heap_max), stats.heapMemoryMax.formatBytes())
                 InfoRow(stringResource(Res.string.non_heap_used), stats.nonHeapMemory.formatBytes())
-                
+
                 LinearProgressIndicator(
                     progress = { if (stats.heapMemoryMax > 0) stats.heapMemory.toFloat() / stats.heapMemoryMax else 0f },
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -175,7 +175,7 @@ class TaskManagerScreen : Screen {
                 InfoRow("${stringResource(Res.string.process_load)} (${stringResource(Res.string.per_core)})", "${(stats.processCpuLoad * stats.availableProcessors * 100).roundToNDecimals(1)}%")
                 InfoRow(stringResource(Res.string.system_load), "${(stats.systemCpuLoad * 100).roundToNDecimals(1)}%")
                 InfoRow(stringResource(Res.string.available_processors), stats.availableProcessors.toString())
-                
+
                 LinearProgressIndicator(
                     progress = { (stats.processCpuLoad * 10.0).toFloat().coerceIn(0f, 1f) },
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),

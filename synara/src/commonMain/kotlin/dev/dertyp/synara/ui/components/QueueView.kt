@@ -82,7 +82,7 @@ fun QueueView(
         if (isQueueExpanded && currentIndex >= 0 && currentIndex < queue.size) {
             val visibleItems = lazyListState.layoutInfo.visibleItemsInfo
             val isVisible = visibleItems.any { it.index == currentIndex }
-            
+
             if (!isVisible) {
                 val firstVisible = lazyListState.firstVisibleItemIndex
                 val distance = abs(firstVisible - currentIndex)
@@ -178,11 +178,11 @@ fun QueueView(
                                                 onDrag = { change, dragAmount ->
                                                     change.consume()
                                                     draggingOffset += dragAmount.y
-                                                    
+
                                                     val currentIdx = draggedItemIndex ?: return@detectDragGestures
                                                     val itemHeight = 60f
                                                     val targetOffset = (draggingOffset / itemHeight).toInt()
-                                                    
+
                                                     if (targetOffset != 0) {
                                                         val targetIndex = (currentIdx + targetOffset).coerceIn(0, queue.size - 1)
                                                         if (targetIndex != currentIdx) {
@@ -199,7 +199,7 @@ fun QueueView(
                             } else {
                                 Spacer(modifier = Modifier.padding(start = 12.dp).size(24.dp))
                             }
-                            
+
                             SongItem(
                                 song = song,
                                 isCurrent = isCurrent,

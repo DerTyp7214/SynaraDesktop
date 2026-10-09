@@ -487,14 +487,14 @@ fun runTransparentWindow(
     }
 
     glfwSetScrollCallback(windowHandle) { _, xOffset, yOffset ->
-        val isShiftPressed = glfwGetKey(windowHandle, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || 
-                             glfwGetKey(windowHandle, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS
+        val isShiftPressed = glfwGetKey(windowHandle, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
+            glfwGetKey(windowHandle, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS
         val isCtrlPressed = glfwGetKey(windowHandle, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS ||
-                            glfwGetKey(windowHandle, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS
+            glfwGetKey(windowHandle, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS
         val isAltPressed = glfwGetKey(windowHandle, GLFW_KEY_LEFT_ALT) == GLFW_PRESS ||
-                           glfwGetKey(windowHandle, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS
+            glfwGetKey(windowHandle, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS
         val isMetaPressed = glfwGetKey(windowHandle, GLFW_KEY_LEFT_SUPER) == GLFW_PRESS ||
-                            glfwGetKey(windowHandle, GLFW_KEY_RIGHT_SUPER) == GLFW_PRESS
+            glfwGetKey(windowHandle, GLFW_KEY_RIGHT_SUPER) == GLFW_PRESS
 
         val scrollX = if (isShiftPressed) -yOffset else xOffset
         val scrollY = if (isShiftPressed) xOffset else -yOffset

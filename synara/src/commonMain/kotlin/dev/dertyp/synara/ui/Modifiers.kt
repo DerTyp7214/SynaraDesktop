@@ -24,7 +24,7 @@ fun Modifier.fadingEdge(
     .drawWithContent {
         drawContent()
         val fadeLengthPx = fadeLength.toPx()
-        
+
         val brush = when (orientation) {
             Orientation.Horizontal -> {
                 Brush.horizontalGradient(

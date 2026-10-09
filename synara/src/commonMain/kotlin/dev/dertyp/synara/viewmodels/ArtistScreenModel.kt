@@ -110,7 +110,7 @@ class ArtistScreenModel(
     fun playSong(song: UserSong) {
         val index = state.value.topSongs.indexOf(song)
         if (index != -1) {
-             playerModel.playQueue(
+            playerModel.playQueue(
                 PlaybackQueue(
                     source = PlaybackSource.Artist(artistId)
                 ),

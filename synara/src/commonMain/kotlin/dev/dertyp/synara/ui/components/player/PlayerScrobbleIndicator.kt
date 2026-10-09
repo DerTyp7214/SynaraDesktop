@@ -44,7 +44,7 @@ fun PlayerScrobbleIndicator(
     modifier: Modifier = Modifier
 ) {
     var showScrobbleInfo by remember { mutableStateOf(false) }
-    
+
     val durationLeft = BaseScrobbler.requiredDuration(
         scrobbledFor.seconds,
         currentSong.duration.milliseconds

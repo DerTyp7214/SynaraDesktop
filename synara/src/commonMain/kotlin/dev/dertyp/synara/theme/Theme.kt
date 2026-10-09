@@ -67,7 +67,7 @@ fun SynaraColorScheme(isDarkTheme: Boolean = isAppDark()): ColorScheme {
     val lightColorScheme by Config.lightColorScheme.collectAsState()
     val useSongColor by Config.useSongColor.collectAsState()
     val usePywal by Config.usePywal.collectAsState()
-    
+
     val playerModel: PlayerModel = koinInject()
     val currentSong by playerModel.currentSong.collectAsState()
     val podcastPlayer: PodcastPlayer = koinInject()
@@ -83,7 +83,7 @@ fun SynaraColorScheme(isDarkTheme: Boolean = isAppDark()): ColorScheme {
         ActivePlayer.SONGS -> currentSong?.coverId
         ActivePlayer.PODCAST -> currentEpisode?.artworkId
     }
-    
+
     val coverScheme by rememberCoverScheme(
         coverId = if (useSongColor) activeCoverId else null,
         isDark = isDarkTheme

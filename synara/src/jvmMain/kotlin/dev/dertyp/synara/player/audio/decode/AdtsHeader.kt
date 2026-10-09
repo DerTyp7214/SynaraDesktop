@@ -36,8 +36,8 @@ data class AdtsHeader(
             if (sampleRateIndex >= SAMPLE_RATES.size) return null
             val channelConfig = ((b2 and 0x01) shl 2) or ((bytes.u8(offset + 3) shr 6) and 0x03)
             val frameLength = ((bytes.u8(offset + 3) and 0x03) shl 11) or
-                    (bytes.u8(offset + 4) shl 3) or
-                    ((bytes.u8(offset + 5) shr 5) and 0x07)
+                (bytes.u8(offset + 4) shl 3) or
+                ((bytes.u8(offset + 5) shr 5) and 0x07)
             val header = AdtsHeader(profile, sampleRateIndex, channelConfig, frameLength, protectionAbsent)
             if (frameLength <= header.headerLength) return null
             return header

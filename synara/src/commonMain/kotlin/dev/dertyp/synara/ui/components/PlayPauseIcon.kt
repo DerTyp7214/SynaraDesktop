@@ -46,7 +46,7 @@ fun PlayPauseIcon(
         fun drawMorph(points: List<Offset>, radii: List<Float>) {
             val path = Path()
             val n = points.size
-            
+
             fun getDir(from: Offset, to: Offset): Offset {
                 val d = to - from
                 val m = d.getDistance()
@@ -58,18 +58,18 @@ fun PlayPauseIcon(
                 val prev = points[(i + n - 1) % n]
                 val next = points[(i + 1) % n]
                 val cornerR = radii[i]
-                
+
                 if (cornerR > 0.1f) {
                     val d1 = getDir(prev, curr)
                     val d2 = getDir(curr, next)
                     val dist1 = (curr - prev).getDistance()
                     val dist2 = (next - curr).getDistance()
-                    
+
                     val actualR = min(cornerR, min(dist1 / 2.1f, dist2 / 2.1f))
-                    
+
                     val pStart = curr - d1 * actualR
                     val pEnd = curr + d2 * actualR
-                    
+
                     if (i == 0) path.moveTo(pStart.x, pStart.y)
                     else path.lineTo(pStart.x, pStart.y)
                     path.quadraticTo(curr.x, curr.y, pEnd.x, pEnd.y)

@@ -78,7 +78,7 @@ data class SimilarSongsScreen(
         val screenModel = getScreenModel<SimilarSongsScreenModel> { parametersOf(seed, criterion, limit) }
         RegisterRefreshTarget(screenModel)
         val state by screenModel.state.collectAsState()
-        
+
         var showCreatePlaylistDialog by remember { mutableStateOf(false) }
         var seedExpanded by remember { mutableStateOf(false) }
 
@@ -128,7 +128,7 @@ data class SimilarSongsScreen(
                     )
                 } else {
                     val currentSong by screenModel.playerModel.currentSong.collectAsState()
-                    
+
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp)

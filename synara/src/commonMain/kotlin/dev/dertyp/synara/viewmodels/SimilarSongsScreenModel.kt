@@ -68,7 +68,7 @@ class SimilarSongsScreenModel(
                 is SimilarSongsSeed.Playlist -> fetchByPlaylist(seed.playlistId)
                 is SimilarSongsSeed.Album -> fetchByAlbum(seed.albumId)
             }
-            
+
             mutableState.update { it.copy(seedSongs = seedSongs, songs = songs, isLoading = false, error = null) }
         } catch (e: Exception) {
             mutableState.update {

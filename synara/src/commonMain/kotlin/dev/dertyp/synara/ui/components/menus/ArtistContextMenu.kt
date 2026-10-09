@@ -43,7 +43,7 @@ fun ArtistContextMenu(
 ) {
     val scope = rememberCoroutineScope()
     val user by globalState.user.collectAsState()
-    
+
     var showMergeDialog by remember { mutableStateOf(false) }
     var showSplitDialog by remember { mutableStateOf(false) }
     var showSetGroupDialog by remember { mutableStateOf(false) }

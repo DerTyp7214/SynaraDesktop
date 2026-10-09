@@ -77,19 +77,19 @@ actual class PerformanceMonitor actual constructor(private val songCache: SongCa
 
                 val heapUsage = memoryMXBean.heapMemoryUsage
                 val nonHeapUsage = memoryMXBean.nonHeapMemoryUsage
-                
+
                 val threadIds = threadMXBean.allThreadIds.toList()
                 var totalProcessCpuTimeDiff = 0.0
-                
+
                 val allThreadStats = threadIds.map { id ->
                     val info = threadMXBean.getThreadInfo(id)
                     val currentCpuTime = threadMXBean.getThreadCpuTime(id)
-                    
+
                     if (info == null || currentCpuTime == -1L) return@map null
-                    
+
                     val lastTime = threadCpuTimes[id]
                     threadCpuTimes[id] = currentCpuTime
-                    
+
                     val cpuUsage = if (lastTime != null && lastTime != -1L) {
                         val diff = (currentCpuTime - lastTime).toDouble()
                         if (diff > 0) {
@@ -97,7 +97,7 @@ actual class PerformanceMonitor actual constructor(private val songCache: SongCa
                             diff / wallDiff
                         } else 0.0
                     } else 0.0
-                    
+
                     ThreadStat(
                         id = id,
                         name = info.threadName,
@@ -114,7 +114,7 @@ actual class PerformanceMonitor actual constructor(private val songCache: SongCa
                 val availableProcessors = Runtime.getRuntime().availableProcessors()
                 val osProcessLoad = osMXBean.processCpuLoad
                 val processCpuLoad = if (osProcessLoad >= 0) osProcessLoad else (totalProcessCpuTimeDiff / wallDiff / availableProcessors)
-                
+
                 val systemCpuLoad = osMXBean.cpuLoad.coerceIn(0.0, 1.0)
 
                 val imageLoader = SingletonImageLoader.get(PlatformContext.INSTANCE)
@@ -123,7 +123,7 @@ actual class PerformanceMonitor actual constructor(private val songCache: SongCa
                 val rss = getResidentSetSize()
                 val jvmTotal = heapUsage.used + nonHeapUsage.used
                 val direct = bufferPools.sumOf { it.memoryUsed }
-                
+
                 val poolStats = memoryPools.map { pool ->
                     MemoryPoolStat(
                         name = pool.name,

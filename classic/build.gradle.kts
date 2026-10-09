@@ -38,7 +38,7 @@ compose.desktop {
             val synaraVersion = project(":synara").version.toString()
             packageVersion = synaraVersion.split("-")[0]
             packageName = "Synara"
-            
+
             val commonIcon = project(":synara").projectDir.resolve("src/commonMain/resources/icon.png")
             val synaraGeneratedIconsDir = project(":synara").layout.buildDirectory.dir("generated/icons")
 

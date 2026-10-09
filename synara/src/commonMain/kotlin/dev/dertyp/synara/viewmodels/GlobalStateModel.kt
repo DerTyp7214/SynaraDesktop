@@ -114,7 +114,7 @@ class GlobalStateModel(
                 }
             }
         }
-        
+
         scope.launch(modelDispatcher) {
             Config.isLastFmEnabled.collectLatest { enabled ->
                 if (enabled) {

@@ -144,7 +144,7 @@ class HomeScreen : Screen {
                                     SlideTransition(navigator)
                                 }
                             }
-                            
+
                             SnackbarHost(
                                 hostState = snackbarManager.snackbarHostState,
                                 modifier = Modifier
@@ -545,7 +545,7 @@ class HomeScreen : Screen {
     @OptIn(ExperimentalFoundationApi::class)
     @Composable
     private fun PlaylistNavItem(
-        playlist: UserPlaylist, 
+        playlist: UserPlaylist,
         selected: Boolean,
         onClick: () -> Unit
     ) {
@@ -613,9 +613,9 @@ class HomeScreen : Screen {
 
     @Composable
     private fun TopBar(
-        screenModel: HomeScreenModel, 
-        navigator: Navigator, 
-        onMenuClick: (() -> Unit)? = null, 
+        screenModel: HomeScreenModel,
+        navigator: Navigator,
+        onMenuClick: (() -> Unit)? = null,
         showMenu: Boolean = false
     ) {
         val isDark = isAppDark()
@@ -644,28 +644,28 @@ class HomeScreen : Screen {
 
                 InternalTextField(
                     value = searchQuery,
-                    onValueChange = { 
+                    onValueChange = {
                         screenModel.globalState.setSearchQuery(it)
                         if (it.isNotEmpty() && navigator.lastItem !is SearchScreen) {
                             navigator.push(SearchScreen())
                         }
                     },
-                    placeholder = { 
+                    placeholder = {
                         Text(
-                            stringResource(Res.string.search_hint), 
+                            stringResource(Res.string.search_hint),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
-                        ) 
+                        )
                     },
                     modifier = Modifier
                         .weight(1f)
                         .height(52.dp),
                     leadingIcon = {
                         Icon(
-                            SynaraIcons.Search.get(), 
+                            SynaraIcons.Search.get(),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        ) 
+                        )
                     },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
@@ -691,13 +691,13 @@ class HomeScreen : Screen {
                     )
                 }
 
-                IconButton(onClick = { 
+                IconButton(onClick = {
                     if (navigator.lastItem !is SessionsScreen) navigator.push(SessionsScreen())
                 }) {
                     Icon(SynaraIcons.DeviceGeneric.get(), contentDescription = stringResource(Res.string.sessions))
                 }
 
-                IconButton(onClick = { 
+                IconButton(onClick = {
                     if (navigator.lastItem !is SettingsScreen) navigator.push(SettingsScreen())
                 }) {
                     Icon(SynaraIcons.Settings.get(), contentDescription = stringResource(Res.string.settings))

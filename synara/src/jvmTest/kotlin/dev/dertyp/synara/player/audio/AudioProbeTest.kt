@@ -70,7 +70,7 @@ class AudioProbeTest {
         val fmt = le16(1) + le16(2) + le32(44100) + le32(44100 * 4) + le16(4) + le16(16)
         val data = ByteArray(4000)
         return Mp4Fixtures.ascii("RIFF") + le32(36 + data.size) + Mp4Fixtures.ascii("WAVE") +
-                Mp4Fixtures.ascii("fmt ") + le32(16) + fmt + Mp4Fixtures.ascii("data") + le32(data.size) + data
+            Mp4Fixtures.ascii("fmt ") + le32(16) + fmt + Mp4Fixtures.ascii("data") + le32(data.size) + data
     }
 
     private fun adts(frames: Int): ByteArray {

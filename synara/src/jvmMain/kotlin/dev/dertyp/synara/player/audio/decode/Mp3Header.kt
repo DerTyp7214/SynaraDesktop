@@ -130,7 +130,7 @@ data class XingInfo(
 
     override fun equals(other: Any?): Boolean =
         other is XingInfo && frames == other.frames && bytes == other.bytes &&
-                (toc?.contentEquals(other.toc) ?: (other.toc == null))
+            (toc?.contentEquals(other.toc) ?: (other.toc == null))
 
     override fun hashCode(): Int = 31 * (31 * frames.hashCode() + bytes.hashCode()) + (toc?.contentHashCode() ?: 0)
 
@@ -189,7 +189,7 @@ data class VbriInfo(
 
     override fun equals(other: Any?): Boolean =
         other is VbriInfo && bytes == other.bytes && frames == other.frames &&
-                framesPerEntry == other.framesPerEntry && entries.contentEquals(other.entries)
+            framesPerEntry == other.framesPerEntry && entries.contentEquals(other.entries)
 
     override fun hashCode(): Int = 31 * (31 * bytes.hashCode() + frames.hashCode()) + entries.contentHashCode()
 

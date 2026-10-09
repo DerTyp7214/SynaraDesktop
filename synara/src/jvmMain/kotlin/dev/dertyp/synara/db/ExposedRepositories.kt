@@ -639,7 +639,7 @@ class ExposedLibraryRepository : LibraryRepository {
     }
 
     override suspend fun getPlaylist(id: PlatformUUID): UserPlaylist? {
-        return dbQuery { 
+        return dbQuery {
             DownloadedUserPlaylists.selectAll().where { DownloadedUserPlaylists.id eq id }
                 .map { mapRowToPlaylist(it) }
                 .singleOrNull()
@@ -906,7 +906,7 @@ private fun saveSongMetadataInternal(song: UserSong, explicitlySaved: Boolean) {
     }
 
     song.album?.let { saveAlbumMetadataInternal(it, false) }
-    
+
     song.genres.forEach { genre ->
         val genreId = getOrCreateGenre(genre)
         DownloadedSongGenres.upsert(DownloadedSongGenres.songId, DownloadedSongGenres.genreId) {
@@ -938,7 +938,7 @@ private fun saveAlbumMetadataInternal(album: Album, explicitlySaved: Boolean) {
             it[artistId] = artist.id
         }
     }
-    
+
     album.genres.forEach { genre ->
         val genreId = getOrCreateGenre(genre)
         DownloadedAlbumGenres.upsert(DownloadedAlbumGenres.albumId, DownloadedAlbumGenres.genreId) {

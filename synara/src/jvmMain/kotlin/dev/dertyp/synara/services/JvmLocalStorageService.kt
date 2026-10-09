@@ -80,7 +80,7 @@ class JvmLocalStorageService : LocalStorageService {
 
         val fileNameSearch = "$sanitizedSong - $songId"
         albumDir.listFiles()?.find { it.name.startsWith(fileNameSearch) }?.delete()
-        
+
         if (albumDir.list()?.isEmpty() == true) {
             albumDir.delete()
         }

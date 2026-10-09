@@ -51,9 +51,9 @@ val LocalIconStyle = compositionLocalOf<SynaraIconStyle> { MaterialSymbolStyle.R
 val LocalIconFilled = compositionLocalOf { false }
 
 enum class SynaraIcons {
-    Dashboard, Search, Library, Settings, IsFavorite, IsNotFavorite, SuperLiked, Songs, Refresh, Back, SideMenu, Clear, MoreOptions, 
-    Play, Pause, SkipNext, SkipPrevious, Shuffle, Repeat, RepeatOne, PlayNext, AddToPlaylist, Albums, Artists, 
-    AlbumVersions, Expiration, DeviceGeneric, DeviceMobile, DeviceDesktop, Upload, Add, Delete, DragHandle, Info, ThemeLight, 
+    Dashboard, Search, Library, Settings, IsFavorite, IsNotFavorite, SuperLiked, Songs, Refresh, Back, SideMenu, Clear, MoreOptions,
+    Play, Pause, SkipNext, SkipPrevious, Shuffle, Repeat, RepeatOne, PlayNext, AddToPlaylist, Albums, Artists,
+    AlbumVersions, Expiration, DeviceGeneric, DeviceMobile, DeviceDesktop, Upload, Add, Delete, DragHandle, Info, ThemeLight,
     ThemeDark, ChevronDown, ChevronRight, ChevronUp, ChevronLeft, Filter, FilterOff, VolumeHigh, VolumeOff, VolumeMute, VolumeLow, Success,
     Pending, ExpandDown, ExpandUp, Lyrics, Queue, FullscreenEnter, FullscreenExit, HudAutoHideOn, HudAutoHideOff, RemoveFromPlaylist, RemoveFromQueue,
     ArtistMerge, ArtistSplit, Close, Confirm, OpenInNew, Edit,
@@ -83,10 +83,10 @@ enum class SynaraIcons {
 abstract class SynaraIconPack {
     abstract val name: String
     abstract val type: IconPackType
-    
+
     @Composable
     abstract fun get(id: SynaraIcons, style: SynaraIconStyle, filled: Boolean): ImageVector
-    
+
     abstract val styles: List<SynaraIconStyle>
     abstract val hasFilledOption: Boolean
 

@@ -162,10 +162,10 @@ class PlayerModel(
                 PlayerState(q, originalQueue, src, idx, repeat, shuffle)
             }.distinctUntilChanged { old, new ->
                 old.queue == new.queue &&
-                old.currentIndex == new.currentIndex &&
-                old.source == new.source &&
-                old.repeatMode == new.repeatMode &&
-                old.shuffleMode == new.shuffleMode
+                    old.currentIndex == new.currentIndex &&
+                    old.source == new.source &&
+                    old.repeatMode == new.repeatMode &&
+                    old.shuffleMode == new.shuffleMode
             }.collect { state ->
                 updateCurrentSong(state.queue.getOrNull(state.currentIndex))
                 saveState(state)

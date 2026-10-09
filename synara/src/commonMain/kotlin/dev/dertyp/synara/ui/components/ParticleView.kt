@@ -180,7 +180,7 @@ fun ParticleView(
 
                     val margin = 100f
                     val isOutOfBounds = particleX[i] < -margin || particleX[i] > canvasSize.width + margin ||
-                            particleY[i] < -margin || particleY[i] > canvasSize.height + margin
+                        particleY[i] < -margin || particleY[i] > canvasSize.height + margin
 
                     val isDead = particleLife[i] <= 0f || isOutOfBounds
                     if (isDead) {
@@ -257,9 +257,9 @@ fun ParticleView(
             }
 
             val argb = ((outA * 255f + 0.5f).toInt() shl 24) or
-                    ((outR * 255f + 0.5f).toInt() shl 16) or
-                    ((outG * 255f + 0.5f).toInt() shl 8) or
-                    (outB * 255f + 0.5f).toInt()
+                ((outR * 255f + 0.5f).toInt() shl 16) or
+                ((outG * 255f + 0.5f).toInt() shl 8) or
+                (outB * 255f + 0.5f).toInt()
 
             paint.color = argb
 

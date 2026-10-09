@@ -69,7 +69,7 @@ class IconProcessor(
 
     private fun generateLucideResolver(pack: KSClassDeclaration, stream: OutputStream) {
         write(stream, "actual fun LucideIconPack.generatedGet(id: SynaraIcons): ImageVector = when (id) {\n")
-        
+
         pack.getAllProperties().forEach { prop ->
             prop.annotations.filter { it.shortName.asString() == "MapTo" }.forEach { mapTo ->
                 val iconIdValue = mapTo.arguments.find { it.name?.asString() == "iconId" }?.value
@@ -77,7 +77,7 @@ class IconProcessor(
                 write(stream, "    SynaraIcons.$shortId -> Lucide.${prop.simpleName.asString()}\n")
             }
         }
-        
+
         write(stream, "    else -> Lucide.CircleQuestionMark\n")
         write(stream, "}\n\n")
     }
@@ -87,18 +87,18 @@ class IconProcessor(
 
         pack.getAllProperties().forEach { prop ->
             val iconName = prop.simpleName.asString()
-            
+
             prop.annotations.filter { it.shortName.asString() == "MapTo" }.forEach { mapTo ->
                 val iconIdValue = mapTo.arguments.find { it.name?.asString() == "iconId" }?.value
                 val shortId = iconIdValue.toString().substringAfterLast(".")
-                
+
                 val filledModeArg = mapTo.arguments.find { it.name?.asString() == "fillMode" }?.value.toString()
                 val filledExpr = when {
                     filledModeArg.contains("Filled") -> "true"
                     filledModeArg.contains("Outlined") -> "false"
                     else -> "filled"
                 }
-                
+
                 write(stream, "    SynaraIcons.$shortId -> resolve(\n")
                 write(stream, "        MaterialSymbols.Rounded.$iconName, MaterialSymbols.RoundedFilled.$iconName,\n")
                 write(stream, "        MaterialSymbols.Outlined.$iconName, MaterialSymbols.OutlinedFilled.$iconName,\n")

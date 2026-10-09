@@ -62,7 +62,7 @@ class AllSongsScreen : Screen {
                             }
                         }
                     )
-                    
+
                     if (state is AllSongsScreenModel.AllSongsState.Success) {
                         val successState = state as AllSongsScreenModel.AllSongsState.Success
                         LazyRow(
@@ -245,9 +245,9 @@ class AllSongsScreen : Screen {
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.width(12.dp))
-            
+
             Column(modifier = Modifier.weight(1f)) {
                 Box(
                     modifier = Modifier

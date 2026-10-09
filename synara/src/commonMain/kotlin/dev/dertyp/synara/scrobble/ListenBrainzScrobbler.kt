@@ -174,7 +174,7 @@ class ListenBrainzScrobbler(
                         } ?: song.artists.creditText(),
                         trackName = recording?.title ?: song.title.cleanTitle(),
                         releaseName = release?.title ?: song.album?.name?.cleanTitle()
-                        ?: song.title.cleanTitle(),
+                            ?: song.title.cleanTitle(),
                         additionalInfo = AdditionalInfo(
                             mediaPlayer = "Synara",
                             submissionClient = "Synara Desktop",

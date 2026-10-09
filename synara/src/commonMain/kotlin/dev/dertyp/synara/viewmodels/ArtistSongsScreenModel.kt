@@ -109,7 +109,7 @@ class ArtistSongsScreenModel(
                 val response = songService.byArtist(currentPage, pageSize, artistId)
                 if (requestGeneration != generation) return@launch
                 val currentSongs = (_state.value as? ArtistSongsState.Success)?.songs ?: emptyList()
-                val artist = (_state.value as? ArtistSongsState.Success)?.artist 
+                val artist = (_state.value as? ArtistSongsState.Success)?.artist
                     ?: (_state.value as? ArtistSongsState.Loading)?.artist
 
                 _state.value = ArtistSongsState.Success(

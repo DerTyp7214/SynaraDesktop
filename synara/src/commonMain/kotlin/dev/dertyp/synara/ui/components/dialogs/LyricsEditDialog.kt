@@ -48,7 +48,7 @@ fun LyricsEditDialog(
     logger: Logger = koinInject()
 ) {
     val scope = rememberCoroutineScope()
-    
+
     val lines = remember(isOpen) {
         mutableStateListOf<LyricLineData>().apply {
             if (isOpen) {
@@ -60,7 +60,7 @@ fun LyricsEditDialog(
             }
         }
     }
-    
+
     var isSearching by remember { mutableStateOf(false) }
 
     SynaraDialog(
@@ -297,7 +297,7 @@ private fun parseLineToData(line: String): LyricLineData {
         var hh = match.groupValues[3]
         if (hh.length > 2) hh = hh.substring(0, 2)
         else if (hh.length == 1) hh = "0$hh"
-        
+
         LyricLineData(
             minutes = mm.toInt(),
             seconds = ss.toInt(),

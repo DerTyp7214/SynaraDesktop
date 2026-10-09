@@ -110,10 +110,10 @@ class ArtistLikedSongsScreenModel(
             try {
                 val response = songService.likedByArtist(currentPage, pageSize, artistId, true)
                 if (requestGeneration != generation) return@launch
-                
+
                 _state.update { currentState ->
                     val currentSongs = (currentState as? ArtistLikedSongsState.Success)?.songs ?: emptyList()
-                    val artist = (currentState as? ArtistLikedSongsState.Success)?.artist 
+                    val artist = (currentState as? ArtistLikedSongsState.Success)?.artist
                         ?: (currentState as? ArtistLikedSongsState.Loading)?.artist
 
                     ArtistLikedSongsState.Success(

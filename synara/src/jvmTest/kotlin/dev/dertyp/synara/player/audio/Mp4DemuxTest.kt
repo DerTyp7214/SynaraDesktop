@@ -119,7 +119,7 @@ object Mp4Fixtures {
 
     private fun stsd(): ByteArray {
         val entryBody = ByteArray(6) + int16(1) + ByteArray(8) + int16(2) + int16(16) + ByteArray(4) +
-                int32(TIMESCALE.toLong() shl 16) + esds()
+            int32(TIMESCALE.toLong() shl 16) + esds()
         return fullBox("stsd", int32(1) + box("mp4a", entryBody))
     }
 

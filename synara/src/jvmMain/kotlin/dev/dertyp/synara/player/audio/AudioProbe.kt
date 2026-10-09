@@ -130,8 +130,8 @@ class AudioProbe(private val cacheSize: Int = 50) {
 
             lastBlock = (header[0].toInt() and 0x80) != 0
             val length = ((header[1].toInt() and 0xFF) shl 16) or
-                    ((header[2].toInt() and 0xFF) shl 8) or
-                    (header[3].toInt() and 0xFF)
+                ((header[2].toInt() and 0xFF) shl 8) or
+                (header[3].toInt() and 0xFF)
 
             if (length > 0) {
                 val block = ByteArray(length)

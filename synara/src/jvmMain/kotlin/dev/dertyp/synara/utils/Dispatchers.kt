@@ -14,19 +14,19 @@ private class NamedThreadFactory(private val prefix: String) : ThreadFactory {
 }
 
 actual val AppDispatchers: SynaraDispatchers = object : SynaraDispatchers {
-    override val io: CoroutineDispatcher = 
+    override val io: CoroutineDispatcher =
         Executors.newCachedThreadPool(NamedThreadFactory("Synara-IO")).asCoroutineDispatcher()
-    
+
     override val database: CoroutineDispatcher =
         Executors.newFixedThreadPool(3, NamedThreadFactory("Synara-DB")).asCoroutineDispatcher()
-    
-    override val images: CoroutineDispatcher = 
+
+    override val images: CoroutineDispatcher =
         Executors.newFixedThreadPool(
             Runtime.getRuntime().availableProcessors().coerceAtLeast(2),
             NamedThreadFactory("Synara-Image")
         ).asCoroutineDispatcher()
-    
-    override val worker: CoroutineDispatcher = 
+
+    override val worker: CoroutineDispatcher =
         Executors.newFixedThreadPool(
             Runtime.getRuntime().availableProcessors().coerceAtLeast(2),
             NamedThreadFactory("Synara-Worker")

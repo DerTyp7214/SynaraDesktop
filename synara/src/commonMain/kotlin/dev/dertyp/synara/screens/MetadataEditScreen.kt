@@ -64,11 +64,11 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
         var lyrics by remember { mutableStateOf<List<String>>(emptyList()) }
         var musicBrainzId by remember { mutableStateOf<PlatformUUID?>(null) }
         var mbRecording by remember { mutableStateOf<MusicBrainzRecording?>(null) }
-        
+
         var showArtistsDialog by remember { mutableStateOf(false) }
         var showLyricsDialog by remember { mutableStateOf(false) }
         var showMusicBrainzDialog by remember { mutableStateOf(false) }
-        
+
         var isLoading by remember { mutableStateOf(true) }
         var isSaving by remember { mutableStateOf(false) }
 

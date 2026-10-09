@@ -116,7 +116,7 @@ fun AlbumContextMenu(
             },
             leadingIcon = { Icon(SynaraIcons.PlayNext.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
-        
+
         DropdownMenuItem(
             text = { Text(stringResource(Res.string.add_to_playlist)) },
             onClick = {
