@@ -110,10 +110,37 @@ class MprisObjectImplTest {
     }
 
     @Test
-    fun `SetPosition converts microseconds to a millisecond position`() {
-        mpris.SetPosition(DBusPath("${TRACK_PREFIX}x"), 3_000_000)
+    fun `SetPosition on the current track converts microseconds to a millisecond position`() {
+        metadataFlow.value = nowPlaying(trackId = "abc-def")
+
+        mpris.SetPosition(DBusPath("${TRACK_PREFIX}abc_def"), 3_000_000)
 
         verify { bridge.seekTo(3000) }
+    }
+
+    @Test
+    fun `SetPosition on a foreign track does not seek`() {
+        metadataFlow.value = nowPlaying(trackId = "abc-def")
+
+        mpris.SetPosition(DBusPath("${TRACK_PREFIX}other"), 3_000_000)
+
+        verify(exactly = 0) { bridge.seekTo(any()) }
+    }
+
+    @Test
+    fun `SetPosition without a current track does not seek`() {
+        mpris.SetPosition(DBusPath("${TRACK_PREFIX}abc_def"), 3_000_000)
+
+        verify(exactly = 0) { bridge.seekTo(any()) }
+    }
+
+    @Test
+    fun `SetPosition with the no track path does not seek while no track is loaded`() {
+        metadataFlow.value = null
+
+        mpris.SetPosition(DBusPath("${TRACK_PREFIX}no_track"), 3_000_000)
+
+        verify(exactly = 0) { bridge.seekTo(any()) }
     }
 
     @Test
@@ -152,11 +179,34 @@ class MprisObjectImplTest {
     }
 
     @Test
-    fun `PlaybackStatus follows the playing flag`() {
+    fun `PlaybackStatus follows the playing flag while a track is loaded`() {
+        metadataFlow.value = nowPlaying()
         playingFlow.value = true
         assertEquals("Playing", mpris.getPlaybackStatus())
         playingFlow.value = false
         assertEquals("Paused", mpris.getPlaybackStatus())
+    }
+
+    @Test
+    fun `PlaybackStatus is Stopped without a track while nothing plays`() {
+        playingFlow.value = false
+        assertEquals("Stopped", mpris.getPlaybackStatus())
+    }
+
+    @Test
+    fun `PlaybackStatus is Playing while audio plays and the track is not known yet`() {
+        playingFlow.value = true
+        assertEquals("Playing", mpris.getPlaybackStatus())
+    }
+
+    @Test
+    fun `Get PlaybackStatus returns the same value as the property`() {
+        metadataFlow.value = nowPlaying()
+        playingFlow.value = true
+        assertEquals("Playing", mpris.Get<String>(PLAYER, "PlaybackStatus"))
+        playingFlow.value = false
+        metadataFlow.value = null
+        assertEquals("Stopped", mpris.Get<String>(PLAYER, "PlaybackStatus"))
     }
 
     @Test

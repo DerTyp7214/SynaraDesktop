@@ -13,6 +13,7 @@ import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.SongCache
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.utils.SynaraDispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,7 +62,7 @@ class ArtistSongsScreenModel(
     }
 
     private fun loadArtist() {
-        screenModelScope.launch {
+        screenModelScope.launch(modelDispatcher) {
             try {
                 val artist = artistService.byId(artistId)
                 val currentState = _state.value
@@ -70,6 +71,8 @@ class ArtistSongsScreenModel(
                 } else if (currentState is ArtistSongsState.Loading) {
                     _state.value = ArtistSongsState.Loading(artist = artist)
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {}
         }
     }
@@ -83,6 +86,7 @@ class ArtistSongsScreenModel(
                 val artist = artistDeferred.await()
                 val response = songsDeferred.await()
                 if (requestGeneration != generation) return@coroutineScope
+                ++generation
                 _state.value = ArtistSongsState.Success(
                     artist = artist,
                     songs = response.data,
@@ -92,22 +96,28 @@ class ArtistSongsScreenModel(
                 currentPage = if (response.hasNextPage) 1 else 0
                 songCache.refreshCached(response.data)
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            if (_state.value !is ArtistSongsState.Success) {
+            if (requestGeneration == generation && _state.value !is ArtistSongsState.Success) {
                 _state.value = ArtistSongsState.Error(e.message ?: "Unknown error")
             }
         }
     }
 
     fun loadSongs() {
-        if (isFetching || !hasNextPage) return
-        isFetching = true
-        val requestGeneration = generation
-
         screenModelScope.launch(modelDispatcher) {
+            if (isFetching || !hasNextPage) return@launch
+            isFetching = true
+            val requestGeneration = generation
+            val page = currentPage
+            var dropped = false
             try {
-                val response = songService.byArtist(currentPage, pageSize, artistId)
-                if (requestGeneration != generation) return@launch
+                val response = songService.byArtist(page, pageSize, artistId)
+                if (requestGeneration != generation) {
+                    dropped = page > 0
+                    return@launch
+                }
                 val currentSongs = (_state.value as? ArtistSongsState.Success)?.songs ?: emptyList()
                 val artist = (_state.value as? ArtistSongsState.Success)?.artist
                     ?: (_state.value as? ArtistSongsState.Loading)?.artist
@@ -120,14 +130,17 @@ class ArtistSongsScreenModel(
 
                 hasNextPage = response.hasNextPage
                 if (hasNextPage) {
-                    currentPage++
+                    currentPage = page + 1
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                if (currentPage == 0 && requestGeneration == generation) {
+                if (page == 0 && requestGeneration == generation) {
                     _state.value = ArtistSongsState.Error(e.message ?: "Unknown error")
                 }
             } finally {
                 isFetching = false
+                if (dropped) loadSongs()
             }
         }
     }

@@ -117,23 +117,33 @@ class SearchScreenModel(
     private suspend fun fetchResults(query: String) = coroutineScope {
         when (_searchMode.value) {
             SearchMode.STANDARD -> {
-                val songsJob = launch { _songs.value = songService.rankedSearch(0, 10, query, explicit = true).data }
-                val albumsJob = launch { _albums.value = albumService.rankedSearch(0, 10, query).data }
-                val artistsJob = launch { _artists.value = artistService.rankedSearch(0, 10, query).data }
-                val playlistsJob = launch { _playlists.value = userPlaylistService.rankedSearch(globalStateModel.user.value?.id, 0, 10, query).data }
-
-                songsJob.join()
-                albumsJob.join()
-                artistsJob.join()
-                playlistsJob.join()
+                launch { fetchSection(_songs, "songs") { songService.rankedSearch(0, 10, query, explicit = true).data } }
+                launch { fetchSection(_albums, "albums") { albumService.rankedSearch(0, 10, query).data } }
+                launch { fetchSection(_artists, "artists") { artistService.rankedSearch(0, 10, query).data } }
+                launch {
+                    fetchSection(_playlists, "playlists") {
+                        userPlaylistService.rankedSearch(globalStateModel.user.value?.id, 0, 10, query).data
+                    }
+                }
             }
 
             SearchMode.LYRICS -> {
                 _albums.value = emptyList()
                 _artists.value = emptyList()
                 _playlists.value = emptyList()
-                _songs.value = songService.searchByLyrics(0, 50, query, explicit = true).data
+                fetchSection(_songs, "lyrics") { songService.searchByLyrics(0, 50, query, explicit = true).data }
             }
+        }
+    }
+
+    private suspend fun <T> fetchSection(section: MutableStateFlow<List<T>>, name: String, fetch: suspend () -> List<T>) {
+        section.value = try {
+            fetch()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.error(logTag, "Search for $name failed", e)
+            emptyList()
         }
     }
 }

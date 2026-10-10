@@ -13,6 +13,7 @@ import dev.dertyp.services.IUserPlaylistService
 import dev.dertyp.synara.player.*
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.utils.SynaraDispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -138,8 +139,10 @@ class PlaylistScreenModel(
             hasNextPage = refreshed.hasNextPage
             currentPage = if (refreshed.hasNextPage) 1 else 0
             songCache.refreshCached(refreshed.songs)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            if (previous == null && !isFetching) {
+            if (requestGeneration == generation && _state.value !is PlaylistState.Success && !isFetching) {
                 _state.value = PlaylistState.Error(e.message ?: "Unknown error")
             }
         }
@@ -162,83 +165,83 @@ class PlaylistScreenModel(
     }
 
     fun loadPlaylist() {
-        if (isFetching) return
-        isFetching = true
-        val requestGeneration = appliedGeneration
-
         screenModelScope.launch(modelDispatcher) {
+            if (isFetching) return@launch
+            isFetching = true
+            val requestGeneration = appliedGeneration
+            var dropped = false
             if (currentPage == 0) {
                 _state.value = PlaylistState.Loading
             }
 
             try {
-                coroutineScope {
-                    val currentSongs = if (currentPage == 0) emptyList() else (_state.value as? PlaylistState.Success)?.songs ?: emptyList()
-                    val playlistName = (_state.value as? PlaylistState.Success)?.name
-                    val playlistImageId = (_state.value as? PlaylistState.Success)?.imageId
-                    val playlistDuration = (_state.value as? PlaylistState.Success)?.totalDuration ?: 0L
+                val currentSongs = if (currentPage == 0) emptyList() else (_state.value as? PlaylistState.Success)?.songs ?: emptyList()
+                val playlistName = (_state.value as? PlaylistState.Success)?.name
+                val playlistImageId = (_state.value as? PlaylistState.Success)?.imageId
+                val playlistDuration = (_state.value as? PlaylistState.Success)?.totalDuration ?: 0L
+                val laterPage = currentPage > 0
 
+                val loaded = coroutineScope {
                     if (isUserPlaylist) {
                         val playlistDeferred = if (currentPage == 0) async { userPlaylistService.byId(playlistId) } else null
                         val songsResponseDeferred = async { songService.byUserPlaylist(currentPage, pageSize, playlistId) }
 
                         val playlist = playlistDeferred?.await()
                         val songsResponse = songsResponseDeferred.await()
-                        if (requestGeneration != appliedGeneration) return@coroutineScope
 
-                        val name = playlist?.name ?: playlistName ?: "Playlist"
-                        val imageId = playlist?.imageId ?: playlistImageId
-                        val duration = playlist?.totalDuration ?: playlistDuration
-
-                        _state.value = PlaylistState.Success(
-                            name = name,
-                            imageId = imageId,
+                        PlaylistState.Success(
+                            name = playlist?.name ?: playlistName ?: "Playlist",
+                            imageId = playlist?.imageId ?: playlistImageId,
                             songs = currentSongs + songsResponse.data,
-                            totalDuration = duration,
+                            totalDuration = playlist?.totalDuration ?: playlistDuration,
                             isUserPlaylist = isUserPlaylist,
                             hasNextPage = songsResponse.hasNextPage
                         )
-                        hasNextPage = songsResponse.hasNextPage
                     } else {
                         val playlistDeferred = if (currentPage == 0) async { playlistService.byId(playlistId) } else null
                         val songsResponseDeferred = async { songService.byPlaylist(currentPage, pageSize, playlistId) }
 
                         val playlist = playlistDeferred?.await()
                         val songsResponse = songsResponseDeferred.await()
-                        if (requestGeneration != appliedGeneration) return@coroutineScope
 
-                        val name = playlist?.name ?: playlistName ?: "Playlist"
-                        val imageId = playlist?.imageId ?: playlistImageId
-                        val duration = playlist?.totalDuration ?: playlistDuration
-
-                        _state.value = PlaylistState.Success(
-                            name = name,
-                            imageId = imageId,
+                        PlaylistState.Success(
+                            name = playlist?.name ?: playlistName ?: "Playlist",
+                            imageId = playlist?.imageId ?: playlistImageId,
                             songs = currentSongs + songsResponse.data,
-                            totalDuration = duration,
+                            totalDuration = playlist?.totalDuration ?: playlistDuration,
                             isUserPlaylist = isUserPlaylist,
                             hasNextPage = songsResponse.hasNextPage
                         )
-                        hasNextPage = songsResponse.hasNextPage
                     }
+                }
 
+                if (requestGeneration != appliedGeneration) {
+                    dropped = laterPage
+                } else {
+                    _state.value = loaded
+                    hasNextPage = loaded.hasNextPage
                     if (hasNextPage) {
                         currentPage++
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 if (currentPage == 0 && requestGeneration == appliedGeneration) {
                     _state.value = PlaylistState.Error(e.message ?: "Unknown error")
                 }
             } finally {
                 isFetching = false
+                if (dropped) loadNextPage()
             }
         }
     }
 
     fun loadNextPage() {
-        if (hasNextPage && !isFetching) {
-            loadPlaylist()
+        screenModelScope.launch(modelDispatcher) {
+            if (hasNextPage && !isFetching) {
+                loadPlaylist()
+            }
         }
     }
 

@@ -14,6 +14,11 @@ data class PcmHeader(
     val bytesPerSample: Int get() = (bitsPerSample + 7) / 8
     val bytesPerFrame: Int get() = bytesPerSample * channels
 
+    val durationMs: Long?
+        get() = if (dataSize > 0 && bytesPerFrame > 0 && sampleRate > 0) {
+            (dataSize / bytesPerFrame * 1000 / sampleRate).takeIf { it > 0 }
+        } else null
+
     fun normalize(buffer: ByteArray, length: Int) {
         aiffCompression?.let { AiffHeader.toLittleEndian(buffer, length, bytesPerSample, it) }
     }
@@ -37,6 +42,7 @@ data class PcmHeader(
         private const val ENCODED_SIZE = 29
 
         private const val MAX_HEADER_BYTES = 16L * 1024 * 1024
+        private const val MAX_INLINE_SKIP = 512L * 1024
 
         private const val RIFF = 0x52494646 // "RIFF"
         private const val WAVE = 0x57415645 // "WAVE"
@@ -70,15 +76,22 @@ data class PcmHeader(
             return AiffHeader.readInt(header, offset) == RIFF && AiffHeader.readInt(header, offset + 8) == WAVE
         }
 
-        fun parseFromStream(input: InputStream, streamOffsetOfMagic: Long): PcmHeader? {
+        suspend fun parseFromStream(
+            input: InputStream,
+            streamOffsetOfMagic: Long,
+            reopen: suspend (Long) -> InputStream?
+        ): PcmHeader? = parse(input, streamOffsetOfMagic) { reopen(it) }
+
+        private inline fun parse(input: InputStream, base: Long, reopen: (Long) -> InputStream?): PcmHeader? {
             val head = ByteArray(12)
             if (!readFully(input, head, 12)) return null
             return when {
-                isWav(head) -> parseWav(input, streamOffsetOfMagic)
+                isWav(head) -> parseWav(input, base)
                 AiffHeader.isAiff(head) -> parseAiff(
                     input,
-                    streamOffsetOfMagic,
-                    isAifc = AiffHeader.readInt(head, 8) == AiffHeader.AIFC
+                    base,
+                    isAifc = AiffHeader.readInt(head, 8) == AiffHeader.AIFC,
+                    reopen
                 )
 
                 else -> null
@@ -152,77 +165,90 @@ data class PcmHeader(
             return null
         }
 
-        private fun parseAiff(input: InputStream, base: Long, isAifc: Boolean): PcmHeader? {
+        private inline fun parseAiff(
+            input: InputStream,
+            base: Long,
+            isAifc: Boolean,
+            reopen: (Long) -> InputStream?
+        ): PcmHeader? {
+            var stream = input
             var position = 12L
+            var jumped = 0L
+            var comm: AiffHeader.Comm? = null
+            var dataStart = -1L
+            var dataSize = 0L
             val chunkHeader = ByteArray(AiffHeader.CHUNK_HEADER_SIZE)
-            while (position < MAX_HEADER_BYTES) {
-                if (!readFully(input, chunkHeader, AiffHeader.CHUNK_HEADER_SIZE)) return null
-                position += AiffHeader.CHUNK_HEADER_SIZE
-                val id = AiffHeader.readInt(chunkHeader, 0)
-                val size = AiffHeader.readUnsignedInt(chunkHeader, 4)
+            try {
+                while (position - jumped < MAX_HEADER_BYTES) {
+                    if (!readFully(stream, chunkHeader, AiffHeader.CHUNK_HEADER_SIZE)) return null
+                    position += AiffHeader.CHUNK_HEADER_SIZE
+                    val id = AiffHeader.readInt(chunkHeader, 0)
+                    val size = AiffHeader.readUnsignedInt(chunkHeader, 4)
 
-                when (id) {
-                    AiffHeader.COMM -> {
-                        val toRead = minOf(size, 64L).toInt()
-                        val payload = ByteArray(toRead)
-                        if (!readFully(input, payload, toRead)) return null
-                        position += toRead
-                        val comm = AiffHeader.parseComm(payload, toRead, isAifc) ?: return null
-                        if (!comm.isSupported) return null
-                        if (!skipFully(input, size - toRead + (size and 1L))) return null
-                        position += size - toRead + (size and 1L)
+                    when {
+                        id == AiffHeader.COMM && comm == null -> {
+                            val toRead = minOf(size, 64L).toInt()
+                            val payload = ByteArray(toRead)
+                            if (!readFully(stream, payload, toRead)) return null
+                            position += toRead
+                            val parsed = AiffHeader.parseComm(payload, toRead, isAifc) ?: return null
+                            if (!parsed.isSupported) return null
+                            if (dataStart >= 0) return aiffHeader(parsed, dataStart, dataSize)
+                            if (!skipFully(stream, size - toRead + (size and 1L))) return null
+                            position += size - toRead + (size and 1L)
+                            comm = parsed
+                        }
 
-                        return findSsnd(input, base, position, comm)
-                    }
+                        id == AiffHeader.SSND && dataStart < 0 -> {
+                            val ssndHeader = ByteArray(AiffHeader.SSND_HEADER_SIZE)
+                            if (!readFully(stream, ssndHeader, AiffHeader.SSND_HEADER_SIZE)) return null
+                            position += AiffHeader.SSND_HEADER_SIZE
+                            val offset = AiffHeader.readUnsignedInt(ssndHeader, 0)
+                            val soundSize = if (size == 0L || size == 0xFFFFFFFFL) 0L
+                            else (size - AiffHeader.SSND_HEADER_SIZE - offset).coerceAtLeast(0L)
 
-                    AiffHeader.SSND -> return null
+                            val known = comm
+                            if (known != null) {
+                                if (!skipFully(stream, offset)) return null
+                                return aiffHeader(known, base + position + offset, soundSize)
+                            }
 
-                    else -> {
-                        val skip = size + (size and 1L)
-                        if (!skipFully(input, skip)) return null
-                        position += skip
+                            if (soundSize == 0L) return null
+                            val rest = size - AiffHeader.SSND_HEADER_SIZE + (size and 1L)
+                            if (rest <= MAX_INLINE_SKIP) {
+                                if (!skipFully(stream, rest)) return null
+                            } else {
+                                stream.close()
+                                stream = reopen(base + position + rest) ?: return null
+                                jumped += rest
+                            }
+                            dataStart = base + position + offset
+                            dataSize = soundSize
+                            position += rest
+                        }
+
+                        else -> {
+                            val skip = size + (size and 1L)
+                            if (!skipFully(stream, skip)) return null
+                            position += skip
+                        }
                     }
                 }
+                return null
+            } finally {
+                if (stream !== input) stream.close()
             }
-            return null
         }
 
-        private fun findSsnd(input: InputStream, base: Long, startPosition: Long, comm: AiffHeader.Comm): PcmHeader? {
-            var position = startPosition
-            val chunkHeader = ByteArray(AiffHeader.CHUNK_HEADER_SIZE)
-            while (position < MAX_HEADER_BYTES) {
-                if (!readFully(input, chunkHeader, AiffHeader.CHUNK_HEADER_SIZE)) return null
-                position += AiffHeader.CHUNK_HEADER_SIZE
-                val id = AiffHeader.readInt(chunkHeader, 0)
-                val size = AiffHeader.readUnsignedInt(chunkHeader, 4)
-
-                if (id == AiffHeader.SSND) {
-                    val ssndHeader = ByteArray(AiffHeader.SSND_HEADER_SIZE)
-                    if (!readFully(input, ssndHeader, AiffHeader.SSND_HEADER_SIZE)) return null
-                    position += AiffHeader.SSND_HEADER_SIZE
-                    val offset = AiffHeader.readUnsignedInt(ssndHeader, 0)
-                    if (!skipFully(input, offset)) return null
-                    position += offset
-
-                    val dataSize = if (size == 0L || size == 0xFFFFFFFFL) 0L
-                    else (size - AiffHeader.SSND_HEADER_SIZE - offset).coerceAtLeast(0L)
-                    return PcmHeader(
-                        sampleRate = comm.sampleRate,
-                        channels = comm.channelCount,
-                        bitsPerSample = comm.sampleSizeBits,
-                        isFloat = comm.compression.isFloat,
-                        aiffCompression = comm.compression,
-                        dataStart = base + position,
-                        dataSize = dataSize,
-                    )
-                }
-
-                val skip = size + (size and 1L)
-                if (!skipFully(input, skip)) return null
-                position += skip
-            }
-            return null
-        }
+        private fun aiffHeader(comm: AiffHeader.Comm, dataStart: Long, dataSize: Long): PcmHeader = PcmHeader(
+            sampleRate = comm.sampleRate,
+            channels = comm.channelCount,
+            bitsPerSample = comm.sampleSizeBits,
+            isFloat = comm.compression.isFloat,
+            aiffCompression = comm.compression,
+            dataStart = dataStart,
+            dataSize = dataSize,
+        )
 
         private fun readIntLe(bytes: ByteArray, offset: Int): Int =
             (bytes[offset].toInt() and 0xFF) or

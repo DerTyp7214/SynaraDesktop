@@ -4,8 +4,6 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
-import dev.dertyp.synara.db.DatabaseMigrationRepository
-import dev.dertyp.synara.db.ExposedDatabaseMigrationRepository
 import dev.dertyp.synara.db.ExposedLibraryRepository
 import dev.dertyp.synara.db.ExposedLocalHistoryRepository
 import dev.dertyp.synara.db.ExposedRecentlyPlayedRepository
@@ -35,6 +33,7 @@ import dev.dertyp.synara.player.WindowsMediaManager
 import dev.dertyp.synara.podcast.PODCAST_AUDIO_PLAYER
 import dev.dertyp.synara.podcast.PodcastAudioEngine
 import dev.dertyp.synara.scrobble.ScrobblerService
+import dev.dertyp.synara.scrobble.THIRD_PARTY_HTTP_ENGINE
 import dev.dertyp.synara.services.DownloadManager
 import dev.dertyp.synara.services.IDownloadManager
 import dev.dertyp.synara.services.JvmLocalStorageService
@@ -44,6 +43,9 @@ import dev.dertyp.synara.services.VideoFrameService
 import dev.dertyp.synara.settings.PersistentSettings
 import dev.dertyp.synara.utils.OSUtils
 import dev.dertyp.synara.utils.SynaraDispatchers
+import io.ktor.client.engine.HttpClientEngine
+import io.ktor.client.engine.okhttp.OkHttp
+import kotlinx.coroutines.runBlocking
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.core.DatabaseConfig
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -71,6 +73,7 @@ actual fun platformModule(): Module = module {
     singleOf(::DownloadManager) bind IDownloadManager::class
     singleOf(::SynaraApiImpl) bind ISynaraApi::class
     singleOf(::LocalHttpServer)
+    single<HttpClientEngine>(named(THIRD_PARTY_HTTP_ENGINE)) { OkHttp.create() }
     single<SystemMediaManager> {
         when {
             OSUtils.isWindows -> WindowsMediaManager(get())
@@ -120,7 +123,6 @@ actual fun platformModule(): Module = module {
     singleOf(::ExposedScrobbleQueueRepository) bind ScrobbleQueueRepository::class
     singleOf(::ExposedLocalHistoryRepository) bind LocalHistoryRepository::class
     singleOf(::ExposedLibraryRepository) bind LibraryRepository::class
-    singleOf(::ExposedDatabaseMigrationRepository) bind DatabaseMigrationRepository::class
     singleOf(::ExposedSongGuessRepository) bind SongGuessRepository::class
     singleOf(::ExposedSettingsSyncRepository) bind SettingsSyncRepository::class
 }
@@ -169,6 +171,7 @@ actual fun platformInit() {
 
 private fun runShutdownSteps(koin: Koin, logger: Logger) {
     val steps = listOf<Pair<String, () -> Unit>>(
+        "current listen" to { runBlocking { koin.get<ScrobblerService>().endCurrentListen() } },
         "scrobbler" to { koin.get<ScrobblerService>().stop() },
         "downloads" to { koin.get<DownloadManager>().stop() },
         "audio player" to { koin.get<AudioPlayer>().release() },

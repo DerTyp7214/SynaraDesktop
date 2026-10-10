@@ -5,6 +5,7 @@ import dev.dertyp.logging.Logger
 import dev.dertyp.synara.player.audio.decode.AdtsHeader
 import dev.dertyp.synara.player.audio.decode.Mp3Header
 import dev.dertyp.synara.player.audio.decode.Mp4Demux
+import dev.dertyp.synara.player.audio.decode.OggTail
 import dev.dertyp.synara.player.audio.decode.VbriInfo
 import dev.dertyp.synara.player.audio.decode.XingInfo
 import kotlinx.coroutines.CancellationException
@@ -100,7 +101,7 @@ class AudioProbe(private val logger: Logger, private val cacheSize: Int = 50) {
         throw UnsupportedAudioFormatException(source.formatHint)
     }
 
-    private fun detectAt(
+    private suspend fun detectAt(
         data: ByteArray,
         offset: Int,
         dataBase: Long,
@@ -109,10 +110,10 @@ class AudioProbe(private val logger: Logger, private val cacheSize: Int = 50) {
         scope: CoroutineScope
     ): ProbeInfo? {
         if (data.matches(offset, "fLaC")) return flac(data, offset, rest)
-        if (data.matches(offset, "OggS")) return ogg(data, offset)
+        if (data.matches(offset, "OggS")) return ogg(data, offset, source, scope)
         if (PcmHeader.isWav(data, offset) || AiffHeader.isAiff(data, offset)) {
             val headerStream = SequenceInputStream(data.inputStream(offset, data.size - offset), rest)
-            val header = PcmHeader.parseFromStream(headerStream, dataBase + offset)
+            val header = PcmHeader.parseFromStream(headerStream, dataBase + offset) { source.open(it, scope) }
                 ?: throw UnsupportedAudioFormatException(source.formatHint ?: "pcm")
             return ProbeInfo.Pcm(header)
         }
@@ -147,7 +148,7 @@ class AudioProbe(private val logger: Logger, private val cacheSize: Int = 50) {
         return ProbeInfo.Flac(metadata, flacDurationMs(metadata))
     }
 
-    private fun ogg(data: ByteArray, offset: Int): ProbeInfo {
+    private suspend fun ogg(data: ByteArray, offset: Int, source: AudioSource, scope: CoroutineScope): ProbeInfo {
         if (offset + 27 <= data.size) {
             val segments = data.u8(offset + 26)
             val packet = offset + 27 + segments
@@ -156,7 +157,28 @@ class AudioProbe(private val logger: Logger, private val cacheSize: Int = 50) {
                 throw UnsupportedAudioFormatException("ogg")
             }
         }
-        return ProbeInfo.OggOpus(data.copyOfRange(offset, data.size))
+        val metadata = data.copyOfRange(offset, data.size)
+        val durationMs = if (source.durationMsHint == null) opusDurationMs(metadata, source, scope) else null
+        return ProbeInfo.OggOpus(metadata, durationMs)
+    }
+
+    private suspend fun opusDurationMs(firstPage: ByteArray, source: AudioSource, scope: CoroutineScope): Long? {
+        val start = OggTail.streamStart(firstPage) ?: return null
+        return try {
+            val size = source.size()
+            if (size <= 0) return null
+            val from = (size - OggTail.TAIL_BYTES).coerceAtLeast(0L)
+            val tail = source.open(from, scope)?.use { stream ->
+                val buffer = ByteArray((size - from).toInt())
+                buffer.copyOf(readExactly(stream, buffer))
+            } ?: return null
+            OggTail.durationMs(tail, start)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warning(PROBE_TAG, "Could not read the tail of ${source.cacheKey}: ${e.message}")
+            null
+        }
     }
 
     private fun adtsAt(data: ByteArray, offset: Int, dataBase: Long): ProbeInfo? {

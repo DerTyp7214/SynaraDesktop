@@ -62,7 +62,7 @@ internal object PcmDecoding {
                             convertToShortBuffer(
                                 buffer,
                                 wholeFrames,
-                                header.bitsPerSample,
+                                header.bytesPerSample * 8,
                                 isFloat = header.isFloat,
                                 unsigned8Bit = true
                             )
@@ -88,7 +88,7 @@ internal object PcmDecoding {
             bitsPerSample = header.bitsPerSample,
             channels = header.channels,
             startMs = positionMs,
-            durationMs = null,
+            durationMs = header.durationMs,
             bitRate = null,
             pcmFlow = flow {
                 try {

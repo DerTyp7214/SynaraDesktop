@@ -14,16 +14,20 @@ import dev.dertyp.synara.ui.SynaraIcons
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import synara.synara.generated.resources.Res
@@ -59,18 +63,27 @@ class ServerScrobbler(
 
     private val isEnabled get() = Config.isServerScrobblingEnabled.value
 
+    private fun isConnected(reachable: Boolean, connection: RpcServiceManager.ConnectionState) =
+        reachable && connection == RpcServiceManager.ConnectionState.Authenticated
+
     @OptIn(FlowPreview::class)
     override fun onStart() {
         this += scope.launch {
             queueUpdateFlow
                 .onStart { emit(Unit) }
                 .debounce(100.milliseconds)
-                .collectLatest {
+                .collect {
                     processQueue()
                 }
         }
         this += scope.launch {
-            rpcServiceManager.isServerReachable
+            combine(
+                rpcServiceManager.isServerReachable,
+                rpcServiceManager.connectionState
+            ) { reachable, connection ->
+                isConnected(reachable, connection)
+            }
+                .distinctUntilChanged()
                 .filter { it }
                 .collectLatest {
                     serverClock.reset()
@@ -199,18 +212,27 @@ class ServerScrobbler(
 
     private suspend fun processQueue() {
         if (isProcessing) return
+        if (!isConnected(rpcServiceManager.isServerReachable.value, rpcServiceManager.connectionState.value)) return
         isProcessing = true
         try {
             for (entry in scrobbleQueue.getAllRaw(target)) {
                 try {
                     val request = json.decodeFromString<ScrobbleRequest>(entry.payload)
-                    scrobbleService.listened(request.copy(listenedAt = entry.timestamp))
+                    withTimeout(SUBMIT_TIMEOUT) {
+                        scrobbleService.listened(request.copy(listenedAt = entry.timestamp))
+                    }
                     updateStatus(ScrobbleStatus.SCROBBLED)
                     scrobbleQueue.pop(entry.id)
                     delay(100.milliseconds)
                 } catch (e: SerializationException) {
                     logger.error(LogTag.SCROBBLER, "Dropping malformed server scrobble entry", e)
                     scrobbleQueue.pop(entry.id)
+                } catch (e: TimeoutCancellationException) {
+                    logger.warning(LogTag.SCROBBLER, "Server did not answer the listen within $SUBMIT_TIMEOUT, keeping queued", e)
+                    updateStatus(ScrobbleStatus.FAILED)
+                    break
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     logger.warning(LogTag.SCROBBLER, "Failed to submit listen to server, keeping queued", e)
                     updateStatus(ScrobbleStatus.FAILED)
@@ -227,5 +249,6 @@ class ServerScrobbler(
         private val HEARTBEAT_INTERVAL = 10.seconds
         private val PAUSE_CLEAR_GRACE = 1.seconds
         private val COALESCE_WINDOW = 150.milliseconds
+        private val SUBMIT_TIMEOUT = 30.seconds
     }
 }

@@ -6,7 +6,7 @@ import dev.dertyp.data.UserPlaylist
 import dev.dertyp.logging.Logger
 import dev.dertyp.randomPlatformUUID
 import dev.dertyp.synara.Config
-import dev.dertyp.synara.db.DatabaseMigrationRepository
+import dev.dertyp.synara.db.ScrobbleQueueRepository
 import dev.dertyp.synara.db.UserRepository
 import dev.dertyp.synara.player.PlaylistUpdate
 import dev.dertyp.synara.player.QueueSyncService
@@ -24,6 +24,7 @@ import dev.dertyp.synara.scrobble.LastFmScrobbler
 import dev.dertyp.synara.scrobble.ListenBrainzScrobbler
 import dev.dertyp.synara.scrobble.LocalSongScrobbler
 import dev.dertyp.synara.scrobble.RecentlyPlayedScrobbler
+import dev.dertyp.synara.scrobble.ScrobbleQueue
 import dev.dertyp.synara.scrobble.ScrobblerService
 import dev.dertyp.synara.scrobble.ServerScrobbler
 import dev.dertyp.synara.sync.SettingsSyncService
@@ -41,9 +42,12 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.runTest
+import org.koin.core.context.loadKoinModules
+import org.koin.dsl.module
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -62,6 +66,8 @@ class GlobalStateModelTest {
     private val playlistUpdates = MutableSharedFlow<PlaylistUpdate>(extraBufferCapacity = 16)
 
     private val me = User(id = randomPlatformUUID(), username = "me")
+    private val storedMe = me.copy(displayName = "Stored")
+    private var tokenUserId: String? = null
     private val firstPlaylists = listOf(playlist("first"))
     private val secondPlaylists = listOf(playlist("second"), playlist("third"))
 
@@ -76,7 +82,6 @@ class GlobalStateModelTest {
     private lateinit var timecodeTagAutomation: TimecodeTagAutomation
     private lateinit var settingsSyncService: SettingsSyncService
     private lateinit var songCache: SongCache
-    private lateinit var migrationRepository: DatabaseMigrationRepository
     private lateinit var userRepository: UserRepository
 
     private fun playlist(name: String) = UserPlaylist(
@@ -91,9 +96,11 @@ class GlobalStateModelTest {
     fun setUp() {
         startTestKoin()
         setScrobblerFlags(server = false, listenBrainz = false, lastFm = false, discord = false)
-        Config.setNeedsUserIdMigration(false)
 
-        rpcServiceManager = mockk { every { connectionState } returns connection }
+        rpcServiceManager = mockk {
+            every { connectionState } returns connection
+            every { userId } answers { tokenUserId }
+        }
         userService = mockk {
             coEvery { me() } returns me
             coEvery { setDisplayName(any()) } returns Unit
@@ -110,7 +117,6 @@ class GlobalStateModelTest {
         timecodeTagAutomation = mockk(relaxed = true)
         settingsSyncService = mockk(relaxed = true)
         songCache = mockk { every { playlistUpdates } returns this@GlobalStateModelTest.playlistUpdates }
-        migrationRepository = mockk(relaxed = true)
         userRepository = mockk(relaxed = true)
     }
 
@@ -140,7 +146,6 @@ class GlobalStateModelTest {
             timecodeTagAutomation,
             settingsSyncService,
             songCache,
-            migrationRepository,
             userRepository,
             logger,
             TestDispatchers(dispatcher)
@@ -312,55 +317,6 @@ class GlobalStateModelTest {
     }
 
     @Test
-    fun aPendingUserIdMigrationRunsOnceAndClearsTheFlag() = runTest(dispatcher) {
-        Config.setNeedsUserIdMigration(true)
-        val model = createModel()
-
-        authenticate()
-        model.refreshUser()
-        scheduler.runCurrent()
-
-        coVerify(exactly = 1) { migrationRepository.migrateUserIds(me.id) }
-        assertFalse(Config.needsUserIdMigration.value)
-    }
-
-    @Test
-    fun noUserIdMigrationRunsWhenNoneIsPending() = runTest(dispatcher) {
-        Config.setNeedsUserIdMigration(false)
-        createModel()
-
-        authenticate()
-
-        coVerify(exactly = 0) { migrationRepository.migrateUserIds(any()) }
-        assertFalse(Config.needsUserIdMigration.value)
-    }
-
-    @Test
-    fun aFailingUserIdMigrationKeepsTheFlagAndIsRetriedWithTheNextUserRefresh() = runTest(dispatcher) {
-        val failure = IllegalStateException("locked")
-        Config.setNeedsUserIdMigration(true)
-        coEvery { migrationRepository.migrateUserIds(any()) } throws failure
-        val model = createModel()
-
-        authenticate()
-
-        assertTrue(Config.needsUserIdMigration.value)
-        assertEquals(me, model.user.value)
-        assertEquals(firstPlaylists, model.userPlaylists.value)
-        coVerify(exactly = 1) { migrationRepository.migrateUserIds(me.id) }
-        verify(exactly = 1) { logger.error(any(), any(), failure, any()) }
-        verify(exactly = 1) { logger.error(any(), any(), any(), any()) }
-
-        coEvery { migrationRepository.migrateUserIds(any()) } returns Unit
-        model.refreshUser()
-        scheduler.runCurrent()
-
-        assertFalse(Config.needsUserIdMigration.value)
-        coVerify(exactly = 2) { migrationRepository.migrateUserIds(me.id) }
-        verify(exactly = 1) { logger.error(any(), any(), any(), any()) }
-    }
-
-    @Test
     fun aFailingUserSaveStillLeavesTheLoadedUserAndItsPlaylists() = runTest(dispatcher) {
         val failure = IllegalStateException("disk full")
         coEvery { userRepository.saveUser(any()) } throws failure
@@ -423,6 +379,319 @@ class GlobalStateModelTest {
         assertEquals(secondPlaylists, model.userPlaylists.value)
         coVerify(exactly = 1) { userPlaylistService.allPlaylists(me.id, 0, Int.MAX_VALUE) }
         coVerify(exactly = 1) { userPlaylistService.allPlaylists(other.id, 0, Int.MAX_VALUE) }
+    }
+
+    @Test
+    fun aStoredUserIsAvailableBeforeAnyServerAnswer() = runTest(dispatcher) {
+        tokenUserId = me.id.toString()
+        coEvery { userRepository.getUser(me.id) } returns storedMe
+
+        val model = createModel()
+
+        assertEquals(storedMe, model.user.value)
+        assertTrue(model.userPlaylists.value.isEmpty())
+        coVerify(exactly = 0) { userService.me() }
+        coVerify(exactly = 0) { userPlaylistService.allPlaylists(any(), any(), any()) }
+        coVerify(exactly = 0) { userRepository.saveUser(any()) }
+    }
+
+    @Test
+    fun aStoredUserStaysWhileTheServerDoesNotAnswer() = runTest(dispatcher) {
+        val failure = IllegalStateException("down")
+        tokenUserId = me.id.toString()
+        coEvery { userRepository.getUser(me.id) } returns storedMe
+        coEvery { userService.me() } throws failure
+        val model = createModel()
+
+        authenticate()
+
+        assertEquals(storedMe, model.user.value)
+        coVerify(exactly = 0) { userRepository.saveUser(any()) }
+        verify(exactly = 1) { logger.error(any(), any(), failure, any()) }
+        verify(exactly = 1) { logger.error(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun aListenInASessionWithoutAServerAnswerIsQueuedUnderTheStoredUser() = runTest(dispatcher) {
+        val queueRepository = mockk<ScrobbleQueueRepository>(relaxed = true)
+        tokenUserId = me.id.toString()
+        coEvery { userRepository.getUser(me.id) } returns storedMe
+        coEvery { userService.me() } throws IllegalStateException("down")
+        val model = createModel()
+        authenticate()
+        loadKoinModules(module { single { model } })
+
+        ScrobbleQueue(queueRepository).pushRaw("song", "payload", 1_700_000_000_000L, "server")
+
+        coVerify(exactly = 1) {
+            queueRepository.insertRaw(
+                userId = me.id,
+                songId = "song",
+                payload = "payload",
+                timestamp = 1_700_000_000_000L,
+                target = "server"
+            )
+        }
+    }
+
+    @Test
+    fun theServerUserReplacesTheStoredUserOnceItArrives() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        tokenUserId = me.id.toString()
+        coEvery { userRepository.getUser(me.id) } returns storedMe
+        coEvery { userService.me() } coAnswers {
+            gate.await()
+            me
+        }
+        val model = createModel()
+
+        authenticate()
+
+        assertEquals(storedMe, model.user.value)
+        coVerify(exactly = 0) { userRepository.saveUser(any()) }
+
+        gate.complete(Unit)
+        scheduler.runCurrent()
+
+        assertEquals(me, model.user.value)
+        coVerify(exactly = 1) { userRepository.saveUser(me) }
+    }
+
+    @Test
+    fun withoutAStoredRowNoUserIsKnownBeforeTheServerAnswers() = runTest(dispatcher) {
+        tokenUserId = me.id.toString()
+        coEvery { userRepository.getUser(me.id) } returns null
+
+        val model = createModel()
+
+        assertNull(model.user.value)
+        coVerify(exactly = 0) { userService.me() }
+    }
+
+    @Test
+    fun aFailingRestoreIsLoggedAndTheServerUserStillLoads() = runTest(dispatcher) {
+        val failure = IllegalStateException("locked")
+        tokenUserId = me.id.toString()
+        coEvery { userRepository.getUser(me.id) } throws failure
+        val model = createModel()
+
+        assertNull(model.user.value)
+        verify(exactly = 1) { logger.error(any(), any(), failure, any()) }
+
+        coEvery { userRepository.getUser(me.id) } returns null
+        authenticate()
+
+        assertEquals(me, model.user.value)
+        assertEquals(firstPlaylists, model.userPlaylists.value)
+        verify(exactly = 1) { logger.error(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun aLogoutClearsTheUserAndItIsNotRestoredAfterwards() = runTest(dispatcher) {
+        tokenUserId = me.id.toString()
+        coEvery { userRepository.getUser(me.id) } returns storedMe
+        val model = createModel()
+        authenticate()
+        assertEquals(me, model.user.value)
+
+        tokenUserId = null
+        connection.value = ConnectionState.LoginRequired
+        scheduler.runCurrent()
+
+        assertNull(model.user.value)
+
+        connection.value = ConnectionState.Loading
+        scheduler.runCurrent()
+
+        assertNull(model.user.value)
+        coVerify(exactly = 1) { userRepository.getUser(any()) }
+    }
+
+    @Test
+    fun aDifferentAccountLoggingInNeverSeesThePreviousOne() = runTest(dispatcher) {
+        val other = User(id = randomPlatformUUID(), username = "other")
+        val gate = CompletableDeferred<Unit>()
+        val seen = mutableListOf<User?>()
+        tokenUserId = me.id.toString()
+        coEvery { userRepository.getUser(me.id) } returns storedMe
+        coEvery { userRepository.getUser(other.id) } returns null
+        coEvery { userPlaylistService.allPlaylists(other.id, any(), any()) } returns PaginatedResponse(secondPlaylists)
+        val model = createModel()
+        authenticate()
+        assertEquals(me, model.user.value)
+
+        tokenUserId = null
+        connection.value = ConnectionState.LoginRequired
+        scheduler.runCurrent()
+        val observer = launch { model.user.collect { seen += it } }
+        scheduler.runCurrent()
+        coEvery { userService.me() } coAnswers {
+            gate.await()
+            other
+        }
+        tokenUserId = other.id.toString()
+
+        authenticate()
+
+        assertNull(model.user.value)
+
+        gate.complete(Unit)
+        scheduler.runCurrent()
+        observer.cancel()
+
+        assertEquals(other, model.user.value)
+        assertEquals(listOf(null, other), seen)
+        assertEquals(secondPlaylists, model.userPlaylists.value)
+        coVerify(exactly = 1) { userPlaylistService.allPlaylists(me.id, 0, Int.MAX_VALUE) }
+        coVerify(exactly = 1) { userPlaylistService.allPlaylists(other.id, 0, Int.MAX_VALUE) }
+    }
+
+    @Test
+    fun aReturningAccountIsRestoredFromItsOwnRowAfterASwitch() = runTest(dispatcher) {
+        val other = User(id = randomPlatformUUID(), username = "other")
+        val storedOther = other.copy(displayName = "Stored other")
+        val gate = CompletableDeferred<Unit>()
+        tokenUserId = me.id.toString()
+        coEvery { userRepository.getUser(me.id) } returns storedMe
+        coEvery { userRepository.getUser(other.id) } returns storedOther
+        val model = createModel()
+        authenticate()
+
+        tokenUserId = null
+        connection.value = ConnectionState.LoginRequired
+        scheduler.runCurrent()
+        coEvery { userService.me() } coAnswers {
+            gate.await()
+            other
+        }
+        tokenUserId = other.id.toString()
+
+        authenticate()
+
+        assertEquals(storedOther, model.user.value)
+
+        gate.complete(Unit)
+        scheduler.runCurrent()
+
+        assertEquals(other, model.user.value)
+    }
+
+    @Test
+    fun aLogoutClearsThePlaylists() = runTest(dispatcher) {
+        val model = createModel()
+        authenticate()
+        assertEquals(firstPlaylists, model.userPlaylists.value)
+
+        connection.value = ConnectionState.LoginRequired
+        scheduler.runCurrent()
+
+        assertTrue(model.userPlaylists.value.isEmpty())
+        assertNull(model.user.value)
+    }
+
+    @Test
+    fun aUserRequestThatReturnsAfterALogoutLeavesNoUser() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        coEvery { userService.me() } coAnswers {
+            gate.await()
+            me
+        }
+        val model = createModel()
+        authenticate()
+        coVerify(exactly = 2) { userService.me() }
+
+        connection.value = ConnectionState.LoginRequired
+        scheduler.runCurrent()
+        gate.complete(Unit)
+        scheduler.runCurrent()
+
+        assertNull(model.user.value)
+        assertTrue(model.userPlaylists.value.isEmpty())
+        assertFalse(model.isRefreshingPlaylists.value)
+        coVerify(exactly = 0) { userRepository.saveUser(any()) }
+        coVerify(exactly = 0) { userPlaylistService.allPlaylists(any(), any(), any()) }
+    }
+
+    @Test
+    fun aPlaylistRequestThatReturnsAfterALogoutLeavesNoPlaylists() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        val model = createModel()
+        authenticate()
+        coEvery { userPlaylistService.allPlaylists(any(), any(), any()) } coAnswers {
+            gate.await()
+            PaginatedResponse(secondPlaylists)
+        }
+        model.refreshPlaylists()
+        scheduler.runCurrent()
+        assertTrue(model.isRefreshingPlaylists.value)
+
+        connection.value = ConnectionState.LoginRequired
+        scheduler.runCurrent()
+        gate.complete(Unit)
+        scheduler.runCurrent()
+
+        assertTrue(model.userPlaylists.value.isEmpty())
+        assertNull(model.user.value)
+        assertFalse(model.isRefreshingPlaylists.value)
+    }
+
+    @Test
+    fun aUserRequestOfThePreviousAccountThatReturnsAfterTheNextLoginIsDropped() = runTest(dispatcher) {
+        val other = User(id = randomPlatformUUID(), username = "other")
+        val gate = CompletableDeferred<Unit>()
+        coEvery { userPlaylistService.allPlaylists(other.id, any(), any()) } returns PaginatedResponse(secondPlaylists)
+        coEvery { userService.me() } coAnswers {
+            gate.await()
+            me
+        }
+        val model = createModel()
+        authenticate()
+
+        connection.value = ConnectionState.LoginRequired
+        scheduler.runCurrent()
+        coEvery { userService.me() } returns other
+        authenticate()
+        assertEquals(other, model.user.value)
+        assertEquals(secondPlaylists, model.userPlaylists.value)
+
+        gate.complete(Unit)
+        scheduler.runCurrent()
+
+        assertEquals(other, model.user.value)
+        assertEquals(secondPlaylists, model.userPlaylists.value)
+        assertFalse(model.isRefreshingPlaylists.value)
+        coVerify(exactly = 0) { userRepository.saveUser(me) }
+        coVerify(exactly = 1) { userRepository.saveUser(other) }
+        coVerify(exactly = 0) { userPlaylistService.allPlaylists(me.id, any(), any()) }
+        coVerify(exactly = 1) { userPlaylistService.allPlaylists(other.id, 0, Int.MAX_VALUE) }
+    }
+
+    @Test
+    fun aPlaylistRequestOfThePreviousAccountThatReturnsAfterTheNextLoginIsDropped() = runTest(dispatcher) {
+        val other = User(id = randomPlatformUUID(), username = "other")
+        val gate = CompletableDeferred<Unit>()
+        val model = createModel()
+        authenticate()
+        coEvery { userPlaylistService.allPlaylists(me.id, any(), any()) } coAnswers {
+            gate.await()
+            PaginatedResponse(firstPlaylists)
+        }
+        coEvery { userPlaylistService.allPlaylists(other.id, any(), any()) } returns PaginatedResponse(secondPlaylists)
+        model.refreshPlaylists()
+        scheduler.runCurrent()
+
+        connection.value = ConnectionState.LoginRequired
+        scheduler.runCurrent()
+        coEvery { userService.me() } returns other
+        authenticate()
+        assertEquals(secondPlaylists, model.userPlaylists.value)
+
+        gate.complete(Unit)
+        scheduler.runCurrent()
+
+        assertEquals(other, model.user.value)
+        assertEquals(secondPlaylists, model.userPlaylists.value)
+        assertFalse(model.isRefreshingPlaylists.value)
     }
 
     @Test

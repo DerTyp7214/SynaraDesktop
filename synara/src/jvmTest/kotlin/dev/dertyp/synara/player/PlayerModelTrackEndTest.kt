@@ -349,4 +349,162 @@ class PlayerModelTrackEndTest {
         assertEquals(0, model.currentIndex.value)
         assertEquals(songs[0], model.currentSong.value)
     }
+
+    @Test
+    fun finishedEventEmittedBeforeTheSkipIsHandledDoesNotAdvanceTwice() {
+        val songs = testSongs(4)
+        val model = createModel()
+        model.playQueue(queueOf(songs))
+        scheduler.runCurrent()
+
+        audioPlayer.emitFinished()
+        model.skipNext()
+        scheduler.runCurrent()
+
+        assertEquals(1, model.currentIndex.value)
+        assertEquals(songs[1], model.currentSong.value)
+        assertEquals(songs[1].id, model.loadedSongId.value)
+        assertTrue(model.isPlaying.value)
+        assertEquals(
+            listOf(TrackStart(songs[0].id, songs[0], 0L), TrackStart(songs[1].id, songs[1], 0L)),
+            trackStarts
+        )
+    }
+
+    @Test
+    fun finishTrackRequestedBeforeASkipIsHandledDoesNotAdvanceTwice() {
+        val songs = testSongs(4)
+        val model = createModel()
+        model.playQueue(queueOf(songs))
+        scheduler.runCurrent()
+
+        model.finishTrack(trackStarts.single())
+        model.skipNext()
+        scheduler.runCurrent()
+
+        assertEquals(1, model.currentIndex.value)
+        assertEquals(songs[1], model.currentSong.value)
+        assertEquals(
+            listOf(TrackStart(songs[0].id, songs[0], 0L), TrackStart(songs[1].id, songs[1], 0L)),
+            trackStarts
+        )
+    }
+
+    @Test
+    fun finishTrackWhileTheTrackIsStillLoadingAdvances() {
+        val songs = testSongs(3)
+        val model = createModel()
+        audioPlayer.deferLoads = true
+        model.playQueue(queueOf(songs))
+        scheduler.runCurrent()
+        assertNull(model.loadedSongId.value)
+
+        model.finishTrack(trackStarts.single())
+        scheduler.runCurrent()
+
+        assertEquals(1, model.currentIndex.value)
+        assertEquals(songs[1], model.currentSong.value)
+        assertEquals(songs[1].id to true, audioPlayer.loads.value.last())
+        assertTrue(model.playbackRequested)
+    }
+
+    @Test
+    fun anEndClearlyBeforeTheKnownDurationIsAFailureNotAFinish() {
+        val songs = testSongs(2)
+        val model = createModel()
+        model.setRepeatMode(RepeatMode.ONE)
+        model.playQueue(queueOf(songs))
+        scheduler.runCurrent()
+        audioPlayer.trackDuration.value = 240_000
+        audioPlayer.position.value = 120_000
+        scheduler.runCurrent()
+
+        finishCurrentTrack()
+
+        assertEquals(0, model.currentIndex.value)
+        assertEquals(1, audioPlayer.loads.value.size)
+        assertEquals(1, audioPlayer.stops.value)
+        assertFalse(model.playbackRequested)
+        assertFalse(model.isPlaying.value)
+        assertNull(model.loadedSongId.value)
+        assertEquals(120_000L, model.currentPosition.value)
+        assertEquals(1, trackStarts.size)
+    }
+
+    @Test
+    fun anEndWithinTheToleranceOfTheKnownDurationIsAFinish() {
+        val songs = testSongs(2)
+        val model = createModel()
+        model.setRepeatMode(RepeatMode.ONE)
+        model.playQueue(queueOf(songs))
+        scheduler.runCurrent()
+        audioPlayer.trackDuration.value = 240_000
+        audioPlayer.position.value = 237_500
+        scheduler.runCurrent()
+
+        finishCurrentTrack()
+
+        assertEquals(0, model.currentIndex.value)
+        assertEquals(2, audioPlayer.loads.value.size)
+        assertEquals(0, audioPlayer.stops.value)
+        assertTrue(model.isPlaying.value)
+        assertEquals(songs[0].id, model.loadedSongId.value)
+        assertEquals(2, trackStarts.size)
+    }
+
+    @Test
+    fun anEndWithoutAKnownDurationIsAFinish() {
+        val songs = testSongs(2)
+        val model = createModel()
+        model.setRepeatMode(RepeatMode.ONE)
+        model.playQueue(queueOf(songs))
+        scheduler.runCurrent()
+        audioPlayer.position.value = 120_000
+        scheduler.runCurrent()
+
+        finishCurrentTrack()
+
+        assertEquals(2, audioPlayer.loads.value.size)
+        assertEquals(0, audioPlayer.stops.value)
+        assertTrue(model.isPlaying.value)
+    }
+
+    @Test
+    fun finishTrackForAnEarlierStartOfTheSameSongIsIgnored() {
+        val song = testSong(0)
+        val songs = listOf(song, song, testSong(1))
+        val model = createModel()
+        model.playQueue(queueOf(songs))
+        scheduler.runCurrent()
+        val firstStart = trackStarts.single()
+
+        finishCurrentTrack()
+        assertEquals(1, model.currentIndex.value)
+        assertEquals(2, trackStarts.size)
+
+        model.finishTrack(firstStart)
+        scheduler.runCurrent()
+
+        assertEquals(1, model.currentIndex.value)
+        assertEquals(song.id, model.loadedSongId.value)
+        assertEquals(2, audioPlayer.loads.value.size)
+        assertEquals(2, trackStarts.size)
+    }
+
+    @Test
+    fun finishTrackForTheCurrentStartOfARepeatedSongAdvances() {
+        val song = testSong(0)
+        val songs = listOf(song, song, testSong(1))
+        val model = createModel()
+        model.playQueue(queueOf(songs))
+        scheduler.runCurrent()
+
+        finishCurrentTrack()
+        model.finishTrack(trackStarts.last())
+        scheduler.runCurrent()
+
+        assertEquals(2, model.currentIndex.value)
+        assertEquals(songs[2].id, model.loadedSongId.value)
+        assertEquals(3, audioPlayer.loads.value.size)
+    }
 }

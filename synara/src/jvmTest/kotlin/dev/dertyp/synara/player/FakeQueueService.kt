@@ -176,6 +176,9 @@ class FakeQueueService(
 
     override suspend fun insert(baseVersion: Long, position: Int, items: List<QueueItem>, force: Boolean): QueueWriteResult =
         write(Call.Insert(baseVersion, position, items, force), baseVersion, force) {
+            val taken = original.mapTo(mutableSetOf()) { it.queueId }
+            val clash = items.firstOrNull { it.queueId in taken }
+            require(clash == null) { "Queue id ${clash?.queueId} is already used" }
             val added = items.map { it.copy(song = null) }
             register(items.mapNotNull { it.song })
             val order = shuffledOrder

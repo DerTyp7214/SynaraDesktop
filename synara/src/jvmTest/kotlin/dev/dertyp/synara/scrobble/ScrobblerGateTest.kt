@@ -12,6 +12,8 @@ import dev.dertyp.synara.testing.stopTestKoin
 import dev.dertyp.synara.testing.testSong
 import dev.dertyp.synara.utils.SynaraDispatchers
 import dev.dertyp.synara.viewmodels.GlobalStateModel
+import io.ktor.client.engine.HttpClientEngine
+import io.ktor.client.engine.mock.MockEngine
 import io.mockk.Called
 import io.mockk.Runs
 import io.mockk.coEvery
@@ -20,6 +22,7 @@ import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
@@ -28,12 +31,15 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
+import kotlin.test.fail
 
 class ScrobblerGateTest {
     private val testDispatcher = StandardTestDispatcher(TestCoroutineScheduler())
@@ -60,6 +66,9 @@ class ScrobblerGateTest {
                 single { globalState }
                 single<SynaraDispatchers> { TestDispatchers(testDispatcher) }
                 single { scrobblerService }
+                single<HttpClientEngine>(named(THIRD_PARTY_HTTP_ENGINE)) {
+                    MockEngine.create { addHandler { fail("Unexpected request to ${it.url}") } }
+                }
             }
         )
         listenBrainz = ListenBrainzScrobbler(settings, musicBrainzService, queue, songService, AppJson)
@@ -112,6 +121,18 @@ class ScrobblerGateTest {
         coVerify(exactly = 1) { queue.isEmpty("listenbrainz") }
         coVerify(exactly = 1) { queue.push(song, 1_700_000_000L, "listenbrainz") }
         verify { listOf(musicBrainzService, songService) wasNot Called }
+    }
+
+    @Test
+    fun aCancelledMusicBrainzIdLookupCancelsTheListenBrainzSubmission() = runTest(testDispatcher) {
+        enableListenBrainz(token = "token")
+        coEvery { queue.isEmpty(any()) } returns true
+        coEvery { songService.fetchMusicBrainzId(any()) } throws CancellationException("cancelled")
+
+        assertFailsWith<CancellationException> { listenBrainz.triggered(song, 1_700_000_000_123L) }
+
+        verify { musicBrainzService wasNot Called }
+        coVerify(exactly = 1) { queue.push(song, 1_700_000_000L, "listenbrainz") }
     }
 
     @Test

@@ -75,6 +75,7 @@ class QueueSyncRealPlayerTest {
     private val rpcServiceManager = mockk<RpcServiceManager>(relaxed = true)
     private val presenceService = mockk<PresenceService>(relaxed = true)
     private val controlledFlow = MutableStateFlow(false)
+    private val reachableFlow = MutableStateFlow(true)
 
     private lateinit var player: PlayerModel
     private lateinit var service: QueueSyncService
@@ -86,7 +87,7 @@ class QueueSyncRealPlayerTest {
         Config.setQueueSyncDeviceName(DEVICE)
 
         coEvery { songService.byId(any()) } returns null
-        every { rpcServiceManager.isServerReachable } returns MutableStateFlow(true)
+        every { rpcServiceManager.isServerReachable } returns reachableFlow
         every { rpcServiceManager.connectionState } returns MutableStateFlow(ConnectionState.Authenticated)
         every { rpcServiceManager.sessionId } returns ownSession.toString()
         every { presenceService.requests } returns MutableSharedFlow<ClientRequest>()
@@ -160,10 +161,11 @@ class QueueSyncRealPlayerTest {
         return local
     }
 
-    private fun foreignAppend(song: UserSong, queueId: Long) = fake.store(
+    private fun foreignAppend(song: UserSong, queueId: Long, notify: Boolean = false) = fake.store(
         items = fake.items + remoteItem(song, queueId, fake.items.size),
         sessionId = otherSession,
-        deviceName = OTHER_DEVICE
+        deviceName = OTHER_DEVICE,
+        notify = notify
     )
 
     @Test
@@ -276,6 +278,95 @@ class QueueSyncRealPlayerTest {
         assertEquals(foreign.version + 1, fake.info.version)
         assertEquals(foreign.version + 1, service.syncedVersionFlow.value)
         assertEquals(listOf<QueueSyncEvent>(QueueSyncEvent.Merged(foreign.modifiedByDeviceName)), events)
+    }
+
+    @Test
+    fun offlineTrackAdvanceMeetingAForeignAppendKeepsTheCurrentTrackAndSendsItsIndex() = runTest(dispatcher) {
+        val local = startWithUploadedLocalQueue()
+        val uploadWrites = fake.callsOf<Call.Write>()
+        val events = mutableListOf<QueueSyncEvent>()
+        backgroundScope.launch { service.events.toList(events) }
+        scheduler.runCurrent()
+
+        reachableFlow.value = false
+        scheduler.runCurrent()
+        player.skipNext()
+        scheduler.runCurrent()
+        assertEquals(1, player.currentIndex.value)
+        val foreign = foreignAppend(testSong(10), 900L)
+        reachableFlow.value = true
+        scheduler.runCurrent()
+        scheduler.advanceTimeBy(10_000)
+        scheduler.runCurrent()
+
+        assertEquals(local.map { it.queueId } + 900L, queueIds())
+        assertEquals(1, player.currentIndex.value)
+        assertEquals(local[1].queueId, player.queue.value[player.currentIndex.value].queueId)
+        assertTrue(player.isPlaying.value)
+        assertEquals(
+            listOf(Call.SetCurrentIndex(1L, 1, false), Call.SetCurrentIndex(foreign.version, 1, false)),
+            fake.callsOf<Call.Write>().drop(uploadWrites.size)
+        )
+        assertEquals(1, fake.info.currentIndex)
+        assertEquals(queueIds(), fake.activeQueueIds)
+        assertEquals(foreign.version + 1, fake.info.version)
+        assertEquals(foreign.version + 1, service.syncedVersionFlow.value)
+        assertEquals(emptyList(), events)
+        assertNull(service.pendingRemote.value)
+        assertNull(service.pendingConflict.value)
+    }
+
+    @Test
+    fun offlineInsertMeetingAForeignAppendEndsWithTheServerQueuePlusTheLocalEntriesAfterCurrent() = runTest(dispatcher) {
+        val local = startWithUploadedLocalQueue()
+        val uploadWrites = fake.callsOf<Call.Write>()
+        val added = listOf<QueueEntry>(QueueEntry.Explicit(testSong(20), 501L), QueueEntry.Explicit(testSong(21), 502L))
+
+        reachableFlow.value = false
+        scheduler.runCurrent()
+        player.insertEntries(Anchor.AFTER_CURRENT, added)
+        scheduler.runCurrent()
+        val foreign = foreignAppend(testSong(10), 900L)
+        reachableFlow.value = true
+        scheduler.runCurrent()
+        scheduler.advanceTimeBy(10_000)
+        scheduler.runCurrent()
+
+        val expected = listOf(local[0].queueId, 501L, 502L, local[1].queueId, local[2].queueId, 900L)
+        assertEquals(expected, queueIds())
+        assertEquals(local[0].queueId, player.queue.value[player.currentIndex.value].queueId)
+        val inserts = fake.callsOf<Call.Insert>()
+        assertEquals(listOf(1L, foreign.version), inserts.map { it.baseVersion })
+        assertEquals(listOf(501L, 502L), inserts[1].items.map { it.queueId })
+        assertEquals(uploadWrites.size + 2, fake.callsOf<Call.Write>().size)
+        assertEquals(expected, fake.activeQueueIds)
+        assertEquals(foreign.version + 1, fake.info.version)
+        assertEquals(foreign.version + 1, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun aDismissedBannerKeepsThePlayerQueueAtTheNextTrackEndAndAsks() = runTest(dispatcher) {
+        val local = startWithUploadedLocalQueue()
+        val uploadWrites = fake.callsOf<Call.Write>()
+        val foreign = foreignAppend(testSong(10), 900L, notify = true)
+        scheduler.runCurrent()
+        assertEquals(foreign, service.pendingRemote.value)
+        service.dismissPendingRemote()
+        scheduler.runCurrent()
+        assertNull(service.pendingRemote.value)
+
+        player.skipNext()
+        scheduler.runCurrent()
+        scheduler.advanceTimeBy(10_000)
+        scheduler.runCurrent()
+
+        assertEquals(foreign, service.pendingConflict.value)
+        assertEquals(local.map { it.queueId }, queueIds())
+        assertEquals(1, player.currentIndex.value)
+        assertTrue(player.isPlaying.value)
+        assertEquals(listOf<Call>(Call.SetCurrentIndex(1L, 1, false)), fake.callsOf<Call.Write>().drop(uploadWrites.size))
+        assertEquals(local.map { it.queueId } + 900L, fake.activeQueueIds)
+        assertEquals(1L, service.syncedVersionFlow.value)
     }
 
     @Test

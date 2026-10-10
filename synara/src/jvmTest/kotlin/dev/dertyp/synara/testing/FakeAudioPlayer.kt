@@ -15,6 +15,7 @@ class FakeAudioPlayer : AudioPlayer {
     val playing = MutableStateFlow(false)
     val errors = MutableSharedFlow<AudioLoadFailure>(extraBufferCapacity = 8)
     val finished = MutableSharedFlow<PlatformUUID?>(extraBufferCapacity = 8)
+    val transitions = MutableSharedFlow<PlatformUUID>(extraBufferCapacity = 8)
     val loads = MutableStateFlow<List<Pair<PlatformUUID, Boolean>>>(emptyList())
     val starts = MutableStateFlow<List<Long>>(emptyList())
     val stops = MutableStateFlow(0)
@@ -23,6 +24,9 @@ class FakeAudioPlayer : AudioPlayer {
     val position = MutableStateFlow(0L)
     val loading = MutableStateFlow(false)
     val trackDuration = MutableStateFlow(0L)
+    val prepared = MutableStateFlow<PlatformUUID?>(null)
+    val prepares = MutableStateFlow<List<PlatformUUID>>(emptyList())
+    val clears = MutableStateFlow(0)
     var deferLoads = false
     var current: PlatformUUID? = null
     private var pendingPlay = false
@@ -34,6 +38,7 @@ class FakeAudioPlayer : AudioPlayer {
     override val volume: StateFlow<Float> = MutableStateFlow(1f)
     override val onFinished: Flow<PlatformUUID?> = finished
     override val loadErrors: Flow<AudioLoadFailure> = errors
+    override val trackTransitions: Flow<PlatformUUID> = transitions
 
     override val sampleRate: StateFlow<Int> = MutableStateFlow(0)
     override val bitsPerSample: StateFlow<Int> = MutableStateFlow(0)
@@ -64,6 +69,7 @@ class FakeAudioPlayer : AudioPlayer {
         loading.value = false
         playing.value = false
         position.value = 0
+        prepared.value = null
     }
 
     override fun seekTo(positionMs: Long) {
@@ -85,6 +91,14 @@ class FakeAudioPlayer : AudioPlayer {
         if (loads.value.size == issued) playing.value = false
     }
 
+    fun transition() {
+        val next = checkNotNull(prepared.value)
+        prepared.value = null
+        current = next
+        position.value = 0
+        transitions.tryEmit(next)
+    }
+
     override fun setVolume(volume: Float) = Unit
     override fun setFadeGain(gain: Float) = Unit
 
@@ -92,6 +106,7 @@ class FakeAudioPlayer : AudioPlayer {
         position.value = startMs
         current = songId
         pendingPlay = playImmediately
+        if (prepared.value == songId) prepared.value = null
         if (deferLoads) loading.value = true
         loads.update { it + (songId to playImmediately) }
         starts.update { it + startMs }
@@ -104,6 +119,16 @@ class FakeAudioPlayer : AudioPlayer {
     fun finishLoad() {
         playing.value = pendingPlay
         loading.value = false
+    }
+
+    override fun prepareNext(songId: PlatformUUID) {
+        prepared.value = songId
+        prepares.update { it + songId }
+    }
+
+    override fun clearNext() {
+        prepared.value = null
+        clears.update { it + 1 }
     }
 
     override fun release() = Unit

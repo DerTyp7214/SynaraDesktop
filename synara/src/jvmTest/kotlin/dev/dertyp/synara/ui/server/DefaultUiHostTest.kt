@@ -21,6 +21,10 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import org.jetbrains.compose.resources.getString
+import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.error_request_failed
+import synara.synara.generated.resources.error_server_unreachable
 import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -318,7 +322,46 @@ class DefaultUiHostTest {
 
         verify(exactly = 1) { logger.error(ServerUiLogTag, any(), failure, any()) }
         verify(exactly = 1) { snackbar.showSnackbar(any<String>(), any(), any(), any()) }
+        verifyShown(getString(Res.string.error_server_unreachable))
         assertTrue(fieldErrors.isEmpty())
+    }
+
+    @Test
+    fun invokeThatFailsOnTheServerShowsTheMessageOfTheServer() = testScope.runTest {
+        val shown = signalOnSnackbar()
+        val failure = IllegalStateException("The plugin could not reach its account")
+        coEvery { uiService.invoke(any(), any(), any()) } throws failure
+        host().dispatch(UiAction.Invoke("c", "a"), binding())
+        runCurrent()
+        shown.await()
+
+        verify(exactly = 1) { logger.error(ServerUiLogTag, any(), failure, any()) }
+        verify(exactly = 1) { snackbar.showSnackbar(any<String>(), any(), any(), any()) }
+        verifyShown("The plugin could not reach its account")
+    }
+
+    @Test
+    fun invokeThatFailsWithABlankMessageShowsTheGenericText() = testScope.runTest {
+        val shown = signalOnSnackbar()
+        coEvery { uiService.invoke(any(), any(), any()) } throws IllegalStateException("  ")
+        host().dispatch(UiAction.Invoke("c", "a"), binding())
+        runCurrent()
+        shown.await()
+
+        verify(exactly = 1) { snackbar.showSnackbar(any<String>(), any(), any(), any()) }
+        verifyShown(getString(Res.string.error_request_failed))
+    }
+
+    @Test
+    fun invokeThatFailsWithoutAMessageShowsTheGenericText() = testScope.runTest {
+        val shown = signalOnSnackbar()
+        coEvery { uiService.invoke(any(), any(), any()) } throws IllegalStateException()
+        host().dispatch(UiAction.Invoke("c", "a"), binding())
+        runCurrent()
+        shown.await()
+
+        verify(exactly = 1) { snackbar.showSnackbar(any<String>(), any(), any(), any()) }
+        verifyShown(getString(Res.string.error_request_failed))
     }
 
     @Test
@@ -419,6 +462,45 @@ class DefaultUiHostTest {
 
         verify(exactly = 1) { logger.error(ServerUiLogTag, any(), failure, any()) }
         verify(exactly = 1) { snackbar.showSnackbar(any<String>(), any(), any(), any()) }
+        verifyShown(getString(Res.string.error_server_unreachable))
+    }
+
+    @Test
+    fun intakeThatFailsOnTheServerShowsTheMessageOfTheServer() = testScope.runTest {
+        val shown = signalOnSnackbar()
+        val failure = IllegalStateException("No handler accepts this link")
+        coEvery { uiService.intake(any(), any()) } throws failure
+        host().dispatch(UiAction.Intake(listOf(IntakeItem.Text("abc"))))
+        runCurrent()
+        shown.await()
+
+        verify(exactly = 1) { logger.error(ServerUiLogTag, any(), failure, any()) }
+        verify(exactly = 1) { snackbar.showSnackbar(any<String>(), any(), any(), any()) }
+        verifyShown("No handler accepts this link")
+    }
+
+    @Test
+    fun intakeThatFailsWithABlankMessageShowsTheGenericText() = testScope.runTest {
+        val shown = signalOnSnackbar()
+        coEvery { uiService.intake(any(), any()) } throws IllegalStateException("  ")
+        host().dispatch(UiAction.Intake(listOf(IntakeItem.Text("abc"))))
+        runCurrent()
+        shown.await()
+
+        verify(exactly = 1) { snackbar.showSnackbar(any<String>(), any(), any(), any()) }
+        verifyShown(getString(Res.string.error_request_failed))
+    }
+
+    @Test
+    fun intakeThatFailsWithoutAMessageShowsTheGenericText() = testScope.runTest {
+        val shown = signalOnSnackbar()
+        coEvery { uiService.intake(any(), any()) } throws IllegalStateException()
+        host().dispatch(UiAction.Intake(listOf(IntakeItem.Text("abc"))))
+        runCurrent()
+        shown.await()
+
+        verify(exactly = 1) { snackbar.showSnackbar(any<String>(), any(), any(), any()) }
+        verifyShown(getString(Res.string.error_request_failed))
     }
 
     @Test

@@ -54,7 +54,7 @@ class SetupScreenModel(
         rpcServiceManager.setServer(
             host = host,
             port = port,
-            ssl = result.useSsl,
+            ssl = result.useSsl || result.tlsFailed,
             path = lastPath
         )
     }

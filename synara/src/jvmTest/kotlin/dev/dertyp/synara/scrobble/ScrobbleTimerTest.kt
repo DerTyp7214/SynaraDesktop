@@ -10,6 +10,7 @@ import dev.dertyp.synara.testing.testSong
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
@@ -24,6 +25,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 
 @OptIn(ExperimentalCoroutinesApi::class)
 private fun TestScope.advance(ms: Long) {
@@ -106,6 +109,7 @@ class ScrobblerServiceThresholdTest {
     private val songFlow = MutableStateFlow<UserSong?>(null)
     private val playingFlow = MutableStateFlow(false)
     private val loadedFlow = MutableStateFlow<PlatformUUID?>(null)
+    private val trackStartFlow = MutableSharedFlow<PlayerModel.TrackStart>(extraBufferCapacity = 8)
     private val playerModel = mockk<PlayerModel>()
     private val logger = mockk<Logger>(relaxed = true)
 
@@ -113,6 +117,7 @@ class ScrobblerServiceThresholdTest {
         every { playerModel.currentSong } returns songFlow
         every { playerModel.isPlaying } returns playingFlow
         every { playerModel.loadedSongId } returns loadedFlow
+        every { playerModel.trackStarts } returns trackStartFlow
         val service = ScrobblerService(playerModel, logger, TestDispatchers(testDispatcher))
         service.start()
         runCurrent()
@@ -208,5 +213,74 @@ class ScrobblerServiceThresholdTest {
         runCurrent()
 
         assertEquals(listOf(ListenEnded(first, 125_000L, triggered.listenedAt)), ended)
+    }
+
+    @Test
+    fun aSongWithoutADurationIsTriggeredOnlyAfterTheCapForLongSongs() = serviceTest { service ->
+        val song = testSong(0, duration = 0)
+        assertEquals(
+            BaseScrobbler.requiredDuration(Duration.ZERO, 10.minutes),
+            BaseScrobbler.requiredDuration(Duration.ZERO, Duration.ZERO)
+        )
+
+        startAudio(song)
+        advance(1_000)
+
+        assertNull(service.triggeredSong.value)
+
+        advance(178_000)
+
+        assertNull(service.triggeredSong.value)
+
+        advance(1_000)
+
+        assertEquals(song, service.triggeredSong.value?.song)
+    }
+
+    @Test
+    fun theSameSongStartingAgainFromItsBeginningEndsTheListenAndIsTriggeredASecondTime() = serviceTest { service ->
+        val triggered = mutableListOf<TriggeredListen>()
+        val ended = mutableListOf<ListenEnded>()
+        backgroundScope.launch { service.triggeredSong.filterNotNull().collect { triggered += it } }
+        backgroundScope.launch { service.listenEnded.collect { ended += it } }
+        runCurrent()
+        val song = testSong(0)
+        startAudio(song)
+        advance(125_000)
+        val firstListen = assertNotNull(service.triggeredSong.value)
+
+        assertTrue(trackStartFlow.tryEmit(PlayerModel.TrackStart(song.id, song, 0L)))
+        runCurrent()
+
+        assertEquals(listOf(ListenEnded(song, 125_000L, firstListen.listenedAt)), ended)
+        assertNull(service.triggeredSong.value)
+        assertEquals(0, service.scrobbledFor.value)
+
+        advance(119_000)
+
+        assertEquals(1, triggered.size)
+
+        advance(1_000)
+
+        assertEquals(listOf(song, song), triggered.map { it.song })
+        assertEquals(1, ended.size)
+    }
+
+    @Test
+    fun aTrackStartAtAnotherPositionKeepsTheRunningListen() = serviceTest { service ->
+        val ended = mutableListOf<ListenEnded>()
+        backgroundScope.launch { service.listenEnded.collect { ended += it } }
+        runCurrent()
+        val song = testSong(0)
+        startAudio(song)
+        advance(60_000)
+
+        assertTrue(trackStartFlow.tryEmit(PlayerModel.TrackStart(song.id, song, 30_000L)))
+        runCurrent()
+        advance(60_000)
+
+        assertEquals(emptyList(), ended)
+        assertEquals(120, service.scrobbledFor.value)
+        assertEquals(song, service.triggeredSong.value?.song)
     }
 }

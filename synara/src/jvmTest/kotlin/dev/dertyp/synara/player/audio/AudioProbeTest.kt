@@ -6,6 +6,7 @@ import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
@@ -74,6 +75,20 @@ class AudioProbeTest {
             Mp4Fixtures.ascii("fmt ") + le32(16) + fmt + Mp4Fixtures.ascii("data") + le32(data.size) + data
     }
 
+    private fun aiff(sound: ByteArray, soundFirst: Boolean, withComm: Boolean = true): ByteArray {
+        fun be32(v: Int) = byteArrayOf((v shr 24).toByte(), (v shr 16).toByte(), (v shr 8).toByte(), v.toByte())
+        fun be16(v: Int) = byteArrayOf((v shr 8).toByte(), v.toByte())
+        val rate44100 = byteArrayOf(0x40, 0x0E, 0xAC.toByte(), 0x44, 0, 0, 0, 0, 0, 0)
+        val comm = Mp4Fixtures.ascii("COMM") + be32(18) + be16(2) + be32(sound.size / 4) + be16(16) + rate44100
+        val ssnd = Mp4Fixtures.ascii("SSND") + be32(8 + sound.size) + be32(0) + be32(0) + sound
+        val body = when {
+            !withComm -> ssnd
+            soundFirst -> ssnd + comm
+            else -> comm + ssnd
+        }
+        return Mp4Fixtures.ascii("FORM") + be32(4 + body.size) + Mp4Fixtures.ascii("AIFF") + body
+    }
+
     private fun adts(frames: Int): ByteArray {
         val frameLength = 200
         val frame = ByteArray(frameLength)
@@ -111,6 +126,55 @@ class AudioProbeTest {
         assertEquals(44100, info.header.sampleRate)
         assertEquals(2, info.header.channels)
         assertEquals(44L, info.header.dataStart)
+    }
+
+    @Test
+    fun detectsAiff() {
+        val sound = ByteArray(800_000) { (it % 251).toByte() }
+        val bytes = aiff(sound, soundFirst = false)
+        val source = BytesSource(bytes)
+        val info = assertIs<ProbeInfo.Pcm>(runBlocking { AudioProbe(mockk(relaxed = true)).probe(source) })
+        assertEquals(listOf(0L), source.opens)
+        assertEquals(44100, info.header.sampleRate)
+        assertEquals(2, info.header.channels)
+        assertEquals(16, info.header.bitsPerSample)
+        assertEquals(AiffHeader.Compression.NONE, info.header.aiffCompression)
+        assertEquals(54L, info.header.dataStart)
+        assertEquals(800_000L, info.header.dataSize)
+    }
+
+    @Test
+    fun detectsAiffWithTheSoundDataBeforeTheFormatChunk() {
+        val sound = ByteArray(800_000) { (it % 251).toByte() }
+        val bytes = aiff(sound, soundFirst = true)
+        val source = BytesSource(bytes)
+        val info = assertIs<ProbeInfo.Pcm>(runBlocking { AudioProbe(mockk(relaxed = true)).probe(source) })
+        assertEquals(listOf(0L, 800_028L), source.opens)
+        assertEquals(44100, info.header.sampleRate)
+        assertEquals(2, info.header.channels)
+        assertEquals(16, info.header.bitsPerSample)
+        assertEquals(AiffHeader.Compression.NONE, info.header.aiffCompression)
+        assertEquals(28L, info.header.dataStart)
+        assertEquals(800_000L, info.header.dataSize)
+        assertContentEquals(sound, bytes.copyOfRange(28, 28 + 800_000))
+    }
+
+    @Test
+    fun detectsAiffWithTheSoundDataBeforeTheFormatChunkAfterAnId3Tag() {
+        val tag = id3(300)
+        val sound = ByteArray(800_000) { (it % 251).toByte() }
+        val source = BytesSource(tag + aiff(sound, soundFirst = true))
+        val info = assertIs<ProbeInfo.Pcm>(runBlocking { AudioProbe(mockk(relaxed = true)).probe(source) })
+        assertEquals(listOf(0L, tag.size + 800_028L), source.opens)
+        assertEquals(tag.size + 28L, info.header.dataStart)
+        assertEquals(800_000L, info.header.dataSize)
+    }
+
+    @Test
+    fun rejectsAiffWithSoundDataButNoFormatChunk() {
+        val complete = aiff(ByteArray(800_000), soundFirst = true, withComm = false)
+        assertFailsWith<UnsupportedAudioFormatException> { probe(complete) }
+        assertFailsWith<UnsupportedAudioFormatException> { probe(complete.copyOf(100_000)) }
     }
 
     @Test

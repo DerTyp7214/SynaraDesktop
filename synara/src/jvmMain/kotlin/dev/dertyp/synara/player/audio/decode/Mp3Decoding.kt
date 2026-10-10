@@ -6,13 +6,16 @@ import dev.dertyp.synara.player.audio.DecodedStream
 import dev.dertyp.synara.player.audio.EXACT_SEEK_MAX_MS
 import dev.dertyp.synara.player.audio.ProbeInfo
 import javazoom.jl.decoder.Bitstream
+import javazoom.jl.decoder.BitstreamErrors
 import javazoom.jl.decoder.BitstreamException
 import javazoom.jl.decoder.Decoder
 import javazoom.jl.decoder.DecoderException
+import javazoom.jl.decoder.JavaLayerException
 import javazoom.jl.decoder.SampleBuffer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
+import java.io.IOException
 
 internal object Mp3Decoding {
     fun durationMs(info: ProbeInfo.Mp3, size: Long): Long? {
@@ -58,7 +61,8 @@ internal object Mp3Decoding {
                     while (currentCoroutineContext().isActive) {
                         val frame = try {
                             bitstream.readFrame()
-                        } catch (_: BitstreamException) {
+                        } catch (e: BitstreamException) {
+                            streamFailure(e)?.let { throw it }
                             null
                         } ?: break
                         try {
@@ -82,6 +86,13 @@ internal object Mp3Decoding {
                 }
             }
         }
+    }
+
+    private fun streamFailure(error: BitstreamException): IOException? {
+        if (error.errorCode != BitstreamErrors.STREAM_ERROR) return null
+        var cause: Throwable? = error
+        while (cause is JavaLayerException) cause = cause.exception
+        return cause as? IOException
     }
 
     private fun seekOffset(info: ProbeInfo.Mp3, startMs: Long, size: Long, durationMs: Long?): Long {

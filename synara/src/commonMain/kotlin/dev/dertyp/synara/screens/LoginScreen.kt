@@ -65,6 +65,7 @@ class LoginScreen : Screen {
         val screenModel = getScreenModel<LoginScreenModel>()
         val rpcServiceManager = koinInject<RpcServiceManager>()
         val loginResult by screenModel.loginResult.collectAsState()
+        val encryptionCheckRunning by screenModel.encryptionCheckRunning.collectAsState()
         val authFailureReason by rpcServiceManager.authFailureReason.collectAsState()
         val focusManager = LocalFocusManager.current
 
@@ -73,6 +74,7 @@ class LoginScreen : Screen {
 
         LaunchedEffect(Unit) {
             screenModel.reset()
+            screenModel.checkEncryption()
         }
 
         LaunchedEffect(loginResult) {
@@ -166,7 +168,7 @@ class LoginScreen : Screen {
                         Button(
                             onClick = { screenModel.login(username, password) },
                             modifier = Modifier.fillMaxWidth(),
-                            enabled = loginResult !is LoginResult.Loading
+                            enabled = loginResult !is LoginResult.Loading && !encryptionCheckRunning
                         ) {
                             if (loginResult is LoginResult.Loading) {
                                 CircularProgressIndicator(

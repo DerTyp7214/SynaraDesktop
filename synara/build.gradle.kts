@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlinx.rpc)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kover)
 }
 
 val prerelease = true
@@ -12,7 +13,7 @@ val major = 1
 val minor = 0
 val patch = 0
 val buildMajor = 3
-val buildMinor = 14
+val buildMinor = 15
 val buildPatch = 0
 
 if (minor > 9 || patch > 9 || buildMajor > 99 || buildMinor > 99 || buildPatch > 99) {
@@ -146,6 +147,7 @@ kotlin {
                 implementation(libs.compose.ui.test)
                 implementation(libs.mockk)
                 implementation(libs.kotlinx.coroutines.test)
+                implementation(libs.ktor.client.mock)
             }
         }
 
@@ -281,6 +283,18 @@ tasks.register("generateIcons") {
 
         if (!iconsGenerated && magickExec == null && (!isMac || !runCommand("sips", "--help"))) {
             logger.error("No image conversion tool found (convert, magick, or sips). Please install ImageMagick.")
+        }
+    }
+}
+
+kover {
+    reports {
+        filters {
+            excludes {
+                packages("synara.synara.generated.resources")
+                classes("dev.dertyp.synara.BuildConfig")
+                annotatedBy("androidx.compose.runtime.Composable")
+            }
         }
     }
 }

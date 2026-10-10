@@ -4,8 +4,8 @@ import dev.dertyp.logging.Logger
 import dev.dertyp.logging.LogTag
 import dev.dertyp.data.User
 import dev.dertyp.data.UserPlaylist
+import dev.dertyp.core.toUUIDOrNull
 import dev.dertyp.synara.Config
-import dev.dertyp.synara.db.DatabaseMigrationRepository
 import dev.dertyp.synara.db.UserRepository
 import dev.dertyp.synara.player.PlaylistUpdate
 import dev.dertyp.synara.player.QueueSyncService
@@ -20,11 +20,13 @@ import dev.dertyp.synara.rpc.services.UserServiceWrapper
 import dev.dertyp.synara.scrobble.*
 import dev.dertyp.synara.sync.SettingsSyncService
 import dev.dertyp.synara.utils.SynaraDispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
+import kotlin.concurrent.Volatile
 
 class GlobalStateModel(
     private val rpcServiceManager: RpcServiceManager,
@@ -38,7 +40,6 @@ class GlobalStateModel(
     private val timecodeTagAutomation: TimecodeTagAutomation,
     private val settingsSyncService: SettingsSyncService,
     private val songCache: SongCache,
-    private val migrationRepository: DatabaseMigrationRepository,
     private val userRepository: UserRepository,
     private val logger: Logger,
     private val dispatchers: SynaraDispatchers
@@ -47,6 +48,9 @@ class GlobalStateModel(
     private val modelDispatcher = dispatchers.createNamed("GlobalStateModel")
 
     private val scope = CoroutineScope(dispatchers.main + SupervisorJob())
+
+    @Volatile
+    private var session = 0
 
     private val _user = MutableStateFlow<User?>(null)
     val user = _user.asStateFlow()
@@ -90,10 +94,14 @@ class GlobalStateModel(
         scope.launch(modelDispatcher) {
             rpcServiceManager.connectionState.collectLatest { state ->
                 if (state == RpcServiceManager.ConnectionState.Authenticated) {
+                    restoreUser()
                     refreshUser()
                     refreshPlaylists()
                 } else {
+                    session++
                     _user.value = null
+                    _userPlaylists.value = emptyList()
+                    if (state == RpcServiceManager.ConnectionState.Loading) restoreUser()
                 }
             }
         }
@@ -158,17 +166,27 @@ class GlobalStateModel(
         scrobblerService.start()
     }
 
+    private suspend fun restoreUser() {
+        if (_user.value != null) return
+        val id = rpcServiceManager.userId?.toUUIDOrNull() ?: return
+        try {
+            val stored = userRepository.getUser(id) ?: return
+            _user.compareAndSet(null, stored)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.error(logTag, "Failed to restore the user", e)
+        }
+    }
+
     fun refreshUser() {
         scope.launch(modelDispatcher) {
+            val started = session
             try {
                 val me = userService.me()
+                if (session != started) return@launch
                 _user.value = me
                 userRepository.saveUser(me)
-
-                if (Config.needsUserIdMigration.value) {
-                    migrationRepository.migrateUserIds(me.id)
-                    Config.setNeedsUserIdMigration(false)
-                }
             } catch (e: Exception) {
                 logger.error(logTag, "Failed to load the user", e)
             }
@@ -199,10 +217,13 @@ class GlobalStateModel(
 
     fun refreshPlaylists() {
         scope.launch(modelDispatcher) {
+            val started = session
             _isRefreshingPlaylists.value = true
             try {
-                val currentUser = _user.value ?: userService.me().also { _user.value = it }
+                val currentUser = _user.value ?: userService.me().also { if (session == started) _user.value = it }
+                if (session != started) return@launch
                 val response = userPlaylistService.allPlaylists(currentUser.id, 0, Int.MAX_VALUE)
+                if (session != started) return@launch
                 _userPlaylists.value = response.data
             } catch (e: Exception) {
                 logger.error(logTag, "Failed to refresh the playlists", e)

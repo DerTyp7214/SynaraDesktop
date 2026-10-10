@@ -15,6 +15,7 @@ import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.creditText
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import io.ktor.client.HttpClient
+import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.UserAgent
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.header
@@ -24,17 +25,21 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.koin.core.component.inject
+import org.koin.core.qualifier.named
 import synara.synara.generated.resources.Res
 import synara.synara.generated.resources.listenbrainz
 import kotlin.time.Duration.Companion.milliseconds
@@ -56,7 +61,8 @@ class ListenBrainzScrobbler(
         encodeDefaults = false
     }
 
-    private val httpClient = HttpClient {
+    private val httpEngine: HttpClientEngine by inject(named(THIRD_PARTY_HTTP_ENGINE))
+    private val httpClient = HttpClient(httpEngine) {
         install(UserAgent) {
             agent = "Synara/Synara Desktop (${BuildConfig.VERSION}; ${getPlatformName()})"
         }
@@ -77,7 +83,7 @@ class ListenBrainzScrobbler(
             queueUpdateFlow
                 .onStart { emit(Unit) }
                 .debounce(100.milliseconds)
-                .collectLatest {
+                .collect {
                     processQueue()
                 }
         }
@@ -118,7 +124,14 @@ class ListenBrainzScrobbler(
 
     override suspend fun triggered(song: UserSong, listenedAt: Long) {
         updateStatus(ScrobbleStatus.QUEUED)
-        submitListen(song, ListenType.SINGLE, listenedAt / 1000)
+        val listenedAtSeconds = listenedAt / 1000
+        try {
+            submitListen(song, ListenType.SINGLE, listenedAtSeconds)
+        } catch (e: CancellationException) {
+            withContext(NonCancellable) { scrobbleQueue.push(song, listenedAtSeconds, target) }
+            queueUpdateFlow.tryEmit(Unit)
+            throw e
+        }
     }
 
     private suspend fun submitListen(
@@ -140,6 +153,8 @@ class ListenBrainzScrobbler(
         if (musicBrainzId == null) {
             musicBrainzId = try {
                 songService.fetchMusicBrainzId(song.id)?.musicBrainzId
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.error(LogTag.LISTENBRAINZ, "Error fetching MusicBrainz ID from server", e)
                 null
@@ -212,6 +227,8 @@ class ListenBrainzScrobbler(
                 if (listenType == ListenType.SINGLE) updateStatus(ScrobbleStatus.FAILED)
             }
             isSuccess
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.error(LogTag.LISTENBRAINZ, "Error submitting to ListenBrainz", e, listen)
             if (listenType == ListenType.SINGLE) updateStatus(ScrobbleStatus.FAILED)

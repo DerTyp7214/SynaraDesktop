@@ -16,12 +16,19 @@ import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.SongCache
 import dev.dertyp.synara.rpc.RpcServiceManager
+import dev.dertyp.synara.testing.TestDispatchers
 import dev.dertyp.synara.testing.UnconfinedDispatchers
 import dev.dertyp.synara.testing.testSong
 import dev.dertyp.synara.testing.testSongs
+import dev.dertyp.synara.utils.SynaraDispatchers
 import io.mockk.*
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -67,7 +74,10 @@ class PlaylistScreenModelTest {
         coEvery { songService.byUserPlaylist(0, 50, playlistId) } returns first
     }
 
-    private fun createModel(isUserPlaylist: Boolean = false) = PlaylistScreenModel(
+    private fun createModel(
+        isUserPlaylist: Boolean = false,
+        dispatchers: SynaraDispatchers = UnconfinedDispatchers
+    ) = PlaylistScreenModel(
         playlistId,
         isUserPlaylist,
         rpcServiceManager,
@@ -78,7 +88,7 @@ class PlaylistScreenModelTest {
         songCache,
         playerModel,
         mockk<Logger>(relaxed = true),
-        UnconfinedDispatchers
+        dispatchers
     )
 
     private fun PlaylistScreenModel.success() = assertIs<PlaylistScreenModel.PlaylistState.Success>(state.value)
@@ -354,6 +364,97 @@ class PlaylistScreenModelTest {
     }
 
     @Test
+    fun aReloadThatFailsAfterTheFirstLoadSucceededKeepsTheFirstLoad() {
+        val first = testSongs(2)
+        val gates = List(2) { CompletableDeferred<PaginatedResponse<UserSong>>() }
+        var calls = 0
+        coEvery { playlistService.byId(playlistId) } returns systemPlaylist()
+        coEvery { songService.byPlaylist(0, 50, playlistId) } coAnswers { gates[calls++].await() }
+        val model = createModel()
+        songCache.notifyPlaylistChanged(playlistId)
+        coVerify(exactly = 2) { songService.byPlaylist(0, 50, playlistId) }
+
+        gates[0].complete(page(first, hasNext = false))
+        assertEquals(first, model.success().songs)
+        gates[1].completeExceptionally(IOException("down"))
+
+        val state = model.success()
+        assertEquals(first, state.songs)
+        assertEquals("Mix", state.name)
+    }
+
+    @Test
+    fun aReloadThatFailsWithNothingLoadedShowsTheErrorState() {
+        val gate = CompletableDeferred<PaginatedResponse<UserSong>>()
+        var calls = 0
+        coEvery { playlistService.byId(playlistId) } returns systemPlaylist()
+        coEvery { songService.byPlaylist(0, 50, playlistId) } coAnswers {
+            if (calls++ == 0) throw IOException("down") else gate.await()
+        }
+        val model = createModel()
+        assertIs<PlaylistScreenModel.PlaylistState.Error>(model.state.value)
+
+        songCache.notifyPlaylistChanged(playlistId)
+        gate.completeExceptionally(IOException("still down"))
+
+        assertEquals("still down", assertIs<PlaylistScreenModel.PlaylistState.Error>(model.state.value).message)
+    }
+
+    @Test
+    fun aPageRequestedWhileAReloadIsInFlightIsDroppedAndRequestedAgainOnTheFreshList() {
+        val first = testSongs(2)
+        val second = listOf(testSong(10))
+        val refreshed = listOf(testSong(20), testSong(21))
+        stubSystem(page(first, hasNext = true))
+        coEvery { songService.byPlaylist(1, 50, playlistId) } returns page(second, hasNext = true)
+        val model = createModel()
+        model.loadNextPage()
+        assertEquals(first + second, model.success().songs)
+
+        val reloadGate = CompletableDeferred<PaginatedResponse<UserSong>>()
+        val pageGate = CompletableDeferred<PaginatedResponse<UserSong>>()
+        coEvery { songService.byPlaylist(0, 50, playlistId) } coAnswers { reloadGate.await() }
+        coEvery { songService.byPlaylist(2, 50, playlistId) } coAnswers { pageGate.await() }
+        songCache.notifyPlaylistChanged(playlistId)
+        model.loadNextPage()
+        coVerify(exactly = 1) { songService.byPlaylist(2, 50, playlistId) }
+        reloadGate.complete(page(refreshed, hasNext = true))
+        assertEquals(refreshed, model.success().songs)
+
+        coVerify(exactly = 1) { songService.byPlaylist(1, 50, playlistId) }
+
+        pageGate.complete(page(listOf(testSong(30)), hasNext = true))
+
+        coVerify(exactly = 2) { songService.byPlaylist(1, 50, playlistId) }
+        coVerify(exactly = 1) { songService.byPlaylist(2, 50, playlistId) }
+        assertEquals(refreshed + second, model.success().songs)
+    }
+
+    @Test
+    fun aPageDroppedByAReloadIsRequestedAgainWithoutAnotherScroll() {
+        val first = testSongs(2)
+        val second = listOf(testSong(10))
+        val refreshed = listOf(testSong(20), testSong(21))
+        val gate = CompletableDeferred<PaginatedResponse<UserSong>>()
+        var pageOneCalls = 0
+        stubSystem(page(first, hasNext = true))
+        coEvery { songService.byPlaylist(1, 50, playlistId) } coAnswers {
+            if (pageOneCalls++ == 0) gate.await() else page(second, hasNext = false)
+        }
+        val model = createModel()
+        model.loadNextPage()
+        stubSystem(page(refreshed, hasNext = true))
+        songCache.notifyPlaylistChanged(playlistId)
+        assertEquals(refreshed, model.success().songs)
+
+        gate.complete(page(listOf(testSong(30)), hasNext = true))
+
+        coVerify(exactly = 2) { songService.byPlaylist(1, 50, playlistId) }
+        assertEquals(refreshed + second, model.success().songs)
+        assertEquals(false, model.success().hasNextPage)
+    }
+
+    @Test
     fun aFailingReloadDuringTheFirstLoadKeepsTheFirstLoad() {
         val first = testSongs(2)
         val gate = CompletableDeferred<PaginatedResponse<UserSong>>()
@@ -369,5 +470,25 @@ class PlaylistScreenModelTest {
         val state = model.success()
         assertEquals(first, state.songs)
         assertEquals("Mix", state.name)
+    }
+
+    @Test
+    fun aPageRequestedTheMomentTheListChangesIsLoadedOnceThePageInProgressIsDone() = runTest {
+        val first = testSongs(2)
+        val second = listOf(testSong(10))
+        val third = listOf(testSong(20))
+        stubSystem(page(first, hasNext = true))
+        coEvery { songService.byPlaylist(1, 50, playlistId) } returns page(second, hasNext = true)
+        coEvery { songService.byPlaylist(2, 50, playlistId) } returns page(third, hasNext = false)
+        val model = createModel(dispatchers = TestDispatchers(StandardTestDispatcher(testScheduler)))
+        runCurrent()
+        assertEquals(first, model.success().songs)
+
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { model.state.collect { model.loadNextPage() } }
+        runCurrent()
+
+        assertEquals(first + second + third, model.success().songs)
+        coVerify(exactly = 1) { songService.byPlaylist(1, 50, playlistId) }
+        coVerify(exactly = 1) { songService.byPlaylist(2, 50, playlistId) }
     }
 }

@@ -24,6 +24,7 @@ import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.AlbumItem
 import dev.dertyp.synara.ui.components.ArtistItem
+import dev.dertyp.synara.ui.components.LoadNextPageEffect
 import dev.dertyp.synara.ui.components.PlaylistItem
 import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SongItem
@@ -89,14 +90,7 @@ class SearchSongsScreen(query: String) : BaseSearchResultScreen<dev.dertyp.data.
     override fun ResultList(items: List<dev.dertyp.data.UserSong>, hasNextPage: Boolean, isLoading: Boolean, onLoadMore: () -> Unit) {
         val playerModel = koinInject<PlayerModel>()
         val lazyListState = rememberLazyListState()
-        val shouldLoadNextPage by remember {
-            derivedStateOf {
-                val layoutInfo = lazyListState.layoutInfo
-                val lastVisibleItemIndex = (layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) + 1
-                lastVisibleItemIndex > (layoutInfo.totalItemsCount - 5)
-            }
-        }
-        LaunchedEffect(shouldLoadNextPage) { if (shouldLoadNextPage) onLoadMore() }
+        LoadNextPageEffect(lazyListState, threshold = 5, onLoadMore)
 
         Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(state = lazyListState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp)) {
@@ -120,14 +114,7 @@ class SearchArtistsScreen(query: String) : BaseSearchResultScreen<dev.dertyp.dat
     override fun ResultList(items: List<dev.dertyp.data.Artist>, hasNextPage: Boolean, isLoading: Boolean, onLoadMore: () -> Unit) {
         val navigator = LocalNavigator.current
         val lazyGridState = rememberLazyGridState()
-        val shouldLoadNextPage by remember {
-            derivedStateOf {
-                val layoutInfo = lazyGridState.layoutInfo
-                val lastVisibleItemIndex = (layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) + 1
-                lastVisibleItemIndex > (layoutInfo.totalItemsCount - 5)
-            }
-        }
-        LaunchedEffect(shouldLoadNextPage) { if (shouldLoadNextPage) onLoadMore() }
+        LoadNextPageEffect(lazyGridState, threshold = 5, onLoadMore)
 
         Box(modifier = Modifier.fillMaxSize()) {
             LazyVerticalGrid(
@@ -157,14 +144,7 @@ class SearchAlbumsScreen(query: String) : BaseSearchResultScreen<dev.dertyp.data
     override fun ResultList(items: List<dev.dertyp.data.Album>, hasNextPage: Boolean, isLoading: Boolean, onLoadMore: () -> Unit) {
         val navigator = LocalNavigator.current
         val lazyGridState = rememberLazyGridState()
-        val shouldLoadNextPage by remember {
-            derivedStateOf {
-                val layoutInfo = lazyGridState.layoutInfo
-                val lastVisibleItemIndex = (layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) + 1
-                lastVisibleItemIndex > (layoutInfo.totalItemsCount - 5)
-            }
-        }
-        LaunchedEffect(shouldLoadNextPage) { if (shouldLoadNextPage) onLoadMore() }
+        LoadNextPageEffect(lazyGridState, threshold = 5, onLoadMore)
 
         Box(modifier = Modifier.fillMaxSize()) {
             LazyVerticalGrid(
@@ -194,14 +174,7 @@ class SearchPlaylistsScreen(query: String) : BaseSearchResultScreen<dev.dertyp.d
     override fun ResultList(items: List<dev.dertyp.data.UserPlaylist>, hasNextPage: Boolean, isLoading: Boolean, onLoadMore: () -> Unit) {
         val navigator = LocalNavigator.current
         val lazyGridState = rememberLazyGridState()
-        val shouldLoadNextPage by remember {
-            derivedStateOf {
-                val layoutInfo = lazyGridState.layoutInfo
-                val lastVisibleItemIndex = (layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) + 1
-                lastVisibleItemIndex > (layoutInfo.totalItemsCount - 5)
-            }
-        }
-        LaunchedEffect(shouldLoadNextPage) { if (shouldLoadNextPage) onLoadMore() }
+        LoadNextPageEffect(lazyGridState, threshold = 5, onLoadMore)
 
         Box(modifier = Modifier.fillMaxSize()) {
             LazyVerticalGrid(

@@ -1,5 +1,6 @@
 package dev.dertyp.synara.player.audio
 
+import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayInputStream
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -58,7 +59,7 @@ class PcmHeaderTest {
         riff(riffChunk("fmt ", fmtPayload(1, 2, 44100, 16)), dataChunk(dataSize.toLong(), ByteArray(dataSize)))
 
     private fun parse(bytes: ByteArray, base: Long = 0): PcmHeader? =
-        PcmHeader.parseFromStream(ByteArrayInputStream(bytes), base)
+        runBlocking { PcmHeader.parseFromStream(ByteArrayInputStream(bytes), base) { null } }
 
     private fun ext44100(): ByteArray = bytes(0x40, 0x0E, 0xAC, 0x44, 0, 0, 0, 0, 0, 0)
 
@@ -364,9 +365,146 @@ class PcmHeaderTest {
     }
 
     @Test
-    fun ssndBeforeCommIsRejected() {
-        val aiff = form("AIFF", ssnd(0, ByteArray(400)), comm(2, 100, 16))
+    fun ssndBeforeCommGivesTheSameHeaderAsCommBeforeSsnd() {
+        val sound = ByteArray(400) { (it + 1).toByte() }
+        val commFirst = form("AIFF", comm(2, 100, 16), ssnd(0, sound))
+        val ssndFirst = form("AIFF", ssnd(0, sound), comm(2, 100, 16))
+        val forward = assertNotNull(parse(commFirst))
+        val reversed = assertNotNull(parse(ssndFirst))
+
+        assertEquals(44100, reversed.sampleRate)
+        assertEquals(2, reversed.channels)
+        assertEquals(16, reversed.bitsPerSample)
+        assertFalse(reversed.isFloat)
+        assertEquals(AiffHeader.Compression.NONE, reversed.aiffCompression)
+        assertEquals(28L, reversed.dataStart)
+        assertEquals(400L, reversed.dataSize)
+        assertEquals(forward, reversed.copy(dataStart = forward.dataStart))
+        assertContentEquals(sound, commFirst.copyOfRange(forward.dataStart.toInt(), (forward.dataStart + forward.dataSize).toInt()))
+        assertContentEquals(sound, ssndFirst.copyOfRange(reversed.dataStart.toInt(), (reversed.dataStart + reversed.dataSize).toInt()))
+    }
+
+    @Test
+    fun ssndOffsetBeforeCommAdvancesDataStartAndShrinksDataSize() {
+        val aiff = form("AIFF", ssnd(4, ByteArray(100)), comm(2, 100, 16))
+        val header = assertNotNull(parse(aiff))
+        assertEquals(32L, header.dataStart)
+        assertEquals(100L, header.dataSize)
+    }
+
+    @Test
+    fun streamOffsetOfMagicIsAddedToAiffDataStartBeforeComm() {
+        val aiff = form("AIFF", ssnd(4, ByteArray(100)), comm(2, 100, 16))
+        val header = assertNotNull(parse(aiff, base = 500))
+        assertEquals(532L, header.dataStart)
+    }
+
+    @Test
+    fun oddSizedSsndBeforeCommConsumesItsPadByte() {
+        val aiff = form("AIFF", ssnd(0, ByteArray(401)), ByteArray(1), comm(1, 401, 8))
+        val header = assertNotNull(parse(aiff))
+        assertEquals(1, header.channels)
+        assertEquals(8, header.bitsPerSample)
+        assertEquals(28L, header.dataStart)
+        assertEquals(401L, header.dataSize)
+    }
+
+    @Test
+    fun unknownChunksBetweenSsndAndCommAreSkipped() {
+        val aiff = form(
+            "AIFF",
+            aiffChunk("FVER", ByteArray(5)),
+            ssnd(0, ByteArray(40)),
+            aiffChunk("ANNO", ByteArray(3)),
+            comm(2, 10, 16),
+        )
+        val header = assertNotNull(parse(aiff))
+        assertEquals(42L, header.dataStart)
+        assertEquals(40L, header.dataSize)
+        assertEquals(2, header.channels)
+    }
+
+    @Test
+    fun aifcCompressionIsCarriedWhenSsndComesFirst() {
+        val aiff = form("AIFC", ssnd(0, ByteArray(400)), comm(2, 100, 16, compression = "sowt"))
+        val header = assertNotNull(parse(aiff))
+        assertEquals(AiffHeader.Compression.SOWT, header.aiffCompression)
+        assertEquals(28L, header.dataStart)
+        assertEquals(400L, header.dataSize)
+    }
+
+    @Test
+    fun ssndWithoutACommAfterItIsRejected() {
+        assertNull(parse(form("AIFF", ssnd(0, ByteArray(400)))))
+        assertNull(parse(form("AIFF", ssnd(0, ByteArray(400)), aiffChunk("ANNO", ByteArray(4)))))
+    }
+
+    @Test
+    fun ssndBeforeCommWithUnsupportedCommParametersIsRejected() {
+        assertNull(parse(form("AIFF", ssnd(0, ByteArray(400)), comm(9, 100, 16))))
+        assertNull(parse(form("AIFC", ssnd(0, ByteArray(400)), comm(2, 100, 16, compression = "ulaw"))))
+    }
+
+    @Test
+    fun ssndBeforeCommWithoutAKnownSizeIsRejected() {
+        assertNull(parse(form("AIFF", ssnd(0, ByteArray(10), declaredSize = 0), comm(2, 100, 16))))
+        assertNull(parse(form("AIFF", ssnd(0, ByteArray(10), declaredSize = 0xFFFFFFFFL), comm(2, 100, 16))))
+        assertNull(parse(form("AIFF", ssnd(4, ByteArray(0), declaredSize = 8), comm(2, 100, 16))))
+    }
+
+    @Test
+    fun largeSsndBeforeCommIsJumpedOverWithASecondRange() {
+        val sound = ByteArray(600_000) { (it % 251).toByte() }
+        val aiff = ByteArray(1000) + form("AIFF", ssnd(0, sound), comm(2, 150_000, 16))
+        val reopened = mutableListOf<Long>()
+        val header = assertNotNull(
+            runBlocking {
+                PcmHeader.parseFromStream(ByteArrayInputStream(aiff, 1000, aiff.size - 1000), 1000L) { offset ->
+                    reopened += offset
+                    ByteArrayInputStream(aiff, offset.toInt(), aiff.size - offset.toInt())
+                }
+            }
+        )
+
+        assertEquals(listOf(1000L + 28 + 600_000), reopened)
+        assertEquals(44100, header.sampleRate)
+        assertEquals(2, header.channels)
+        assertEquals(16, header.bitsPerSample)
+        assertEquals(1028L, header.dataStart)
+        assertEquals(600_000L, header.dataSize)
+        assertContentEquals(sound, aiff.copyOfRange(1028, 1028 + 600_000))
+    }
+
+    @Test
+    fun largeSsndBeforeCommIsRejectedWhenNoSecondRangeCanBeOpened() {
+        val aiff = form("AIFF", ssnd(0, ByteArray(600_000)), comm(2, 150_000, 16))
         assertNull(parse(aiff))
+        val reopened = mutableListOf<Long>()
+        val header = runBlocking {
+            PcmHeader.parseFromStream(ByteArrayInputStream(aiff), 0L) { offset ->
+                reopened += offset
+                null
+            }
+        }
+        assertNull(header)
+        assertEquals(listOf(600_028L), reopened)
+    }
+
+    @Test
+    fun commBeforeALargeSsndNeedsNoSecondRange() {
+        val aiff = form("AIFF", comm(2, 150_000, 16), ssnd(0, ByteArray(600_000)))
+        val reopened = mutableListOf<Long>()
+        val header = assertNotNull(
+            runBlocking {
+                PcmHeader.parseFromStream(ByteArrayInputStream(aiff), 0L) { offset ->
+                    reopened += offset
+                    null
+                }
+            }
+        )
+        assertEquals(54L, header.dataStart)
+        assertEquals(600_000L, header.dataSize)
+        assertTrue(reopened.isEmpty())
     }
 
     @Test

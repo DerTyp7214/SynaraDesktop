@@ -9,14 +9,9 @@ import dev.dertyp.synara.player.audio.decode.XingInfo
 sealed class ProbeInfo {
     class Flac(val metadata: ByteArray, val durationMs: Long?) : ProbeInfo()
 
-    class OggOpus(val metadata: ByteArray) : ProbeInfo()
+    class OggOpus(val metadata: ByteArray, val durationMs: Long? = null) : ProbeInfo()
 
-    class Pcm(val header: PcmHeader) : ProbeInfo() {
-        val durationMs: Long?
-            get() = if (header.dataSize > 0 && header.bytesPerFrame > 0 && header.sampleRate > 0) {
-                header.dataSize / header.bytesPerFrame * 1000 / header.sampleRate
-            } else null
-    }
+    class Pcm(val header: PcmHeader) : ProbeInfo()
 
     class Mp3(
         val firstFrameOffset: Long,

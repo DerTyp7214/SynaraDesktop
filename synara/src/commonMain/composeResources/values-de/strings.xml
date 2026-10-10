@@ -757,6 +757,18 @@
     <string name="settings_sync_conflict_message">%1$s Einstellungen wurden hier und auf %2$s geändert. Welche Version möchtest du behalten?</string>
     <string name="settings_sync_conflict_keep_local">Dieses Gerät behalten</string>
     <string name="settings_sync_conflict_use_remote">Einstellungen von %1$s verwenden</string>
+    <string name="settings_sync_reset_title">Einstellungen auf dem Server verloren</string>
+    <string name="settings_sync_reset_message">Der Server hat von %1$s deiner Einstellungen nicht mehr den neuesten Stand. Möchtest du die Werte dieses Geräts behalten und erneut hochladen oder den jetzigen Stand des Servers übernehmen?</string>
+    <string name="settings_sync_reset_keep_local">Einstellungen dieses Geräts behalten</string>
+    <string name="settings_sync_reset_accept">Stand des Servers übernehmen</string>
+    <string name="settings_sync_enable_choice_title">Welche Einstellungen sollen verwendet werden?</string>
+    <string name="settings_sync_enable_choice_message">%1$s Einstellungen unterscheiden sich zwischen diesem Gerät und %2$s.</string>
+    <string name="settings_sync_enable_use_remote">Einstellungen von %1$s verwenden</string>
+    <string name="settings_sync_enable_keep_local">Einstellungen dieses Geräts behalten</string>
+    <string name="settings_sync_unlock_choice_title">Welche Scrobbler-Konten sollen verwendet werden?</string>
+    <string name="settings_sync_unlock_choice_message">Die Scrobbler-Konten auf diesem Gerät unterscheiden sich von denen, die deine anderen Geräte synchronisieren.</string>
+    <string name="settings_sync_unlock_use_remote">Synchronisierte Konten verwenden</string>
+    <string name="settings_sync_unlock_keep_local">Konten dieses Geräts behalten</string>
     <string name="secrets_sync_title">Scrobbler-Konten synchronisieren</string>
     <string name="secrets_sync_summary">Verschlüsselt deine ListenBrainz- und Last.fm-Zugangsdaten mit einer Passphrase, bevor sie dieses Gerät verlassen. Verwende dieselbe Passphrase auf jedem Gerät.</string>
     <string name="secrets_sync_state_setup">Passphrase festlegen, um zu starten</string>
@@ -933,6 +945,8 @@
     <string name="podcast_error_failed_generic">Wiedergabe fehlgeschlagen</string>
     <string name="settings_podcasts_title">Podcasts</string>
     <string name="settings_podcasts_summary">Sendungen abonnieren und Folgen in einem eigenen Player hören. Gilt für alle deine Geräte.</string>
+    <string name="settings_gapless_title">Lückenlose Wiedergabe</string>
+    <string name="settings_gapless_summary">Titel, die ineinander übergehen, laufen ohne Pause.</string>
     <string name="onboarding_continue">Weiter</string>
     <string name="onboarding_not_now">Nicht jetzt</string>
     <string name="onboarding_features_title">Neue Funktionen</string>

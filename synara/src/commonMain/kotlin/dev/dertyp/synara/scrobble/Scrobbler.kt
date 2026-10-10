@@ -1,5 +1,6 @@
 package dev.dertyp.synara.scrobble
 
+import dev.dertyp.PlatformUUID
 import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
@@ -21,6 +22,8 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 val LogTag.Companion.RECENTLY_PLAYED get() = LogTag("recently_played")
+
+const val THIRD_PARTY_HTTP_ENGINE = "third_party_http_engine"
 
 class ScrobbleTimer(private val scope: CoroutineScope) {
 
@@ -81,10 +84,16 @@ class ScrobblerService(
     private val _newSong = MutableStateFlow<UserSong?>(null)
     val newSong: StateFlow<UserSong?> = _newSong
 
-    private val trackedSong = MutableStateFlow<UserSong?>(null)
+    private val trackedPlay = MutableStateFlow<TrackedPlay?>(null)
+    private var playSerial = 0L
+    private var announcedPlay = 0L
+    private var isPaused = false
 
     private val _resumed = MutableSharedFlow<UserSong>(extraBufferCapacity = 8)
     val resumed: SharedFlow<UserSong> = _resumed
+
+    private val _restarted = MutableSharedFlow<UserSong>(extraBufferCapacity = 8)
+    val restarted: SharedFlow<UserSong> = _restarted
 
     private val scrobblerTimer = ScrobbleTimer(scope)
     val scrobbledFor: StateFlow<Int> = scrobblerTimer.time
@@ -101,34 +110,53 @@ class ScrobblerService(
         jobs += scope.launch {
             scrobblers.forEach { it.startScrobbler() }
 
-            playerModel.currentSong
-                .distinctUntilChanged { old, new -> old?.id == new?.id }
-                .collectLatest { song ->
-                    val previousSong = _newSong.value
-                    val msPlayed = scrobblerTimer.time.value * 1000L
-                    if (previousSong != null && msPlayed > 0) {
-                        _listenEnded.emit(ListenEnded(previousSong, msPlayed, listenStartedAt))
-                    }
-                    if (song != null) {
-                        listenStartedAt = currentTimeMillis()
-                        scrobblerTimer.reset()
-                        scrobblers.forEach { it.resetStatus() }
-                        _resetTrigger.emit(Unit)
-                    } else {
-                        scrobblerTimer.stop()
-                    }
-                    _triggeredSong.value = null
-                    trackedSong.value = song
+            merge<PlayBoundary>(
+                playerModel.currentSong
+                    .distinctUntilChanged { old, new -> old?.id == new?.id }
+                    .map { PlayBoundary.SongChanged(it) },
+                playerModel.trackStarts
+                    .filter { it.startMs == 0L }
+                    .map { PlayBoundary.Restarted(it.songId) }
+            ).collect { boundary ->
+                val song = when (boundary) {
+                    is PlayBoundary.SongChanged -> boundary.song
+                    is PlayBoundary.Restarted -> trackedPlay.value?.song?.takeIf {
+                        it.id == boundary.songId && scrobblerTimer.time.value > 0
+                    } ?: return@collect
                 }
+                endedListen()?.let { _listenEnded.emit(it) }
+                if (song != null) {
+                    listenStartedAt = currentTimeMillis()
+                    scrobblerTimer.reset()
+                    scrobblers.forEach { it.resetStatus() }
+                    _resetTrigger.emit(Unit)
+                } else {
+                    scrobblerTimer.stop()
+                }
+                _triggeredSong.value = null
+                trackedPlay.value = song?.let { TrackedPlay(it, ++playSerial) }
+            }
         }
         jobs += scope.launch {
-            combine(trackedSong, playerModel.isPlaying, playerModel.loadedSongId) { song, playing, loaded ->
-                Triple(song, playing, loaded)
-            }.collect { (song, playing, loaded) ->
-                if (song == null) {
+            combine(trackedPlay, playerModel.isPlaying, playerModel.loadedSongId) { play, playing, loaded ->
+                Triple(play, playing, loaded)
+            }.collect { (play, playing, loaded) ->
+                if (play == null) {
                     _newSong.value = null
-                } else if (playing && loaded == song.id) {
-                    if (_newSong.value?.id == song.id) _resumed.emit(song) else _newSong.value = song
+                } else if (!playing) {
+                    isPaused = true
+                } else if (loaded == play.song.id) {
+                    if (announcedPlay != play.serial) {
+                        announcedPlay = play.serial
+                        if (_newSong.value?.id == play.song.id) {
+                            _restarted.emit(play.song)
+                        } else {
+                            _newSong.value = play.song
+                        }
+                    } else if (isPaused) {
+                        _resumed.emit(play.song)
+                    }
+                    isPaused = false
                 }
             }
         }
@@ -137,7 +165,7 @@ class ScrobblerService(
                 .filter {
                     newSong.value != null && BaseScrobbler.isScrobbled(
                         it.seconds,
-                        (newSong.value?.duration ?: Long.MAX_VALUE).milliseconds
+                        (newSong.value?.duration ?: 0L).milliseconds
                     )
                 }
                 .filter { _triggeredSong.value?.song?.id != newSong.value?.id }
@@ -146,8 +174,8 @@ class ScrobblerService(
                 }
         }
         jobs += scope.launch {
-            combine(trackedSong, playerModel.isPlaying, playerModel.loadedSongId) { song, playing, loaded ->
-                playing && song != null && loaded == song.id
+            combine(trackedPlay, playerModel.isPlaying, playerModel.loadedSongId) { play, playing, loaded ->
+                playing && play != null && loaded == play.song.id
             }.distinctUntilChanged().collectLatest { audible ->
                 if (audible) scrobblerTimer.start()
                 else scrobblerTimer.pause()
@@ -186,6 +214,25 @@ class ScrobblerService(
         return scrobblers
     }
 
+    private fun endedListen(): ListenEnded? {
+        val song = _newSong.value ?: return null
+        val msPlayed = scrobblerTimer.time.value * 1000L
+        if (msPlayed <= 0) return null
+        return ListenEnded(song, msPlayed, listenStartedAt)
+    }
+
+    suspend fun endCurrentListen() {
+        val ended = endedListen() ?: return
+        scrobblerTimer.stop()
+        withTimeoutOrNull(LISTEN_END_BUDGET) {
+            coroutineScope {
+                scrobblers.forEach { scrobbler ->
+                    launch { scrobbler.deliverListenEnded(ended) }
+                }
+            }
+        }
+    }
+
     fun stop() {
         while (jobs.isNotEmpty()) jobs.removeAt(0).cancel()
         (scope.coroutineContext[ContinuationInterceptor] as? AutoCloseable)?.close()
@@ -194,6 +241,17 @@ class ScrobblerService(
         isRunning = false
         logger.info(LogTag.SCROBBLER, "ScrobblerService stopped")
     }
+
+    companion object {
+        private val LISTEN_END_BUDGET = 2.seconds
+    }
+
+    private data class TrackedPlay(val song: UserSong, val serial: Long)
+
+    private sealed interface PlayBoundary {
+        data class SongChanged(val song: UserSong?) : PlayBoundary
+        data class Restarted(val songId: PlatformUUID) : PlayBoundary
+    }
 }
 
 abstract class BaseScrobbler : KoinComponent {
@@ -201,6 +259,7 @@ abstract class BaseScrobbler : KoinComponent {
         const val MIN_SCROBBLE_DIV = 2
 
         fun requiredDuration(position: Duration, duration: Duration): Duration = when {
+            duration <= Duration.ZERO -> 3.minutes
             (duration / MIN_SCROBBLE_DIV) > 3.minutes -> 3.minutes
             else -> (duration / MIN_SCROBBLE_DIV)
         } - position
@@ -238,10 +297,16 @@ abstract class BaseScrobbler : KoinComponent {
     private val scrobblerService: ScrobblerService by inject()
     private val dispatchers: SynaraDispatchers by inject()
     internal val logger: Logger by inject()
-    internal val scope: CoroutineScope by lazy {
-        CoroutineScope(SupervisorJob() + dispatchers.createNamed(this::class.simpleName ?: "Scrobbler"))
-    }
+    @Volatile
+    private var activeScope: CoroutineScope? = null
+    internal val scope: CoroutineScope
+        get() = activeScope ?: CoroutineScope(
+            SupervisorJob() + dispatchers.createNamed(this::class.simpleName ?: "Scrobbler")
+        ).also { activeScope = it }
     private val jobs = mutableListOf<Job>()
+
+    @Volatile
+    private var handedOutListen: TriggeredListen? = null
 
     var isRunning = false
         private set
@@ -259,16 +324,26 @@ abstract class BaseScrobbler : KoinComponent {
     fun startScrobbler() {
         if (isRunning) return
         isRunning = true
+        if (activeScope?.isActive == false) activeScope = null
         jobs += scope.launch {
-            scrobblerService.triggeredSong.collectLatest { listen ->
-                if (listen != null) try {
-                    triggered(listen.song, listen.listenedAt)
-                } catch (e: Exception) {
-                    logger.error(
-                        LogTag.SCROBBLER,
-                        "Error in triggered scrobbler ${this@BaseScrobbler::class.simpleName}",
-                        e
-                    )
+            scrobblerService.triggeredSong.collect { listen ->
+                if (listen == null || listen == handedOutListen) {
+                    handedOutListen = listen
+                    return@collect
+                }
+                handedOutListen = listen
+                launch {
+                    try {
+                        triggered(listen.song, listen.listenedAt)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logger.error(
+                            LogTag.SCROBBLER,
+                            "Error in triggered scrobbler ${this@BaseScrobbler::class.simpleName}",
+                            e
+                        )
+                    }
                 }
             }
         }
@@ -276,6 +351,23 @@ abstract class BaseScrobbler : KoinComponent {
             scrobblerService.newSong.collectLatest { song ->
                 try {
                     newSong(song)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.error(
+                        LogTag.SCROBBLER,
+                        "Error in newSong scrobbler ${this@BaseScrobbler::class.simpleName}",
+                        e
+                    )
+                }
+            }
+        }
+        jobs += scope.launch {
+            scrobblerService.restarted.collectLatest { song ->
+                try {
+                    newSong(song)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     logger.error(
                         LogTag.SCROBBLER,
@@ -289,6 +381,8 @@ abstract class BaseScrobbler : KoinComponent {
             scrobblerService.resumed.collectLatest { song ->
                 try {
                     resumed(song)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     logger.error(
                         LogTag.SCROBBLER,
@@ -304,17 +398,7 @@ abstract class BaseScrobbler : KoinComponent {
             }
         }
         jobs += scope.launch {
-            scrobblerService.listenEnded.collect { (song, msPlayed, listenedAt) ->
-                try {
-                    listenEnded(song, msPlayed, listenedAt)
-                } catch (e: Exception) {
-                    logger.error(
-                        LogTag.SCROBBLER,
-                        "Error in listenEnded scrobbler ${this@BaseScrobbler::class.simpleName}",
-                        e
-                    )
-                }
-            }
+            scrobblerService.listenEnded.collect { deliverListenEnded(it) }
         }
         try {
             onStart()
@@ -322,9 +406,26 @@ abstract class BaseScrobbler : KoinComponent {
         }
     }
 
+    internal suspend fun deliverListenEnded(ended: ListenEnded) {
+        try {
+            listenEnded(ended.song, ended.msPlayed, ended.listenedAt)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.error(
+                LogTag.SCROBBLER,
+                "Error in listenEnded scrobbler ${this::class.simpleName}",
+                e
+            )
+        }
+    }
+
     fun stopScrobbler() {
         while (jobs.isNotEmpty()) jobs.removeAt(0).cancel()
-        (scope.coroutineContext[ContinuationInterceptor] as? AutoCloseable)?.close()
+        activeScope?.let { stopped ->
+            stopped.cancel()
+            (stopped.coroutineContext[ContinuationInterceptor] as? AutoCloseable)?.close()
+        }
         isRunning = false
         try {
             onStop()

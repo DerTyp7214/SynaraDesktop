@@ -242,7 +242,7 @@ class PodcastPlayerModel(
         val current = _currentIndex.value
 
         if (index == current) {
-            val wasPlaying = engine.isPlaying.value
+            val wasPlaying = engine.isPlaying.value || (engine.isLoading.value && playRequested)
             reportOutgoing()
             val remaining = list.toMutableList().apply { removeAt(index) }
             _queue.value = remaining
@@ -449,8 +449,7 @@ class PodcastPlayerModel(
         report(episode, positionMs)
     }
 
-    private fun isNearEnd(positionMs: Long, durationMs: Long?): Boolean {
-        if (durationMs == null || durationMs <= 0L) return true
+    private fun isNearEnd(positionMs: Long, durationMs: Long): Boolean {
         val tolerance = max(COMPLETION_TOLERANCE_MS, durationMs * COMPLETION_TOLERANCE_PERCENT / 100)
         return durationMs - positionMs <= tolerance
     }
@@ -459,7 +458,7 @@ class PodcastPlayerModel(
         val episode = _queue.value.getOrNull(_currentIndex.value) ?: return
         val positionMs = engine.position.value
         val knownDuration = knownDuration(episode)
-        if (!isNearEnd(positionMs, knownDuration)) {
+        if (knownDuration != null && !isNearEnd(positionMs, knownDuration)) {
             report(episode, positionMs)
             engine.stop()
             loadedEpisodeId = null
@@ -468,8 +467,7 @@ class PodcastPlayerModel(
             return
         }
 
-        val total = knownDuration ?: positionMs
-        reporter.report(episode, total, total.takeIf { it > 0 }, completed = true)
+        reporter.report(episode, knownDuration ?: positionMs, knownDuration, completed = true)
         loadedEpisodeId = null
 
         val next = _currentIndex.value + 1
@@ -483,6 +481,7 @@ class PodcastPlayerModel(
 
     private fun handleEngineError() {
         if (loadedEpisodeId == null || engine.isLoading.value || engine.isPlaying.value) return
+        if (playRequested) reportOutgoing()
         loadedEpisodeId = null
         if (pendingResume.value == null) pendingResume.value = engine.position.value
     }

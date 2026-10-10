@@ -142,12 +142,12 @@ fun SynaraView() {
                     }
                 }
 
-                if (connectionState == RpcServiceManager.ConnectionState.Authenticated) {
-                    ConnectionBanners(
-                        rpcServiceManager = rpcServiceManager,
-                        modifier = Modifier.align(Alignment.TopCenter)
-                    )
+                ConnectionBanners(
+                    rpcServiceManager = rpcServiceManager,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
 
+                if (connectionState == RpcServiceManager.ConnectionState.Authenticated) {
                     QueueSyncPrompts()
                     SettingsSyncPrompts()
                     OnboardingHost()

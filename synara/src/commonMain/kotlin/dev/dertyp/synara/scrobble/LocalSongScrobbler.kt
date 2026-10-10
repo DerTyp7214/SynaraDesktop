@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 import org.koin.core.component.inject
 import synara.synara.generated.resources.Res
 import synara.synara.generated.resources.local_scrobbler
+import kotlin.concurrent.Volatile
 
 class LocalSongScrobbler(
     private val repository: LocalHistoryRepository,
@@ -29,6 +30,9 @@ class LocalSongScrobbler(
 
     private val globalState: GlobalStateModel by inject()
     private val currentColor = MutableStateFlow(Color(0xFFB3B3B3))
+
+    @Volatile
+    private var isDropLogged = false
 
     init {
         this += scope.launch {
@@ -44,7 +48,15 @@ class LocalSongScrobbler(
     }
 
     override suspend fun triggered(song: UserSong, listenedAt: Long) {
-        val userId = globalState.user.value?.id ?: return
+        val userId = globalState.user.value?.id
+        if (userId == null) {
+            if (!isDropLogged) {
+                isDropLogged = true
+                logger.warning(LogTag.SCROBBLER, "No user is known, the local history is not written until one is")
+            }
+            return
+        }
+        isDropLogged = false
         logger.info(LogTag.SCROBBLER, "Local scrobble triggered for ${song.title}")
         repository.insert(
             userId = userId,

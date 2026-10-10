@@ -38,9 +38,10 @@ fun ConnectionBanners(
     rpcServiceManager: RpcServiceManager,
     modifier: Modifier = Modifier
 ) {
+    val connectionState by rpcServiceManager.connectionState.collectAsState()
     val isServerReachable by rpcServiceManager.isServerReachable.collectAsState()
     val sessionSslOverride by rpcServiceManager.sessionSslOverride.collectAsState()
-    var sslWarningDismissed by remember { mutableStateOf(false) }
+    var sslWarningDismissed by remember(connectionState) { mutableStateOf(false) }
 
     LaunchedEffect(sessionSslOverride) {
         if (sessionSslOverride == false) {
@@ -48,11 +49,14 @@ fun ConnectionBanners(
         }
     }
 
+    val authenticated = connectionState == RpcServiceManager.ConnectionState.Authenticated
+    val credentialsInUse = authenticated || connectionState == RpcServiceManager.ConnectionState.LoginRequired
+
     Column(modifier = modifier.fillMaxWidth()) {
-        if (!isServerReachable) {
+        if (authenticated && !isServerReachable) {
             OfflineBanner()
         }
-        if (sessionSslOverride == false && !sslWarningDismissed) {
+        if (credentialsInUse && sessionSslOverride == false && !sslWarningDismissed) {
             SslOverrideBanner(
                 onRetry = {
                     rpcServiceManager.resetSslSession()

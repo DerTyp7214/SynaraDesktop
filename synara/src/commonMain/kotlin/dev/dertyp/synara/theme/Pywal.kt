@@ -42,31 +42,28 @@ fun rememberPywalColorScheme(isDark: Boolean): ColorScheme? {
     val colors = pywalColors ?: return null
 
     return remember(colors, isDark) {
-        val color10 = (colors.colors["color10"] ?: "#000000").toColor()
-        val color12 = (colors.colors["color12"] ?: "#000000").toColor()
-        val color14 = (colors.colors["color14"] ?: "#000000").toColor()
-
-        val seeds = Triple(
-            color12.filterSpecified()?.toArgb(),
-            color10.filterSpecified()?.toArgb(),
-            color14.filterSpecified()?.toArgb(),
-        )
-
-        createColorSchemeFromSeeds(seeds, isDark)
+        createColorSchemeFromSeeds(pywalSeeds(colors), isDark)
     }
+}
+
+fun pywalSeeds(colors: PywalColors): Triple<Int?, Int?, Int?> {
+    val color10 = (colors.colors["color10"] ?: "#000000").toColor()
+    val color12 = (colors.colors["color12"] ?: "#000000").toColor()
+    val color14 = (colors.colors["color14"] ?: "#000000").toColor()
+
+    return Triple(
+        color12.filterSpecified()?.toArgb(),
+        color10.filterSpecified()?.toArgb(),
+        color14.filterSpecified()?.toArgb(),
+    )
 }
 
 private fun String.toColor(): Color {
     val hex = this.removePrefix("#")
 
     return when (hex.length) {
-        6 -> {
-            val argb = "FF$hex".toLong(16)
-            Color(argb)
-        }
-        8 -> {
-            Color(hex.toLong(16))
-        }
+        6 -> "FF$hex".toLongOrNull(16)?.let { Color(it) } ?: Color.Unspecified
+        8 -> hex.toLongOrNull(16)?.let { Color(it) } ?: Color.Unspecified
         else -> Color.Unspecified
     }
 }

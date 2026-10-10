@@ -15,6 +15,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.freedesktop.dbus.DBusPath
@@ -220,8 +221,12 @@ open class MprisObjectImpl(private val bridge: MediaControlBridge) : IMprisMedia
     override fun Seek(Offset: Long) =
         bridge.seekBy(Offset / 1000)
 
-    override fun SetPosition(TrackId: DBusPath, Position: Long) =
-        bridge.seekTo(Position / 1000)
+    override fun SetPosition(TrackId: DBusPath, Position: Long) {
+        val metadata = bridge.metadata.value ?: return
+        if (TrackId == trackPath(metadata)) {
+            bridge.seekTo(Position / 1000)
+        }
+    }
 
     override fun OpenUri(Uri: String) {}
 
@@ -247,7 +252,7 @@ open class MprisObjectImpl(private val bridge: MediaControlBridge) : IMprisMedia
 
     @DBusBoundProperty(name = "PlaybackStatus")
     override fun getPlaybackStatus(): String =
-        if (bridge.isPlaying.value) "Playing" else "Paused"
+        playbackStatus(bridge.isPlaying.value, bridge.metadata.value)
 
     @DBusBoundProperty(name = "LoopStatus")
     override fun getLoopStatus() = when (bridge.repeatMode.value) {
@@ -323,11 +328,8 @@ class LinuxMediaManager(
                 connection?.exportObject("/dev/dertyp/synara", synaraApi)
 
                 launch {
-                    bridge.isPlaying.collectLatest {
-                        sendPropertiesChangedSignal(
-                            "PlaybackStatus",
-                            Variant(if (it) "Playing" else "Paused")
-                        )
+                    combine(bridge.isPlaying, bridge.metadata, ::playbackStatus).distinctUntilChanged().collectLatest {
+                        sendPropertiesChangedSignal("PlaybackStatus", Variant(it))
                     }
                 }
                 launch {
@@ -408,10 +410,20 @@ class LinuxMediaManager(
     }
 }
 
+private fun trackPath(metadata: NowPlayingMetadata?): DBusPath {
+    val idStr = metadata?.trackId?.replace("-", "_") ?: "no_track"
+    return DBusPath("/org/mpris/MediaPlayer2/track/$idStr")
+}
+
+private fun playbackStatus(isPlaying: Boolean, metadata: NowPlayingMetadata?): String = when {
+    isPlaying -> "Playing"
+    metadata == null -> "Stopped"
+    else -> "Paused"
+}
+
 private fun createMetadata(metadata: NowPlayingMetadata?): Map<String, Variant<*>> {
     val m = mutableMapOf<String, Variant<*>>()
-    val idStr = metadata?.trackId?.replace("-", "_") ?: "no_track"
-    m["mpris:trackid"] = Variant(DBusPath("/org/mpris/MediaPlayer2/track/$idStr"))
+    m["mpris:trackid"] = Variant(trackPath(metadata))
     if (metadata != null) {
         m["mpris:length"] = Variant(metadata.durationMs * 1000L)
         m["xesam:title"] = Variant(metadata.title)

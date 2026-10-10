@@ -173,21 +173,35 @@ class SynaraApiImpl(
         return json.encodeToString(SynaraServerInfo.serializer(), info)
     }
 
+    private val localSurface = LocalPlaybackSurface(playerModel)
+
+    private fun surface(): PlaybackSurface =
+        if (remotePlaybackController.target.value != null) remotePlaybackController else localSurface
+
+    private fun currentQueueIndex(queue: List<QueueEntry>): Int {
+        val local = playerModel.currentIndex.value
+        if (remotePlaybackController.target.value == null) return local
+        val reported = remotePlaybackController.currentQueueId.value ?: return local
+        return queue.indexOfFirst { it.queueId == reported }.takeIf { it >= 0 } ?: local
+    }
+
     override fun GetPlaybackState(): String {
+        val surface = surface()
         val state = SynaraPlaybackState(
-            isPlaying = playerModel.isPlaying.value,
-            position = playerModel.currentPosition.value,
-            duration = playerModel.duration.value
+            isPlaying = surface.isPlaying.value,
+            position = surface.currentPosition.value,
+            duration = surface.duration.value
         )
         return json.encodeToString(SynaraPlaybackState.serializer(), state)
     }
 
     override fun GetCurrentSong(): String {
-        val song = playerModel.currentSong.value ?: return ""
+        val song = surface().currentSong.value ?: return ""
         return json.encodeToString(UserSong.serializer(), song)
     }
 
     private val rpcServiceManager by inject<RpcServiceManager>()
+    private val remotePlaybackController by inject<RemotePlaybackController>()
     private val songService by inject<ISongService>()
     private val albumService by inject<IAlbumService>()
     private val artistService by inject<IArtistService>()
@@ -235,12 +249,12 @@ class SynaraApiImpl(
     }
 
     override fun GetCurrentLyrics(): String {
-        return playerModel.currentSong.value?.lyrics ?: ""
+        return surface().currentSong.value?.lyrics ?: ""
     }
 
     override fun GetQueue(limit: Int): String {
         val currentQueue = playerModel.queue.value
-        val currentIndex = playerModel.currentIndex.value
+        val currentIndex = currentQueueIndex(currentQueue)
         val nextItems = currentQueue.drop(currentIndex + 1).take(if (limit <= 0) 10 else limit)
 
         return runBlocking {

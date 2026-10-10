@@ -14,6 +14,7 @@ import dev.dertyp.services.ISongService
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.utils.SynaraDispatchers
 import dev.dertyp.synara.utils.currentTimezoneId
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
@@ -86,8 +87,16 @@ class StatsScreenModel(
             mutableState.update {
                 if (it.selectedRange == range && it.topOrder == topOrder) it.copy(stats = stats, isLoading = false) else it
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            mutableState.update { it.copy(isLoading = false, error = e.message ?: "Unknown error") }
+            mutableState.update {
+                if (it.selectedRange == range && it.topOrder == topOrder) {
+                    it.copy(isLoading = false, error = e.message ?: "Unknown error")
+                } else {
+                    it
+                }
+            }
         }
     }
 

@@ -14,11 +14,13 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 class MusicBrainzServiceTest {
@@ -87,5 +89,19 @@ class MusicBrainzServiceTest {
 
         assertEquals(listOf(recording), service.searchRecordings(id.toString()))
         coVerify(exactly = 1) { remote.getRecording(id) }
+    }
+
+    @Test
+    fun aCancelledRecordingLookupOnTheServerIsNotAnsweredFromMusicBrainz() = runTest {
+        coEvery { remote.getRecording(any()) } throws CancellationException("cancelled")
+
+        assertFailsWith<CancellationException> { service.getRecording(randomPlatformUUID()) }
+    }
+
+    @Test
+    fun aCancelledSongSearchOnTheServerIsNotAnsweredFromMusicBrainz() = runTest {
+        coEvery { remote.searchRecording(any(), any()) } throws CancellationException("cancelled")
+
+        assertFailsWith<CancellationException> { service.searchMb(testSong(0)) }
     }
 }

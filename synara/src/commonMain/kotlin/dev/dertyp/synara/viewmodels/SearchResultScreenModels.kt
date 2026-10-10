@@ -13,13 +13,20 @@ import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
 import dev.dertyp.synara.player.SongCache
+import dev.dertyp.synara.utils.SynaraDispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-abstract class BaseSearchViewModel<T>(val query: String, private val logger: Logger) : ScreenModel, Refreshable {
+abstract class BaseSearchViewModel<T>(
+    val query: String,
+    private val logger: Logger,
+    dispatchers: SynaraDispatchers
+) : ScreenModel, Refreshable {
     private val logTag = LogTag("search")
+
+    private val modelDispatcher = dispatchers.createNamed("SearchResultScreenModel")
 
     protected val _items = MutableStateFlow<List<T>>(emptyList())
     val items = _items.asStateFlow()
@@ -33,59 +40,64 @@ abstract class BaseSearchViewModel<T>(val query: String, private val logger: Log
     val hasNextPage = _hasNextPage.asStateFlow()
 
     private var generation = 0
-    private val refresher = RefreshCoalescer(screenModelScope) { reload() }
+    private val refresher = RefreshCoalescer(screenModelScope, modelDispatcher) { reload() }
     override val isRefreshing = refresher.isRefreshing
 
+    override fun onDispose() {
+        (modelDispatcher as? AutoCloseable)?.close()
+        super.onDispose()
+    }
+
     fun loadMore() {
-        if (_isLoading.value || !_hasNextPage.value) return
-        fetchPage()
+        screenModelScope.launch(modelDispatcher) {
+            if (_isLoading.value || !_hasNextPage.value) return@launch
+            val requestGeneration = generation
+            val page = currentPage
+            _isLoading.value = true
+            var dropped = false
+            try {
+                val newItems = fetch(page, pageSize)
+                if (requestGeneration == generation) {
+                    handleResult(page, newItems)
+                } else {
+                    dropped = page > 0
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.error(logTag, "Failed to load search results", e)
+            } finally {
+                _isLoading.value = false
+                if (dropped) loadMore()
+            }
+        }
     }
 
     override fun refresh() {
         refresher.refresh()
     }
 
-    protected abstract suspend fun fetch(offset: Int, limit: Int): List<T>
+    protected abstract suspend fun fetch(page: Int, limit: Int): List<T>
 
     protected open suspend fun onRefreshed(items: List<T>) {}
 
-    private fun fetchPage() {
-        val requestGeneration = generation
-        _isLoading.value = true
-        screenModelScope.launch {
-            try {
-                val newItems = fetch(currentPage * pageSize, pageSize)
-                if (requestGeneration == generation) handleResult(newItems)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.error(logTag, "Failed to load search results", e)
-            } finally {
-                if (requestGeneration == generation) _isLoading.value = false
-            }
-        }
-    }
-
     private suspend fun reload() {
         val requestGeneration = ++generation
-        try {
-            val newItems = fetch(0, pageSize)
-            if (requestGeneration != generation) return
-            _items.value = newItems
-            _hasNextPage.value = newItems.size >= pageSize
-            currentPage = 1
-            onRefreshed(newItems)
-        } finally {
-            if (requestGeneration == generation) _isLoading.value = false
-        }
+        val newItems = fetch(0, pageSize)
+        if (requestGeneration != generation) return
+        ++generation
+        _items.value = newItems
+        _hasNextPage.value = newItems.size >= pageSize
+        currentPage = 1
+        onRefreshed(newItems)
     }
 
-    private fun handleResult(newItems: List<T>) {
+    private fun handleResult(page: Int, newItems: List<T>) {
         _items.value += newItems
         if (newItems.size < pageSize) {
             _hasNextPage.value = false
         }
-        currentPage++
+        currentPage = page + 1
     }
 }
 
@@ -93,11 +105,12 @@ class SearchSongsViewModel(
     private val songService: ISongService,
     private val songCache: SongCache,
     logger: Logger,
+    dispatchers: SynaraDispatchers,
     query: String
-) : BaseSearchViewModel<UserSong>(query, logger) {
+) : BaseSearchViewModel<UserSong>(query, logger, dispatchers) {
     init { loadMore() }
-    override suspend fun fetch(offset: Int, limit: Int): List<UserSong> =
-        songService.rankedSearch(offset, limit, query, explicit = true).data
+    override suspend fun fetch(page: Int, limit: Int): List<UserSong> =
+        songService.rankedSearch(page, limit, query, explicit = true).data
 
     override suspend fun onRefreshed(items: List<UserSong>) {
         songCache.refreshCached(items)
@@ -107,29 +120,32 @@ class SearchSongsViewModel(
 class SearchArtistsViewModel(
     private val artistService: IArtistService,
     logger: Logger,
+    dispatchers: SynaraDispatchers,
     query: String
-) : BaseSearchViewModel<Artist>(query, logger) {
+) : BaseSearchViewModel<Artist>(query, logger, dispatchers) {
     init { loadMore() }
-    override suspend fun fetch(offset: Int, limit: Int): List<Artist> =
-        artistService.rankedSearch(offset, limit, query).data
+    override suspend fun fetch(page: Int, limit: Int): List<Artist> =
+        artistService.rankedSearch(page, limit, query).data
 }
 
 class SearchAlbumsViewModel(
     private val albumService: IAlbumService,
     logger: Logger,
+    dispatchers: SynaraDispatchers,
     query: String
-) : BaseSearchViewModel<Album>(query, logger) {
+) : BaseSearchViewModel<Album>(query, logger, dispatchers) {
     init { loadMore() }
-    override suspend fun fetch(offset: Int, limit: Int): List<Album> =
-        albumService.rankedSearch(offset, limit, query).data
+    override suspend fun fetch(page: Int, limit: Int): List<Album> =
+        albumService.rankedSearch(page, limit, query).data
 }
 
 class SearchPlaylistsViewModel(
     private val playlistService: IUserPlaylistService,
     logger: Logger,
+    dispatchers: SynaraDispatchers,
     query: String
-) : BaseSearchViewModel<UserPlaylist>(query, logger) {
+) : BaseSearchViewModel<UserPlaylist>(query, logger, dispatchers) {
     init { loadMore() }
-    override suspend fun fetch(offset: Int, limit: Int): List<UserPlaylist> =
-        playlistService.rankedSearch(null, offset, limit, query).data
+    override suspend fun fetch(page: Int, limit: Int): List<UserPlaylist> =
+        playlistService.rankedSearch(null, page, limit, query).data
 }

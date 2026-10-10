@@ -6,6 +6,7 @@ import dev.dertyp.data.PlaybackReport
 import dev.dertyp.data.ScrobbleRequest
 import dev.dertyp.data.User
 import dev.dertyp.data.UserSong
+import dev.dertyp.logging.Logger
 import dev.dertyp.randomPlatformUUID
 import dev.dertyp.serializers.AppJson
 import dev.dertyp.services.IScrobbleService
@@ -31,6 +32,7 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,7 +52,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-private class InMemoryScrobbleQueueRepository : ScrobbleQueueRepository {
+class InMemoryScrobbleQueueRepository : ScrobbleQueueRepository {
     data class RawRow(val entry: RawScrobbleQueueEntry, val songId: String)
 
     private var nextId = 1L
@@ -91,6 +93,7 @@ class ServerScrobblerTest {
     private val userId = randomPlatformUUID()
     private val userFlow = MutableStateFlow<User?>(User(id = userId, username = "listener"))
     private val reachableFlow = MutableStateFlow(true)
+    private val connectionFlow = MutableStateFlow(RpcServiceManager.ConnectionState.Authenticated)
     private val playingFlow = MutableStateFlow(false)
     private val positionFlow = MutableStateFlow(0L)
     private val seekFlow = MutableSharedFlow<Long>(extraBufferCapacity = 8)
@@ -101,6 +104,7 @@ class ServerScrobblerTest {
     private val playerModel = mockk<PlayerModel>()
     private val rpcServiceManager = mockk<RpcServiceManager>()
     private val scrobbleService = mockk<IScrobbleService>()
+    private val logger = mockk<Logger>(relaxed = true)
     private val repository = InMemoryScrobbleQueueRepository()
     private val serverClock = ServerClock()
     private val payloadJson = Json(AppJson) { ignoreUnknownKeys = true }
@@ -117,6 +121,7 @@ class ServerScrobblerTest {
         every { scrobblerService.triggeredSong } returns MutableStateFlow<TriggeredListen?>(null)
         every { scrobblerService.newSong } returns MutableStateFlow<UserSong?>(null)
         every { scrobblerService.resumed } returns MutableSharedFlow<UserSong>()
+        every { scrobblerService.restarted } returns MutableSharedFlow<UserSong>()
         every { scrobblerService.resetTrigger } returns MutableSharedFlow<Unit>()
         every { scrobblerService.listenEnded } returns MutableSharedFlow<ListenEnded>()
         every { playerModel.isPlaying } returns playingFlow
@@ -124,6 +129,7 @@ class ServerScrobblerTest {
         every { playerModel.seekEvents } returns seekFlow
         every { playerModel.currentSongId } answers { playerSongId }
         every { rpcServiceManager.isServerReachable } returns reachableFlow
+        every { rpcServiceManager.connectionState } returns connectionFlow
         coEvery { scrobbleService.listened(capture(sent)) } just Runs
         coEvery { scrobbleService.reportPlayback(capture(reports)) } answers { currentTimeMillis() }
         coEvery { scrobbleService.clearNowPlaying() } answers { clears++ }
@@ -133,6 +139,7 @@ class ServerScrobblerTest {
                 single { globalState }
                 single<SynaraDispatchers> { TestDispatchers(testDispatcher) }
                 single { scrobblerService }
+                single<Logger> { this@ServerScrobblerTest.logger }
             }
         )
         Config.setIsServerScrobblingEnabled(true)
@@ -305,6 +312,76 @@ class ServerScrobblerTest {
         assertEquals(listOf(first.id), sent.map { it.songId })
         assertEquals(2, repository.rawRows.size)
         assertEquals(BaseScrobbler.ScrobbleStatus.FAILED, scrobbler.status.value)
+    }
+
+    @Test
+    fun submissionTheServerDoesNotAnswerWithinThirtySecondsFailsAndKeepsTheEntryQueued() = scrobblerTest {
+        val song = testSong(0)
+        queueRaw(song, payloadListenedAt = 1_000L, msPlayed = 5_000L, rowTimestamp = 1_000L)
+        coEvery { scrobbleService.listened(capture(sent)) } coAnswers { awaitCancellation() }
+
+        scrobbler.startScrobbler()
+        advance(100)
+        assertEquals(1, sent.size)
+
+        advance(29_999)
+
+        assertEquals(BaseScrobbler.ScrobbleStatus.IDLE, scrobbler.status.value)
+        verify(exactly = 0) { logger.warning(any(), any(), any()) }
+
+        advance(1)
+
+        assertEquals(BaseScrobbler.ScrobbleStatus.FAILED, scrobbler.status.value)
+        assertEquals(1, repository.rawRows.size)
+        assertEquals(1, sent.size)
+        verify(exactly = 1) { logger.warning(any(), any(), any()) }
+    }
+
+    @Test
+    fun timedOutSubmissionIsSentAgainOnceTheServerIsReachableAgain() = scrobblerTest {
+        val song = testSong(0)
+        queueRaw(song, payloadListenedAt = 1_000L, msPlayed = 5_000L, rowTimestamp = 1_000L)
+        coEvery { scrobbleService.listened(capture(sent)) } coAnswers { awaitCancellation() }
+        start()
+        advance(30_000)
+        assertEquals(BaseScrobbler.ScrobbleStatus.FAILED, scrobbler.status.value)
+
+        reachableFlow.value = false
+        advance(1_000)
+        coEvery { scrobbleService.listened(capture(sent)) } just Runs
+        reachableFlow.value = true
+        advance(1_000)
+
+        assertEquals(2, sent.size)
+        assertEquals(ScrobbleRequest(songId = song.id, listenedAt = 1_000L, msPlayed = 5_000L), sent.last())
+        assertEquals(emptyList(), repository.rawRows)
+        assertEquals(BaseScrobbler.ScrobbleStatus.SCROBBLED, scrobbler.status.value)
+    }
+
+    @Test
+    fun submissionCancelledByStoppingTheScrobblerIsNoFailureAndTheEntryIsSentOnTheNextStart() = scrobblerTest {
+        val song = testSong(0)
+        queueRaw(song, payloadListenedAt = 1_000L, msPlayed = 5_000L, rowTimestamp = 1_000L)
+        coEvery { scrobbleService.listened(capture(sent)) } coAnswers { awaitCancellation() }
+        scrobbler.startScrobbler()
+        advance(10_000)
+        assertEquals(1, sent.size)
+
+        scrobbler.stopScrobbler()
+        advance(30_000)
+
+        assertEquals(BaseScrobbler.ScrobbleStatus.IDLE, scrobbler.status.value)
+        assertEquals(1, repository.rawRows.size)
+        verify(exactly = 0) { logger.warning(any(), any(), any()) }
+
+        coEvery { scrobbleService.listened(capture(sent)) } just Runs
+        scrobbler.startScrobbler()
+        advance(1_000)
+
+        assertEquals(2, sent.size)
+        assertEquals(ScrobbleRequest(songId = song.id, listenedAt = 1_000L, msPlayed = 5_000L), sent.last())
+        assertEquals(emptyList(), repository.rawRows)
+        assertEquals(BaseScrobbler.ScrobbleStatus.SCROBBLED, scrobbler.status.value)
     }
 
     @Test
@@ -539,9 +616,30 @@ class ServerScrobblerTest {
     }
 
     @Test
-    fun endedListenWhileTheServerFailsStaysQueuedAndIsSentOnceReachable() = scrobblerTest {
+    fun endedListenWhileTheServerIsNotReachableStaysQueuedWithoutAnAttemptAndIsSentOnceReachable() = scrobblerTest {
         val song = testSong(0)
         reachableFlow.value = false
+        start()
+
+        scrobbler.listenEnded(song, 5_000L, 1_000L)
+        advance(1_000)
+
+        assertEquals(1, repository.rawRows.size)
+        assertEquals(emptyList(), sent)
+        assertEquals(BaseScrobbler.ScrobbleStatus.IDLE, scrobbler.status.value)
+        verify(exactly = 0) { logger.warning(any(), any(), any()) }
+
+        reachableFlow.value = true
+        advance(1_000)
+
+        assertEquals(listOf(ScrobbleRequest(songId = song.id, listenedAt = 1_000L, msPlayed = 5_000L)), sent)
+        assertEquals(emptyList(), repository.rawRows)
+        assertEquals(BaseScrobbler.ScrobbleStatus.SCROBBLED, scrobbler.status.value)
+    }
+
+    @Test
+    fun endedListenThatFailedOnAReachableServerIsSentAgainOnceTheServerIsReachableAgain() = scrobblerTest {
+        val song = testSong(0)
         coEvery { scrobbleService.listened(capture(sent)) } throws IllegalStateException()
         start()
 
@@ -552,6 +650,8 @@ class ServerScrobblerTest {
         assertEquals(1, sent.size)
         assertEquals(BaseScrobbler.ScrobbleStatus.FAILED, scrobbler.status.value)
 
+        reachableFlow.value = false
+        advance(1_000)
         coEvery { scrobbleService.listened(capture(sent)) } just Runs
         reachableFlow.value = true
         advance(1_000)
@@ -560,6 +660,48 @@ class ServerScrobblerTest {
         assertEquals(ScrobbleRequest(songId = song.id, listenedAt = 1_000L, msPlayed = 5_000L), sent.last())
         assertEquals(emptyList(), repository.rawRows)
         assertEquals(BaseScrobbler.ScrobbleStatus.SCROBBLED, scrobbler.status.value)
+    }
+
+    @Test
+    fun queuedListensWaitUntilTheConnectionIsEstablished() = scrobblerTest {
+        val song = testSong(0)
+        connectionFlow.value = RpcServiceManager.ConnectionState.Loading
+        queueRaw(song, payloadListenedAt = 1_000L, msPlayed = 5_000L, rowTimestamp = 1_000L)
+        start()
+
+        scrobbler.listenEnded(testSong(1), 6_000L, 2_000L)
+        advance(1_000)
+
+        assertEquals(emptyList(), sent)
+        assertEquals(2, repository.rawRows.size)
+        assertEquals(BaseScrobbler.ScrobbleStatus.IDLE, scrobbler.status.value)
+        verify(exactly = 0) { logger.warning(any(), any(), any()) }
+
+        connectionFlow.value = RpcServiceManager.ConnectionState.Authenticated
+        advance(1_000)
+
+        assertEquals(listOf(1_000L, 2_000L), sent.map { it.listenedAt })
+        assertEquals(emptyList(), repository.rawRows)
+    }
+
+    @Test
+    fun aListenEndingDuringTheDrainNeitherFailsTheDrainNorResendsAnEntry() = scrobblerTest {
+        val first = testSong(0)
+        val second = testSong(1)
+        val third = testSong(2)
+        queueRaw(first, payloadListenedAt = 1_000L, msPlayed = 5_000L, rowTimestamp = 1_000L)
+        queueRaw(second, payloadListenedAt = 2_000L, msPlayed = 5_000L, rowTimestamp = 2_000L)
+        scrobbler.startScrobbler()
+        advance(150)
+        assertEquals(listOf(first.id), sent.map { it.songId })
+
+        scrobbler.listenEnded(third, 5_000L, 3_000L)
+        advance(1_000)
+
+        assertEquals(listOf(first.id, second.id, third.id), sent.map { it.songId })
+        assertEquals(emptyList(), repository.rawRows)
+        assertEquals(BaseScrobbler.ScrobbleStatus.SCROBBLED, scrobbler.status.value)
+        verify(exactly = 0) { logger.warning(any(), any(), any()) }
     }
 
     @Test

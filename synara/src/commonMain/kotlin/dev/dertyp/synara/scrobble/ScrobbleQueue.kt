@@ -2,11 +2,14 @@ package dev.dertyp.synara.scrobble
 
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.UserSong
+import dev.dertyp.logging.LogTag
+import dev.dertyp.logging.Logger
 import dev.dertyp.synara.db.RawScrobbleQueueEntry
 import dev.dertyp.synara.db.ScrobbleQueueRepository
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import kotlin.concurrent.Volatile
 
 data class QueuedScrobble(
     val id: Long,
@@ -20,9 +23,24 @@ class ScrobbleQueue(
     private val repository: ScrobbleQueueRepository
 ) : KoinComponent {
     private val globalState: GlobalStateModel by inject()
+    private val logger: Logger by inject()
+
+    @Volatile
+    private var isDropLogged = false
+
+    private fun writingUserId(): PlatformUUID? {
+        val userId = globalState.user.value?.id
+        if (userId != null) {
+            isDropLogged = false
+        } else if (!isDropLogged) {
+            isDropLogged = true
+            logger.warning(LogTag.SCROBBLER, "No user is known, listens are not queued until one is")
+        }
+        return userId
+    }
 
     suspend fun push(song: UserSong, timestamp: Long, target: String) {
-        val userId = globalState.user.value?.id ?: return
+        val userId = writingUserId() ?: return
         repository.insert(
             userId = userId,
             song = song,
@@ -32,7 +50,7 @@ class ScrobbleQueue(
     }
 
     suspend fun pushRaw(songId: String, payload: String, timestamp: Long, target: String) {
-        val userId = globalState.user.value?.id ?: return
+        val userId = writingUserId() ?: return
         repository.insertRaw(
             userId = userId,
             songId = songId,

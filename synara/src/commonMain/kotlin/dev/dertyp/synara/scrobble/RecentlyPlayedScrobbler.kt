@@ -8,6 +8,7 @@ import dev.dertyp.synara.viewmodels.GlobalStateModel
 import org.koin.core.component.inject
 import synara.synara.generated.resources.Res
 import synara.synara.generated.resources.recently_played
+import kotlin.concurrent.Volatile
 
 class RecentlyPlayedScrobbler(
     private val repository: RecentlyPlayedRepository,
@@ -18,8 +19,19 @@ class RecentlyPlayedScrobbler(
 
     private val globalState: GlobalStateModel by inject()
 
+    @Volatile
+    private var isDropLogged = false
+
     override suspend fun triggered(song: UserSong, listenedAt: Long) {
-        val userId = globalState.user.value?.id ?: return
+        val userId = globalState.user.value?.id
+        if (userId == null) {
+            if (!isDropLogged) {
+                isDropLogged = true
+                logger.warning(LogTag.RECENTLY_PLAYED, "No user is known, recently played is not updated until one is")
+            }
+            return
+        }
+        isDropLogged = false
         val timestamp = listenedAt
 
         repository.insertListen(userId, song, timestamp)

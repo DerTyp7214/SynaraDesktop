@@ -7,12 +7,14 @@ import dev.dertyp.data.Artist
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
+import dev.dertyp.synara.player.CacheUpdate
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.SongCache
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.utils.SynaraDispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,6 +51,7 @@ class ArtistLikedSongsScreenModel(
     val state = _state.asStateFlow()
 
     private var currentPage = 0
+    private var pageShift = 0
     private val pageSize = 50
     private var hasNextPage = true
     private var isFetching = false
@@ -59,10 +62,33 @@ class ArtistLikedSongsScreenModel(
             loadArtist()
             loadSongs()
         }
+
+        screenModelScope.launch(modelDispatcher) {
+            songCache.updates.collect { update ->
+                when (update) {
+                    is CacheUpdate.SongUpdated -> applySongUpdate(update.song)
+                }
+            }
+        }
+    }
+
+    private fun applySongUpdate(updatedSong: UserSong) {
+        val currentState = _state.value as? ArtistLikedSongsState.Success ?: return
+        val index = currentState.songs.indexOfFirst { it.id == updatedSong.id }
+        if (index == -1) return
+        val wasLiked = currentState.songs[index].isFavourite == true
+        val isLiked = updatedSong.isFavourite == true
+        if (wasLiked != isLiked) {
+            pageShift += if (isLiked) 1 else -1
+            ++generation
+        }
+        val songs = currentState.songs.toMutableList()
+        songs[index] = updatedSong
+        _state.value = currentState.copy(songs = songs)
     }
 
     private fun loadArtist() {
-        screenModelScope.launch {
+        screenModelScope.launch(modelDispatcher) {
             try {
                 val artist = artistService.byId(artistId)
                 _state.update { currentState ->
@@ -72,6 +98,8 @@ class ArtistLikedSongsScreenModel(
                         else -> currentState
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {}
         }
     }
@@ -85,6 +113,7 @@ class ArtistLikedSongsScreenModel(
                 val artist = artistDeferred.await()
                 val response = songsDeferred.await()
                 if (requestGeneration != generation) return@coroutineScope
+                ++generation
                 _state.value = ArtistLikedSongsState.Success(
                     artist = artist,
                     songs = response.data,
@@ -92,47 +121,61 @@ class ArtistLikedSongsScreenModel(
                 )
                 hasNextPage = response.hasNextPage
                 currentPage = if (response.hasNextPage) 1 else 0
+                pageShift = 0
                 songCache.refreshCached(response.data)
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            if (_state.value !is ArtistLikedSongsState.Success) {
+            if (requestGeneration == generation && _state.value !is ArtistLikedSongsState.Success) {
                 _state.value = ArtistLikedSongsState.Error(e.message ?: "Unknown error")
             }
         }
     }
 
     fun loadSongs() {
-        if (isFetching || !hasNextPage) return
-        isFetching = true
-        val requestGeneration = generation
-
         screenModelScope.launch(modelDispatcher) {
+            if (isFetching || !hasNextPage) return@launch
+            isFetching = true
+            val requestGeneration = generation
+            val firstPage = currentPage == 0
+            val offset = if (firstPage) 0 else (currentPage * pageSize + pageShift).coerceAtLeast(0)
+            val page = offset / pageSize
+            var dropped = false
             try {
-                val response = songService.likedByArtist(currentPage, pageSize, artistId, true)
-                if (requestGeneration != generation) return@launch
+                val response = songService.likedByArtist(page, pageSize, artistId, true)
+                if (requestGeneration != generation) {
+                    dropped = !firstPage
+                    return@launch
+                }
 
                 _state.update { currentState ->
                     val currentSongs = (currentState as? ArtistLikedSongsState.Success)?.songs ?: emptyList()
                     val artist = (currentState as? ArtistLikedSongsState.Success)?.artist
                         ?: (currentState as? ArtistLikedSongsState.Loading)?.artist
+                    val known = currentSongs.mapTo(HashSet()) { it.id }
 
                     ArtistLikedSongsState.Success(
                         artist = artist,
-                        songs = currentSongs + response.data,
+                        songs = currentSongs + response.data.drop(offset % pageSize).filter { it.id !in known },
                         hasNextPage = response.hasNextPage
                     )
                 }
 
                 hasNextPage = response.hasNextPage
+                pageShift = 0
                 if (hasNextPage) {
-                    currentPage++
+                    currentPage = page + 1
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                if (currentPage == 0 && requestGeneration == generation) {
+                if (firstPage && requestGeneration == generation) {
                     _state.value = ArtistLikedSongsState.Error(e.message ?: "Unknown error")
                 }
             } finally {
                 isFetching = false
+                if (dropped) loadSongs()
             }
         }
     }

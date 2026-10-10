@@ -11,6 +11,7 @@ import dev.dertyp.services.ICollectionService
 import dev.dertyp.services.IImageService
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.utils.SynaraDispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
@@ -52,6 +53,8 @@ class CollectionScreenModel(
             val collection = collectionService.byId(collectionId)
             mutableState.update { it.copy(collection = collection) }
             loadContent(state.value.query)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             mutableState.update { it.copy(isLoading = false, error = e.message ?: "Unknown error") }
         }
@@ -72,9 +75,11 @@ class CollectionScreenModel(
         mutableState.update { it.copy(isLoading = true) }
         try {
             val results = collectionService.rankedSearch(collectionId, query, explicit = true)
-            mutableState.update { it.copy(results = results, isLoading = false) }
+            mutableState.update { if (it.query == query) it.copy(results = results, isLoading = false) else it }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            mutableState.update { it.copy(isLoading = false, error = e.message) }
+            mutableState.update { if (it.query == query) it.copy(isLoading = false, error = e.message) else it }
         }
     }
 

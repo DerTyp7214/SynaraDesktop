@@ -67,6 +67,15 @@ class TimecodeFormatTest {
     }
 
     @Test
+    fun parseRejectsNotANumberAndInfinity() {
+        assertNull(parseTimecode("NaN"))
+        assertNull(parseTimecode("Infinity"))
+        assertNull(parseTimecode("-Infinity"))
+        assertNull(parseTimecode("1:NaN"))
+        assertNull(parseTimecode("1:2:Infinity"))
+    }
+
+    @Test
     fun parseRejectsEmptyInput() {
         assertNull(parseTimecode(""))
         assertNull(parseTimecode("   "))

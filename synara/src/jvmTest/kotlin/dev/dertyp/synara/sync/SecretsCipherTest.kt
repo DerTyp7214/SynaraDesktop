@@ -172,11 +172,11 @@ class SecretsCipherTest {
     fun rememberedKeyUnlocksANewCipherOverTheSameSettings() {
         val envelope = cipher.encrypt("name", "value", key)
         cipher.remember(key)
-        assertTrue(cipher.isUnlocked)
+        assertNotNull(cipher.key.value)
 
         val reopened = SecretsCipher(settings)
 
-        assertTrue(reopened.isUnlocked)
+        assertNotNull(reopened.key.value)
         assertEquals("value", reopened.decrypt("name", envelope, assertNotNull(reopened.key.value)))
         assertEquals("value", reopened.decryptFromJson("name", AppJson.encodeToString(envelope)))
     }
@@ -188,8 +188,8 @@ class SecretsCipherTest {
 
         cipher.forget()
 
-        assertFalse(cipher.isUnlocked)
-        assertFalse(SecretsCipher(settings).isUnlocked)
+        assertNull(cipher.key.value)
+        assertNull(SecretsCipher(settings).key.value)
         storedKeyNames.forEach { assertFalse(settings.hasKey(it)) }
     }
 
@@ -200,7 +200,7 @@ class SecretsCipherTest {
             SecretsCipher(partial).remember(key)
             partial.remove(missing)
 
-            assertFalse(SecretsCipher(partial).isUnlocked)
+            assertNull(SecretsCipher(partial).key.value)
         }
     }
 
@@ -209,14 +209,14 @@ class SecretsCipherTest {
         cipher.remember(key)
         settings.putString(SettingKey.SecretsSyncEncKey.name, "***")
 
-        assertFalse(SecretsCipher(settings).isUnlocked)
+        assertNull(SecretsCipher(settings).key.value)
     }
 
     @Test
     fun jsonHelpersReturnNullWhileLocked() {
         val json = AppJson.encodeToString(cipher.encrypt("name", "value", key))
 
-        assertFalse(cipher.isUnlocked)
+        assertNull(cipher.key.value)
         assertNull(cipher.encryptToJson("name", "value"))
         assertNull(cipher.decryptFromJson("name", json))
     }

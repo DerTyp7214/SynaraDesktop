@@ -23,8 +23,9 @@ class AudioDecoders(private val logger: Logger) {
             )
             is ProbeInfo.OggOpus -> FlacOpusDecoding.open(
                 logger, source, info.metadata, isOgg = true, start,
-                totalDuration = source.durationMsHint ?: 0L,
-                scope = scope
+                totalDuration = source.durationMsHint ?: info.durationMs ?: 0L,
+                scope = scope,
+                durationMs = info.durationMs
             )
             is ProbeInfo.Mp3 -> Mp3Decoding.open(logger, source, info, start, scope)
             is ProbeInfo.Mp4 -> Mp4AacDecoding.open(logger, source, info, start, scope)

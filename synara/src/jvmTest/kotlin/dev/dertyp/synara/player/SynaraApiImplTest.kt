@@ -3,6 +3,8 @@ package dev.dertyp.synara.player
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.Album
 import dev.dertyp.data.Artist
+import dev.dertyp.data.ClientCapability
+import dev.dertyp.data.OnlineDevice
 import dev.dertyp.data.PaginatedResponse
 import dev.dertyp.data.User
 import dev.dertyp.data.UserPlaylist
@@ -51,6 +53,13 @@ class SynaraApiImplTest {
     private val durationFlow = MutableStateFlow(0L)
     private val queueFlow = MutableStateFlow<List<QueueEntry>>(emptyList())
     private val indexFlow = MutableStateFlow(-1)
+    private val remotePlaybackController = mockk<RemotePlaybackController>(relaxed = true)
+    private val remoteTarget = MutableStateFlow<OnlineDevice?>(null)
+    private val remoteSong = MutableStateFlow<UserSong?>(null)
+    private val remotePlaying = MutableStateFlow(false)
+    private val remotePosition = MutableStateFlow(0L)
+    private val remoteDuration = MutableStateFlow(0L)
+    private val remoteQueueId = MutableStateFlow<Long?>(null)
     private lateinit var api: SynaraApiImpl
 
     @BeforeTest
@@ -61,6 +70,12 @@ class SynaraApiImplTest {
         every { playerModel.duration } returns durationFlow
         every { playerModel.queue } returns queueFlow
         every { playerModel.currentIndex } returns indexFlow
+        every { remotePlaybackController.target } returns remoteTarget
+        every { remotePlaybackController.currentSong } returns remoteSong
+        every { remotePlaybackController.isPlaying } returns remotePlaying
+        every { remotePlaybackController.currentPosition } returns remotePosition
+        every { remotePlaybackController.duration } returns remoteDuration
+        every { remotePlaybackController.currentQueueId } returns remoteQueueId
         every { rpcServiceManager.host } returns null
         every { rpcServiceManager.port } returns null
         every { globalState.user } returns MutableStateFlow(null)
@@ -73,6 +88,7 @@ class SynaraApiImplTest {
                 single { globalState }
                 single<Json> { AppJson }
                 single { rpcServiceManager }
+                single { remotePlaybackController }
             }
         )
         api = SynaraApiImpl(playerModel)
@@ -229,6 +245,103 @@ class SynaraApiImplTest {
         val items = AppJson.decodeFromString(ListSerializer(SynaraQueueItem.serializer()), api.GetQueue(10))
 
         assertEquals(listOf(songs[1], songs[3]), items.map { it.song })
+    }
+
+    private fun controlDevice() {
+        remoteTarget.value = OnlineDevice(
+            sessionId = randomPlatformUUID(),
+            deviceName = "Device",
+            capabilities = setOf(ClientCapability.QUEUE_SYNC, ClientCapability.REMOTE_CONTROL),
+            isCurrent = false,
+            connectedAt = 0L
+        )
+    }
+
+    @Test
+    fun `GetPlaybackState reports the controlled device`() {
+        playingFlow.value = false
+        positionFlow.value = 0L
+        durationFlow.value = 5678L
+        remotePlaying.value = true
+        remotePosition.value = 42_000L
+        remoteDuration.value = 240_000L
+        controlDevice()
+
+        val state = AppJson.decodeFromString(SynaraPlaybackState.serializer(), api.GetPlaybackState())
+
+        assertEquals(SynaraPlaybackState(isPlaying = true, position = 42_000L, duration = 240_000L), state)
+    }
+
+    @Test
+    fun `GetPlaybackState reports the player again after the device is handed back`() {
+        playingFlow.value = true
+        positionFlow.value = 1234L
+        durationFlow.value = 5678L
+        remotePosition.value = 42_000L
+        controlDevice()
+        remoteTarget.value = null
+
+        val state = AppJson.decodeFromString(SynaraPlaybackState.serializer(), api.GetPlaybackState())
+
+        assertEquals(SynaraPlaybackState(isPlaying = true, position = 1234L, duration = 5678L), state)
+    }
+
+    @Test
+    fun `GetCurrentSong serialises the song of the controlled device`() {
+        val remote = testSong(2)
+        songFlow.value = testSong(1)
+        remoteSong.value = remote
+        controlDevice()
+
+        assertEquals(remote, AppJson.decodeFromString(UserSong.serializer(), api.GetCurrentSong()))
+    }
+
+    @Test
+    fun `GetCurrentSong is empty while the controlled device reports no song`() {
+        songFlow.value = testSong(1)
+        controlDevice()
+
+        assertEquals("", api.GetCurrentSong())
+    }
+
+    @Test
+    fun `GetCurrentLyrics returns the lyrics of the song of the controlled device`() {
+        songFlow.value = testSong(1).copy(lyrics = "local line")
+        remoteSong.value = testSong(2).copy(lyrics = "remote line")
+        controlDevice()
+
+        assertEquals("remote line", api.GetCurrentLyrics())
+    }
+
+    @Test
+    fun `GetQueue returns the songs after the entry the controlled device plays`() {
+        val songs = List(5) { testSong(it) }
+        val queue = entries(songs)
+        queueFlow.value = queue
+        indexFlow.value = 0
+        remoteQueueId.value = queue[2].queueId
+        controlDevice()
+        stubResolveSong()
+
+        val items = AppJson.decodeFromString(ListSerializer(SynaraQueueItem.serializer()), api.GetQueue(10))
+
+        assertEquals(songs.subList(3, 5), items.map { it.song })
+    }
+
+    @Test
+    fun `GetQueue falls back to the own position while the controlled device reports no known entry`() {
+        val songs = List(4) { testSong(it) }
+        queueFlow.value = entries(songs)
+        indexFlow.value = 1
+        controlDevice()
+        stubResolveSong()
+
+        val unreported = AppJson.decodeFromString(ListSerializer(SynaraQueueItem.serializer()), api.GetQueue(10))
+        remoteQueueId.value = Long.MIN_VALUE
+        val unknown = AppJson.decodeFromString(ListSerializer(SynaraQueueItem.serializer()), api.GetQueue(10))
+
+        assertEquals(songs.subList(2, 4), unreported.map { it.song })
+        assertEquals(songs.subList(2, 4), unknown.map { it.song })
     }
 
     @Test

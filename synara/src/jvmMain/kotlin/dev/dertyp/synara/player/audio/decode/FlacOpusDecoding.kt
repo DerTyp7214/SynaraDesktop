@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.gagravarr.ogg.OggFile
+import org.gagravarr.ogg.OggPacket
 import org.gagravarr.opus.OpusInfo
 import org.gagravarr.opus.OpusPacketFactory
 import org.gagravarr.opus.OpusTags
@@ -26,6 +27,8 @@ import org.jflac.FLACDecoder
 import org.jflac.PCMProcessor
 import org.jflac.metadata.StreamInfo
 import org.jflac.util.ByteData
+import java.io.FilterInputStream
+import java.io.IOException
 import java.io.InputStream
 import java.io.SequenceInputStream
 import java.nio.ShortBuffer
@@ -34,10 +37,28 @@ import kotlin.math.min
 import kotlin.time.Duration.Companion.seconds
 
 internal object FlacOpusDecoding {
+    private class CountingInputStream(stream: InputStream) : FilterInputStream(stream) {
+        var count = 0L
+            private set
+
+        override fun read(): Int {
+            val value = super.read()
+            if (value != -1) count++
+            return value
+        }
+
+        override fun read(b: ByteArray, off: Int, len: Int): Int {
+            val read = super.read(b, off, len)
+            if (read > 0) count += read
+            return read
+        }
+    }
+
     private data class PlaybackInfo(
         val sampleRate: Int,
         val channels: Int,
-        val bitsPerSample: Int
+        val bitsPerSample: Int,
+        val durationMs: Long? = null
     )
 
     suspend fun open(
@@ -47,7 +68,8 @@ internal object FlacOpusDecoding {
         isOgg: Boolean,
         positionMs: Long,
         totalDuration: Long,
-        scope: CoroutineScope
+        scope: CoroutineScope,
+        durationMs: Long? = null
     ): DecodedStream? {
         val startMs = positionMs.coerceAtLeast(0L)
         val mSize = metadata.size.toLong()
@@ -145,7 +167,8 @@ internal object FlacOpusDecoding {
                                 PlaybackInfo(
                                     info.sampleRate,
                                     info.channels,
-                                    info.bitsPerSample
+                                    info.bitsPerSample,
+                                    if (info.totalSamples > 0 && info.sampleRate > 0) info.totalSamples * 1000 / info.sampleRate else null
                                 )
                             )
                         }
@@ -159,7 +182,8 @@ internal object FlacOpusDecoding {
                     })
                     decoder.decode()
                 } else {
-                    val ogg = OggFile(stream)
+                    val counting = CountingInputStream(stream)
+                    val ogg = OggFile(counting)
                     val reader = ogg.getPacketReader()
                     var opus: OpusStream? = null
                     var accumulator: PcmAccumulator? = null
@@ -175,7 +199,7 @@ internal object FlacOpusDecoding {
                                 if (head != null) {
                                     opus = OpusStream(head, applyPreSkip = false)
                                     accumulator = PcmAccumulator(head.channels, pcmChannel)
-                                    infoDeferred.complete(PlaybackInfo(48000, head.channels, 16))
+                                    infoDeferred.complete(PlaybackInfo(48000, head.channels, 16, durationMs))
                                 }
                                 break
                             }
@@ -183,36 +207,89 @@ internal object FlacOpusDecoding {
                         }
                     }
 
-                    var packet = reader.getNextPacket()
-                    while (packet != null) {
-                        when (val opusPacket = OpusPacketFactory.create(packet)) {
-                            is OpusInfo -> {
-                                if (opus == null) {
-                                    val head = OpusHead.parse(opusPacket.data)
-                                    if (head != null) {
-                                        opus = OpusStream(head, applyPreSkip = byteOffset == 0L)
-                                        accumulator = PcmAccumulator(head.channels, pcmChannel)
-                                        infoDeferred.complete(PlaybackInfo(48000, head.channels, 16))
-                                    }
-                                }
+                    val page = ArrayList<OggPacket>()
+                    var trimsEnd = byteOffset == 0L
+                    var preSkip = 0
+                    var streamSid = 0
+                    var frames = 0L
+                    var streamFailure: IOException? = null
+                    var pageEnd = 0L
+                    var endOfStream = false
+
+                    fun nextPacket(): OggPacket? {
+                        val packet = try {
+                            reader.getNextPacket()
+                        } catch (e: IOException) {
+                            streamFailure = e
+                            null
+                        }
+                        if (packet != null) {
+                            pageEnd = counting.count
+                            endOfStream = packet.isEndOfStream
+                        } else if (streamFailure == null && !endOfStream && counting.count > pageEnd) {
+                            streamFailure = IOException("Stream of ${source.cacheKey} ended inside a page after ${counting.count} bytes")
+                        }
+                        return packet
+                    }
+
+                    suspend fun decodePage() {
+                        val last = page.last()
+                        val endsStream = trimsEnd && streamFailure == null && opus != null && last.isEndOfStream && last.sid == streamSid
+                        val totalFrames = if (endsStream) OpusEndTrim.totalFrames(last.granulePosition, preSkip) else null
+                        if (endsStream) {
+                            trimsEnd = false
+                            if (totalFrames == null || totalFrames < frames) {
+                                logger.warning(
+                                    DECODER_TAG,
+                                    "End granule ${last.granulePosition} of ${source.cacheKey} does not fit pre-skip $preSkip and $frames frames before the last page"
+                                )
                             }
-                            is OpusTags -> {}
-                            else -> {
-                                val currentStream = opus
-                                val currentAccumulator = accumulator
-                                val data = packet.data
-                                if (currentStream != null && currentAccumulator != null && data.isNotEmpty()) {
-                                    val decodedShorts = currentStream.decode(data)
-                                    if (decodedShorts > 0) {
-                                        currentAccumulator.append(currentStream.output, decodedShorts)
-                                    }
+                        }
+                        for (queued in page) {
+                            val currentStream = opus
+                            val currentAccumulator = accumulator
+                            val data = queued.data
+                            if (currentStream != null && currentAccumulator != null && data.isNotEmpty()) {
+                                val decodedShorts = currentStream.decode(data)
+                                if (decodedShorts > 0) {
+                                    val keptFrames = OpusEndTrim.framesToKeep(totalFrames, frames, decodedShorts / currentStream.channels)
+                                    frames += keptFrames
+                                    currentAccumulator.append(currentStream.output, keptFrames * currentStream.channels)
                                 }
                             }
                         }
-                        packet = reader.getNextPacket()
+                        page.clear()
+                    }
+
+                    var packet = nextPacket()
+                    while (packet != null || page.isNotEmpty()) {
+                        val first = page.firstOrNull()
+                        if (first != null && (packet == null || packet.sid != first.sid || packet.sequenceNumber != first.sequenceNumber)) {
+                            decodePage()
+                        }
+                        if (packet != null) {
+                            when (val opusPacket = OpusPacketFactory.create(packet)) {
+                                is OpusInfo -> {
+                                    if (opus == null) {
+                                        val head = OpusHead.parse(opusPacket.data)
+                                        if (head != null) {
+                                            opus = OpusStream(head, applyPreSkip = byteOffset == 0L)
+                                            accumulator = PcmAccumulator(head.channels, pcmChannel)
+                                            preSkip = head.preSkip
+                                            streamSid = packet.sid
+                                            infoDeferred.complete(PlaybackInfo(48000, head.channels, 16, durationMs))
+                                        }
+                                    }
+                                }
+                                is OpusTags -> {}
+                                else -> page.add(packet)
+                            }
+                            packet = nextPacket()
+                        }
                     }
 
                     accumulator?.flush()
+                    streamFailure?.let { throw it }
                 }
             } catch (e: Exception) {
                 if (e !is CancellationException && isActive) {
@@ -234,7 +311,7 @@ internal object FlacOpusDecoding {
                 bitsPerSample = info.bitsPerSample,
                 channels = info.channels,
                 startMs = startMs,
-                durationMs = null,
+                durationMs = info.durationMs,
                 bitRate = null,
                 pcmFlow = flow {
                     var remainingSkip = skipFrames

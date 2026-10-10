@@ -21,6 +21,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -55,6 +56,8 @@ class MusicBrainzService(
         if (!isOffline()) {
             try {
                 return remoteMusicBrainzService.getRecording(id)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.error(LogTag.MUSICBRAINZ, "Error getting remote MusicBrainz recording for $id", e)
             }
@@ -69,6 +72,8 @@ class MusicBrainzService(
 
             logger.info(LogTag.MUSICBRAINZ, "Found recording for $id: ${response.title}")
             response
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.error(LogTag.MUSICBRAINZ, "Error getting MusicBrainz recording for $id", e)
             null
@@ -108,6 +113,8 @@ class MusicBrainzService(
                     title = song.title.cleanTitle(),
                     artists = song.artists.map { it.name }
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.error(LogTag.MUSICBRAINZ, "Error searching remote MusicBrainz recording for ${song.title}", e)
             }
@@ -136,6 +143,8 @@ class MusicBrainzService(
 
             logger.info(LogTag.MUSICBRAINZ, "Search result for $query: ${response.recordings?.firstOrNull()?.id}")
             response.recordings?.firstOrNull()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.error(LogTag.MUSICBRAINZ, "Error searching MusicBrainz for $query", e)
             null

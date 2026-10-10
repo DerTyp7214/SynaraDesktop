@@ -47,6 +47,7 @@ class SearchScreenModelTest {
     private val globalState = mockk<GlobalStateModel> {
         every { user } returns MutableStateFlow(null)
     }
+    private val logger = mockk<Logger>(relaxed = true)
 
     private fun TestScope.createModel() = SearchScreenModel(
         songService,
@@ -54,7 +55,7 @@ class SearchScreenModelTest {
         artistService,
         userPlaylistService,
         globalState,
-        mockk<Logger>(relaxed = true),
+        logger,
         TestDispatchers(StandardTestDispatcher(testScheduler))
     )
 
@@ -179,6 +180,78 @@ class SearchScreenModelTest {
         coVerify(exactly = 1) { songService.rankedSearch(any(), any(), any(), any(), any()) }
         assertEquals(false, model.isSearching.value)
         assertTrue(model.songs.value.isEmpty())
+    }
+
+    @Test
+    fun aFailingSongSearchStillDeliversAlbumsArtistsAndPlaylists() = runTest {
+        val failure = IOException("down")
+        coEvery { songService.rankedSearch(any(), any(), any(), any(), any()) } throws failure
+        val model = createModel()
+
+        model.search("fin")
+        passDebounce()
+
+        assertTrue(model.songs.value.isEmpty())
+        assertEquals(albums, model.albums.value)
+        assertEquals(artists, model.artists.value)
+        assertEquals(playlists, model.playlists.value)
+        assertEquals(false, model.isSearching.value)
+        verify(exactly = 1) { logger.error(any(), any(), failure, any()) }
+    }
+
+    @Test
+    fun aSectionThatFailsForALaterQueryIsEmptiedAndTheOthersShowTheNewResults() = runTest {
+        val newSongs = testSongs(4)
+        val model = createModel()
+        model.search("fin")
+        passDebounce()
+        assertEquals(albums, model.albums.value)
+        coEvery { albumService.rankedSearch(any(), any(), any()) } throws IOException("down")
+        coEvery { songService.rankedSearch(any(), any(), "find", any(), any()) } returns PaginatedResponse(data = newSongs)
+
+        model.search("find")
+        passDebounce()
+
+        assertTrue(model.albums.value.isEmpty())
+        assertEquals(newSongs, model.songs.value)
+        assertEquals(artists, model.artists.value)
+        assertEquals(playlists, model.playlists.value)
+        coVerify(exactly = 1) { artistService.rankedSearch(0, 10, "find") }
+        coVerify(exactly = 1) { userPlaylistService.rankedSearch(null, 0, 10, "find") }
+    }
+
+    @Test
+    fun aRefreshWithAFailingSectionStillRefreshesTheOtherSections() = runTest {
+        val refreshedAlbums = listOf(testAlbum(2), testAlbum(3))
+        val model = createModel()
+        model.search("fin")
+        passDebounce()
+        coEvery { songService.rankedSearch(any(), any(), any(), any(), any()) } throws IOException("down")
+        coEvery { albumService.rankedSearch(any(), any(), any()) } returns PaginatedResponse(data = refreshedAlbums)
+
+        model.refresh()
+        runCurrent()
+
+        assertTrue(model.songs.value.isEmpty())
+        assertEquals(refreshedAlbums, model.albums.value)
+        assertEquals(false, model.isRefreshing.value)
+    }
+
+    @Test
+    fun aFailingLyricsSearchShowsNoSongsAndIsLogged() = runTest {
+        val failure = IOException("down")
+        coEvery { songService.searchByLyrics(any(), any(), any(), any()) } throws failure
+        val model = createModel()
+        model.search("fin")
+        passDebounce()
+        assertEquals(songs, model.songs.value)
+
+        model.setSearchMode(SearchMode.LYRICS)
+        passDebounce()
+
+        assertTrue(model.songs.value.isEmpty())
+        assertEquals(false, model.isSearching.value)
+        verify(exactly = 1) { logger.error(any(), any(), failure, any()) }
     }
 
     @Test

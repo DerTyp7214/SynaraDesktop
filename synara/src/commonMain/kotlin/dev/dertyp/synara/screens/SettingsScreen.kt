@@ -162,6 +162,8 @@ import synara.synara.generated.resources.secrets_sync_state_setup
 import synara.synara.generated.resources.secrets_sync_state_unlocked
 import synara.synara.generated.resources.secrets_sync_summary
 import synara.synara.generated.resources.secrets_sync_title
+import synara.synara.generated.resources.settings_gapless_summary
+import synara.synara.generated.resources.settings_gapless_title
 import synara.synara.generated.resources.settings_podcasts_summary
 import synara.synara.generated.resources.settings_podcasts_title
 import synara.synara.generated.resources.settings_queue_sync_behind
@@ -327,6 +329,14 @@ class SettingsScreen : Screen {
                     AudioTargetSampleRateSetting(
                         currentRate = audioTargetSampleRate,
                         onRateSelected = { Config.setAudioTargetSampleRate(it) }
+                    )
+
+                    val gaplessPlayback by playerModel.gaplessPlayback.collectAsState()
+                    SettingSwitch(
+                        title = stringResource(Res.string.settings_gapless_title),
+                        summary = stringResource(Res.string.settings_gapless_summary),
+                        checked = gaplessPlayback,
+                        onCheckedChange = { playerModel.setGaplessPlayback(it) }
                     )
 
                     val streamingQuality by Config.streamingQuality.collectAsState()

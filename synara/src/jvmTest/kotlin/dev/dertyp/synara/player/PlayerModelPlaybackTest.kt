@@ -247,7 +247,9 @@ class PlayerModelPlaybackTest {
         model.remotePlayHandler = {}
         audioPlayer.fail()
         model.remotePlayHandler = null
-        failLoad(expectedLoads = 2)
+        model.play()
+        audioPlayer.loads.await { it.size == 2 }
+        failLoad(expectedLoads = 3)
 
         val first = skipped(songs[0])
         val second = skipped(songs[1])
@@ -304,6 +306,25 @@ class PlayerModelPlaybackTest {
         assertEquals(start.id, model.currentSong.value?.id)
         assertEquals(listOf(start.id to true), audioPlayer.loads.value)
         verify(exactly = 0) { snackbarManager.showSnackbar(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun aSourceWhoseIdsLackTheStartSongKeepsItAsTheCurrentEntry() {
+        val start = song(0)
+        val others = songs(2)
+        val album = PlaybackSource.Album(randomPlatformUUID())
+        coEvery { songService.byAlbum(any(), any(), any()) } returns PaginatedResponse(data = listOf(start), total = 1)
+        every { songService.songIdsByAlbum(any()) } returns others.map { it.id }.asFlow()
+        val model = createModel()
+
+        model.playQueue(PlaybackQueue(source = album))
+        model.changeSerial.await { it == 1L }
+
+        assertEquals(listOf(start.id) + others.map { it.id }, model.queue.value.map { (it as QueueEntry.FromSource).songId })
+        assertEquals(0, model.currentIndex.value)
+        assertEquals(start.id, model.currentSong.value?.id)
+        assertEquals(start.id, model.loadedSongId.value)
+        assertEquals(listOf(start.id to true), audioPlayer.loads.value)
     }
 
     @Test
@@ -609,11 +630,14 @@ class PlayerModelPlaybackTest {
     fun playAfterTheQueueEndedRestartsTheQueue() {
         val songs = songs(2)
         val model = createModel()
+        val starts = mutableListOf<PlayerModel.TrackStart>()
+        val recorder = CoroutineScope(Dispatchers.Unconfined).launch { model.trackStarts.collect { starts += it } }
         model.playQueue(queueOf(songs))
         audioPlayer.loads.await { it.size == 1 }
-        model.finishTrack()
+        model.finishTrack(starts.last())
         audioPlayer.loads.await { it.size == 2 }
-        model.finishTrack()
+        model.finishTrack(starts.last())
+        recorder.cancel()
         assertEquals(-1, model.currentIndex.value)
         assertEquals(1, audioPlayer.stops.value)
 
@@ -779,5 +803,75 @@ class PlayerModelPlaybackTest {
         assertEquals(1, audioPlayer.seeks.value)
         assertEquals(10_000L, model.currentPosition.value)
         assertEquals(listOf(42_000L), audioPlayer.starts.value)
+    }
+
+    @Test
+    fun playAfterLeavingRemoteModeLoadsTheEntryThatBecameCurrentWhileRemote() {
+        val songs = songs(4)
+        val model = createModel()
+        model.playQueue(queueOf(songs))
+        audioPlayer.loads.await { it.size == 1 }
+        model.pause()
+        val notified = mutableListOf<Long>()
+        model.remotePlayHandler = { notified += it }
+
+        model.playAtIndex(2)
+
+        assertEquals(listOf(model.queue.value[2].queueId), notified)
+        assertEquals(1, audioPlayer.loads.value.size)
+        assertEquals(null, audioPlayer.current)
+        assertEquals(null, model.loadedSongId.value)
+        assertEquals(false, model.playbackRequested)
+
+        model.remotePlayHandler = null
+        model.play()
+
+        assertEquals(songs[2].id to true, audioPlayer.loads.await { it.size == 2 }.last())
+        assertEquals(songs[2].id, model.loadedSongId.value)
+        assertEquals(2, model.currentIndex.value)
+        assertEquals(0, audioPlayer.plays.value)
+    }
+
+    @Test
+    fun playInRemoteModeStartsNoLocalAudio() {
+        val songs = songs(2)
+        val model = createModel()
+        model.playQueue(queueOf(songs))
+        audioPlayer.loads.await { it.size == 1 }
+        model.pause()
+        model.remotePlayHandler = {}
+
+        model.play()
+        model.togglePlayPause()
+
+        assertEquals(0, audioPlayer.plays.value)
+        assertEquals(1, audioPlayer.loads.value.size)
+        assertEquals(false, audioPlayer.playing.value)
+        assertEquals(false, model.playbackRequested)
+    }
+
+    @Test
+    fun playAfterLeavingRemoteModeReloadsTheUnchangedEntryFromTheStart() {
+        val songs = songs(2)
+        val model = createModel()
+        model.playQueue(queueOf(songs))
+        audioPlayer.loads.await { it.size == 1 }
+        audioPlayer.position.value = 120_000
+        model.pause()
+
+        model.remotePlayHandler = {}
+
+        assertEquals(1, audioPlayer.stops.value)
+        assertEquals(null, audioPlayer.current)
+        assertEquals(null, model.loadedSongId.value)
+        assertEquals(0L, model.currentPosition.value)
+
+        model.remotePlayHandler = null
+        model.play()
+
+        assertEquals(listOf(songs[0].id to true, songs[0].id to true), audioPlayer.loads.await { it.size == 2 })
+        assertEquals(listOf(0L, 0L), audioPlayer.starts.value)
+        assertEquals(songs[0].id, model.loadedSongId.value)
+        assertEquals(0, audioPlayer.plays.value)
     }
 }

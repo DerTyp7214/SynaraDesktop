@@ -12,6 +12,7 @@ interface AudioPlayer {
     val volume: StateFlow<Float>
     val onFinished: Flow<PlatformUUID?>
     val loadErrors: Flow<AudioLoadFailure>
+    val trackTransitions: Flow<PlatformUUID>
 
     val sampleRate: StateFlow<Int>
     val bitsPerSample: StateFlow<Int>
@@ -30,5 +31,7 @@ interface AudioPlayer {
     fun setVolume(volume: Float)
     fun setFadeGain(gain: Float)
     fun load(songId: PlatformUUID, playImmediately: Boolean = true, startMs: Long = 0L)
+    fun prepareNext(songId: PlatformUUID)
+    fun clearNext()
     fun release()
 }

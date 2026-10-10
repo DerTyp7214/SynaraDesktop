@@ -65,8 +65,16 @@ class SecretsCipher(private val settings: Settings) {
 
     private val _key = MutableStateFlow(loadKey())
     val key: StateFlow<DerivedKey?> = _key.asStateFlow()
+    private var held: DerivedKey? = null
 
-    val isUnlocked: Boolean get() = key.value != null
+    fun <T> withKey(candidate: DerivedKey, block: () -> T): T {
+        held = candidate
+        try {
+            return block()
+        } finally {
+            held = null
+        }
+    }
 
     fun deriveKey(passphrase: String, meta: SecretsMeta): DerivedKey {
         val salt = Base64.decode(meta.salt)
@@ -137,7 +145,7 @@ class SecretsCipher(private val settings: Settings) {
     }
 
     fun decryptFromJson(keyName: String, json: String): String? {
-        val current = key.value ?: return null
+        val current = held ?: key.value ?: return null
         val envelope = try {
             AppJson.decodeFromString<SecretEnvelope>(json)
         } catch (_: Throwable) {

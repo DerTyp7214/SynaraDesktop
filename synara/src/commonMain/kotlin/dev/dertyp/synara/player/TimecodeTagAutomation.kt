@@ -176,6 +176,7 @@ class TimecodeTagAutomation(
     private var started = false
 
     private var songId: PlatformUUID? = null
+    private var trackStart: PlayerModel.TrackStart? = null
     private var observedSongId: PlatformUUID? = null
     private var songTags: List<TimecodeTag>? = null
     private var songDurationMs = 0L
@@ -212,6 +213,7 @@ class TimecodeTagAutomation(
     private fun onTrackStart(start: PlayerModel.TrackStart) {
         val id = start.songId
         songId = id
+        trackStart = start
         songTags = start.song?.playbackTags
         songDurationMs = start.song?.duration ?: 0L
         tagStore.ensureLoaded(id)
@@ -230,6 +232,7 @@ class TimecodeTagAutomation(
 
     private fun adopt(song: UserSong, pos: Long) {
         songId = song.id
+        trackStart = null
         songTags = song.playbackTags
         songDurationMs = song.duration
         tagStore.ensureLoaded(song.id)
@@ -321,15 +324,21 @@ class TimecodeTagAutomation(
                 while (ownSeeks.size > MAX_OWN_SEEKS) ownSeeks.removeFirst()
                 prevPos = command.positionMs - 1
                 seekGuard = command.positionMs
-                playerModel.seekTo(command.positionMs)
+                val start = trackStart
+                if (start != null) playerModel.seekTo(command.positionMs, start) else playerModel.seekTo(command.positionMs)
             }
 
             TagCommand.FinishTrack -> {
+                val start = trackStart
+                if (start == null) {
+                    logger.warning(TIMECODE_AUTOMATION_TAG, "No track start is known for song $songId, its finish is not requested")
+                    return
+                }
                 fadeOut = null
                 fadeIn = null
                 prevPos = -1L
                 gain = 1f
-                playerModel.finishTrack()
+                playerModel.finishTrack(start)
             }
         }
     }

@@ -35,6 +35,7 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.spyk
 import io.mockk.verify
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -283,6 +284,154 @@ class SongGuessScreenModelTest {
         assertEquals(listOf(first.id to false, second.id to false), player.loads.value)
         assertEquals(0, repository.count(RepositoryCall.INSERT))
         assertEquals(1, repository.games.getValue(userId).roundIndex)
+    }
+
+    @Test
+    fun disposingTheScreenWhileTheNextRoundStartsKeepsTheSavedGame() = runTest {
+        val model = startedGame(rounds = 3, total = 5)
+        model.selectGuess(model.currentSong())
+        model.submitGuess()
+        runCurrent()
+        assertEquals(Phase.REVEAL, model.state.value.phase)
+        val gate = CompletableDeferred<Unit>()
+        coEvery { songService.likedSongs(any(), 1, true) } coAnswers {
+            gate.await()
+            PaginatedResponse(data = listOf(testSong(songIndex++)), total = 5)
+        }
+        model.nextRound()
+        runCurrent()
+
+        model.onDispose()
+        gate.completeExceptionally(CancellationException("disposed"))
+        runCurrent()
+
+        assertEquals(0, repository.count(RepositoryCall.INSERT))
+        assertEquals(0, repository.count(RepositoryCall.CLEAR_GAME))
+        assertTrue(leaderboard.entries.value.isEmpty())
+        val saved = assertNotNull(repository.games[userId])
+        assertEquals(0, saved.roundIndex)
+        assertTrue(saved.inReveal)
+        assertEquals(1, saved.roundResults.size)
+    }
+
+    @Test
+    fun revealControlsDoNothingWhileTheNextRoundIsStillStarting() = runTest {
+        val model = startedGame(rounds = 3, total = 5)
+        model.selectGuess(model.currentSong())
+        model.submitGuess()
+        runCurrent()
+        assertEquals(Phase.REVEAL, model.state.value.phase)
+        val gate = CompletableDeferred<Unit>()
+        coEvery { songService.likedSongs(any(), 1, true) } coAnswers {
+            gate.await()
+            PaginatedResponse(data = listOf(testSong(songIndex++)), total = 5)
+        }
+        model.nextRound()
+        runCurrent()
+        val playsBefore = player.plays.value
+        val seeksBefore = player.seeks.value
+        val positionBefore = player.position.value
+        assertFalse(player.playing.value)
+
+        model.toggleRevealPlayback()
+        model.seekReveal(42_000L)
+        runCurrent()
+
+        assertEquals(playsBefore, player.plays.value)
+        assertEquals(seeksBefore, player.seeks.value)
+        assertEquals(positionBefore, player.position.value)
+        assertFalse(player.playing.value)
+
+        gate.complete(Unit)
+        runCurrent()
+        assertEquals(Phase.PLAYING, model.state.value.phase)
+        assertFalse(player.playing.value)
+    }
+
+    @Test
+    fun revealControlsPauseResumeAndSeekTheRevealedSong() = runTest {
+        val model = startedGame(rounds = 3, total = 5)
+        model.selectGuess(model.currentSong())
+        model.submitGuess()
+        runCurrent()
+        assertEquals(Phase.REVEAL, model.state.value.phase)
+        assertTrue(player.playing.value)
+
+        model.toggleRevealPlayback()
+        runCurrent()
+        assertFalse(player.playing.value)
+        assertFalse(model.state.value.revealIsPlaying)
+
+        model.toggleRevealPlayback()
+        model.seekReveal(42_000L)
+        runCurrent()
+
+        assertTrue(player.playing.value)
+        assertEquals(42_000L, player.position.value)
+        assertEquals(42_000L, model.state.value.revealPosition)
+    }
+
+    @Test
+    fun aPoolExactlyAsLargeAsTheRoundCountPlaysEveryRoundWithADifferentSong() = runTest {
+        val pool = List(20) { testSong(it) }
+        val requested = mutableListOf<Int>()
+        coEvery { songService.likedSongs(any(), 1, true) } answers {
+            val index = firstArg<Int>()
+            requested += index
+            PaginatedResponse(data = listOfNotNull(pool.getOrNull(index)), total = pool.size)
+        }
+        val model = createModel()
+        model.setRounds(pool.size)
+        model.startGame()
+        runCurrent()
+
+        repeat(pool.size) {
+            assertEquals(Phase.PLAYING, model.state.value.phase)
+            repeat(6) { model.skip() }
+            runCurrent()
+            assertEquals(Phase.REVEAL, model.state.value.phase)
+            model.nextRound()
+            runCurrent()
+        }
+
+        val state = model.state.value
+        assertEquals(Phase.FINISHED, state.phase)
+        assertNull(state.error)
+        assertEquals(pool.size, state.roundResults.size)
+        assertEquals(pool.map { it.id }.toSet(), state.roundResults.map { it.songId }.toSet())
+        assertEquals(pool.indices.toList(), requested.drop(1).sorted())
+        assertEquals(pool.size, repository.entries.getValue(userId).single().roundResults.size)
+    }
+
+    @Test
+    fun aSongUnderTheMinimumLengthIsTriedAtMostOnceAndEveryRoundIsStillFilled() = runTest {
+        val short = testSong(0, duration = 5_000)
+        val pool = listOf(testSong(1), short, testSong(2), testSong(3))
+        val requested = mutableListOf<Int>()
+        coEvery { songService.likedSongs(any(), 1, true) } answers {
+            val index = firstArg<Int>()
+            requested += index
+            PaginatedResponse(data = listOfNotNull(pool.getOrNull(index)), total = pool.size)
+        }
+        val model = createModel()
+        model.setRounds(3)
+        model.startGame()
+        runCurrent()
+
+        repeat(3) {
+            assertEquals(Phase.PLAYING, model.state.value.phase)
+            repeat(6) { model.skip() }
+            runCurrent()
+            model.nextRound()
+            runCurrent()
+        }
+
+        val state = model.state.value
+        assertEquals(Phase.FINISHED, state.phase)
+        assertNull(state.error)
+        assertEquals((pool - short).map { it.id }.toSet(), state.roundResults.map { it.songId }.toSet())
+        val drawn = requested.drop(1)
+        assertEquals(drawn.size, drawn.toSet().size)
     }
 
     @Test

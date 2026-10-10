@@ -27,6 +27,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.getString
 import synara.synara.generated.resources.*
@@ -52,6 +53,7 @@ class RemotePlaybackController(
         private val POSITION_TICK = 250.milliseconds
         private val VOLUME_THROTTLE = 200.milliseconds
         private val FLUSH_TIMEOUT = 8.seconds
+        private val HAND_BACK_TIMEOUT = 3.seconds
         private const val MAX_WATCH_FAILURES = 3
     }
 
@@ -87,12 +89,16 @@ class RemotePlaybackController(
     private val _repeatMode = MutableStateFlow(RepeatMode.OFF)
     override val repeatMode: StateFlow<RepeatMode> = _repeatMode.asStateFlow()
 
+    private val _currentQueueId = MutableStateFlow<Long?>(null)
+    val currentQueueId: StateFlow<Long?> = _currentQueueId.asStateFlow()
+
     override val supportsVolume: Boolean
         get() = _target.value?.capabilities?.contains(ClientCapability.REMOTE_VOLUME) == true
 
     private val volumeCommands = Channel<Float>(Channel.CONFLATED)
     private var watchJob: Job? = null
     private var tickerJob: Job? = null
+    private var handBackJob: Job? = null
     private var lastStatus: RemotePlaybackStatus? = null
     private var currentSongId: PlatformUUID? = null
 
@@ -120,9 +126,11 @@ class RemotePlaybackController(
     fun select(sessionId: PlatformUUID?) {
         val device = sessionId?.let { id -> controllableDevices.value.firstOrNull { it.sessionId == id } }
         if (device == null) {
-            deselect()
+            if (sessionId == null) handBack() else deselect()
             return
         }
+        handBackJob?.cancel()
+        handBackJob = null
         if (_target.value?.sessionId == device.sessionId) return
 
         if (!Config.isQueueSyncEnabled.value) Config.setIsQueueSyncEnabled(true)
@@ -134,9 +142,36 @@ class RemotePlaybackController(
         watchJob = scope.launch { watch(device.sessionId) }
     }
 
+    private fun handBack() {
+        val device = _target.value
+        if (device == null || lastStatus?.isPlaying != true) {
+            deselect()
+            return
+        }
+        if (handBackJob?.isActive == true) return
+        handBackJob = scope.launch {
+            withTimeoutOrNull(HAND_BACK_TIMEOUT) {
+                val paused = try {
+                    remoteControlService.sendCommand(device.sessionId, PlaybackCommand.Pause) == ClientRequestStatus.COMPLETED
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    report(e)
+                    false
+                }
+                if (paused) _isPlaying.first { !it }
+            }
+            if (_target.value?.sessionId == device.sessionId) deselect()
+        }
+    }
+
     fun deselect() {
+        handBackJob?.cancel()
+        handBackJob = null
         if (_target.value == null && playerModel.remotePlayHandler == null) return
+        val handBack = handBackPosition()
         playerModel.remotePlayHandler = null
+        if (handBack > 0L) playerModel.seekTo(handBack)
         watchJob?.cancel()
         watchJob = null
         _target.value = null
@@ -145,6 +180,14 @@ class RemotePlaybackController(
 
     override fun togglePlayPause() {
         send(PlaybackCommand.TogglePlayPause)
+    }
+
+    fun play() {
+        send(PlaybackCommand.Play)
+    }
+
+    fun pause() {
+        send(PlaybackCommand.Pause)
     }
 
     override fun skipNext() {
@@ -172,6 +215,14 @@ class RemotePlaybackController(
         send(PlaybackCommand.SetShuffle(!_shuffleMode.value))
     }
 
+    fun setShuffle(enabled: Boolean) {
+        send(PlaybackCommand.SetShuffle(enabled))
+    }
+
+    fun setRepeatMode(mode: RepeatMode) {
+        send(PlaybackCommand.SetRepeat(mode))
+    }
+
     override fun toggleRepeat() {
         val next = when (_repeatMode.value) {
             RepeatMode.OFF -> RepeatMode.ALL
@@ -185,6 +236,7 @@ class RemotePlaybackController(
         val device = _target.value ?: return
         scope.launch {
             val version = queueSyncService.awaitFlushed(FLUSH_TIMEOUT)
+            if (_target.value?.sessionId != device.sessionId) return@launch
             if (version == null) {
                 notify(Res.string.queue_sync_status_timed_out)
                 return@launch
@@ -233,7 +285,7 @@ class RemotePlaybackController(
         var failures = 0
         while (currentCoroutineContext().isActive) {
             val succeeded = runCatching {
-                remoteControlService.observeStatus(sessionId).collect { status -> onStatus(status) }
+                remoteControlService.observeStatus(sessionId).collect { status -> onStatus(status, sessionId) }
             }.onFailure {
                 if (it is CancellationException) throw it
                 report(it)
@@ -242,19 +294,21 @@ class RemotePlaybackController(
             failures = if (succeeded) 0 else failures + 1
             presenceService.refreshOnlineDevices()
             if (failures >= MAX_WATCH_FAILURES) {
-                deselect()
+                if (_target.value?.sessionId == sessionId) deselect()
                 return
             }
             delay(WATCH_RETRY_DELAY)
         }
     }
 
-    private suspend fun onStatus(status: RemotePlaybackStatus) {
+    private suspend fun onStatus(status: RemotePlaybackStatus, sessionId: PlatformUUID) {
+        if (_target.value?.sessionId != sessionId) return
         lastStatus = status
         _isPlaying.value = status.isPlaying
         _duration.value = status.durationMs ?: 0L
         _shuffleMode.value = status.isShuffled
         _repeatMode.value = status.repeatMode
+        _currentQueueId.value = status.currentQueueId
         status.volume?.let { _volume.value = it }
         _currentPosition.value = projectedPosition(status)
 
@@ -262,12 +316,27 @@ class RemotePlaybackController(
         if (songId != currentSongId) {
             val lookup = runCatching {
                 songId?.let { id -> songCache.get(id) ?: songService.byId(id)?.also { songCache.put(it) } }
-            }.onFailure { report(it) }
+            }.onFailure {
+                if (it is CancellationException) throw it
+                report(it)
+            }
+            if (_target.value?.sessionId != sessionId) return
             if (lookup.isSuccess) currentSongId = songId
             _currentSong.value = lookup.getOrNull()
         }
 
         updateTicker(status.isPlaying)
+    }
+
+    private fun handBackPosition(): Long {
+        val status = lastStatus ?: return 0L
+        val reported = status.songId ?: return 0L
+        val local = when (val entry = playerModel.queue.value.getOrNull(playerModel.currentIndex.value)) {
+            is QueueEntry.Explicit -> entry.song.id
+            is QueueEntry.FromSource -> entry.songId
+            null -> return 0L
+        }
+        return if (local == reported) projectedPosition(status) else 0L
     }
 
     private fun projectedPosition(status: RemotePlaybackStatus): Long {
@@ -309,6 +378,7 @@ class RemotePlaybackController(
         _volume.value = 1f
         _shuffleMode.value = false
         _repeatMode.value = RepeatMode.OFF
+        _currentQueueId.value = null
     }
 
     private suspend fun notify(resource: StringResource) {

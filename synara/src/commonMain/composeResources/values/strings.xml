@@ -759,6 +759,18 @@
     <string name="settings_sync_conflict_message">%1$s settings were changed here and on %2$s. Which version do you want to keep?</string>
     <string name="settings_sync_conflict_keep_local">Keep This Device</string>
     <string name="settings_sync_conflict_use_remote">Use Settings from %1$s</string>
+    <string name="settings_sync_reset_title">Settings Lost on the Server</string>
+    <string name="settings_sync_reset_message">The server no longer has the latest version of %1$s of your settings. Keep the values of this device and upload them again, or use what the server has now?</string>
+    <string name="settings_sync_reset_keep_local">Keep This Device's Settings</string>
+    <string name="settings_sync_reset_accept">Use the Server's Settings</string>
+    <string name="settings_sync_enable_choice_title">Which Settings Should Be Used?</string>
+    <string name="settings_sync_enable_choice_message">%1$s settings are different on this device and %2$s.</string>
+    <string name="settings_sync_enable_use_remote">Use Settings from %1$s</string>
+    <string name="settings_sync_enable_keep_local">Keep This Device's Settings</string>
+    <string name="settings_sync_unlock_choice_title">Which Scrobbler Accounts Should Be Used?</string>
+    <string name="settings_sync_unlock_choice_message">The scrobbler accounts on this device differ from the ones your other devices sync.</string>
+    <string name="settings_sync_unlock_use_remote">Use Synced Accounts</string>
+    <string name="settings_sync_unlock_keep_local">Keep This Device's Accounts</string>
     <string name="secrets_sync_title">Sync Scrobbler Accounts</string>
     <string name="secrets_sync_summary">Encrypts your ListenBrainz and Last.fm credentials with a passphrase before they leave this device. Use the same passphrase on every device.</string>
     <string name="secrets_sync_state_setup">Choose a passphrase to start</string>
@@ -935,6 +947,8 @@
     <string name="podcast_error_failed_generic">Playback failed</string>
     <string name="settings_podcasts_title">Podcasts</string>
     <string name="settings_podcasts_summary">Subscribe to shows and listen to episodes in their own player. Applies to all your devices.</string>
+    <string name="settings_gapless_title">Gapless playback</string>
+    <string name="settings_gapless_summary">Tracks that run into each other play without a pause.</string>
     <string name="onboarding_continue">Continue</string>
     <string name="onboarding_not_now">Not now</string>
     <string name="onboarding_features_title">New Features</string>

@@ -268,6 +268,54 @@ class RemoteControlServiceTest {
 
         assertCompletedWith(request, ClientRequestStatus.COMPLETED)
         verify(exactly = 1) { playerModel.skipToQueueId(42L) }
+        verify(exactly = 0) { playerModel.play() }
+    }
+
+    @Test
+    fun playQueueItemOnTheCurrentPausedEntryStartsPlayback() {
+        coEvery { queueSyncService.ensureVersion(5L, any()) } returns true
+        every { playerModel.skipToQueueId(42L) } returns true
+        every { playerModel.playbackRequested } returns false
+        queue.value = listOf(QueueEntry.Explicit(testSong(0), queueId = 42L), QueueEntry.Explicit(testSong(1), queueId = 43L))
+        currentIndex.value = 0
+        startService()
+
+        val request = send(PlaybackCommand.PlayQueueItem(queueId = 42L, queueVersion = 5L))
+
+        assertCompletedWith(request, ClientRequestStatus.COMPLETED)
+        verify(exactly = 1) { playerModel.skipToQueueId(42L) }
+        verify(exactly = 1) { playerModel.play() }
+    }
+
+    @Test
+    fun playQueueItemOnTheCurrentPlayingEntryDoesNotRestartIt() {
+        coEvery { queueSyncService.ensureVersion(5L, any()) } returns true
+        every { playerModel.skipToQueueId(42L) } returns true
+        every { playerModel.playbackRequested } returns true
+        queue.value = listOf(QueueEntry.Explicit(testSong(0), queueId = 42L))
+        currentIndex.value = 0
+        startService()
+
+        val request = send(PlaybackCommand.PlayQueueItem(queueId = 42L, queueVersion = 5L))
+
+        assertCompletedWith(request, ClientRequestStatus.COMPLETED)
+        verify(exactly = 0) { playerModel.play() }
+    }
+
+    @Test
+    fun playQueueItemOnAnotherEntryLeavesTheResumeToTheSkip() {
+        coEvery { queueSyncService.ensureVersion(5L, any()) } returns true
+        every { playerModel.skipToQueueId(43L) } returns true
+        every { playerModel.playbackRequested } returns false
+        queue.value = listOf(QueueEntry.Explicit(testSong(0), queueId = 42L), QueueEntry.Explicit(testSong(1), queueId = 43L))
+        currentIndex.value = 0
+        startService()
+
+        val request = send(PlaybackCommand.PlayQueueItem(queueId = 43L, queueVersion = 5L))
+
+        assertCompletedWith(request, ClientRequestStatus.COMPLETED)
+        verify(exactly = 1) { playerModel.skipToQueueId(43L) }
+        verify(exactly = 0) { playerModel.play() }
     }
 
     @Test

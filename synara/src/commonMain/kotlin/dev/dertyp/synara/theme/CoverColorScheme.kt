@@ -58,12 +58,11 @@ fun rememberCoverScheme(coverId: PlatformUUID?, isDark: Boolean): State<ColorSch
             val seeds = withContext(Dispatchers.Default) {
                 val bitmap = result.image.toBitmap()
                 val palette = Palette.from(bitmap.asComposeImageBitmap()).generate()
-                val extractedSeeds = getSeedsFromPalette(palette)
-                schemeCache.put(coverId, extractedSeeds)
-                extractedSeeds
+                getSeedsFromPalette(palette)
             }
 
             if (seeds.first != null) {
+                schemeCache.put(coverId, seeds)
                 scheme.value = createColorSchemeFromSeeds(seeds, isDark)
             }
         }

@@ -14,6 +14,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.PlatformUUID
 import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
+import dev.dertyp.rpc.isTransportFailure
 import dev.dertyp.services.IUiService
 import dev.dertyp.synara.screens.AlbumScreen
 import dev.dertyp.synara.screens.ArtistScreen
@@ -42,6 +43,11 @@ import org.jetbrains.compose.resources.getString
 import org.koin.compose.koinInject
 
 val ServerUiLogTag = LogTag("server-ui")
+
+private suspend fun Throwable.serverMessageOrUserMessage(): String {
+    val serverMessage = message
+    return if (isTransportFailure() || serverMessage.isNullOrBlank()) getString(userMessageResource()) else serverMessage
+}
 
 typealias UiPortalContent = @Composable (params: Map<String, String>) -> Unit
 
@@ -162,7 +168,7 @@ class DefaultUiHost(
                 throw e
             } catch (e: Throwable) {
                 logger.error(ServerUiLogTag, "invoke ${action.actionId} failed", e)
-                message(getString(e.userMessageResource()))
+                message(e.serverMessageOrUserMessage())
             } finally {
                 form?.onBusy(false)
             }
@@ -182,7 +188,7 @@ class DefaultUiHost(
                 throw e
             } catch (e: Throwable) {
                 logger.error(ServerUiLogTag, "intake failed", e)
-                message(getString(e.userMessageResource()))
+                message(e.serverMessageOrUserMessage())
             }
         }
     }

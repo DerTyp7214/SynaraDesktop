@@ -48,7 +48,19 @@ import synara.synara.generated.resources.settings_sync_conflict_keep_local
 import synara.synara.generated.resources.settings_sync_conflict_message
 import synara.synara.generated.resources.settings_sync_conflict_title
 import synara.synara.generated.resources.settings_sync_conflict_use_remote
+import synara.synara.generated.resources.settings_sync_enable_choice_message
+import synara.synara.generated.resources.settings_sync_enable_choice_title
+import synara.synara.generated.resources.settings_sync_enable_keep_local
+import synara.synara.generated.resources.settings_sync_enable_use_remote
 import synara.synara.generated.resources.settings_sync_other_device
+import synara.synara.generated.resources.settings_sync_reset_accept
+import synara.synara.generated.resources.settings_sync_reset_keep_local
+import synara.synara.generated.resources.settings_sync_reset_message
+import synara.synara.generated.resources.settings_sync_reset_title
+import synara.synara.generated.resources.settings_sync_unlock_choice_message
+import synara.synara.generated.resources.settings_sync_unlock_choice_title
+import synara.synara.generated.resources.settings_sync_unlock_keep_local
+import synara.synara.generated.resources.settings_sync_unlock_use_remote
 
 enum class PassphraseMode { Setup, Enter }
 
@@ -67,7 +79,9 @@ object SettingsSyncDialogs {
 
 @Composable
 fun SettingsSyncPrompts(settingsSync: SettingsSyncService = koinInject()) {
+    SettingsSyncEnableChoiceDialog(settingsSync)
     SettingsSyncConflictDialog(settingsSync)
+    SettingsSyncResetDialog(settingsSync)
 
     val passphraseRequest by SettingsSyncDialogs.passphraseRequest.collectAsState()
     passphraseRequest?.let { mode ->
@@ -77,6 +91,65 @@ fun SettingsSyncPrompts(settingsSync: SettingsSyncService = koinInject()) {
             settingsSync = settingsSync
         )
     }
+}
+
+@Composable
+private fun SettingsSyncEnableChoiceDialog(settingsSync: SettingsSyncService) {
+    val pendingEnableChoice by settingsSync.pendingEnableChoice.collectAsState()
+    val otherDevice = stringResource(Res.string.settings_sync_other_device)
+    val enableChoiceDevice = pendingEnableChoice?.deviceName?.takeIf { it.isNotBlank() } ?: otherDevice
+    val keyCount = pendingEnableChoice?.keys?.size ?: 0
+    val onUnlock = pendingEnableChoice?.onUnlock == true
+
+    SynaraAlertDialog(
+        isOpen = pendingEnableChoice != null,
+        onDismissRequest = { settingsSync.cancelEnableChoice() },
+        title = {
+            Text(
+                stringResource(
+                    if (onUnlock) Res.string.settings_sync_unlock_choice_title else Res.string.settings_sync_enable_choice_title
+                )
+            )
+        },
+        text = {
+            Text(
+                if (onUnlock) {
+                    stringResource(Res.string.settings_sync_unlock_choice_message)
+                } else {
+                    stringResource(
+                        Res.string.settings_sync_enable_choice_message,
+                        keyCount.toString(),
+                        enableChoiceDevice
+                    )
+                }
+            )
+        },
+        confirmButton = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = { settingsSync.resolveEnableChoice(false) }) {
+                    Text(
+                        if (onUnlock) {
+                            stringResource(Res.string.settings_sync_unlock_use_remote)
+                        } else {
+                            stringResource(Res.string.settings_sync_enable_use_remote, enableChoiceDevice)
+                        }
+                    )
+                }
+                TextButton(onClick = { settingsSync.resolveEnableChoice(true) }) {
+                    Text(
+                        stringResource(
+                            if (onUnlock) Res.string.settings_sync_unlock_keep_local else Res.string.settings_sync_enable_keep_local
+                        )
+                    )
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { settingsSync.cancelEnableChoice() }) {
+                Text(stringResource(Res.string.cancel))
+            }
+        }
+    )
 }
 
 @Composable
@@ -111,6 +184,33 @@ private fun SettingsSyncConflictDialog(settingsSync: SettingsSyncService) {
         dismissButton = {
             TextButton(onClick = { settingsSync.resolveConflict(false) }) {
                 Text(stringResource(Res.string.settings_sync_conflict_use_remote, conflictDevice))
+            }
+        }
+    )
+}
+
+@Composable
+private fun SettingsSyncResetDialog(settingsSync: SettingsSyncService) {
+    val pendingReset by settingsSync.pendingReset.collectAsState()
+    val keyCount = pendingReset?.keys?.size ?: 0
+
+    SynaraAlertDialog(
+        isOpen = pendingReset != null,
+        onDismissRequest = { },
+        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+        title = { Text(stringResource(Res.string.settings_sync_reset_title)) },
+        text = { Text(stringResource(Res.string.settings_sync_reset_message, keyCount.toString())) },
+        confirmButton = {
+            TextButton(onClick = { settingsSync.resolveReset(true) }) {
+                Text(stringResource(Res.string.settings_sync_reset_keep_local))
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = { settingsSync.resolveReset(false) },
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            ) {
+                Text(stringResource(Res.string.settings_sync_reset_accept))
             }
         }
     )

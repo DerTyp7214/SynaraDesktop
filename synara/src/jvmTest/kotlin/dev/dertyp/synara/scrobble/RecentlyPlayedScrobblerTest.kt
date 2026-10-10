@@ -6,6 +6,7 @@ import dev.dertyp.data.Artist
 import dev.dertyp.data.ArtistCredit
 import dev.dertyp.data.User
 import dev.dertyp.data.UserSong
+import dev.dertyp.logging.Logger
 import dev.dertyp.randomPlatformUUID
 import dev.dertyp.synara.db.RecentlyPlayedRepository
 import dev.dertyp.synara.testing.TestDispatchers
@@ -77,6 +78,7 @@ class RecentlyPlayedScrobblerTest {
     private val globalState = mockk<GlobalStateModel>()
     private val scrobblerService = mockk<ScrobblerService>(relaxed = true)
     private val repository = mockk<RecentlyPlayedRepository>(relaxed = true)
+    private val logger = mockk<Logger>(relaxed = true)
     private val song = testSong(0)
 
     private lateinit var scrobbler: RecentlyPlayedScrobbler
@@ -89,6 +91,7 @@ class RecentlyPlayedScrobblerTest {
                 single { globalState }
                 single<SynaraDispatchers> { TestDispatchers(testDispatcher) }
                 single { scrobblerService }
+                single<Logger> { this@RecentlyPlayedScrobblerTest.logger }
             }
         )
         scrobbler = RecentlyPlayedScrobbler(repository)
@@ -108,13 +111,33 @@ class RecentlyPlayedScrobblerTest {
     }
 
     @Test
-    fun triggeredListenWithoutAUserIsNotInserted() = runTest(testDispatcher) {
+    fun triggeredListenWithoutAnyUserIsDroppedAndLoggedOnce() = runTest(testDispatcher) {
         userFlow.value = null
 
         scrobbler.triggered(song, 1_700_000_000_000L)
+        scrobbler.triggered(song, 1_700_000_100_000L)
 
         verify { repository wasNot Called }
+        verify(exactly = 1) { logger.warning(any(), any(), any()) }
         assertEquals(BaseScrobbler.ScrobbleStatus.IDLE, scrobbler.status.value)
+    }
+
+    @Test
+    fun aDropIsLoggedAgainOnlyAfterAUserWasPresentInBetween() = runTest(testDispatcher) {
+        val listener = userFlow.value
+        userFlow.value = null
+        scrobbler.triggered(song, 1_700_000_000_000L)
+        userFlow.value = listener
+        scrobbler.triggered(song, 1_700_000_100_000L)
+        verify(exactly = 1) { logger.warning(any(), any(), any()) }
+
+        userFlow.value = null
+        scrobbler.triggered(song, 1_700_000_200_000L)
+        scrobbler.triggered(song, 1_700_000_300_000L)
+
+        verify(exactly = 2) { logger.warning(any(), any(), any()) }
+        coVerify(exactly = 1) { repository.insertListen(any(), any(), any()) }
+        coVerify(exactly = 1) { repository.insertListen(userId, song, 1_700_000_100_000L) }
     }
 
     @Test

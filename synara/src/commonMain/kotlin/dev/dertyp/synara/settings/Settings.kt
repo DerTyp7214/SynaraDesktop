@@ -32,6 +32,7 @@ sealed class SettingKey<T>(val name: String) {
     data object AudioBufferSize : SettingKey<Int>("audio_buffer_size")
     data object AudioBufferCount : SettingKey<Int>("audio_buffer_count")
     data object AudioTargetSampleRate : SettingKey<Int>("audio_target_sample_rate")
+    data object GaplessPlayback : SettingKey<Boolean>("gapless_playback")
 
     // Proxy
     data object IsProxyEnabled : SettingKey<Boolean>("is_proxy_enabled")
@@ -57,6 +58,7 @@ sealed class SettingKey<T>(val name: String) {
     data object QueueSyncVersion : SettingKey<Long>("queue_sync_version")
     data object QueueSyncDirty : SettingKey<Boolean>("queue_sync_dirty")
     data object QueueSyncLastAt : SettingKey<Long>("queue_sync_last_at")
+    data object QueueSyncOwner : SettingKey<String>("queue_sync_owner")
 
     // Remote control
     data object IsRemoteControlEnabled : SettingKey<Boolean>("is_remote_control_enabled")
@@ -94,9 +96,6 @@ sealed class SettingKey<T>(val name: String) {
     data object ShowRemainingTime : SettingKey<Boolean>("show_remaining_time")
     data object ShowTitleTagsInText : SettingKey<Boolean>("show_title_tags_in_text")
 
-    // Database
-    data object NeedsUserIdMigration : SettingKey<Boolean>("needs_user_id_migration")
-
     // Window
     data object HideOnClose : SettingKey<Boolean>("hide_on_close")
     data object FullscreenHudAutoHide : SettingKey<Boolean>("fullscreen_hud_auto_hide")
@@ -114,18 +113,20 @@ sealed class SettingKey<T>(val name: String) {
     data object LastSeenRecentReleaseId : SettingKey<String>("last_seen_recent_release_id")
 
     companion object {
-        val authKeys = setOf(
-            AuthToken.name,
-            RefreshToken.name,
-            TokenExpiration.name,
-            ListenBrainzToken.name,
-            LastFmApiKey.name,
-            LastFmSharedSecret.name,
-            LastFmSessionKey.name,
-            SecretsSyncEncKey.name,
-            SecretsSyncMacKey.name,
-            SecretsSyncSaltFingerprint.name
-        )
+        val authKeys by lazy {
+            setOf(
+                AuthToken.name,
+                RefreshToken.name,
+                TokenExpiration.name,
+                ListenBrainzToken.name,
+                LastFmApiKey.name,
+                LastFmSharedSecret.name,
+                LastFmSessionKey.name,
+                SecretsSyncEncKey.name,
+                SecretsSyncMacKey.name,
+                SecretsSyncSaltFingerprint.name
+            )
+        }
     }
 }
 
@@ -171,7 +172,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.LastFmUsername, is SettingKey.ProxyHost, is SettingKey.ProxyId,
         is SettingKey.IconStyle, is SettingKey.IconPack, is SettingKey.LastSeenVersion,
         is SettingKey.LastSeenRecentReleaseId, is SettingKey.RpcPath,
-        is SettingKey.QueueSyncDeviceName, is SettingKey.DeviceId,
+        is SettingKey.QueueSyncDeviceName, is SettingKey.QueueSyncOwner, is SettingKey.DeviceId,
         is SettingKey.SettingsSyncUserId, is SettingKey.SecretsSyncEncKey,
         is SettingKey.SecretsSyncMacKey, is SettingKey.SecretsSyncSaltFingerprint,
         is SettingKey.AudioOutputDevice, is SettingKey.VisualizerStyle,
@@ -194,7 +195,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.FullscreenHudAutoHide,
         is SettingKey.IsProxyEnabled, is SettingKey.ProxySsl, is SettingKey.Ssl,
         is SettingKey.SslConfirmed,
-        is SettingKey.NeedsUserIdMigration, is SettingKey.IconFilled,
+        is SettingKey.IconFilled,
         is SettingKey.DownloadFavorites, is SettingKey.ShowRemainingTime,
         is SettingKey.ShowTitleTagsInText,
         is SettingKey.IsQueueSyncEnabled, is SettingKey.QueueSyncDirty,
@@ -202,7 +203,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.IsSettingsSyncEnabled, is SettingKey.IsSecretsSyncEnabled,
         is SettingKey.SyncSetupShown, is SettingKey.RemoteControlOptInShown,
         is SettingKey.IsPodcastsEnabled, is SettingKey.PodcastOptInShown,
-        is SettingKey.ShowPerformanceOverlay -> getBooleanOrNull(key.name) as T?
+        is SettingKey.ShowPerformanceOverlay, is SettingKey.GaplessPlayback -> getBooleanOrNull(key.name) as T?
 
         is SettingKey.Volume, is SettingKey.ParticleMultiplier,
         is SettingKey.PodcastPlaybackSpeed -> getFloatOrNull(key.name) as T?

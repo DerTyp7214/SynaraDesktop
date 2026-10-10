@@ -422,4 +422,25 @@ class EpisodeListPagerTest {
 
         assertEquals(before, pager.state.value)
     }
+
+    @Test
+    fun aPageRequestedOnceThePreviousPageArrivedIsLoadedAfterIt() = runTest {
+        val gate = CompletableDeferred<PaginatedResponse<PodcastEpisode>>()
+        respond(page(6, 0, 1))
+        script += { gate.await() }
+        respond(page(6, 4, 5))
+        val pager = createPager()
+        pager.reload()
+        pager.loadMore()
+        runCurrent()
+        assertTrue(pager.state.value.isLoadingMore)
+
+        gate.complete(page(6, 2, 3))
+        pager.loadMore()
+        runCurrent()
+
+        assertEquals(listOf(0, 1, 2), requested)
+        assertEquals(ids, pager.episodeIds())
+        assertFalse(pager.state.value.isLoadingMore)
+    }
 }

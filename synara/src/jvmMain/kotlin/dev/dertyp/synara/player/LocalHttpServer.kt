@@ -1,5 +1,6 @@
 package dev.dertyp.synara.player
 
+import dev.dertyp.core.toUUIDOrNull
 import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
 import dev.dertyp.synara.BuildConfig
@@ -50,6 +51,10 @@ class LocalHttpServer(
                     val engine = embeddedServer(CIO, host = "127.0.0.1", port = port) {
                         intercept(ApplicationCallPipeline.Plugins) {
                             logger.info(LogTag("HTTP"), "Incoming request: ${call.request.httpMethod.value} ${call.request.uri}")
+                            if (!isLocalHost(call.request.headers[HttpHeaders.Host], port)) {
+                                call.respond(HttpStatusCode.Forbidden)
+                                finish()
+                            }
                         }
                         install(ContentNegotiation) {
                             json(Json {
@@ -105,43 +110,14 @@ class LocalHttpServer(
                                 }
 
                                 post("/action/{action}") {
-                                    val action = call.parameters["action"]
-                                    val id = call.request.queryParameters["id"]
-                                    val type = call.request.queryParameters["type"] ?: "song"
-
-                                    when (action) {
-                                        "play" -> {
-                                            if (id != null) {
-                                                when (type) {
-                                                    "song" -> api.PlaySong(id)
-                                                    "album" -> api.PlayAlbum(id)
-                                                    "artist" -> api.PlayArtist(id)
-                                                    "playlist" -> api.PlayPlaylist(id)
-                                                }
-                                                call.respond(HttpStatusCode.OK)
-                                            } else call.respond(HttpStatusCode.BadRequest)
-                                        }
-                                        "play-next" -> {
-                                            if (id != null) {
-                                                api.PlayNext(id, type)
-                                                call.respond(HttpStatusCode.OK)
-                                            } else call.respond(HttpStatusCode.BadRequest)
-                                        }
-                                        "add-to-queue" -> {
-                                            if (id != null) {
-                                                api.AddToQueue(id, type)
-                                                call.respond(HttpStatusCode.OK)
-                                            } else call.respond(HttpStatusCode.BadRequest)
-                                        }
-                                        "play-queue-item" -> {
-                                            val queueId = call.request.queryParameters["queueId"]
-                                            if (queueId != null) {
-                                                api.PlayQueueItem(queueId)
-                                                call.respond(HttpStatusCode.OK)
-                                            } else call.respond(HttpStatusCode.BadRequest)
-                                        }
-                                        else -> call.respond(HttpStatusCode.NotFound)
-                                    }
+                                    call.respond(
+                                        performAction(
+                                            action = call.parameters["action"],
+                                            id = call.request.queryParameters["id"],
+                                            type = call.request.queryParameters["type"] ?: "song",
+                                            queueId = call.request.queryParameters["queueId"]
+                                        )
+                                    )
                                 }
                             }
                         }
@@ -162,5 +138,42 @@ class LocalHttpServer(
 
     fun stop() {
         server?.stop(1000, 2000)
+    }
+
+    internal fun isLocalHost(host: String?, port: Int): Boolean =
+        host == "127.0.0.1:$port" || host.equals("localhost:$port", ignoreCase = true)
+
+    internal fun performAction(action: String?, id: String?, type: String, queueId: String?): HttpStatusCode = when (action) {
+        "play", "play-next", "add-to-queue" -> {
+            val itemType = type.lowercase()
+            if (id == null || id.toUUIDOrNull() == null || itemType !in ITEM_TYPES) {
+                HttpStatusCode.BadRequest
+            } else {
+                when (action) {
+                    "play" -> when (itemType) {
+                        "song" -> api.PlaySong(id)
+                        "album" -> api.PlayAlbum(id)
+                        "artist" -> api.PlayArtist(id)
+                        else -> api.PlayPlaylist(id)
+                    }
+                    "play-next" -> api.PlayNext(id, itemType)
+                    else -> api.AddToQueue(id, itemType)
+                }
+                HttpStatusCode.OK
+            }
+        }
+        "play-queue-item" -> {
+            if (queueId == null || queueId.toLongOrNull() == null) {
+                HttpStatusCode.BadRequest
+            } else {
+                api.PlayQueueItem(queueId)
+                HttpStatusCode.OK
+            }
+        }
+        else -> HttpStatusCode.NotFound
+    }
+
+    private companion object {
+        val ITEM_TYPES = setOf("song", "album", "artist", "playlist")
     }
 }

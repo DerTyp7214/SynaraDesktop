@@ -25,6 +25,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.PlatformUUID
 import dev.dertyp.synara.formatHumanReadableDuration
 import dev.dertyp.synara.ui.SynaraIcons
+import dev.dertyp.synara.ui.components.LoadNextPageEffect
 import dev.dertyp.synara.ui.components.RegisterRefreshTarget
 import dev.dertyp.synara.ui.components.SongItem
 import dev.dertyp.synara.ui.components.SynaraImage
@@ -136,21 +137,7 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
         val currentSong by screenModel.playerModel.currentSong.collectAsState()
         val lazyListState = rememberLazyListState()
 
-        val shouldLoadNextPage by remember {
-            derivedStateOf {
-                val layoutInfo = lazyListState.layoutInfo
-                val totalItemsNumber = layoutInfo.totalItemsCount
-                val lastVisibleItemIndex = (layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) + 1
-
-                lastVisibleItemIndex > (totalItemsNumber - 10)
-            }
-        }
-
-        LaunchedEffect(shouldLoadNextPage) {
-            if (shouldLoadNextPage) {
-                screenModel.loadNextPage()
-            }
-        }
+        LoadNextPageEffect(lazyListState, threshold = 10) { screenModel.loadNextPage() }
 
         Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(

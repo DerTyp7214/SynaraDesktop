@@ -27,6 +27,9 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,6 +62,9 @@ class RemotePlaybackControllerTest {
     private var commandResult: () -> ClientRequestStatus = { ClientRequestStatus.COMPLETED }
     private var remotePlayHandler: ((Long) -> Unit)? = null
     private var serverNow = 0L
+    private val localQueue = MutableStateFlow<List<QueueEntry>>(emptyList())
+    private val localIndex = MutableStateFlow(-1)
+    private val handBacks = mutableListOf<Pair<Long, Boolean>>()
 
     private val presenceService = mockk<PresenceService>(relaxed = true)
     private val remoteControlService = mockk<IRemoteControlService>()
@@ -79,6 +85,9 @@ class RemotePlaybackControllerTest {
         coEvery { remoteControlService.sendCommand(capture(sessions), capture(commands)) } answers { commandResult() }
         every { playerModel.remotePlayHandler = any() } answers { remotePlayHandler = firstArg() }
         every { playerModel.remotePlayHandler } answers { remotePlayHandler }
+        every { playerModel.queue } returns localQueue
+        every { playerModel.currentIndex } returns localIndex
+        every { playerModel.seekTo(any()) } answers { handBacks += firstArg<Long>() to (remotePlayHandler == null) }
         every { serverClock.serverNow() } answers { serverNow }
         coEvery { songService.byId(any()) } returns null
     }
@@ -138,7 +147,8 @@ class RemotePlaybackControllerTest {
         isShuffled: Boolean = false,
         repeatMode: RepeatMode = RepeatMode.OFF,
         volume: Float? = null,
-        reportedAt: Long = 0L
+        reportedAt: Long = 0L,
+        currentQueueId: Long? = null
     ) = RemotePlaybackStatus(
         songId = songId,
         isPlaying = isPlaying,
@@ -147,7 +157,8 @@ class RemotePlaybackControllerTest {
         isShuffled = isShuffled,
         repeatMode = repeatMode,
         volume = volume,
-        reportedAt = reportedAt
+        reportedAt = reportedAt,
+        currentQueueId = currentQueueId
     )
 
     private fun report(status: RemotePlaybackStatus) {
@@ -369,6 +380,303 @@ class RemotePlaybackControllerTest {
         assertEquals(1f, controller.volume.value)
         assertFalse(controller.shuffleMode.value)
         assertEquals(RepeatMode.OFF, controller.repeatMode.value)
+    }
+
+    private fun localSongId(): PlatformUUID = (localQueue.value[localIndex.value] as QueueEntry.Explicit).song.id
+
+    private fun localEntries(vararg entries: QueueEntry, current: Int = 0) {
+        localQueue.value = entries.toList()
+        localIndex.value = current
+    }
+
+    @Test
+    fun deselectHandsTheReportedPositionOfTheCurrentEntryBackOnceTheHandlerIsCleared() {
+        val song = testSong(0)
+        localEntries(QueueEntry.Explicit(testSong(1)), QueueEntry.Explicit(song), current = 1)
+        val controller = controllerSelecting(device())
+        report(status(songId = song.id, positionMs = 83_000L, durationMs = 240_000L))
+
+        controller.deselect()
+        scheduler.runCurrent()
+
+        assertEquals(listOf(83_000L to true), handBacks)
+    }
+
+    @Test
+    fun deselectHandsBackThePositionOfAnEntryKnownByItsSongIdOnly() {
+        val song = testSong(0)
+        localEntries(QueueEntry.FromSource(song.id))
+        val controller = controllerSelecting(device())
+        report(status(songId = song.id, positionMs = 12_000L, durationMs = 240_000L))
+
+        controller.deselect()
+        scheduler.runCurrent()
+
+        assertEquals(listOf(12_000L to true), handBacks)
+    }
+
+    @Test
+    fun deselectHandsBackThePositionAPlayingDeviceHasReachedByNow() {
+        val song = testSong(0)
+        localEntries(QueueEntry.Explicit(song))
+        val controller = controllerSelecting(device())
+        serverNow = reportTime
+        report(status(songId = song.id, isPlaying = true, positionMs = 60_000L, durationMs = 240_000L, reportedAt = reportTime))
+
+        serverNow = reportTime + 4_000L
+        controller.deselect()
+        scheduler.runCurrent()
+
+        assertEquals(listOf(64_000L to true), handBacks)
+    }
+
+    @Test
+    fun deselectHandsBackNoPositionWhenTheDeviceReportedAnotherSong() {
+        localEntries(QueueEntry.Explicit(testSong(0)))
+        val controller = controllerSelecting(device())
+        report(status(songId = testSong(1).id, positionMs = 83_000L, durationMs = 240_000L))
+
+        controller.deselect()
+        scheduler.runCurrent()
+
+        assertEquals(emptyList(), handBacks)
+        assertNull(remotePlayHandler)
+    }
+
+    @Test
+    fun deselectHandsBackNoPositionWhenTheDeviceReportedNoSongOrNothingAtAll() {
+        val target = device()
+        localEntries(QueueEntry.Explicit(testSong(0)))
+        val controller = controllerSelecting(target)
+
+        controller.deselect()
+        scheduler.runCurrent()
+        controller.select(target.sessionId)
+        scheduler.runCurrent()
+        report(status(positionMs = 83_000L))
+        controller.deselect()
+        scheduler.runCurrent()
+
+        assertEquals(emptyList(), handBacks)
+    }
+
+    @Test
+    fun deselectHandsBackNoPositionWithoutACurrentEntry() {
+        val song = testSong(0)
+        localEntries(QueueEntry.Explicit(song), current = -1)
+        val controller = controllerSelecting(device())
+        report(status(songId = song.id, positionMs = 83_000L, durationMs = 240_000L))
+
+        controller.deselect()
+        scheduler.runCurrent()
+
+        assertEquals(emptyList(), handBacks)
+    }
+
+    @Test
+    fun aTargetThatGoesOfflineHandsItsLastPositionBack() {
+        val song = testSong(0)
+        localEntries(QueueEntry.Explicit(song))
+        val controller = controllerSelecting(device())
+        report(status(songId = song.id, positionMs = 83_000L, durationMs = 240_000L))
+
+        onlineDevices.value = emptyList()
+        scheduler.runCurrent()
+
+        assertNull(controller.target.value)
+        assertEquals(listOf(83_000L to true), handBacks)
+    }
+
+    @Test
+    fun selectingAnotherDeviceHandsNoPositionBack() {
+        val song = testSong(0)
+        localEntries(QueueEntry.Explicit(song))
+        val first = device()
+        val second = device()
+        onlineDevices.value = listOf(first, second)
+        val controller = createController()
+        controller.select(first.sessionId)
+        scheduler.runCurrent()
+        report(status(songId = song.id, positionMs = 83_000L, durationMs = 240_000L))
+
+        controller.select(second.sessionId)
+        scheduler.runCurrent()
+
+        assertEquals(second, controller.target.value)
+        assertEquals(emptyList(), handBacks)
+    }
+
+    private fun controllerWithAPlayingDevice(target: OnlineDevice, positionMs: Long = 60_000L): RemotePlaybackController {
+        val song = testSong(0)
+        localEntries(QueueEntry.Explicit(song))
+        val controller = controllerSelecting(target)
+        serverNow = reportTime
+        report(status(songId = song.id, isPlaying = true, positionMs = positionMs, durationMs = 240_000L, reportedAt = reportTime))
+        return controller
+    }
+
+    @Test
+    fun handingBackPausesAPlayingDeviceAndTakesOverAtThePositionOfThePause() {
+        val target = device()
+        val controller = controllerWithAPlayingDevice(target)
+
+        controller.select(null)
+        scheduler.runCurrent()
+
+        assertEquals(listOf<PlaybackCommand>(PlaybackCommand.Pause), commands)
+        assertEquals(listOf(target.sessionId), sessions)
+        assertEquals(target, controller.target.value)
+        assertNotNull(remotePlayHandler)
+        assertEquals(emptyList(), handBacks)
+
+        serverNow = reportTime + 2_000L
+        report(status(songId = localSongId(), positionMs = 61_500L, durationMs = 240_000L, reportedAt = serverNow))
+
+        assertNull(controller.target.value)
+        assertNull(remotePlayHandler)
+        assertEquals(listOf(61_500L to true), handBacks)
+        verifySnackbars(0)
+    }
+
+    @Test
+    fun handingBackAPausedDeviceSendsNoCommand() {
+        val song = testSong(0)
+        localEntries(QueueEntry.Explicit(song))
+        val controller = controllerSelecting(device())
+        report(status(songId = song.id, positionMs = 83_000L, durationMs = 240_000L))
+
+        controller.select(null)
+        scheduler.runCurrent()
+
+        assertEquals(emptyList<PlaybackCommand>(), commands)
+        assertNull(controller.target.value)
+        assertEquals(listOf(83_000L to true), handBacks)
+    }
+
+    @Test
+    fun handingBackWithoutAPausedReportEndsAfterThreeSecondsAtThePositionReachedByThen() {
+        val target = device()
+        val controller = controllerWithAPlayingDevice(target)
+
+        controller.select(null)
+        advance(2_999)
+        assertEquals(target, controller.target.value)
+        assertEquals(emptyList(), handBacks)
+
+        serverNow = reportTime + 3_000L
+        advance(1)
+
+        assertNull(controller.target.value)
+        assertEquals(listOf(63_000L to true), handBacks)
+        assertEquals(listOf<PlaybackCommand>(PlaybackCommand.Pause), commands)
+    }
+
+    @Test
+    fun aPauseTheDeviceDoesNotCompleteHandsBackAtOnceWithoutASnackbar() {
+        val controller = controllerWithAPlayingDevice(device())
+        commandResult = { ClientRequestStatus.UNREACHABLE }
+
+        controller.select(null)
+        scheduler.runCurrent()
+
+        assertNull(controller.target.value)
+        assertEquals(listOf(60_000L to true), handBacks)
+        verifySnackbars(0)
+        verifyDeviceRefreshes(0)
+    }
+
+    @Test
+    fun aFailingPauseHandsBackAtOnceWithoutASnackbar() {
+        val controller = controllerWithAPlayingDevice(device())
+        commandResult = { throw IllegalStateException("command failed") }
+
+        controller.select(null)
+        scheduler.runCurrent()
+
+        assertNull(controller.target.value)
+        assertEquals(listOf(60_000L to true), handBacks)
+        verifySnackbars(0)
+    }
+
+    @Test
+    fun selectingTheDeviceAgainWhileItIsHandedBackKeepsItControlled() {
+        val target = device()
+        val controller = controllerWithAPlayingDevice(target)
+
+        controller.select(null)
+        scheduler.runCurrent()
+        controller.select(target.sessionId)
+        scheduler.runCurrent()
+        report(status(songId = localSongId(), positionMs = 61_500L, durationMs = 240_000L))
+        advance(10_000)
+
+        assertEquals(target, controller.target.value)
+        assertNotNull(remotePlayHandler)
+        assertEquals(emptyList(), handBacks)
+    }
+
+    @Test
+    fun aPlayingDeviceThatGoesOfflineIsNotPaused() {
+        val controller = controllerWithAPlayingDevice(device())
+
+        onlineDevices.value = emptyList()
+        scheduler.runCurrent()
+        advance(10_000)
+
+        assertNull(controller.target.value)
+        assertEquals(emptyList<PlaybackCommand>(), commands)
+    }
+
+    @Test
+    fun deselectingBecauseThisDeviceIsTakenOverDoesNotPauseThePlayingDevice() {
+        val controller = controllerWithAPlayingDevice(device())
+
+        controller.deselect()
+        scheduler.runCurrent()
+        advance(10_000)
+
+        assertNull(controller.target.value)
+        assertEquals(emptyList<PlaybackCommand>(), commands)
+        assertEquals(listOf(60_000L to true), handBacks)
+    }
+
+    @Test
+    fun selectingAnUnknownDeviceDoesNotPauseThePlayingDevice() {
+        val controller = controllerWithAPlayingDevice(device())
+
+        controller.select(randomPlatformUUID())
+        scheduler.runCurrent()
+
+        assertNull(controller.target.value)
+        assertEquals(emptyList<PlaybackCommand>(), commands)
+    }
+
+    @Test
+    fun setShuffleAndSetRepeatModeSendTheGivenValues() {
+        val controller = controllerSelecting(device())
+
+        controller.setShuffle(true)
+        scheduler.runCurrent()
+        controller.setRepeatMode(RepeatMode.ONE)
+        scheduler.runCurrent()
+
+        assertEquals(
+            listOf(PlaybackCommand.SetShuffle(true), PlaybackCommand.SetRepeat(RepeatMode.ONE)),
+            commands
+        )
+    }
+
+    @Test
+    fun theQueueIdTheDeviceReportsIsMirroredAndClearedOnDeselect() {
+        val controller = controllerSelecting(device())
+        assertNull(controller.currentQueueId.value)
+
+        report(status(currentQueueId = 42L))
+        assertEquals(42L, controller.currentQueueId.value)
+
+        controller.deselect()
+        scheduler.runCurrent()
+        assertNull(controller.currentQueueId.value)
     }
 
     @Test
@@ -782,5 +1090,90 @@ class RemotePlaybackControllerTest {
         advance(5_000)
         verify(exactly = 6) { remoteControlService.observeStatus(target.sessionId) }
         assertNull(controller.target.value)
+    }
+
+    @Test
+    fun aStatusStreamOfThePreviousTargetFailingAfterANewSelectionKeepsTheNewTarget() {
+        val first = device()
+        val second = device()
+        every { remoteControlService.observeStatus(first.sessionId) } returnsMany listOf(
+            failingStatusStream(),
+            failingStatusStream(),
+            flow {
+                try {
+                    awaitCancellation()
+                } finally {
+                    throw IllegalStateException("stream failed")
+                }
+            }
+        )
+        every { remoteControlService.observeStatus(second.sessionId) } returns statuses
+        onlineDevices.value = listOf(first, second)
+        val controller = createController()
+        controller.select(first.sessionId)
+        advance(10_000)
+        verify(exactly = 3) { remoteControlService.observeStatus(first.sessionId) }
+        assertEquals(first, controller.target.value)
+
+        controller.select(second.sessionId)
+        advance(10_000)
+
+        assertEquals(second, controller.target.value)
+        assertNotNull(remotePlayHandler)
+        verify(exactly = 1) { remoteControlService.observeStatus(second.sessionId) }
+    }
+
+    @Test
+    fun aSongLookupOfThePreviousTargetEndingAfterANewSelectionKeepsTheNewSong() {
+        val first = device()
+        val second = device()
+        val oldSong = testSong(0)
+        val newSong = testSong(1)
+        val lookup = CompletableDeferred<Unit>()
+        coEvery { songService.byId(oldSong.id) } coAnswers {
+            withContext(NonCancellable) { lookup.await() }
+            oldSong
+        }
+        onlineDevices.value = listOf(first, second)
+        val controller = createController()
+        controller.select(first.sessionId)
+        scheduler.runCurrent()
+        report(status(songId = oldSong.id))
+        assertNull(controller.currentSong.value)
+
+        controller.select(second.sessionId)
+        scheduler.runCurrent()
+        runBlocking { songCache.put(newSong) }
+        report(status(songId = newSong.id))
+        assertEquals(newSong, controller.currentSong.value)
+
+        lookup.complete(Unit)
+        scheduler.runCurrent()
+
+        assertEquals(newSong, controller.currentSong.value)
+        assertEquals(second, controller.target.value)
+    }
+
+    @Test
+    fun remotePlayIsDroppedWhenTheTargetChangedWhileTheQueueWasFlushing() {
+        val first = device()
+        val second = device()
+        val flushed = CompletableDeferred<Long>()
+        coEvery { queueSyncService.awaitFlushed(any()) } coAnswers { flushed.await() }
+        onlineDevices.value = listOf(first, second)
+        val controller = createController()
+        controller.select(first.sessionId)
+        scheduler.runCurrent()
+
+        assertNotNull(remotePlayHandler).invoke(42L)
+        scheduler.runCurrent()
+        controller.select(second.sessionId)
+        scheduler.runCurrent()
+        flushed.complete(7L)
+        scheduler.runCurrent()
+
+        assertEquals(emptyList<PlaybackCommand>(), commands)
+        assertEquals(second, controller.target.value)
+        verifySnackbars(0)
     }
 }

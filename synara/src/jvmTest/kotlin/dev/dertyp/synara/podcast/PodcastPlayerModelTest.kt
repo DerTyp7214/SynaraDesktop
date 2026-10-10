@@ -333,7 +333,7 @@ class PodcastPlayerModelTest {
     }
 
     @Test
-    fun finishingWithUnknownDurationCountsAsCompleted() {
+    fun finishingWithUnknownDurationCompletesTheEpisodeAndLoadsTheNextOne() {
         val first = testEpisode(1, durationMs = null)
         val second = testEpisode(2)
         val model = playing(listOf(first, second))
@@ -342,10 +342,97 @@ class PodcastPlayerModelTest {
         engine.emitFinished()
         scheduler.runCurrent()
 
-        assertEquals(listOf(first.id), reports.filter { it.completed }.map { it.episodeId })
+        assertEquals(
+            listOf(EpisodePlaybackReport(first.id, 5 * MINUTE_MS, null, true, DEVICE_ID)),
+            reports.filter { it.completed }
+        )
+        assertEquals(0, engine.stopCalls)
         assertEquals(1, model.currentIndex.value)
         assertEquals(FakePodcastAudioEngine.Load(second.id, 0, true), engine.loads.last())
+        assertEquals(2, engine.loads.size)
         assertTrue(errors.isEmpty())
+    }
+
+    @Test
+    fun finishingTheLastEpisodeWithUnknownDurationCompletesItAndRewinds() {
+        val episode = testEpisode(1, durationMs = null)
+        val model = playing(listOf(episode))
+        moveEngineTo(5 * MINUTE_MS)
+
+        engine.emitFinished()
+        scheduler.runCurrent()
+
+        assertEquals(listOf(episode.id), reports.filter { it.completed }.map { it.episodeId })
+        assertEquals(0, model.currentIndex.value)
+        assertEquals(0L, model.position.value)
+        assertEquals(1, engine.loads.size)
+        assertTrue(errors.isEmpty())
+
+        model.play()
+        scheduler.runCurrent()
+
+        assertEquals(FakePodcastAudioEngine.Load(episode.id, 0, true), engine.loads.last())
+        assertEquals(2, engine.loads.size)
+    }
+
+    @Test
+    fun aStreamErrorWithUnknownDurationKeepsThePositionAndReloadsThereOnPlay() {
+        val episode = testEpisode(1, durationMs = null)
+        val model = playing(listOf(episode))
+        moveEngineTo(5 * MINUTE_MS)
+
+        engine.emitError(PodcastPlayerError.Failed("stream"))
+        scheduler.runCurrent()
+
+        assertTrue(reports.none { it.completed })
+        assertEquals(EpisodePlaybackReport(episode.id, 5 * MINUTE_MS, null, false, DEVICE_ID), reports.last())
+        assertEquals(5 * MINUTE_MS, model.position.value)
+        assertEquals(listOf<PodcastPlayerError>(PodcastPlayerError.Failed("stream")), errors)
+
+        model.play()
+        scheduler.runCurrent()
+
+        assertEquals(FakePodcastAudioEngine.Load(episode.id, 5 * MINUTE_MS, true), engine.loads.last())
+        assertEquals(2, engine.loads.size)
+    }
+
+    @Test
+    fun finishingNearTheEndOfADurationOnlyTheEngineKnowsCompletesTheEpisode() {
+        val first = testEpisode(1, durationMs = null)
+        val second = testEpisode(2)
+        val model = playing(listOf(first, second))
+        engine.duration.value = 60 * MINUTE_MS
+        moveEngineTo(58 * MINUTE_MS)
+
+        engine.emitFinished()
+        scheduler.runCurrent()
+
+        assertEquals(
+            listOf(EpisodePlaybackReport(first.id, 60 * MINUTE_MS, 60 * MINUTE_MS, true, DEVICE_ID)),
+            reports.filter { it.completed }
+        )
+        assertEquals(1, model.currentIndex.value)
+        assertEquals(FakePodcastAudioEngine.Load(second.id, 0, true), engine.loads.last())
+        assertEquals(2, engine.loads.size)
+        assertTrue(errors.isEmpty())
+    }
+
+    @Test
+    fun finishingInTheMiddleOfADurationOnlyTheEngineKnowsKeepsThePosition() {
+        val first = testEpisode(1, durationMs = null)
+        val second = testEpisode(2)
+        val model = playing(listOf(first, second))
+        engine.duration.value = 60 * MINUTE_MS
+        moveEngineTo(30 * MINUTE_MS)
+
+        engine.emitFinished()
+        scheduler.runCurrent()
+
+        assertTrue(reports.none { it.completed })
+        assertEquals(0, model.currentIndex.value)
+        assertEquals(30 * MINUTE_MS, model.position.value)
+        assertEquals(1, engine.loads.size)
+        assertEquals(listOf<PodcastPlayerError>(PodcastPlayerError.Failed(null)), errors)
     }
 
     @Test
@@ -502,6 +589,50 @@ class PodcastPlayerModelTest {
 
         assertTrue(model.isPlaying.value)
         assertEquals(0, engine.pauseCalls)
+    }
+
+    @Test
+    fun removingTheCurrentEpisodeDuringALoadToPlayLoadsItsSuccessorPlaying() {
+        val episodes = listOf(testEpisode(1), testEpisode(2), testEpisode(3))
+        val model = loading(episodes)
+        assertTrue(model.isLoading.value)
+        assertFalse(model.isPlaying.value)
+
+        model.removeFromQueue(0)
+        scheduler.runCurrent()
+
+        assertEquals(listOf(episodes[1].id, episodes[2].id), queueIds(model))
+        assertEquals(episodes[1].id, model.currentEpisode.value?.id)
+        assertEquals(FakePodcastAudioEngine.Load(episodes[1].id, 0, true), engine.loads.last())
+        assertEquals(2, engine.loads.size)
+
+        engine.completeLoad()
+        scheduler.runCurrent()
+
+        assertTrue(model.isPlaying.value)
+        assertEquals(0, engine.pauseCalls)
+    }
+
+    @Test
+    fun removingTheCurrentEpisodeDuringALoadPausedByTheUserLoadsItsSuccessorPaused() {
+        val episodes = listOf(testEpisode(1), testEpisode(2), testEpisode(3))
+        val model = loading(episodes)
+        model.pause()
+        scheduler.runCurrent()
+        assertTrue(model.isLoading.value)
+
+        model.removeFromQueue(0)
+        scheduler.runCurrent()
+
+        assertEquals(listOf(episodes[1].id, episodes[2].id), queueIds(model))
+        assertEquals(FakePodcastAudioEngine.Load(episodes[1].id, 0, false), engine.loads.last())
+        assertEquals(2, engine.loads.size)
+
+        engine.completeLoad()
+        scheduler.runCurrent()
+
+        assertFalse(model.isPlaying.value)
+        assertEquals(0, engine.playCalls)
     }
 
     @Test
@@ -992,6 +1123,44 @@ class PodcastPlayerModelTest {
             ),
             errors
         )
+    }
+
+    @Test
+    fun aStreamErrorWhilePlayingReportsThePositionAndReloadsThereOnPlay() {
+        val episode = testEpisode(1)
+        val model = playing(listOf(episode))
+        moveEngineTo(5 * MINUTE_MS)
+        val reportsBefore = reports.size
+
+        engine.emitError(PodcastPlayerError.Failed("stream"))
+        scheduler.runCurrent()
+
+        assertEquals(reportsBefore + 1, reports.size)
+        assertEquals(EpisodePlaybackReport(episode.id, 5 * MINUTE_MS, HOUR_MS, false, DEVICE_ID), reports.last())
+        assertEquals(5 * MINUTE_MS, model.position.value)
+        assertEquals(listOf<PodcastPlayerError>(PodcastPlayerError.Failed("stream")), errors)
+
+        model.play()
+        scheduler.runCurrent()
+
+        assertEquals(FakePodcastAudioEngine.Load(episode.id, 5 * MINUTE_MS, true), engine.loads.last())
+        assertEquals(2, engine.loads.size)
+    }
+
+    @Test
+    fun aStreamErrorWhilePausedReportsNoPosition() {
+        val episode = testEpisode(1)
+        val model = playing(listOf(episode))
+        moveEngineTo(5 * MINUTE_MS)
+        model.pause()
+        scheduler.runCurrent()
+        val reportsBefore = reports.size
+
+        engine.emitError(PodcastPlayerError.Failed("stream"))
+        scheduler.runCurrent()
+
+        assertEquals(reportsBefore, reports.size)
+        assertEquals(5 * MINUTE_MS, model.position.value)
     }
 
     @Test

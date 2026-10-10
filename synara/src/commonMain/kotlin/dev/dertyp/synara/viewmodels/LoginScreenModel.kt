@@ -39,10 +39,30 @@ class LoginScreenModel(
     private val _loginResult = MutableStateFlow<LoginResult>(LoginResult.Idle)
     val loginResult = _loginResult.asStateFlow()
 
+    private val _encryptionCheckRunning = MutableStateFlow(false)
+    val encryptionCheckRunning = _encryptionCheckRunning.asStateFlow()
+
+    fun checkEncryption() {
+        if (_encryptionCheckRunning.value) return
+        _encryptionCheckRunning.value = true
+        screenModelScope.launch(modelDispatcher) {
+            try {
+                rpcServiceManager.checkSslSupport()
+            } finally {
+                _encryptionCheckRunning.value = false
+            }
+        }
+    }
+
     fun login(username: String, password: String) {
+        if (_encryptionCheckRunning.value) return
         screenModelScope.launch(modelDispatcher) {
             _loginResult.value = LoginResult.Loading
             try {
+                if (!rpcServiceManager.checkSslSupport()) {
+                    _loginResult.value = LoginResult.Idle
+                    return@launch
+                }
                 val response = authService.authenticate(username, password)
                 rpcServiceManager.updateAuth(response)
                 _loginResult.value = LoginResult.Success

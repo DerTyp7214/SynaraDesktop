@@ -1,6 +1,8 @@
 package dev.dertyp.synara.player
 
 import dev.dertyp.PlatformUUID
+import dev.dertyp.data.ClientCapability
+import dev.dertyp.data.OnlineDevice
 import dev.dertyp.data.PodcastEpisode
 import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
@@ -42,8 +44,16 @@ class MediaControlBridgeTest {
     private val songRepeatMode = MutableStateFlow(RepeatMode.OFF)
     private val songShuffle = MutableStateFlow(false)
     private val podcast = FakePodcastPlayer()
+    private val remoteTarget = MutableStateFlow<OnlineDevice?>(null)
+    private val remoteSong = MutableStateFlow<UserSong?>(null)
+    private val remotePlaying = MutableStateFlow(false)
+    private val remotePosition = MutableStateFlow(0L)
+    private val remoteVolume = MutableStateFlow(1f)
+    private val remoteRepeatMode = MutableStateFlow(RepeatMode.OFF)
+    private val remoteShuffle = MutableStateFlow(false)
     private lateinit var playerModel: PlayerModel
     private lateinit var playerSwitcher: PlayerSwitcher
+    private lateinit var remotePlaybackController: RemotePlaybackController
 
     @BeforeTest
     fun setUp() {
@@ -57,6 +67,17 @@ class MediaControlBridgeTest {
         every { playerModel.shuffleMode } returns songShuffle
         playerSwitcher = mockk()
         every { playerSwitcher.active } returns activePlayer
+        remotePlaybackController = mockk(relaxed = true)
+        every { remotePlaybackController.target } returns remoteTarget
+        every { remotePlaybackController.currentSong } returns remoteSong
+        every { remotePlaybackController.isPlaying } returns remotePlaying
+        every { remotePlaybackController.currentPosition } returns remotePosition
+        every { remotePlaybackController.volume } returns remoteVolume
+        every { remotePlaybackController.repeatMode } returns remoteRepeatMode
+        every { remotePlaybackController.shuffleMode } returns remoteShuffle
+        every { remotePlaybackController.supportsVolume } answers {
+            remoteTarget.value?.capabilities?.contains(ClientCapability.REMOTE_VOLUME) == true
+        }
     }
 
     @AfterTest
@@ -70,6 +91,7 @@ class MediaControlBridgeTest {
             playerModel,
             podcast,
             playerSwitcher,
+            remotePlaybackController,
             TestDispatchers(StandardTestDispatcher(testScheduler))
         )
         runCurrent()
@@ -425,5 +447,230 @@ class MediaControlBridgeTest {
     fun podcastRateBoundsEqualTheSlowestAndFastestSpeed() {
         assertEquals(PodcastPlayer.SPEEDS.min(), MediaControlBridge.PODCAST_MIN_RATE.toFloat())
         assertEquals(PodcastPlayer.SPEEDS.max(), MediaControlBridge.PODCAST_MAX_RATE.toFloat())
+    }
+
+    private fun controlledDevice(withVolume: Boolean = false) = OnlineDevice(
+        sessionId = randomPlatformUUID(),
+        deviceName = "Living room",
+        capabilities = setOfNotNull(
+            ClientCapability.QUEUE_SYNC,
+            ClientCapability.REMOTE_CONTROL,
+            ClientCapability.REMOTE_VOLUME.takeIf { withVolume }
+        ),
+        isCurrent = false,
+        connectedAt = 0L
+    )
+
+    @Test
+    fun transportCallsReachTheRemoteControllerWhileADeviceIsControlled() = runTest {
+        remoteTarget.value = controlledDevice()
+        val bridge = createBridge()
+
+        bridge.play()
+        bridge.pause()
+        bridge.togglePlayPause()
+        bridge.stop()
+        bridge.seekTo(4_200)
+        bridge.next()
+        bridge.previous()
+
+        verify(exactly = 1) { remotePlaybackController.play() }
+        verify(exactly = 2) { remotePlaybackController.pause() }
+        verify(exactly = 1) { remotePlaybackController.togglePlayPause() }
+        verify(exactly = 1) { remotePlaybackController.seekTo(4_200) }
+        verify(exactly = 1) { remotePlaybackController.skipNext() }
+        verify(exactly = 1) { remotePlaybackController.skipPrevious() }
+        verify(exactly = 0) { playerModel.skipNext() }
+        verify(exactly = 0) { playerModel.skipPrevious() }
+        verify(exactly = 0) { playerModel.play() }
+        verify(exactly = 0) { playerModel.pause() }
+        verify(exactly = 0) { playerModel.togglePlayPause() }
+        verify(exactly = 0) { playerModel.stop() }
+        verify(exactly = 0) { playerModel.seekTo(any()) }
+        assertEquals(emptyList<Call>(), podcast.calls)
+    }
+
+    @Test
+    fun volumeChangesReachTheControlledDeviceWhenItSupportsVolume() = runTest {
+        remoteTarget.value = controlledDevice(withVolume = true)
+        val bridge = createBridge()
+
+        bridge.setVolume(0.4f)
+
+        verify(exactly = 1) { remotePlaybackController.setVolume(0.4f) }
+        verify(exactly = 0) { playerModel.setVolume(any()) }
+    }
+
+    @Test
+    fun volumeChangesDoNothingWhileTheControlledDeviceHasNoVolumeSupport() = runTest {
+        remoteTarget.value = controlledDevice()
+        val bridge = createBridge()
+
+        bridge.setVolume(0.4f)
+
+        verify(exactly = 0) { remotePlaybackController.setVolume(any()) }
+        verify(exactly = 0) { playerModel.setVolume(any()) }
+    }
+
+    @Test
+    fun volumeChangesReachThePlayerModelWithoutAControlledDevice() = runTest {
+        val bridge = createBridge()
+
+        bridge.setVolume(0.4f)
+
+        verify(exactly = 1) { playerModel.setVolume(0.4f) }
+        verify(exactly = 0) { remotePlaybackController.setVolume(any()) }
+    }
+
+    @Test
+    fun publishedVolumeIsTheVolumeOfTheControlledDeviceOnlyWhenItSupportsVolume() = runTest {
+        songVolume.value = 0.8f
+        remoteVolume.value = 0.3f
+        val bridge = createBridge()
+        assertEquals(0.8f, bridge.volume.value)
+
+        val silent = controlledDevice()
+        remoteTarget.value = silent
+        runCurrent()
+        assertEquals(0.8f, bridge.volume.value)
+
+        remoteTarget.value = silent.copy(capabilities = silent.capabilities + ClientCapability.REMOTE_VOLUME)
+        runCurrent()
+        assertEquals(0.3f, bridge.volume.value)
+
+        remoteVolume.value = 0.5f
+        runCurrent()
+        assertEquals(0.5f, bridge.volume.value)
+
+        remoteTarget.value = null
+        runCurrent()
+        assertEquals(0.8f, bridge.volume.value)
+    }
+
+    @Test
+    fun publishedVolumeStartsAtTheVolumeOfAnAlreadyControlledDevice() = runTest {
+        songVolume.value = 0.8f
+        remoteVolume.value = 0.3f
+        remoteTarget.value = controlledDevice(withVolume = true)
+
+        val bridge = createBridge()
+
+        assertEquals(0.3f, bridge.volume.value)
+    }
+
+    @Test
+    fun repeatAndShuffleChangesReachTheControlledDevice() = runTest {
+        remoteTarget.value = controlledDevice()
+        val bridge = createBridge()
+
+        bridge.setRepeatMode(RepeatMode.ONE)
+        bridge.setShuffle(true)
+
+        verify(exactly = 1) { remotePlaybackController.setRepeatMode(RepeatMode.ONE) }
+        verify(exactly = 1) { remotePlaybackController.setShuffle(true) }
+        verify(exactly = 0) { playerModel.setRepeatMode(any()) }
+        verify(exactly = 0) { playerModel.toggleShuffle() }
+    }
+
+    @Test
+    fun setShuffleIsSentToTheControlledDeviceOnlyWhenItsValueDiffers() = runTest {
+        songShuffle.value = false
+        remoteShuffle.value = true
+        remoteTarget.value = controlledDevice()
+        val bridge = createBridge()
+
+        bridge.setShuffle(true)
+        verify(exactly = 0) { remotePlaybackController.setShuffle(any()) }
+
+        bridge.setShuffle(false)
+        verify(exactly = 1) { remotePlaybackController.setShuffle(false) }
+        verify(exactly = 0) { playerModel.toggleShuffle() }
+    }
+
+    @Test
+    fun publishedRepeatAndShuffleFollowTheControlledDevice() = runTest {
+        songRepeatMode.value = RepeatMode.ALL
+        songShuffle.value = true
+        remoteRepeatMode.value = RepeatMode.ONE
+        remoteShuffle.value = false
+        val bridge = createBridge()
+        assertEquals(RepeatMode.ALL, bridge.repeatMode.value)
+        assertTrue(bridge.shuffleMode.value)
+
+        remoteTarget.value = controlledDevice()
+        runCurrent()
+        assertEquals(RepeatMode.ONE, bridge.repeatMode.value)
+        assertFalse(bridge.shuffleMode.value)
+
+        remoteRepeatMode.value = RepeatMode.OFF
+        remoteShuffle.value = true
+        runCurrent()
+        assertEquals(RepeatMode.OFF, bridge.repeatMode.value)
+        assertTrue(bridge.shuffleMode.value)
+
+        remoteTarget.value = null
+        runCurrent()
+        assertEquals(RepeatMode.ALL, bridge.repeatMode.value)
+        assertTrue(bridge.shuffleMode.value)
+    }
+
+    @Test
+    fun publishedRepeatAndShuffleStartAtTheValuesOfAnAlreadyControlledDevice() = runTest {
+        songRepeatMode.value = RepeatMode.ALL
+        songShuffle.value = false
+        remoteRepeatMode.value = RepeatMode.ONE
+        remoteShuffle.value = true
+        remoteTarget.value = controlledDevice()
+
+        val bridge = createBridge()
+
+        assertEquals(RepeatMode.ONE, bridge.repeatMode.value)
+        assertTrue(bridge.shuffleMode.value)
+    }
+
+    @Test
+    fun publishedStateFollowsTheControlledDevice() = runTest {
+        val local = testSong(1)
+        val remote = testSong(2)
+        currentSong.value = local
+        songPlaying.value = false
+        songPosition.value = 1_000
+        remoteSong.value = remote
+        remotePlaying.value = true
+        remotePosition.value = 42_000
+        val bridge = createBridge()
+        assertEquals(local.id.toString(), bridge.metadata.value?.trackId)
+        assertFalse(bridge.isPlaying.value)
+        assertEquals(1_000L, bridge.positionFlow.value)
+
+        remoteTarget.value = controlledDevice()
+        runCurrent()
+
+        assertEquals(remote.id.toString(), bridge.metadata.value?.trackId)
+        assertTrue(bridge.isPlaying.value)
+        assertEquals(42_000L, bridge.positionFlow.value)
+        assertEquals(42_000L, bridge.position())
+
+        remoteTarget.value = null
+        runCurrent()
+
+        assertEquals(local.id.toString(), bridge.metadata.value?.trackId)
+        assertFalse(bridge.isPlaying.value)
+        assertEquals(1_000L, bridge.positionFlow.value)
+        assertEquals(1_000L, bridge.position())
+    }
+
+    @Test
+    fun thePodcastStaysInFrontOfAControlledDevice() = runTest {
+        remoteTarget.value = controlledDevice()
+        activePlayer.value = ActivePlayer.PODCAST
+        podcast.episode.value = episode(durationMs = 60_000)
+        val bridge = createBridge()
+
+        bridge.play()
+
+        assertEquals(listOf<Call>(Call.Play), podcast.calls)
+        verify(exactly = 0) { remotePlaybackController.play() }
+        assertTrue(bridge.metadata.value?.isPodcast == true)
     }
 }

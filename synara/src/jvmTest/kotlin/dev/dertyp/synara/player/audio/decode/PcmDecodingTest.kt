@@ -133,7 +133,8 @@ class PcmDecodingTest {
         if (offset > bytes.size) null else ByteArrayInputStream(bytes, offset.toInt(), bytes.size - offset.toInt())
     }
 
-    private fun headerOf(bytes: ByteArray): PcmHeader = assertNotNull(PcmHeader.parseFromStream(ByteArrayInputStream(bytes), 0L))
+    private fun headerOf(bytes: ByteArray): PcmHeader =
+        assertNotNull(runBlocking { PcmHeader.parseFromStream(ByteArrayInputStream(bytes), 0L) { null } })
 
     private fun manualHeader(
         sampleRate: Int = 8000,
@@ -209,6 +210,28 @@ class PcmDecodingTest {
     }
 
     @Test
+    fun twelveBitAiffDecodesLikeSixteenBit() {
+        val samples = listOf(0, 1, -1, 2047, -2048, 1000, -1234)
+        val leftJustified = samples.map { it shl 4 }
+        val bytes = aiff(1, 8000, 12, pcm16Be(leftJustified))
+        val stream = assertNotNull(open(bytesSource(bytes), headerOf(bytes)))
+
+        assertEquals(12, stream.bitsPerSample)
+        assertContentEquals(leftJustified.map { it.toShort() }.toShortArray(), stream.samples())
+        assertContentEquals(decodeBytes(aiff(1, 8000, 16, pcm16Be(leftJustified))), decodeBytes(bytes))
+    }
+
+    @Test
+    fun twentyBitAiffDecodesToTheTopSixteenBits() {
+        val values = listOf(0x12345, -0x12345, 0, 0x7FFFF, -0x80000)
+        val bytes = aiff(1, 44100, 20, pcm24Be(values.map { it shl 4 }))
+        val stream = assertNotNull(open(bytesSource(bytes), headerOf(bytes)))
+
+        assertEquals(20, stream.bitsPerSample)
+        assertContentEquals(values.map { (it shr 4).toShort() }.toShortArray(), stream.samples())
+    }
+
+    @Test
     fun aiff8BitIsSigned() {
         val data = byteArrayOf(0x10, 0xF0.toByte(), 0x00, 0x7F, 0x80.toByte())
         val expected = data.map { (it.toInt() shl 8).toShort() }.toShortArray()
@@ -225,6 +248,35 @@ class PcmDecodingTest {
         assertEquals(0L, stream.startMs)
         assertNull(stream.durationMs)
         assertNull(stream.bitRate)
+        stream.samples()
+    }
+
+    @Test
+    fun decodedStreamCarriesTheDurationOfTheDeclaredDataSize() {
+        val wavBytes = wav(2, 8000, 16, ByteArray(8000 * 4 * 3 / 2))
+        val fromWav = assertNotNull(open(bytesSource(wavBytes), headerOf(wavBytes)))
+        assertEquals(1500L, fromWav.durationMs)
+        fromWav.samples()
+
+        val aiffBytes = aiff(1, 8000, 24, ByteArray(8000 * 3 * 2))
+        val fromAiff = assertNotNull(open(bytesSource(aiffBytes), headerOf(aiffBytes)))
+        assertEquals(2000L, fromAiff.durationMs)
+        fromAiff.samples()
+    }
+
+    @Test
+    fun decodedStreamOpenedAtAPositionCarriesTheWholeDuration() {
+        val bytes = wav(1, 8000, 16, ByteArray(8000 * 2 * 2))
+        val stream = assertNotNull(open(bytesSource(bytes), headerOf(bytes), positionMs = 1500))
+        assertEquals(1500L, stream.startMs)
+        assertEquals(2000L, stream.durationMs)
+        assertEquals(4000, stream.samples().size)
+    }
+
+    @Test
+    fun decodedStreamWithoutADeclaredDataSizeCarriesNoDuration() {
+        val stream = assertNotNull(open(bytesSource(pcm16Le(List(100) { it })), manualHeader(dataSize = 0)))
+        assertNull(stream.durationMs)
         stream.samples()
     }
 

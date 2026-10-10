@@ -33,6 +33,7 @@ import dev.dertyp.synara.game.pointsForAttempt
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.utils.SynaraDispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
@@ -162,6 +163,8 @@ class SongGuessScreenModel(
                 )
             }
             if (saved.inReveal) startReveal()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             mutableState.update { it.copy(phase = Phase.SETUP, error = e.message ?: "Unknown error") }
         }
@@ -253,6 +256,8 @@ class SongGuessScreenModel(
                 playerModel.pause()
                 player.setVolume(playerModel.volume.value)
                 startRound()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 mutableState.update { it.copy(phase = Phase.SETUP, error = e.message ?: "Unknown error") }
             }
@@ -429,12 +434,12 @@ class SongGuessScreenModel(
     }
 
     fun toggleRevealPlayback() {
-        if (state.value.phase != Phase.REVEAL) return
+        if (state.value.phase != Phase.REVEAL || revealJob == null) return
         if (player.isPlaying.value) player.pause() else player.play()
     }
 
     fun seekReveal(positionMs: Long) {
-        if (state.value.phase != Phase.REVEAL) return
+        if (state.value.phase != Phase.REVEAL || revealJob == null) return
         screenModelScope.launch(dispatchers.io) { player.seekTo(positionMs) }
     }
 
@@ -449,6 +454,8 @@ class SongGuessScreenModel(
             screenModelScope.launch(dispatchers.io) {
                 try {
                     startRound()
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     finishGame(e.message)
                 }
@@ -531,6 +538,7 @@ class SongGuessScreenModel(
         private val explicit = true
         private val used = initialUsed.toMutableSet()
         private val totals = mutableMapOf<PlatformUUID?, Int>()
+        private val untried = mutableMapOf<PlatformUUID?, MutableList<Int>>()
 
         private val buckets: List<PlatformUUID?> = when {
             config.artistIds.isNotEmpty() -> config.artistIds
@@ -552,18 +560,21 @@ class SongGuessScreenModel(
 
         suspend fun total(): Int = buckets.sumOf { countIn(it) }
 
+        private suspend fun untriedIn(bucket: PlatformUUID?): MutableList<Int> =
+            untried.getOrPut(bucket) { MutableList(countIn(bucket)) { it } }
+
         suspend fun draw(): UserSong? {
-            val candidates = buckets.filter { countIn(it) > 0 }
-            if (candidates.isEmpty()) return null
-            repeat(MAX_DRAW_TRIES) {
+            while (true) {
+                val candidates = buckets.filter { untriedIn(it).isNotEmpty() }
+                if (candidates.isEmpty()) return null
                 val bucket = candidates.random()
-                val idx = Random.nextInt(totals.getValue(bucket))
-                val song = fetch(bucket, idx).data.firstOrNull() ?: return@repeat
-                if (song.id in used || song.duration < MIN_SONG_DURATION_MS) return@repeat
+                val indices = untriedIn(bucket)
+                val index = indices.removeAt(Random.nextInt(indices.size))
+                val song = fetch(bucket, index).data.firstOrNull() ?: continue
+                if (song.id in used || song.duration < MIN_SONG_DURATION_MS) continue
                 used += song.id
                 return song
             }
-            return null
         }
     }
 
@@ -573,7 +584,6 @@ class SongGuessScreenModel(
 
     companion object {
         const val ERROR_NOT_ENOUGH_SONGS = "not_enough_songs"
-        private const val MAX_DRAW_TRIES = 20
         private const val SNIPPET_TIMEOUT_GRACE_MS = 4_000L
     }
 }

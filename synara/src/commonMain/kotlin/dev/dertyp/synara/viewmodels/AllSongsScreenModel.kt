@@ -73,18 +73,16 @@ class AllSongsScreenModel(
         }
     }
 
-    private fun loadInitialData() {
-        screenModelScope.launch(modelDispatcher) {
-            val filter = currentFilter()
-            _state.value = AllSongsState.Loading
-            try {
-                _state.value = fetchFirstPage(filter)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.error(ALL_SONGS_TAG, "Loading the songs failed", e)
-                _state.value = AllSongsState.Error(e.userMessageResource())
-            }
+    private suspend fun loadInitialData() {
+        val filter = currentFilter()
+        _state.value = AllSongsState.Loading
+        try {
+            _state.value = fetchFirstPage(filter)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.error(ALL_SONGS_TAG, "Loading the songs failed", e)
+            _state.value = AllSongsState.Error(e.userMessageResource())
         }
     }
 
@@ -132,17 +130,17 @@ class AllSongsScreenModel(
     }
 
     fun loadPage(page: Int) {
-        val currentState = _state.value as? AllSongsState.Success ?: return
-        if (loadingPages.contains(page)) return
-
-        val offset = page * pageSize
-        if (offset >= currentState.total) return
-
-        if (currentState.songs.getOrNull(offset) != null) return
-
-        loadingPages.add(page)
-        val requestGeneration = generation
         screenModelScope.launch(modelDispatcher) {
+            val currentState = _state.value as? AllSongsState.Success ?: return@launch
+            if (loadingPages.contains(page)) return@launch
+
+            val offset = page * pageSize
+            if (offset >= currentState.total) return@launch
+
+            if (currentState.songs.getOrNull(offset) != null) return@launch
+
+            loadingPages.add(page)
+            val requestGeneration = generation
             try {
                 val response = songService.allSongs(
                     page,
@@ -173,20 +171,24 @@ class AllSongsScreenModel(
     }
 
     fun cycleTag(tag: SongTag) {
-        val currentState = _state.value as? AllSongsState.Success ?: return
-        val (tags, excludeTags) = cycleFilter(tag, currentState.tags, currentState.excludeTags)
-        _state.value = currentState.copy(tags = tags, excludeTags = excludeTags)
-        applyFilters()
+        screenModelScope.launch(modelDispatcher) {
+            val currentState = _state.value as? AllSongsState.Success ?: return@launch
+            val (tags, excludeTags) = cycleFilter(tag, currentState.tags, currentState.excludeTags)
+            _state.value = currentState.copy(tags = tags, excludeTags = excludeTags)
+            applyFilters()
+        }
     }
 
     fun cycleTitleTag(kind: TitleTagKind) {
-        val currentState = _state.value as? AllSongsState.Success ?: return
-        val (titleTags, excludeTitleTags) = cycleFilter(kind, currentState.titleTags, currentState.excludeTitleTags)
-        _state.value = currentState.copy(titleTags = titleTags, excludeTitleTags = excludeTitleTags)
-        applyFilters()
+        screenModelScope.launch(modelDispatcher) {
+            val currentState = _state.value as? AllSongsState.Success ?: return@launch
+            val (titleTags, excludeTitleTags) = cycleFilter(kind, currentState.titleTags, currentState.excludeTitleTags)
+            _state.value = currentState.copy(titleTags = titleTags, excludeTitleTags = excludeTitleTags)
+            applyFilters()
+        }
     }
 
-    private fun applyFilters() {
+    private suspend fun applyFilters() {
         loadingPages.clear()
         loadInitialData()
     }

@@ -1,6 +1,7 @@
 package dev.dertyp.synara.scrobble
 
 import dev.dertyp.data.User
+import dev.dertyp.logging.Logger
 import dev.dertyp.randomPlatformUUID
 import dev.dertyp.synara.db.RawScrobbleQueueEntry
 import dev.dertyp.synara.db.ScrobbleQueueEntry
@@ -38,6 +39,7 @@ class ScrobbleQueueTest {
     private val globalState = mockk<GlobalStateModel>()
     private val scrobblerService = mockk<ScrobblerService>(relaxed = true)
     private val repository = mockk<ScrobbleQueueRepository>(relaxed = true)
+    private val logger = mockk<Logger>(relaxed = true)
     private val song = testSong(0)
 
     private lateinit var queue: ScrobbleQueue
@@ -50,6 +52,7 @@ class ScrobbleQueueTest {
                 single { globalState }
                 single<SynaraDispatchers> { TestDispatchers(testDispatcher) }
                 single { scrobblerService }
+                single<Logger> { this@ScrobbleQueueTest.logger }
             }
         )
         queue = ScrobbleQueue(repository)
@@ -65,11 +68,29 @@ class ScrobbleQueueTest {
     }
 
     @Test
-    fun withoutAUserNothingIsWrittenToTheRepository() = runTest(testDispatcher) {
+    fun aListenWithoutAnyUserIsDroppedAndLoggedOnce() = runTest(testDispatcher) {
         queue.push(song, 1_700_000_000L, "lastfm")
         queue.pushRaw(song.id.toString(), "payload", 1_700_000_000_000L, "server")
+        queue.push(song, 1_700_000_100L, "lastfm")
 
         verify { repository wasNot Called }
+        verify(exactly = 1) { logger.warning(any(), any(), any()) }
+    }
+
+    @Test
+    fun aDropIsLoggedAgainOnlyAfterAUserWasPresentInBetween() = runTest(testDispatcher) {
+        queue.push(song, 1_700_000_000L, "lastfm")
+        signIn()
+        queue.push(song, 1_700_000_100L, "lastfm")
+        verify(exactly = 1) { logger.warning(any(), any(), any()) }
+
+        userFlow.value = null
+        queue.push(song, 1_700_000_200L, "lastfm")
+        queue.pushRaw(song.id.toString(), "payload", 1_700_000_300_000L, "server")
+
+        verify(exactly = 2) { logger.warning(any(), any(), any()) }
+        coVerify(exactly = 1) { repository.insert(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { repository.insertRaw(any(), any(), any(), any(), any()) }
     }
 
     @Test
@@ -78,6 +99,15 @@ class ScrobbleQueueTest {
         assertNull(queue.peek("lastfm"))
         assertEquals(emptyList(), queue.getAllRaw("server"))
         verify { repository wasNot Called }
+    }
+
+    @Test
+    fun readingWithoutAUserLogsNothing() = runTest(testDispatcher) {
+        queue.isEmpty("lastfm")
+        queue.peek("lastfm")
+        queue.getAllRaw("server")
+
+        verify(exactly = 0) { logger.warning(any(), any(), any()) }
     }
 
     @Test

@@ -48,6 +48,5 @@ object ConfigFixture {
         Config.setRemoteControlOptInShown(false)
         Config.setPodcastOptInShown(false)
         Config.setShowTitleTagsInText(true)
-        Config.setNeedsUserIdMigration(true)
     }
 }

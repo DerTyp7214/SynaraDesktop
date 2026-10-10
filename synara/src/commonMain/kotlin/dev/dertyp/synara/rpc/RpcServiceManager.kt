@@ -28,6 +28,10 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import java.io.EOFException
+import java.security.cert.CertificateException
+import javax.net.ssl.SSLHandshakeException
+import javax.net.ssl.SSLPeerUnverifiedException
 import kotlin.concurrent.Volatile
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -218,6 +222,12 @@ class RpcServiceManager(
         setSslConfirmed(false)
     }
 
+    override fun isSslException(e: Throwable): Boolean {
+        val causes = generateSequence(e) { it.cause }.toList()
+        return causes.any { it is CertificateException || it is SSLPeerUnverifiedException } ||
+            causes.any { it is SSLHandshakeException } && causes.none { it is EOFException }
+    }
+
     override fun uiLocale(): String? = Config.language.value
 
     override fun uiTimeZone(): String? = currentTimezoneId()
@@ -308,6 +318,7 @@ class RpcServiceManager(
             clearAuth()
             clear()
             refreshConnectionState()
+            checkSslSupport()
         }
     }
 

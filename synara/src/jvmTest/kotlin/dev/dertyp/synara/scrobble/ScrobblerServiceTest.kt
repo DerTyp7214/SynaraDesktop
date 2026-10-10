@@ -5,17 +5,35 @@ import dev.dertyp.data.UserSong
 import dev.dertyp.logging.Logger
 import dev.dertyp.randomPlatformUUID
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.testing.TestDispatchers
+import dev.dertyp.synara.testing.await
+import dev.dertyp.synara.testing.startTestKoin
+import dev.dertyp.synara.testing.stopTestKoin
+import dev.dertyp.synara.testing.testSong
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.utils.SynaraDispatchers
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExecutorCoroutineDispatcher
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestCoroutineScheduler
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.currentTime
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import org.jetbrains.compose.resources.StringResource
 import org.koin.core.context.startKoin
@@ -24,10 +42,14 @@ import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 import synara.synara.generated.resources.Res
 import synara.synara.generated.resources.radio
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Executors
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
 class ScrobblerServiceTest {
@@ -76,10 +98,12 @@ class ScrobblerServiceTest {
     private val songFlow = MutableStateFlow<UserSong?>(null)
     private val playingFlow = MutableStateFlow(false)
     private val loadedFlow = MutableStateFlow<PlatformUUID?>(null)
+    private val trackStartFlow = MutableSharedFlow<PlayerModel.TrackStart>(extraBufferCapacity = 8)
     private val playerModel = mockk<PlayerModel> {
         every { currentSong } returns songFlow
         every { isPlaying } returns playingFlow
         every { loadedSongId } returns loadedFlow
+        every { trackStarts } returns trackStartFlow
     }
 
     private lateinit var service: ScrobblerService
@@ -310,5 +334,409 @@ class ScrobblerServiceTest {
 
         assertEquals(listOf(first), scrobbler.endedListens.value)
         assertEquals(listOf(null, first), scrobbler.calls.value)
+    }
+}
+
+class ScrobblerRestartTest {
+
+    private class ExecutorDispatchers : SynaraDispatchers {
+        val created = CopyOnWriteArrayList<ExecutorCoroutineDispatcher>()
+
+        override fun createNamed(name: String, parallel: Int): CoroutineDispatcher =
+            Executors.newSingleThreadExecutor().asCoroutineDispatcher().also { created += it }
+    }
+
+    private val songFlow = MutableStateFlow<UserSong?>(null)
+    private val playingFlow = MutableStateFlow(false)
+    private val loadedFlow = MutableStateFlow<PlatformUUID?>(null)
+    private val trackStartFlow = MutableSharedFlow<PlayerModel.TrackStart>(extraBufferCapacity = 8)
+    private val playerModel = mockk<PlayerModel> {
+        every { currentSong } returns songFlow
+        every { isPlaying } returns playingFlow
+        every { loadedSongId } returns loadedFlow
+        every { trackStarts } returns trackStartFlow
+    }
+    private val dispatchers = ExecutorDispatchers()
+
+    private lateinit var service: ScrobblerService
+    private lateinit var scrobbler: ScrobblerServiceTest.RecordingScrobbler
+
+    @BeforeTest
+    fun setUp() {
+        val koin = startTestKoin(
+            module {
+                single { playerModel }
+                single<SynaraDispatchers> { dispatchers }
+                singleOf(::ScrobblerService)
+                single { ScrobblerServiceTest.RecordingScrobbler() }
+            }
+        )
+        service = koin.get()
+        scrobbler = koin.get()
+    }
+
+    @AfterTest
+    fun tearDown() {
+        service.stop()
+        dispatchers.created.forEach { it.close() }
+        stopTestKoin()
+    }
+
+    @Test
+    fun aScrobblerRegisteredAgainAfterUnregisteringStillReceivesSongs() {
+        service.registerScrobbler(ScrobblerServiceTest.RecordingScrobbler::class)
+        service.start()
+        scrobbler.calls.await { it.size == 1 }
+        service.unregisterScrobbler(ScrobblerServiceTest.RecordingScrobbler::class)
+
+        service.registerScrobbler(ScrobblerServiceTest.RecordingScrobbler::class)
+        val song = testSong(0)
+        songFlow.value = song
+        loadedFlow.value = song.id
+        playingFlow.value = true
+
+        assertEquals(song, scrobbler.calls.await { it.lastOrNull() == song }.last())
+    }
+
+    @Test
+    fun aStoppedScrobblerCreatesNoDispatcherUntilItIsStartedAgain() {
+        service.registerScrobbler(ScrobblerServiceTest.RecordingScrobbler::class)
+        service.start()
+        scrobbler.calls.await { it.size == 1 }
+        val whileRunning = dispatchers.created.size
+        service.unregisterScrobbler(ScrobblerServiceTest.RecordingScrobbler::class)
+
+        val late = scrobbler.scope.launch { scrobbler.resets.update { it + 1 } }
+
+        assertTrue(late.isCancelled)
+        assertEquals(whileRunning, dispatchers.created.size)
+
+        service.registerScrobbler(ScrobblerServiceTest.RecordingScrobbler::class)
+
+        assertEquals(whileRunning + 1, dispatchers.created.size)
+        assertEquals(0, scrobbler.resets.value)
+    }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class ScrobblerDeliveryTest {
+
+    class SubmittingScrobbler : BaseScrobbler() {
+        override val icon: SynaraIcons = SynaraIcons.Play
+        override val name: StringResource = Res.string.radio
+
+        val announced = mutableListOf<UserSong?>()
+        val resumes = mutableListOf<UserSong>()
+        val started = mutableListOf<UserSong>()
+        val finished = mutableListOf<UserSong>()
+        val ended = mutableListOf<UserSong>()
+        val endedMs = mutableListOf<Long>()
+        val pending = mutableMapOf<PlatformUUID, CompletableDeferred<Unit>>()
+        var pendingEnd: CompletableDeferred<Unit>? = null
+        var resets = 0
+
+        override suspend fun newSong(song: UserSong?) {
+            announced += song
+        }
+
+        override suspend fun resumed(song: UserSong) {
+            resumes += song
+        }
+
+        override suspend fun triggered(song: UserSong, listenedAt: Long) {
+            started += song
+            pending[song.id]?.await()
+            finished += song
+        }
+
+        override suspend fun listenEnded(song: UserSong, msPlayed: Long, listenedAt: Long) {
+            pendingEnd?.await()
+            ended += song
+            endedMs += msPlayed
+        }
+
+        override suspend fun reset() {
+            resets++
+        }
+    }
+
+    private val scheduler = TestCoroutineScheduler()
+    private val testDispatcher = StandardTestDispatcher(scheduler)
+
+    private val songFlow = MutableStateFlow<UserSong?>(null)
+    private val playingFlow = MutableStateFlow(false)
+    private val loadedFlow = MutableStateFlow<PlatformUUID?>(null)
+    private val trackStartFlow = MutableSharedFlow<PlayerModel.TrackStart>(extraBufferCapacity = 8)
+    private val playerModel = mockk<PlayerModel> {
+        every { currentSong } returns songFlow
+        every { isPlaying } returns playingFlow
+        every { loadedSongId } returns loadedFlow
+        every { trackStarts } returns trackStartFlow
+    }
+
+    private lateinit var service: ScrobblerService
+    private lateinit var scrobbler: SubmittingScrobbler
+    private lateinit var recording: ScrobblerServiceTest.RecordingScrobbler
+
+    @BeforeTest
+    fun setUp() {
+        val koin = startTestKoin(
+            module {
+                single { playerModel }
+                single<SynaraDispatchers> { TestDispatchers(testDispatcher) }
+                singleOf(::ScrobblerService)
+                singleOf(::SubmittingScrobbler)
+                single { ScrobblerServiceTest.RecordingScrobbler() }
+            }
+        )
+        service = koin.get()
+        scrobbler = koin.get()
+        recording = koin.get()
+        service.registerScrobbler(SubmittingScrobbler::class)
+    }
+
+    @AfterTest
+    fun tearDown() {
+        stopTestKoin()
+    }
+
+    private fun deliveryTest(body: suspend TestScope.() -> Unit) = runTest(testDispatcher) {
+        service.start()
+        runCurrent()
+        try {
+            body()
+        } finally {
+            playingFlow.value = false
+            runCurrent()
+            service.stop()
+        }
+    }
+
+    private fun TestScope.advance(ms: Long) {
+        advanceTimeBy(ms)
+        runCurrent()
+    }
+
+    private fun TestScope.startAudio(song: UserSong) {
+        songFlow.value = song
+        loadedFlow.value = song.id
+        playingFlow.value = true
+        runCurrent()
+    }
+
+    @Test
+    fun aSongChangeDoesNotCancelASubmissionInFlight() = deliveryTest {
+        val first = testSong(0)
+        val second = testSong(1)
+        val submission = CompletableDeferred<Unit>()
+        scrobbler.pending[first.id] = submission
+        startAudio(first)
+        advance(120_000)
+        assertEquals(listOf(first), scrobbler.started)
+
+        startAudio(second)
+
+        assertEquals(listOf(first), scrobbler.ended)
+        assertEquals(emptyList(), scrobbler.finished)
+
+        submission.complete(Unit)
+        runCurrent()
+
+        assertEquals(listOf(first), scrobbler.finished)
+    }
+
+    @Test
+    fun aScrobblerStartedAgainDoesNotSubmitTheCurrentListenASecondTime() = deliveryTest {
+        val first = testSong(0)
+        val second = testSong(1)
+        startAudio(first)
+        advance(120_000)
+        assertEquals(listOf(first), scrobbler.started)
+
+        service.unregisterScrobbler(SubmittingScrobbler::class)
+        service.registerScrobbler(SubmittingScrobbler::class)
+        runCurrent()
+        advance(10_000)
+
+        assertEquals(listOf(first), scrobbler.started)
+
+        startAudio(second)
+        advance(120_000)
+
+        assertEquals(listOf(first, second), scrobbler.started)
+    }
+
+    @Test
+    fun aSubmissionStillInFlightDoesNotHoldBackTheNextSongs() = deliveryTest {
+        val first = testSong(0)
+        val second = testSong(1)
+        scrobbler.pending[first.id] = CompletableDeferred()
+        startAudio(first)
+        advance(120_000)
+
+        startAudio(second)
+        advance(120_000)
+
+        assertEquals(listOf(first, second), scrobbler.started)
+        assertEquals(listOf(second), scrobbler.finished)
+    }
+
+    @Test
+    fun theSameSongStartingAgainEndsTheListenAndIsAnnouncedAndSubmittedAgain() = deliveryTest {
+        val song = testSong(0)
+        startAudio(song)
+        advance(125_000)
+        assertEquals(listOf(song), scrobbler.started)
+
+        playingFlow.value = false
+        runCurrent()
+        assertTrue(trackStartFlow.tryEmit(PlayerModel.TrackStart(song.id, song, 0L)))
+        loadedFlow.value = null
+        runCurrent()
+
+        assertEquals(listOf(song), scrobbler.ended)
+        assertEquals(0, service.scrobbledFor.value)
+        assertNull(service.triggeredSong.value)
+        assertEquals(listOf(null, song), scrobbler.announced)
+
+        loadedFlow.value = song.id
+        playingFlow.value = true
+        runCurrent()
+
+        assertEquals(listOf(null, song, song), scrobbler.announced)
+        assertEquals(emptyList(), scrobbler.resumes)
+
+        advance(119_000)
+
+        assertEquals(listOf(song), scrobbler.started)
+
+        advance(1_000)
+
+        assertEquals(listOf(song, song), scrobbler.started)
+        assertEquals(listOf(song), scrobbler.ended)
+    }
+
+    @Test
+    fun aSeamlessRestartIsAnnouncedOnceEvenWhenTheSongIsLoadedAgain() = deliveryTest {
+        val song = testSong(0)
+        startAudio(song)
+        advance(125_000)
+
+        assertTrue(trackStartFlow.tryEmit(PlayerModel.TrackStart(song.id, song, 0L)))
+        runCurrent()
+
+        assertEquals(listOf(song), scrobbler.ended)
+        assertEquals(listOf(null, song, song), scrobbler.announced)
+
+        loadedFlow.value = null
+        runCurrent()
+        loadedFlow.value = song.id
+        runCurrent()
+
+        assertEquals(listOf(null, song, song), scrobbler.announced)
+        assertEquals(emptyList(), scrobbler.resumes)
+        assertEquals(listOf(song), scrobbler.ended)
+    }
+
+    @Test
+    fun aStartAtAnotherPositionIsNeitherANewListenNorAnAnnouncement() = deliveryTest {
+        val song = testSong(0)
+        startAudio(song)
+        advance(60_000)
+
+        assertTrue(trackStartFlow.tryEmit(PlayerModel.TrackStart(song.id, song, 30_000L)))
+        loadedFlow.value = null
+        runCurrent()
+        loadedFlow.value = song.id
+        runCurrent()
+
+        assertEquals(emptyList(), scrobbler.ended)
+        assertEquals(60, service.scrobbledFor.value)
+        assertEquals(listOf(null, song), scrobbler.announced)
+        assertEquals(emptyList(), scrobbler.resumes)
+        assertEquals(1, scrobbler.resets)
+    }
+
+    @Test
+    fun theTrackStartOfANewSongIsNoSecondListenOrAnnouncement() = deliveryTest {
+        val first = testSong(0)
+        val second = testSong(1)
+        startAudio(first)
+        advance(10_000)
+
+        songFlow.value = second
+        runCurrent()
+        assertTrue(trackStartFlow.tryEmit(PlayerModel.TrackStart(second.id, second, 0L)))
+        loadedFlow.value = null
+        runCurrent()
+        loadedFlow.value = second.id
+        runCurrent()
+
+        assertEquals(listOf(first), scrobbler.ended)
+        assertEquals(listOf(null, first, second), scrobbler.announced)
+        assertEquals(emptyList(), scrobbler.resumes)
+        assertEquals(2, scrobbler.resets)
+    }
+
+    @Test
+    fun endingTheCurrentListenOnShutdownDeliversThePlayedTimeAndEndsTheListenOnlyOnce() = deliveryTest {
+        val song = testSong(0)
+        startAudio(song)
+        advance(10_000)
+
+        service.endCurrentListen()
+
+        assertEquals(listOf(song), scrobbler.ended)
+        assertEquals(listOf(10_000L), scrobbler.endedMs)
+        assertEquals(0, service.scrobbledFor.value)
+
+        startAudio(testSong(1))
+        advance(1_000)
+
+        assertEquals(listOf(song), scrobbler.ended)
+    }
+
+    @Test
+    fun aListenWithoutAFullSecondOfPlayedTimeIsNotEndedOnShutdown() = deliveryTest {
+        startAudio(testSong(0))
+        advance(999)
+
+        service.endCurrentListen()
+
+        assertEquals(emptyList(), scrobbler.ended)
+    }
+
+    @Test
+    fun endingTheCurrentListenOnShutdownGivesUpOnAStuckScrobblerAfterTwoSecondsAndStillReachesTheOthers() = deliveryTest {
+        service.registerScrobbler(ScrobblerServiceTest.RecordingScrobbler::class)
+        scrobbler.pendingEnd = CompletableDeferred()
+        val song = testSong(0)
+        startAudio(song)
+        advance(10_000)
+        val before = currentTime
+
+        service.endCurrentListen()
+
+        assertEquals(before + 2_000, currentTime)
+        assertEquals(listOf(song), recording.endedListens.value)
+        assertEquals(emptyList(), scrobbler.ended)
+    }
+
+    @Test
+    fun aPauseAfterARestartIsStillAResume() = deliveryTest {
+        val song = testSong(0)
+        startAudio(song)
+        advance(125_000)
+        assertTrue(trackStartFlow.tryEmit(PlayerModel.TrackStart(song.id, song, 0L)))
+        runCurrent()
+
+        playingFlow.value = false
+        runCurrent()
+        playingFlow.value = true
+        runCurrent()
+
+        assertEquals(listOf(null, song, song), scrobbler.announced)
+        assertEquals(listOf(song), scrobbler.resumes)
+        assertEquals(listOf(song), scrobbler.ended)
     }
 }

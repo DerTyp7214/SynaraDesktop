@@ -13,6 +13,7 @@ import dev.dertyp.data.QueueUploadStart
 import dev.dertyp.data.QueueWriteResult
 import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
+import dev.dertyp.rpc.isTransportFailure
 import dev.dertyp.services.IClientRequestService
 import dev.dertyp.services.IQueueService
 import dev.dertyp.synara.Config
@@ -20,6 +21,7 @@ import dev.dertyp.synara.rpc.PresenceService
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
+import dev.dertyp.synara.settings.getOrNull
 import dev.dertyp.synara.settings.put
 import dev.dertyp.synara.sync.DeviceIdentity
 import dev.dertyp.synara.utils.SynaraDispatchers
@@ -27,6 +29,7 @@ import dev.dertyp.toPlatformUUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
@@ -93,7 +96,19 @@ class QueueSyncService(
     private val scope = CoroutineScope(dispatchers.io + SupervisorJob())
     private var started = false
     private val mutex = Mutex()
-    private var outbound = Channel<PlayerModel.QueueChange>(Channel.UNLIMITED)
+    private val lane = Mutex()
+    private var epoch = 0L
+    private class Pending(val serial: Long, val change: PlayerModel.QueueChange)
+
+    private class ReadFailure(cause: Throwable) : RuntimeException(cause)
+
+    private enum class Followup { None, Ask, Pull, PullKeepingCurrent, Rebase, Upload }
+
+    private val outbound = Channel<Pending>(Channel.UNLIMITED)
+    private val held = ArrayDeque<PlayerModel.QueueChange>()
+    private var unacknowledged: PlayerModel.QueueChange? = null
+    private val accepting = MutableStateFlow(false)
+    private val coveredSerial = MutableStateFlow(0L)
 
     private val _syncedVersion = MutableStateFlow(0L)
     val syncedVersionFlow: StateFlow<Long> = _syncedVersion.asStateFlow()
@@ -114,6 +129,7 @@ class QueueSyncService(
     private var conflictStreak = 0
     private var wasActive = false
     private var enableChoice: CompletableDeferred<Boolean?>? = null
+    private var dismissedRemote: QueueInfo? = null
 
     private val _pendingRemote = MutableStateFlow<QueueInfo?>(null)
     val pendingRemote: StateFlow<QueueInfo?> = _pendingRemote.asStateFlow()
@@ -153,10 +169,10 @@ class QueueSyncService(
             playerModel.queueChanges
                 .onSubscription { receivedSerial.value = playerModel.changeSerial.value }
                 .collect { change ->
-                    val syncable = Config.isQueueSyncEnabled.value &&
-                        playerModel.currentSource.value?.isEndless != true
-                    if (syncable && outbound.trySend(change).isSuccess) enqueued.value++
-                    receivedSerial.value++
+                    val serial = receivedSerial.value + 1
+                    val syncable = accepting.value && playerModel.currentSource.value?.isEndless != true
+                    if (syncable && outbound.trySend(Pending(serial, change)).isSuccess) enqueued.value++
+                    receivedSerial.value = serial
                 }
         }
 
@@ -169,53 +185,91 @@ class QueueSyncService(
                 Gate(
                     enabled = enabled,
                     reachable = reachable,
-                    authenticated = connection == RpcServiceManager.ConnectionState.Authenticated
+                    authenticated = connection == RpcServiceManager.ConnectionState.Authenticated,
+                    owner = owner()
                 )
             }.distinctUntilChanged().collectLatest { gate ->
                 when {
                     gate.isActive -> {
+                        accepting.value = true
                         wasActive = true
-                        runCatching { session() }.onFailure { report(it) }
+                        runCatching { session(gate.owner) }.onFailure { report(it) }
                     }
 
-                    !gate.enabled || !gate.authenticated -> reset(gate.authenticated && gate.reachable)
+                    !gate.enabled || !gate.authenticated -> {
+                        accepting.value = false
+                        reset(gate.authenticated && gate.reachable)
+                    }
+
+                    else -> accepting.value = true
                 }
             }
         }
     }
 
     fun applyPendingRemote() {
-        val info = _pendingRemote.value ?: return
-        scope.launch { mutex.withLock { runCatching { pull(info) }.onFailure { report(it) } } }
+        if (_pendingRemote.value == null) return
+        scope.launch {
+            val (info, started) = mutex.withLock {
+                val info = _pendingRemote.value ?: return@launch
+                _pendingRemote.value = null
+                publishStatus()
+                info to epoch
+            }
+            lane.withLock {
+                if (mutex.withLock { epoch != started || syncedVersion >= info.version }) return@withLock
+                val applied = runCatching { pull(info, explicit = true) }.onFailure { report(it) }.getOrNull()
+                if (applied != null) return@withLock
+                mutex.withLock {
+                    if (epoch == started && syncedVersion < info.version && _pendingConflict.value == null) {
+                        _pendingRemote.value = info
+                        publishStatus()
+                    }
+                }
+            }
+        }
     }
 
     fun dismissPendingRemote() {
-        _pendingRemote.value = null
-        publishStatus()
+        scope.launch {
+            mutex.withLock {
+                dismissedRemote = _pendingRemote.value ?: return@withLock
+                _pendingRemote.value = null
+                publishStatus()
+            }
+        }
     }
 
     fun resolveEnableChoice(loadRemote: Boolean) {
+        scope.launch { mutex.withLock { completeEnableChoice(loadRemote) } }
+    }
+
+    fun cancelEnableChoice() {
+        scope.launch { mutex.withLock { completeEnableChoice(null) } }
+        Config.setIsQueueSyncEnabled(false)
+    }
+
+    private fun completeEnableChoice(loadRemote: Boolean?) {
         _pendingEnableChoice.value = null
         enableChoice?.complete(loadRemote)
         enableChoice = null
     }
 
-    fun cancelEnableChoice() {
-        _pendingEnableChoice.value = null
-        enableChoice?.complete(null)
-        enableChoice = null
-        Config.setIsQueueSyncEnabled(false)
-    }
-
     fun resolveConflict(keepLocal: Boolean) {
-        val info = _pendingConflict.value ?: return
-        discardOutbound()
-        _pendingConflict.value = null
-        conflictStreak = 0
+        if (_pendingConflict.value == null) return
         scope.launch {
-            mutex.withLock {
+            val (info, started) = mutex.withLock {
+                val info = _pendingConflict.value ?: return@launch
+                drainOutbound()
+                _pendingConflict.value = null
+                conflictStreak = 0
+                epoch++
+                info to epoch
+            }
+            lane.withLock {
+                if (mutex.withLock { epoch != started }) return@withLock
                 runCatching {
-                    if (keepLocal) fullUpload(force = true) else pull(info)
+                    if (keepLocal) fullUpload(force = true) else pull(info, explicit = true)
                 }.onFailure { report(it) }
             }
         }
@@ -260,15 +314,20 @@ class QueueSyncService(
     suspend fun ensureVersion(version: Long, timeout: Duration): Boolean {
         if (syncedVersion >= version) return true
         if (!isSessionActive()) return false
+        if (_pendingEnableChoice.value != null || _pendingConflict.value != null) return false
         val reached = withTimeoutOrNull(timeout) {
             val info = runCatching { queueService.getQueueInfo() }.onFailure { report(it) }.getOrNull()
             if (info != null && info.version >= version) {
-                mutex.withLock {
-                    if (syncedVersion < version) {
-                        val keepId = playerModel.queue.value
-                            .getOrNull(playerModel.currentIndex.value)
-                            ?.queueId
-                        runCatching { pull(info, keepCurrentQueueId = keepId) }.onFailure { report(it) }
+                lane.withLock {
+                    val replaced = mutex.withLock { if (syncedVersion < version) hasPendingReplaced() else null }
+                    if (replaced != null) {
+                        runCatching {
+                            if (replaced) {
+                                conflictWithoutMerge(info)
+                            } else {
+                                pull(info, keepCurrentQueueId = currentQueueId(), explicit = true)
+                            }
+                        }.onFailure { report(it) }
                     }
                 }
             }
@@ -284,7 +343,7 @@ class QueueSyncService(
         return withTimeoutOrNull(timeout) {
             receivedSerial.first { it >= serial }
             processed.first { it >= enqueued.value }
-            mutex.withLock { syncedVersion }
+            lane.withLock { mutex.withLock { syncedVersion } }
         }
     }
 
@@ -296,8 +355,10 @@ class QueueSyncService(
             val status = queueService.requestUploadFrom(sessionId)
             if (status == ClientRequestStatus.COMPLETED) {
                 val info = queueService.getQueueInfo()
-                mutex.withLock {
-                    if (info.version > syncedVersion || _pendingRemote.value != null) pull(info)
+                lane.withLock {
+                    if (mutex.withLock { info.version > syncedVersion || _pendingRemote.value != null }) {
+                        pull(info, explicit = true)
+                    }
                 }
             }
             status
@@ -313,19 +374,24 @@ class QueueSyncService(
     private data class Gate(
         val enabled: Boolean,
         val reachable: Boolean,
-        val authenticated: Boolean
+        val authenticated: Boolean,
+        val owner: String?
     ) {
         val isActive: Boolean get() = enabled && reachable && authenticated
     }
 
-    private suspend fun session() = coroutineScope {
-        syncedVersion = settings.get(SettingKey.QueueSyncVersion, 0L)
-        dirty = settings.get(SettingKey.QueueSyncDirty, false)
-        lastSyncAt = settings.get(SettingKey.QueueSyncLastAt, 0L)
-        conflictStreak = 0
-        publishStatus()
+    private fun owner(): String? {
+        val user = rpcServiceManager.userId ?: return null
+        return "${rpcServiceManager.host}:${rpcServiceManager.port}/$user"
+    }
 
-        if (discardOutbound() > 0 && playerModel.queue.value.isNotEmpty()) dirty = true
+    private suspend fun session(owner: String?) = coroutineScope {
+        mutex.withLock {
+            loadPersistedState(owner)
+            conflictStreak = 0
+            if (syncedVersion == 0L) drainOutbound()
+            publishStatus()
+        }
 
         runCatching { queueService.setSyncEnabled(true, deviceName()) }.onFailure { report(it) }
 
@@ -345,42 +411,101 @@ class QueueSyncService(
                 .collect { request -> onClientRequest(request) }
         }
         launch {
-            runCatching { reconcile() }.onFailure { markDirty(it) }
+            runCatching { reconcile() }.onFailure { report(it) }
             outboundWorker()
         }
     }
 
-    private fun discardOutbound(): Int {
-        val stale = outbound
-        outbound = Channel(Channel.UNLIMITED)
-        stale.close()
-        var count = 0
-        while (stale.tryReceive().isSuccess) count++
-        dequeued = enqueued.value
-        processed.value = enqueued.value
-        return count
+    private fun loadPersistedState(owner: String?) {
+        val persistedOwner = settings.getOrNull(SettingKey.QueueSyncOwner)
+        if (persistedOwner == null || persistedOwner == owner) {
+            syncedVersion = settings.get(SettingKey.QueueSyncVersion, 0L)
+            dirty = settings.get(SettingKey.QueueSyncDirty, false)
+            lastSyncAt = settings.get(SettingKey.QueueSyncLastAt, 0L)
+        } else {
+            syncedVersion = 0L
+            dirty = false
+            lastSyncAt = 0L
+            settings.put(SettingKey.QueueSyncVersion, 0L)
+            settings.put(SettingKey.QueueSyncDirty, false)
+            settings.put(SettingKey.QueueSyncLastAt, 0L)
+        }
+        settings.put(SettingKey.QueueSyncOwner, owner)
+    }
+
+    private fun stagePending() {
+        while (true) {
+            val result = outbound.tryReceive()
+            if (!result.isSuccess) break
+            val pending = result.getOrThrow()
+            if (pending.serial > coveredSerial.value) held.addLast(pending.change)
+            dequeued++
+        }
+    }
+
+    private fun syncProcessed() {
+        processed.value = dequeued - held.size
+    }
+
+    private fun drainOutbound(): List<PlayerModel.QueueChange> {
+        stagePending()
+        val drained = held.toList()
+        held.clear()
+        unacknowledged = null
+        coveredSerial.value = playerModel.changeSerial.value
+        syncProcessed()
+        return drained
+    }
+
+    private fun hasPendingReplaced(): Boolean {
+        stagePending()
+        return held.any { it is PlayerModel.QueueChange.Replaced }
     }
 
     private suspend fun reconcile() {
         val info = queueService.getQueueInfo()
         val localEmpty = playerModel.queue.value.isEmpty()
 
-        when {
-            syncedVersion == 0L && info.version > 0L && info.total > 0 && !localEmpty -> {
-                val decision = CompletableDeferred<Boolean?>()
+        if (syncedVersion == 0L && info.version > 0L && info.total > 0 && !localEmpty) {
+            val decision = CompletableDeferred<Boolean?>()
+            mutex.withLock {
                 enableChoice = decision
                 _pendingEnableChoice.value = info
-                val loadRemote = decision.await() ?: return
-                mutex.withLock {
-                    if (loadRemote) pull(info) else fullUpload(force = true)
-                }
             }
+            val loadRemote = try {
+                decision.await()
+            } finally {
+                withContext(NonCancellable) {
+                    mutex.withLock { if (enableChoice === decision) completeEnableChoice(null) }
+                }
+            } ?: return
+            lane.withLock {
+                if (loadRemote) pull(info, explicit = true) else fullUpload(force = true)
+            }
+            return
+        }
 
-            dirty -> mutex.withLock { fullUpload(force = true) }
+        val cleared = info.modifiedBySessionId == null && info.total == 0
+        lane.withLock {
+            val (behind, holding, wasDirty) = mutex.withLock {
+                stagePending()
+                Triple(info.version > syncedVersion, held.isNotEmpty(), dirty)
+            }
+            when {
+                behind && cleared -> onRemote(info)
 
-            info.version > syncedVersion -> mutex.withLock { onRemote(info) }
+                holding -> Unit
 
-            info.version == 0L && !localEmpty -> mutex.withLock { fullUpload(force = false) }
+                wasDirty -> if (behind) {
+                    conflictWithoutMerge(info)
+                } else {
+                    fullUpload(force = false)?.let { onReplacedConflict(it) }
+                }
+
+                behind -> onRemote(info)
+
+                info.version == 0L && !localEmpty -> fullUpload(force = false)
+            }
         }
     }
 
@@ -399,14 +524,24 @@ class QueueSyncService(
     private suspend fun onQueueInfo(info: QueueInfo) {
         val own = ownSessionId
         if (own != null && info.modifiedBySessionId == own) {
-            if (info.version > syncedVersion) {
-                syncedVersion = info.version
-                markSynced()
+            lane.withLock {
+                mutex.withLock {
+                    if (info.version > syncedVersion) {
+                        val head = held.firstOrNull()
+                        if (info.version == syncedVersion + 1 && head != null && head === unacknowledged) {
+                            held.removeFirst()
+                            syncProcessed()
+                        }
+                        unacknowledged = null
+                        syncedVersion = info.version
+                        markSynced()
+                    }
+                }
             }
         } else if (info.version > syncedVersion) {
-            mutex.withLock {
-                if (info.version > syncedVersion) {
-                    runCatching { onRemote(info) }.onFailure { markDirty(it) }
+            lane.withLock {
+                if (mutex.withLock { info.version > syncedVersion }) {
+                    runCatching { onRemote(info) }.onFailure { report(it) }
                 }
             }
         }
@@ -418,7 +553,7 @@ class QueueSyncService(
             runCatching { clientRequestService.complete(request.id, ClientRequestStatus.REJECTED) }
             return
         }
-        runCatching { mutex.withLock { fullUpload(force = true, requestId = request.id) } }
+        runCatching { lane.withLock { fullUpload(force = true, requestId = request.id) } }
             .onFailure {
                 report(it)
                 runCatching {
@@ -427,44 +562,100 @@ class QueueSyncService(
             }
     }
 
-    private suspend fun outboundWorker() {
-        var carried: PlayerModel.QueueChange? = null
-        while (currentCoroutineContext().isActive) {
-            val source = outbound
-            var change = carried ?: receiveOutbound()
-            carried = null
+    private sealed class Step {
+        data class Idle(val seen: Long) : Step()
+        data class Debounce(val head: PlayerModel.QueueChange, val seen: Long) : Step()
+        data class Push(val head: PlayerModel.QueueChange, val seen: Long) : Step()
+        data class Pushed(val ok: Boolean, val seen: Long) : Step()
+    }
 
-            if (change is PlayerModel.QueueChange.CurrentChanged) {
-                while (true) {
-                    val next = withTimeoutOrNull(CURRENT_DEBOUNCE) { receiveOutbound() } ?: break
-                    if (next is PlayerModel.QueueChange.CurrentChanged) {
-                        change = next
-                    } else {
-                        carried = next
-                        break
+    private suspend fun outboundWorker() {
+        var expired: PlayerModel.QueueChange? = null
+        while (currentCoroutineContext().isActive) {
+            awaitDecisions()
+            val base = syncedVersion
+            val step = lane.withLock {
+                val planned = mutex.withLock plan@{
+                    if (_pendingEnableChoice.value != null || _pendingConflict.value != null) {
+                        return@plan Step.Idle(enqueued.value)
+                    }
+                    stagePending()
+                    while (held.size > 1 &&
+                        held[0] is PlayerModel.QueueChange.CurrentChanged &&
+                        held[1] is PlayerModel.QueueChange.CurrentChanged
+                    ) {
+                        held.removeFirst()
+                    }
+                    syncProcessed()
+                    val head = held.firstOrNull()
+                    when {
+                        head == null -> Step.Idle(enqueued.value)
+                        head is PlayerModel.QueueChange.CurrentChanged && held.size == 1 && head !== expired ->
+                            Step.Debounce(head, enqueued.value)
+                        else -> Step.Push(head, enqueued.value)
                     }
                 }
+                if (planned is Step.Push) Step.Pushed(pushHead(planned.head), planned.seen) else planned
             }
+            when (step) {
+                is Step.Idle -> enqueued.first { it > step.seen }
+                is Step.Debounce -> {
+                    val arrived = withTimeoutOrNull(CURRENT_DEBOUNCE) { enqueued.first { it > step.seen } }
+                    if (arrived == null) expired = step.head
+                }
 
-            awaitDecisions()
-            mutex.withLock {
-                val held = dequeued - if (carried != null) 1L else 0L
-                if (held > processed.value) push(change)
+                is Step.Push -> Unit
+
+                is Step.Pushed -> if (!step.ok) {
+                    combine(syncedVersionFlow, enqueued) { version, count -> version != base || count > step.seen }
+                        .first { it }
+                }
             }
-            val pushedThrough = dequeued - if (carried != null) 1L else 0L
-            processed.value = maxOf(processed.value, pushedThrough)
-            if (outbound !== source) carried = null
         }
     }
 
-    private suspend fun receiveOutbound(): PlayerModel.QueueChange {
-        while (true) {
-            val result = outbound.receiveCatching()
-            if (result.isSuccess) {
-                dequeued++
-                return result.getOrThrow()
+    private suspend fun pushHead(change: PlayerModel.QueueChange): Boolean {
+        val (base, started) = mutex.withLock {
+            unacknowledged = null
+            syncedVersion to epoch
+        }
+        try {
+            push(change, base, started)
+        } catch (e: CancellationException) {
+            withContext(NonCancellable) {
+                mutex.withLock { if (epoch == started) restoreHead(change) }
+            }
+            throw e
+        } catch (e: ReadFailure) {
+            report(e.cause ?: e)
+            mutex.withLock { if (epoch == started) restoreHead(change) }
+            return false
+        } catch (e: Throwable) {
+            return mutex.withLock {
+                if (epoch != started) return@withLock false
+                markDirty(e)
+                restoreHead(change)
+                if (e.isTransportFailure() || change is PlayerModel.QueueChange.Replaced) {
+                    unacknowledged = change
+                    return@withLock false
+                }
+                logger.warning(QUEUE_SYNC_TAG, "Replacing a queue change the server rejected by a full upload", change)
+                held.removeFirst()
+                held.addFirst(PlayerModel.QueueChange.Replaced)
+                syncProcessed()
+                true
             }
         }
+        mutex.withLock {
+            if (held.firstOrNull() === change) held.removeFirst()
+            syncProcessed()
+        }
+        return true
+    }
+
+    private fun restoreHead(change: PlayerModel.QueueChange) {
+        if (held.firstOrNull() !== change) held.addFirst(change)
+        syncProcessed()
     }
 
     private suspend fun awaitDecisions() {
@@ -473,64 +664,137 @@ class QueueSyncService(
         }.first { it }
     }
 
-    private suspend fun push(change: PlayerModel.QueueChange) {
-        try {
-            val result = when {
-                dirty -> {
-                    fullUpload(force = true)
-                    null
-                }
-
-                change is PlayerModel.QueueChange.Replaced -> {
-                    val conflict = fullUpload(force = false)
-                    if (conflict != null) fullUpload(force = true)
-                    null
-                }
-
-                change is PlayerModel.QueueChange.Inserted -> queueService.insert(
-                    syncedVersion,
-                    change.index,
-                    change.entries.map(::toItem)
-                )
-
-                change is PlayerModel.QueueChange.Removed ->
-                    queueService.remove(syncedVersion, change.queueIds)
-
-                change is PlayerModel.QueueChange.Moved ->
-                    queueService.move(syncedVersion, change.queueId, change.toIndex)
-
-                change is PlayerModel.QueueChange.CurrentChanged ->
-                    queueService.setCurrentIndex(syncedVersion, change.index)
-
-                change is PlayerModel.QueueChange.ModesChanged ->
-                    queueService.setModes(syncedVersion, change.shuffle, change.repeat)
-
-                else -> null
+    private suspend fun push(change: PlayerModel.QueueChange, base: Long, started: Long) {
+        val result = when (change) {
+            is PlayerModel.QueueChange.Replaced -> {
+                fullUpload(force = false)?.let { info -> translatingReadFailures { onReplacedConflict(info) } }
+                null
             }
 
-            when (result) {
-                null -> Unit
-                is QueueWriteResult.Ok -> {
-                    syncedVersion = result.info.version
-                    conflictStreak = 0
-                    markSynced()
-                }
+            is PlayerModel.QueueChange.Inserted -> queueService.insert(
+                base,
+                change.index,
+                change.entries.map(::toItem)
+            )
 
-                is QueueWriteResult.Conflict -> {
+            is PlayerModel.QueueChange.Removed ->
+                queueService.remove(base, change.queueIds)
+
+            is PlayerModel.QueueChange.Moved ->
+                queueService.move(base, change.queueId, change.toIndex)
+
+            is PlayerModel.QueueChange.CurrentChanged ->
+                queueService.setCurrentIndex(base, change.index)
+
+            is PlayerModel.QueueChange.ModesChanged ->
+                queueService.setModes(base, change.shuffle, change.repeat)
+        }
+
+        when (result) {
+            null -> Unit
+            is QueueWriteResult.Ok -> mutex.withLock {
+                if (epoch != started) return
+                syncedVersion = result.info.version
+                conflictStreak = 0
+                markSynced()
+            }
+
+            is QueueWriteResult.Conflict -> {
+                val info = result.info
+                val followup = mutex.withLock {
+                    if (epoch != started) return
                     conflictStreak++
-                    if (conflictStreak >= MAX_CONFLICTS && !presenceService.isControlled.value) {
-                        _pendingConflict.value = result.info
-                    } else {
-                        rebase(result.info, change)
+                    val kept = dismissedRemote
+                    when {
+                        isOwnLostWrite(info) -> {
+                            adoptOwnLostWrite(info)
+                            Followup.None
+                        }
+
+                        hasPendingReplaced() -> Followup.Ask
+
+                        presenceService.isControlled.value -> {
+                            if (kept != null) logControllerWins(info)
+                            Followup.Rebase
+                        }
+
+                        kept != null || conflictStreak >= MAX_CONFLICTS -> {
+                            _pendingConflict.value = info
+                            Followup.None
+                        }
+
+                        else -> Followup.Rebase
+                    }
+                }
+                translatingReadFailures {
+                    when (followup) {
+                        Followup.Ask -> conflictWithoutMerge(info)
+                        Followup.Rebase -> rebase(info, change)
+                        else -> Unit
                     }
                 }
             }
+        }
+    }
+
+    private suspend fun translatingReadFailures(block: suspend () -> Unit) {
+        try {
+            block()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            markDirty(e)
+            throw ReadFailure(e)
         }
     }
+
+    private fun adoptOwnLostWrite(info: QueueInfo) {
+        syncedVersion = info.version
+        conflictStreak = 0
+        markSynced()
+    }
+
+    private suspend fun onReplacedConflict(info: QueueInfo) {
+        val adopted = mutex.withLock {
+            val own = isOwnLostWrite(info)
+            if (own) adoptOwnLostWrite(info)
+            own
+        }
+        if (!adopted) conflictWithoutMerge(info)
+    }
+
+    private suspend fun conflictWithoutMerge(info: QueueInfo) {
+        val asked = mutex.withLock {
+            if (presenceService.isControlled.value) {
+                drainOutbound()
+                false
+            } else {
+                _pendingConflict.value = info
+                true
+            }
+        }
+        if (asked) return
+        logger.warning(
+            QUEUE_SYNC_TAG,
+            "Dropping the local queue for version ${info.version} of ${info.modifiedByDeviceName}: no merge is possible while remote-controlled"
+        )
+        pull(info, keepCurrentQueueId = currentQueueId())
+    }
+
+    private fun logControllerWins(info: QueueInfo) {
+        logger.warning(
+            QUEUE_SYNC_TAG,
+            "Dropping the kept local queue for version ${info.version} of ${info.modifiedByDeviceName}: the controller wins while remote-controlled"
+        )
+    }
+
+    private fun isOwnLostWrite(info: QueueInfo): Boolean {
+        val own = ownSessionId ?: return false
+        return info.modifiedBySessionId == own && info.version == syncedVersion + 1
+    }
+
+    private fun currentQueueId(): Long? = playerModel.queue.value
+        .getOrNull(playerModel.currentIndex.value)
+        ?.queueId
 
     private fun toItem(entry: QueueEntry): QueueItem = QueueItem(
         songId = when (entry) {
@@ -543,25 +807,37 @@ class QueueSyncService(
         userAdded = entry is QueueEntry.Explicit
     )
 
-    private suspend fun rebase(info: QueueInfo, change: PlayerModel.QueueChange) {
-        val keepId = playerModel.queue.value
-            .getOrNull(playerModel.currentIndex.value)
-            ?.queueId
-        val snapshot = pull(info, keepCurrentQueueId = keepId)
-        if (snapshot == null) {
-            if (!presenceService.isControlled.value) _pendingConflict.value = info
-            return
-        }
-        _events.tryEmit(QueueSyncEvent.Merged(info.modifiedByDeviceName))
+    private suspend fun pullOrAsk(info: QueueInfo, keepCurrentQueueId: Long? = null): Boolean {
+        if (pull(info, keepCurrentQueueId) != null) return true
+        if (!mutex.withLock { hasPendingReplaced() }) return false
+        conflictWithoutMerge(info)
+        return true
+    }
 
-        withContext(dispatchers.main) {
+    private suspend fun rebase(info: QueueInfo, change: PlayerModel.QueueChange) {
+        if (pullOrAsk(info, currentQueueId())) return
+        if (presenceService.isControlled.value) {
+            logger.warning(
+                QUEUE_SYNC_TAG,
+                "Dropping a local queue change: the server queue kept moving while remote-controlled",
+                change
+            )
+        } else {
+            mutex.withLock { _pendingConflict.value = info }
+        }
+    }
+
+    private fun replay(changes: List<PlayerModel.QueueChange>, snapshot: PlayerModel.QueueSnapshot) {
+        val taken = snapshot.original.mapTo(mutableSetOf()) { it.queueId }
+        changes.forEach { change ->
             when (change) {
-                is PlayerModel.QueueChange.Replaced -> Unit
+                is PlayerModel.QueueChange.Replaced, is PlayerModel.QueueChange.CurrentChanged -> Unit
 
                 is PlayerModel.QueueChange.Inserted -> {
-                    val taken = snapshot.original.mapTo(mutableSetOf()) { it.queueId }
-                    val entries = playerModel.reassignQueueIds(change.entries, taken)
-                    playerModel.insertEntries(change.anchor, entries)
+                    val fresh = change.entries.filter { it.queueId !in taken }
+                    if (fresh.isNotEmpty()) {
+                        playerModel.insertEntries(change.anchor, playerModel.reassignQueueIds(fresh, taken))
+                    }
                 }
 
                 is PlayerModel.QueueChange.Removed ->
@@ -570,45 +846,62 @@ class QueueSyncService(
                 is PlayerModel.QueueChange.Moved ->
                     playerModel.moveByQueueId(change.queueId, change.toIndex)
 
-                is PlayerModel.QueueChange.CurrentChanged ->
-                    change.queueId?.let { playerModel.skipToQueueId(it) }
-
-                is PlayerModel.QueueChange.ModesChanged -> {
-                    playerModel.setShuffleMode(change.shuffle)
-                    playerModel.setRepeatMode(change.repeat)
-                }
+                is PlayerModel.QueueChange.ModesChanged -> playerModel.setRepeatMode(change.repeat)
             }
         }
+        val latest = changes.lastOrNull { it is PlayerModel.QueueChange.CurrentChanged }
+            as? PlayerModel.QueueChange.CurrentChanged ?: return
+        val queueId = latest.queueId ?: return
+        if (queueId == currentQueueId()) playerModel.skipToQueueId(queueId)
     }
 
     private suspend fun onRemote(info: QueueInfo) {
-        if (info.modifiedBySessionId == null && info.total == 0) {
-            if (playerModel.queue.value.isNotEmpty()) {
-                fullUpload(force = true)
-            } else {
+        val followup = mutex.withLock {
+            if (_pendingEnableChoice.value != null || _pendingConflict.value != null) return
+
+            if (info.modifiedBySessionId == null && info.total == 0) {
+                if (playerModel.queue.value.isNotEmpty()) return@withLock Followup.Upload
                 syncedVersion = info.version
                 markSynced()
+                return
             }
-            return
-        }
 
-        if (!playerModel.isPlaying.value || playerModel.queue.value.isEmpty()) {
-            pull(info)
-        } else if (presenceService.isControlled.value) {
-            val keepId = playerModel.queue.value
-                .getOrNull(playerModel.currentIndex.value)
-                ?.queueId
-            pull(info, keepCurrentQueueId = keepId)
-        } else {
-            _pendingRemote.value = info
-            publishStatus()
+            if (hasPendingReplaced()) return@withLock Followup.Ask
+
+            if (dismissedRemote != null) {
+                if (!presenceService.isControlled.value) {
+                    _pendingRemote.value = info
+                    publishStatus()
+                    return
+                }
+                logControllerWins(info)
+            }
+
+            when {
+                !playerModel.isPlaying.value || playerModel.queue.value.isEmpty() -> Followup.Pull
+                presenceService.isControlled.value -> Followup.PullKeepingCurrent
+                else -> {
+                    _pendingRemote.value = info
+                    publishStatus()
+                    Followup.None
+                }
+            }
+        }
+        when (followup) {
+            Followup.Upload -> fullUpload(force = true)
+            Followup.Ask -> conflictWithoutMerge(info)
+            Followup.Pull -> pullOrAsk(info)
+            Followup.PullKeepingCurrent -> pullOrAsk(info, currentQueueId())
+            else -> Unit
         }
     }
 
     private suspend fun pull(
         info: QueueInfo,
-        keepCurrentQueueId: Long? = null
+        keepCurrentQueueId: Long? = null,
+        explicit: Boolean = false
     ): PlayerModel.QueueSnapshot? {
+        val started = mutex.withLock { epoch }
         var current = info
         repeat(PULL_ATTEMPTS) {
             val items = mutableListOf<QueueItem>()
@@ -628,13 +921,31 @@ class QueueSyncService(
             }
 
             val snapshot = buildSnapshot(current, items)
-            withContext(dispatchers.main) {
-                playerModel.applyRemoteQueue(snapshot, keepCurrentQueueId)
-            }
+            val replayed = withContext(dispatchers.main) {
+                if (playerModel.changeSerial.value > receivedSerial.value) {
+                    withTimeoutOrNull(CURRENT_DEBOUNCE) {
+                        receivedSerial.first { it >= playerModel.changeSerial.value }
+                    }
+                }
+                mutex.withLock {
+                    if (epoch != started) return@withContext null
+                    val pending = drainOutbound()
+                    if (!explicit && pending.any { it is PlayerModel.QueueChange.Replaced }) {
+                        held.addAll(0, pending)
+                        syncProcessed()
+                        return@withContext null
+                    }
+                    playerModel.applyRemoteQueue(snapshot, keepCurrentQueueId)
+                    syncedVersion = current.version
+                    markSynced()
+                    replay(pending, snapshot)
+                    pending
+                }
+            } ?: return null
             runCatching { queueService.ackSynced(current.version) }.onFailure { report(it) }
-            syncedVersion = current.version
-            _pendingRemote.value = null
-            markSynced()
+            if (replayed.any { it !is PlayerModel.QueueChange.CurrentChanged }) {
+                _events.tryEmit(QueueSyncEvent.Merged(current.modifiedByDeviceName))
+            }
             return snapshot
         }
         return null
@@ -673,17 +984,21 @@ class QueueSyncService(
     }
 
     private suspend fun fullUpload(force: Boolean, requestId: PlatformUUID? = null): QueueInfo? {
-        val snapshot = withContext(dispatchers.main) {
-            discardOutbound()
-            playerModel.snapshot()
+        val (snapshot, base, started) = withContext(dispatchers.main) {
+            mutex.withLock {
+                drainOutbound()
+                Triple(playerModel.snapshot(), syncedVersion, epoch)
+            }
         }
         if (playerModel.currentSource.value?.isEndless == true) return null
 
-        val start = queueService.beginUpload(syncedVersion, force)
-        if (start is QueueUploadStart.Conflict) return start.info
-        val uploadId = (start as QueueUploadStart.Started).uploadId
-
+        var uploadId: PlatformUUID? = null
         try {
+            val start = queueService.beginUpload(base, force)
+            if (start is QueueUploadStart.Conflict) return start.info.takeIf { mutex.withLock { epoch == started } }
+            val id = (start as QueueUploadStart.Started).uploadId
+            uploadId = id
+
             val activeIndex = snapshot.active.withIndex()
                 .associate { (index, entry) -> entry.queueId to index }
             snapshot.original
@@ -694,10 +1009,10 @@ class QueueSyncService(
                     )
                 }
                 .chunked(UPLOAD_CHUNK)
-                .forEach { queueService.uploadPage(uploadId, it) }
+                .forEach { queueService.uploadPage(id, it) }
 
             val result = queueService.commitUpload(
-                uploadId,
+                id,
                 QueueMeta(
                     currentIndex = snapshot.currentIndex,
                     isShuffled = snapshot.shuffle,
@@ -707,52 +1022,62 @@ class QueueSyncService(
                 requestId
             )
             when (result) {
-                is QueueWriteResult.Ok -> {
+                is QueueWriteResult.Ok -> mutex.withLock {
+                    if (epoch != started) return null
                     syncedVersion = result.info.version
                     conflictStreak = 0
                     markSynced()
                 }
 
-                is QueueWriteResult.Conflict -> return result.info
+                is QueueWriteResult.Conflict -> return result.info.takeIf { mutex.withLock { epoch == started } }
             }
         } catch (e: CancellationException) {
+            withContext(NonCancellable) {
+                mutex.withLock { if (epoch == started) markDirty(e) }
+            }
             throw e
         } catch (e: Throwable) {
-            runCatching { queueService.cancelUpload(uploadId) }
-            markDirty(e)
+            uploadId?.let { id -> runCatching { queueService.cancelUpload(id) } }
+            mutex.withLock { if (epoch == started) markDirty(e) }
             throw e
         }
         return null
     }
 
-    private fun reset(notifyServer: Boolean) {
-        if (!wasActive) return
-        wasActive = false
+    private suspend fun reset(notifyServer: Boolean) {
+        mutex.withLock {
+            drainOutbound()
+            if (!wasActive) return
+            wasActive = false
+            epoch++
 
-        if (notifyServer) {
-            scope.launch {
-                runCatching { queueService.setSyncEnabled(false, deviceName()) }.onFailure { report(it) }
+            if (notifyServer) {
+                scope.launch {
+                    runCatching { queueService.setSyncEnabled(false, deviceName()) }.onFailure { report(it) }
+                }
             }
+
+            enableChoice?.complete(null)
+            enableChoice = null
+            dismissedRemote = null
+            _pendingRemote.value = null
+            _pendingEnableChoice.value = null
+            _pendingConflict.value = null
+            _devices.value = emptyList()
+            syncedVersion = 0L
+            dirty = false
+            conflictStreak = 0
+
+            settings.put(SettingKey.QueueSyncVersion, 0L)
+            settings.put(SettingKey.QueueSyncDirty, false)
+            publishStatus()
         }
-
-        enableChoice?.complete(null)
-        enableChoice = null
-        _pendingRemote.value = null
-        _pendingEnableChoice.value = null
-        _pendingConflict.value = null
-        _devices.value = emptyList()
-        syncedVersion = 0L
-        dirty = false
-        conflictStreak = 0
-        discardOutbound()
-
-        settings.put(SettingKey.QueueSyncVersion, 0L)
-        settings.put(SettingKey.QueueSyncDirty, false)
-        publishStatus()
     }
 
     private fun markSynced() {
         dirty = false
+        dismissedRemote = null
+        _pendingRemote.value = null
         lastSyncAt = currentTimeMillis()
         settings.put(SettingKey.QueueSyncVersion, syncedVersion)
         settings.put(SettingKey.QueueSyncDirty, false)

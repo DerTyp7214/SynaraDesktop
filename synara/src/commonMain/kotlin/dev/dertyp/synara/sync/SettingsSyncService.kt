@@ -10,6 +10,7 @@ import dev.dertyp.data.ClientSettingsSnapshot
 import dev.dertyp.data.ClientSettingsWriteResult
 import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
+import dev.dertyp.rpc.isTransportFailure
 import dev.dertyp.serializers.AppJson
 import dev.dertyp.services.IClientSettingsService
 import dev.dertyp.synara.Config
@@ -22,6 +23,7 @@ import dev.dertyp.synara.settings.getOrNull
 import dev.dertyp.synara.settings.put
 import dev.dertyp.synara.utils.SynaraDispatchers
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
@@ -37,6 +39,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -56,6 +59,17 @@ data class SettingsSyncStatus(
 data class SettingsSyncConflict(
     val keys: List<String>,
     val deviceName: String?,
+    val entries: List<ClientSetting>
+)
+
+data class SettingsSyncEnableChoice(
+    val keys: List<String>,
+    val deviceName: String?,
+    val onUnlock: Boolean
+)
+
+data class SettingsSyncReset(
+    val keys: List<String>,
     val entries: List<ClientSetting>
 )
 
@@ -81,6 +95,7 @@ class SettingsSyncService(
     companion object {
         val OUTBOUND_DEBOUNCE = 400.milliseconds
         const val CHANGES_PAGE = 500
+        const val RESET_PROMPT_THRESHOLD = 3
         val SCOPE = ClientSettingScope.SYNCED
         val INITIAL_BACKOFF = 1.seconds
         val MAX_BACKOFF = 30.seconds
@@ -97,6 +112,10 @@ class SettingsSyncService(
     private var known: Map<String, SettingsSyncKnown> = emptyMap()
     private var persistedKnown: Map<String, SettingsSyncKnown> = emptyMap()
     private var sessionActive = false
+    private var sessionScope: CoroutineScope? = null
+    private var firstEnable = false
+    private var accountSwitched = false
+    private var enableChoice: CompletableDeferred<Boolean?>? = null
     private var lastSyncAt = 0L
     private var inFlight = 0
     private val remoteMeta = MutableStateFlow<SecretsMeta?>(null)
@@ -110,8 +129,14 @@ class SettingsSyncService(
     private val _status = MutableStateFlow(SettingsSyncStatus(0L, 0, false))
     val status: StateFlow<SettingsSyncStatus> = _status.asStateFlow()
 
+    private val _pendingEnableChoice = MutableStateFlow<SettingsSyncEnableChoice?>(null)
+    val pendingEnableChoice: StateFlow<SettingsSyncEnableChoice?> = _pendingEnableChoice.asStateFlow()
+
     private val _pendingConflict = MutableStateFlow<SettingsSyncConflict?>(null)
     val pendingConflict: StateFlow<SettingsSyncConflict?> = _pendingConflict.asStateFlow()
+
+    private val _pendingReset = MutableStateFlow<SettingsSyncReset?>(null)
+    val pendingReset: StateFlow<SettingsSyncReset?> = _pendingReset.asStateFlow()
 
     private val _secretsLockState = MutableStateFlow(SecretsLockState.DISABLED)
     val secretsLockState: StateFlow<SecretsLockState> = _secretsLockState.asStateFlow()
@@ -180,7 +205,7 @@ class SettingsSyncService(
     }
 
     fun syncNow() {
-        if (!sessionActive) return
+        if (!sessionActive || _pendingEnableChoice.value?.onUnlock == false) return
         scope.launch {
             _isBusy.value = true
             publishStatus()
@@ -198,16 +223,29 @@ class SettingsSyncService(
         }
     }
 
+    fun resolveEnableChoice(keepLocal: Boolean) {
+        _pendingEnableChoice.value = null
+        enableChoice?.complete(keepLocal)
+        enableChoice = null
+    }
+
+    fun cancelEnableChoice() {
+        val onUnlock = _pendingEnableChoice.value?.onUnlock ?: return
+        clearEnableChoice()
+        if (!onUnlock) Config.setIsSettingsSyncEnabled(false)
+    }
+
     fun resolveConflict(keepLocal: Boolean) {
         val conflict = _pendingConflict.value ?: return
         scope.launch {
             mutex.withLock {
+                if (deviceId == null || _pendingConflict.value != conflict) return@withLock
                 runCatching {
+                    val active = activeSpecs().associateBy { it.key }
                     if (keepLocal) {
-                        val writes = conflict.keys.mapNotNull { key ->
-                            val spec = registry.byKey[key] ?: return@mapNotNull null
-                            val entry = known[key]
-                            writeFor(spec, entry?.version ?: 0L, entry?.value)
+                        val writes = conflict.entries.mapNotNull { entry ->
+                            val spec = active[entry.key] ?: return@mapNotNull null
+                            writeFor(spec, entry.version, entry.value)
                         }
                         if (writes.isNotEmpty()) {
                             when (val result = clientSettingsService.setSettings(writes, SCOPE, deviceId, force = true)) {
@@ -218,12 +256,40 @@ class SettingsSyncService(
                         }
                     } else {
                         conflict.entries.forEach { entry ->
-                            val spec = registry.byKey[entry.key] ?: return@forEach
+                            if (entry.key !in registry.byKey) return@forEach
                             remember(entry.key, entry)
-                            spec.applyRemote(if (entry.deleted) null else entry.value)
+                            active[entry.key]?.applyRemote(if (entry.deleted) null else entry.value)
                         }
                     }
                     _pendingConflict.value = null
+                    persistState()
+                    markSynced()
+                }.onFailure { report(it) }
+            }
+        }
+    }
+
+    fun resolveReset(keepLocal: Boolean) {
+        val reset = _pendingReset.value ?: return
+        scope.launch {
+            mutex.withLock {
+                if (deviceId == null || _pendingReset.value != reset) return@withLock
+                runCatching {
+                    val active = activeSpecs().associateBy { it.key }
+                    val writes = mutableListOf<ClientSettingWrite>()
+                    for (entry in reset.entries) {
+                        val spec = active[entry.key] ?: continue
+                        val current = entry.takeUnless { it.deleted }
+                        val write = writeFor(spec, current?.version ?: 0L, current?.value)?.takeIf { keepLocal }
+                        if (write != null) {
+                            writes += write
+                        } else {
+                            remember(entry.key, current)
+                            spec.applyRemote(current?.value)
+                        }
+                    }
+                    push(writes, retry = true)
+                    _pendingReset.value = null
                     persistState()
                     markSynced()
                 }.onFailure { report(it) }
@@ -258,24 +324,20 @@ class SettingsSyncService(
                         if (!cipher.verify(serverMeta, key)) return false
                     }
                 }
-                cipher.remember(key)
-                true
+                deviceId == id && unlock(key)
             }
 
             SecretsLockState.NEEDS_PASSPHRASE -> {
                 val meta = remoteMeta.value ?: return false
                 val key = withContext(dispatchers.default) { cipher.deriveKey(passphrase, meta) }
                 if (!cipher.verify(meta, key)) return false
-                cipher.remember(key)
-                true
+                deviceId == id && unlock(key)
             }
 
             SecretsLockState.UNLOCKED -> true
             SecretsLockState.DISABLED -> false
         }
     }
-
-    suspend fun enterPassphrase(passphrase: String): Boolean = setPassphrase(passphrase)
 
     fun forgetPassphrase() {
         scope.launch { cipher.forget() }
@@ -295,19 +357,31 @@ class SettingsSyncService(
     private suspend fun session(userId: String?) {
         sessionActive = true
         try {
-            coroutineScope {
-                val id = identity.deviceId
+            val id = identity.deviceId
+            mutex.withLock {
                 deviceId = id
                 loadPersistedState(userId)
-                publishStatus()
+            }
+            publishStatus()
 
-                runCatching {
-                    clientSettingsService.registerDevice(id, deviceName(), identity.platform)
-                }.onFailure { report(it) }
+            runCatching {
+                clientSettingsService.registerDevice(id, deviceName(), identity.platform)
+            }.onFailure { report(it) }
 
-                val snapshot = retrying { clientSettingsService.getSnapshot(id) }
-                mutex.withLock { tracked { reconcile(snapshot) } }
+            var snapshot = retrying { clientSettingsService.getSnapshot(id) }
+            var keepLocal = false
+            if (firstEnable) {
+                val differing = mutex.withLock { enableDifferences(snapshot) }
+                if (differing.isNotEmpty()) {
+                    val deviceName = resolveDeviceName(differing.first().modifiedByDeviceId)
+                    keepLocal = awaitEnableChoice(differing.map { it.key }, deviceName, onUnlock = false) ?: return
+                    snapshot = retrying { clientSettingsService.getSnapshot(id) }
+                }
+            }
+            mutex.withLock { tracked { reconcile(snapshot, keepLocal) } }
 
+            coroutineScope {
+                sessionScope = this
                 launch {
                     Config.queueSyncDeviceName
                         .map { deviceName() }
@@ -325,6 +399,8 @@ class SettingsSyncService(
             }
         } finally {
             sessionActive = false
+            sessionScope = null
+            clearEnableChoice()
         }
     }
 
@@ -345,13 +421,45 @@ class SettingsSyncService(
             known = emptyMap()
             runCatching { repository.clear() }.onFailure { report(it) }
             settings.put(SettingKey.SettingsSyncVersion, 0L)
-            settings.put(SettingKey.SettingsSyncUserId, userId)
         }
         persistedKnown = known
+        firstEnable = persistedUserId == null && known.isEmpty()
+        accountSwitched = persistedUserId != null && persistedUserId != userId
+    }
+
+    private suspend fun awaitEnableChoice(keys: List<String>, deviceName: String?, onUnlock: Boolean): Boolean? {
+        val decision = CompletableDeferred<Boolean?>()
+        enableChoice = decision
+        _pendingEnableChoice.value = SettingsSyncEnableChoice(keys, deviceName, onUnlock)
+        return decision.await()
+    }
+
+    private fun clearEnableChoice() {
+        if (_pendingEnableChoice.value?.onUnlock == true) cipher.forget()
+        enableChoice?.complete(null)
+        enableChoice = null
+        _pendingEnableChoice.value = null
+    }
+
+    private fun enableDifferences(snapshot: ClientSettingsSnapshot): List<ClientSetting> {
+        val entries = snapshot.entries.filter { it.scope == SCOPE }.associateBy { it.key }
+        val meta = entries[SecretsCipher.META_KEY]?.value?.let { cipher.parseMeta(it) }
+        val unlocked = computeLock(Config.isSecretsSyncEnabled.value, cipher.key.value, meta) == SecretsLockState.UNLOCKED
+        val specs = if (unlocked) registry.all else registry.general
+        return specs.mapNotNull { spec ->
+            val server = entries[spec.key] ?: return@mapNotNull null
+            if (spec.isDefault() || spec.matchesLocal(server.value)) null else server
+        }
     }
 
     private suspend fun observeLoop(id: String) {
+        var resubscribing = false
         while (currentCoroutineContext().isActive) {
+            if (resubscribing) {
+                mutex.withLock {
+                    runCatching { tracked { pull() } }.onFailure { report(it) }
+                }
+            }
             runCatching {
                 clientSettingsService.observeSettings().collect { change ->
                     if (change.scope != SCOPE) return@collect
@@ -372,6 +480,7 @@ class SettingsSyncService(
                 if (it is CancellationException) throw it
                 report(it)
             }
+            resubscribing = true
             delay(STREAM_RETRY_DELAY)
         }
     }
@@ -380,32 +489,71 @@ class SettingsSyncService(
     private suspend fun outboundLoop() {
         registry.changes()
             .debounce(OUTBOUND_DEBOUNCE)
+            .onStart { emit(Unit) }
             .collect {
-                mutex.withLock {
-                    runCatching { tracked { pushPending() } }.onFailure { report(it) }
+                var backoff = INITIAL_BACKOFF
+                while (true) {
+                    val failure = runCatching { mutex.withLock { tracked { pushPending() } } }.exceptionOrNull() ?: break
+                    if (failure is CancellationException) throw failure
+                    report(failure)
+                    if (!failure.isTransportFailure()) break
+                    delay(backoff)
+                    backoff = (backoff * 2).coerceAtMost(MAX_BACKOFF)
                 }
             }
     }
 
     private suspend fun lockLoop() {
-        var previous = _secretsLockState.value
         combine(Config.isSecretsSyncEnabled, cipher.key, remoteMeta) { enabled, key, meta ->
             computeLock(enabled, key, meta)
         }.collect { lock ->
-            _secretsLockState.value = lock
-            publishStatus()
-            if (lock == SecretsLockState.UNLOCKED && previous != SecretsLockState.UNLOCKED) {
-                mutex.withLock {
-                    runCatching {
-                        tracked {
-                            reconcileSecretsFromKnown()
-                            pushPending()
-                        }
-                    }.onFailure { report(it) }
+            if (lock == SecretsLockState.UNLOCKED && _secretsLockState.value != SecretsLockState.UNLOCKED) {
+                val key = cipher.key.value ?: return@collect
+                if (enableChoice == null) mutex.withLock { unlock(key) }
+            } else {
+                _secretsLockState.value = lock
+                publishStatus()
+            }
+        }
+    }
+
+    private suspend fun unlock(key: DerivedKey): Boolean {
+        val session = sessionScope?.takeIf { it.isActive } ?: return false
+        val differing = if (accountSwitched) emptyList() else cipher.withKey(key) { unlockDifferences() }
+        if (differing.isEmpty()) {
+            applyUnlock(key, keepLocal = false)
+            return true
+        }
+        session.launch {
+            val keepLocal = awaitEnableChoice(differing, deviceName = null, onUnlock = true)
+            mutex.withLock {
+                if (keepLocal == null) {
+                    cipher.forget()
+                    refreshLockState()
+                } else {
+                    applyUnlock(key, keepLocal)
                 }
             }
-            previous = lock
         }
+        return true
+    }
+
+    private suspend fun applyUnlock(key: DerivedKey, keepLocal: Boolean) {
+        _secretsLockState.value = SecretsLockState.UNLOCKED
+        cipher.remember(key)
+        publishStatus()
+        runCatching {
+            tracked {
+                reconcileSecretsFromKnown(keepLocal)
+                pushPending()
+            }
+        }.onFailure { report(it) }
+    }
+
+    private fun unlockDifferences(): List<String> = registry.secrets.mapNotNull { spec ->
+        val entry = known[spec.key] ?: return@mapNotNull null
+        val differs = !spec.isDefault() && (entry.value == null || !spec.matchesLocal(entry.value))
+        if (differs) spec.key else null
     }
 
     private fun computeLock(enabled: Boolean, key: DerivedKey?, meta: SecretsMeta?): SecretsLockState = when {
@@ -443,78 +591,134 @@ class SettingsSyncService(
         }
     }
 
-    private fun pendingWrites(): List<ClientSettingWrite> {
-        val conflicted = _pendingConflict.value?.keys?.toSet().orEmpty()
-        return activeSpecs().mapNotNull { spec ->
-            if (spec.key in conflicted) return@mapNotNull null
-            val entry = known[spec.key]
-            when {
-                entry == null ->
-                    if (spec.isDefault()) null else spec.encodeLocal()?.let { ClientSettingWrite(spec.key, it, 0L) }
+    private val conflictedKeys: Set<String>
+        get() = _pendingConflict.value?.keys?.toSet().orEmpty()
 
-                localDiffers(spec, entry) -> writeFor(spec, entry.version, entry.value)
-                else -> null
-            }
+    private val frozenKeys: Set<String>
+        get() = conflictedKeys + _pendingReset.value?.keys.orEmpty()
+
+    private val highestSeenVersion: Long
+        get() = maxOf(syncedVersion, known.values.maxOfOrNull { it.version } ?: 0L)
+
+    private fun hasUnconfirmedLocalChange(spec: SyncedSetting<*>): Boolean {
+        val entry = known[spec.key] ?: return !spec.isDefault()
+        return localDiffers(spec, entry)
+    }
+
+    private fun pendingWrites(): List<ClientSettingWrite> {
+        val frozen = frozenKeys
+        return activeSpecs().mapNotNull { spec ->
+            if (spec.key in frozen || !hasUnconfirmedLocalChange(spec)) return@mapNotNull null
+            val entry = known[spec.key]
+            writeFor(spec, entry?.version ?: 0L, entry?.value)
         }
     }
 
-    private suspend fun reconcile(snapshot: ClientSettingsSnapshot) {
+    private suspend fun reconcile(snapshot: ClientSettingsSnapshot, keepLocal: Boolean = false) {
         val entries = snapshot.entries.filter { it.scope == SCOPE }.associateBy { it.key }
         applyMeta(entries[SecretsCipher.META_KEY]?.value)
 
+        val restored = snapshot.syncedVersion < highestSeenVersion
         val merged = known.toMutableMap()
         val active = activeSpecs()
         val activeKeys = active.map { it.key }.toSet()
+        val conflicted = conflictedKeys
         val writes = mutableListOf<ClientSettingWrite>()
         val conflicts = mutableListOf<ClientSetting>()
+        val deletions = mutableListOf<SyncedSetting<*>>()
+        val lost = mutableListOf<ClientSetting>()
 
         for (spec in active) {
             val prior = merged[spec.key]
             val server = entries[spec.key]
+            if (spec.key in conflicted) {
+                conflicts += server ?: ClientSetting(key = spec.key, deleted = true, version = 0L, modifiedAt = 0L, scope = SCOPE)
+                continue
+            }
             val localChanged = prior != null && localDiffers(spec, prior)
             when {
-                server == null -> {
-                    if (prior == null) {
-                        if (!spec.isDefault()) spec.encodeLocal()?.let { writes += ClientSettingWrite(spec.key, it, 0L) }
-                    } else {
+                server == null -> when {
+                    prior?.value == null -> {
                         merged.remove(spec.key)
+                        if (!spec.isDefault()) spec.encodeLocal()?.let { writes += ClientSettingWrite(spec.key, it, 0L) }
                     }
+
+                    spec.isDefault() -> merged.remove(spec.key)
+
+                    !localChanged -> {
+                        deletions += spec
+                        lost += ClientSetting(key = spec.key, deleted = true, version = 0L, modifiedAt = 0L, scope = SCOPE)
+                    }
+
+                    else -> conflicts += ClientSetting(key = spec.key, deleted = true, version = 0L, modifiedAt = 0L, scope = SCOPE)
                 }
+
+                prior == null && keepLocal && !spec.isDefault() && !spec.matchesLocal(server.value) -> {
+                    merged[spec.key] = SettingsSyncKnown(server.value, server.version)
+                    spec.encodeLocal()?.let { writes += ClientSettingWrite(spec.key, it, server.version) }
+                }
+
+                prior == null && !firstEnable && !accountSwitched && !spec.isDefault() && !spec.matchesLocal(server.value) ->
+                    conflicts += server
 
                 !localChanged -> {
                     val value = if (server.deleted) null else server.value
-                    if (!spec.matchesLocal(value)) spec.applyRemote(value)
-                    merged[spec.key] = SettingsSyncKnown(server.value, server.version)
+                    when {
+                        spec.matchesLocal(value) -> merged[spec.key] = SettingsSyncKnown(server.value, server.version)
+
+                        restored && prior != null && server.version < prior.version -> lost += server
+
+                        else -> {
+                            spec.applyRemote(value)
+                            merged[spec.key] = SettingsSyncKnown(server.value, server.version)
+                        }
+                    }
                 }
 
                 server.version == prior.version -> writeFor(spec, prior.version, prior.value)?.let { writes += it }
 
                 spec.matchesLocal(server.value) -> merged[spec.key] = SettingsSyncKnown(server.value, server.version)
 
-                else -> {
-                    merged[spec.key] = SettingsSyncKnown(server.value, server.version)
-                    conflicts += server
-                }
+                else -> conflicts += server
             }
         }
 
         for (spec in registry.secrets) {
-            if (spec.key in activeKeys) continue
+            if (spec.key in activeKeys || spec.key in conflicted) continue
             val server = entries[spec.key]
-            if (server == null) merged.remove(spec.key) else merged[spec.key] = SettingsSyncKnown(server.value, server.version)
+            when {
+                server != null -> merged[spec.key] = SettingsSyncKnown(server.value, server.version)
+                merged[spec.key]?.value != null -> merged[spec.key] = SettingsSyncKnown(null, 0L)
+            }
+        }
+
+        val asked = _pendingReset.value?.keys.orEmpty()
+        if (lost.isNotEmpty() && (restored || deletions.size >= RESET_PROMPT_THRESHOLD || deletions.any { it.key in asked })) {
+            _pendingReset.value = SettingsSyncReset(lost.map { it.key }, lost)
+        } else {
+            _pendingReset.value = null
+            for (spec in deletions) {
+                spec.applyRemote(null)
+                merged.remove(spec.key)
+            }
         }
 
         syncedVersion = snapshot.syncedVersion
         known = merged
         addConflicts(conflicts)
-        push(writes, retry = true)
+        runCatching { push(writes, retry = true) }.onFailure {
+            if (it is CancellationException) throw it
+            report(it)
+        }
         persistState()
         markSynced()
     }
 
-    private suspend fun reconcileSecretsFromKnown() {
+    private suspend fun reconcileSecretsFromKnown(keepLocal: Boolean) {
+        val frozen = frozenKeys
         for (spec in registry.secrets) {
             val entry = known[spec.key] ?: continue
+            if (spec.key in frozen || (keepLocal && !spec.isDefault())) continue
             if (!spec.matchesLocal(entry.value)) spec.applyRemote(entry.value)
         }
     }
@@ -526,7 +730,18 @@ class SettingsSyncService(
             publishStatus()
             return
         }
-        push(writes, retry = true)
+        try {
+            push(writes, retry = true)
+        } catch (e: Throwable) {
+            if (e is CancellationException || e.isTransportFailure() || writes.size == 1) throw e
+            report(e)
+            for (write in writes) {
+                runCatching { push(listOf(write), retry = false) }.onFailure {
+                    if (it is CancellationException) throw it
+                    report(it)
+                }
+            }
+        }
         persistState()
         markSynced()
     }
@@ -540,9 +755,12 @@ class SettingsSyncService(
                 val real = mutableListOf<ClientSetting>()
                 result.conflicts.forEach { conflict ->
                     val current = conflict.current
-                    remember(conflict.key, current)
-                    val spec = registry.byKey[conflict.key] ?: return@forEach
-                    if (current != null && !spec.matchesLocal(current.value)) real += current
+                    val spec = registry.byKey[conflict.key]
+                    if (current != null && spec != null && !spec.matchesLocal(current.value)) {
+                        real += current
+                    } else {
+                        remember(conflict.key, current)
+                    }
                 }
                 addConflicts(real)
                 if (retry) push(pendingWrites(), retry = false)
@@ -553,9 +771,10 @@ class SettingsSyncService(
     private suspend fun pull() {
         val id = deviceId ?: return
         var cursor = syncedVersion
+        val seen = highestSeenVersion
         while (true) {
             val page = clientSettingsService.getChanges(SCOPE, cursor, null, CHANGES_PAGE)
-            if (page.fullResync) {
+            if (page.fullResync || page.version < seen) {
                 reconcile(clientSettingsService.getSnapshot(id))
                 return
             }
@@ -577,19 +796,34 @@ class SettingsSyncService(
             return
         }
         val spec = registry.byKey[entry.key] ?: return
-        val active = spec.group == SyncGroup.GENERAL || _secretsLockState.value == SecretsLockState.UNLOCKED
-        if (active) {
-            remember(entry.key, entry)
-            spec.applyRemote(if (entry.deleted) null else entry.value)
-        } else if (spec.group == SyncGroup.SECRETS) {
-            remember(entry.key, entry)
+        if (entry.key in conflictedKeys) {
+            addConflicts(listOf(entry))
+            return
+        }
+        _pendingReset.value?.let { reset ->
+            if (entry.key in reset.keys) {
+                val remaining = reset.entries.filter { it.key != entry.key }
+                _pendingReset.value = if (remaining.isEmpty()) null else SettingsSyncReset(remaining.map { it.key }, remaining)
+            }
+        }
+        val locked = spec.group == SyncGroup.SECRETS && _secretsLockState.value != SecretsLockState.UNLOCKED
+        val value = if (entry.deleted) null else entry.value
+        when {
+            locked || entry.modifiedByDeviceId == deviceId -> remember(entry.key, entry)
+
+            !hasUnconfirmedLocalChange(spec) || spec.matchesLocal(value) -> {
+                remember(entry.key, entry)
+                spec.applyRemote(value)
+            }
+
+            else -> addConflicts(listOf(entry))
         }
     }
 
     private suspend fun addConflicts(entries: List<ClientSetting>) {
         if (entries.isEmpty()) return
         val existing = _pendingConflict.value
-        val merged = (existing?.entries.orEmpty() + entries).distinctBy { it.key }
+        val merged = (entries + existing?.entries.orEmpty()).distinctBy { it.key }
         val deviceName = existing?.deviceName ?: resolveDeviceName(entries.first().modifiedByDeviceId)
         _pendingConflict.value = SettingsSyncConflict(merged.map { it.key }, deviceName, merged)
         publishStatus()
@@ -642,16 +876,17 @@ class SettingsSyncService(
         }
     }
 
-    private fun reset() {
+    private suspend fun reset() = mutex.withLock {
         deviceId = null
         syncedVersion = 0L
         known = emptyMap()
         persistedKnown = emptyMap()
         stateUserId = null
-        inFlight = 0
         remoteMeta.value = null
+        clearEnableChoice()
         _secretsLockState.value = SecretsLockState.DISABLED
         _pendingConflict.value = null
+        _pendingReset.value = null
         _devices.value = emptyList()
         publishStatus()
     }
@@ -664,11 +899,10 @@ class SettingsSyncService(
         runCatching {
             if (removed.isNotEmpty()) repository.remove(removed)
             if (changed.isNotEmpty()) repository.putAll(changed)
-        }.onFailure { report(it) }
-        persistedKnown = current
+        }.onSuccess { persistedKnown = current }.onFailure { report(it) }
 
         settings.put(SettingKey.SettingsSyncVersion, syncedVersion)
-        settings.put(SettingKey.SettingsSyncUserId, stateUserId)
+        stateUserId?.let { settings.put(SettingKey.SettingsSyncUserId, it) }
     }
 
     private fun markSynced() {

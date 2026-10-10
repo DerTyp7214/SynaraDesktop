@@ -13,11 +13,16 @@ object DownloadedImages : UUIDTable("image") {
 }
 
 object DownloadedUsers : UUIDTable("user") {
-    val username = varchar("username", 255).uniqueIndex()
+    val username = varchar("username", 255)
     val displayName = varchar("displayName", 255).nullable()
     val passwordHash = varchar("passwordHash", 255)
     val isAdmin = bool("isAdmin").default(false)
     val profileImage = reference("profileImageId", DownloadedImages.id, onDelete = ReferenceOption.SET_NULL).nullable()
+    val server = text("server").nullable()
+
+    init {
+        uniqueIndex(username, server)
+    }
 }
 
 object DownloadedSongs : UUIDTable("song") {

@@ -1,5 +1,6 @@
 package dev.dertyp.synara.db
 
+import com.russhwolf.settings.Settings
 import dev.dertyp.*
 import dev.dertyp.data.*
 import dev.dertyp.services.IAlbumService
@@ -8,6 +9,9 @@ import dev.dertyp.services.ISongService
 import dev.dertyp.synara.core.toCredit
 import dev.dertyp.synara.game.LeaderboardEntry
 import dev.dertyp.synara.game.SavedGame
+import dev.dertyp.synara.settings.SettingKey
+import dev.dertyp.synara.settings.get
+import dev.dertyp.synara.settings.getOrNull
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.Json
@@ -264,14 +268,26 @@ private fun rekeyUser(from: UUID, to: UUID) {
     SongGuessSavedGames.update({ SongGuessSavedGames.userId eq from }) { it[userId] = to }
 }
 
-class ExposedUserRepository : UserRepository {
+class ExposedUserRepository(private val settings: Settings) : UserRepository {
+    private fun currentServer(): String? {
+        val host = settings.getOrNull(SettingKey.Host)?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return null
+        val port = settings.getOrNull(SettingKey.Port) ?: return null
+        val path = settings.get(SettingKey.RpcPath, "/").trim().trim('/')
+        return if (path.isEmpty()) "$host:$port" else "$host:$port/$path"
+    }
+
     override suspend fun saveUser(user: User) {
+        val server = currentServer()
         dbQuery {
-            val staleIds = DownloadedUsers.select(DownloadedUsers.id)
-                .where { (DownloadedUsers.username eq user.username) and (DownloadedUsers.id neq user.id) }
-                .map { it[DownloadedUsers.id].value }
-            staleIds.forEach { rekeyUser(it, user.id) }
-            if (staleIds.isNotEmpty()) DownloadedUsers.deleteWhere { DownloadedUsers.id inList staleIds }
+            if (server != null) {
+                val staleIds = DownloadedUsers.select(DownloadedUsers.id)
+                    .where { DownloadedUsers.username eq user.username }
+                    .andWhere { DownloadedUsers.server eq server }
+                    .andWhere { DownloadedUsers.id neq user.id }
+                    .map { it[DownloadedUsers.id].value }
+                staleIds.forEach { rekeyUser(it, user.id) }
+                if (staleIds.isNotEmpty()) DownloadedUsers.deleteWhere { DownloadedUsers.id inList staleIds }
+            }
             DownloadedUsers.upsert(DownloadedUsers.id) {
                 it[id] = user.id
                 it[username] = user.username
@@ -279,6 +295,7 @@ class ExposedUserRepository : UserRepository {
                 it[passwordHash] = ""
                 it[isAdmin] = user.isAdmin
                 it[profileImage] = user.profileImageId
+                if (server != null) it[DownloadedUsers.server] = server
             }
         }
     }
@@ -693,14 +710,6 @@ class ExposedLibraryRepository : LibraryRepository {
             DownloadedUserPlaylists.selectAll().where { DownloadedUserPlaylists.id eq id }
                 .map { mapRowToPlaylist(it) }
                 .singleOrNull()
-        }
-    }
-}
-
-class ExposedDatabaseMigrationRepository : DatabaseMigrationRepository {
-    override suspend fun migrateUserIds(newUserId: PlatformUUID) {
-        dbQuery {
-            // Placeholder
         }
     }
 }

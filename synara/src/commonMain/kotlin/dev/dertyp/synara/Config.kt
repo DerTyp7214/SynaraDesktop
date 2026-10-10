@@ -195,9 +195,6 @@ object Config : KoinComponent {
     private val _proxySsl = MutableStateFlow(settings.get(SettingKey.ProxySsl, false))
     val proxySsl: StateFlow<Boolean> = _proxySsl.asStateFlow()
 
-    private val _needsUserIdMigration = MutableStateFlow(settings.get(SettingKey.NeedsUserIdMigration, true))
-    val needsUserIdMigration: StateFlow<Boolean> = _needsUserIdMigration.asStateFlow()
-
     private val _lastSeenVersion = MutableStateFlow(settings.getOrNull(SettingKey.LastSeenVersion) ?: "")
     val lastSeenVersion: StateFlow<String> = _lastSeenVersion.asStateFlow()
 
@@ -523,11 +520,6 @@ object Config : KoinComponent {
     fun setProxySsl(ssl: Boolean) {
         _proxySsl.value = ssl
         settings.put(SettingKey.ProxySsl, ssl)
-    }
-
-    fun setNeedsUserIdMigration(needs: Boolean) {
-        _needsUserIdMigration.value = needs
-        settings.put(SettingKey.NeedsUserIdMigration, needs)
     }
 
     fun setLastSeenVersion(version: String) {

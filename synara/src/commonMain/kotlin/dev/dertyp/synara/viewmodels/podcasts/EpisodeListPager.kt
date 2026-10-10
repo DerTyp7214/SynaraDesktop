@@ -71,12 +71,12 @@ class EpisodeListPager(
     }
 
     fun loadMore() {
-        val current = _state.value
-        if (!current.hasMore || current.isLoadingMore || current.isLoading) return
-        val requestGeneration = generation
-        val page = nextPage
-        _state.update { it.copy(isLoadingMore = true) }
         scope.launch(context) {
+            val current = _state.value
+            if (!current.hasMore || current.isLoadingMore || current.isLoading) return@launch
+            val requestGeneration = generation
+            val page = nextPage
+            _state.update { it.copy(isLoadingMore = true) }
             try {
                 val response = fetch(page, pageSize)
                 if (requestGeneration != generation) return@launch

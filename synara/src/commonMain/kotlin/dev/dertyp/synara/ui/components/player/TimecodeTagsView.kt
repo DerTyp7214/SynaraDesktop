@@ -81,7 +81,7 @@ fun parseTimecode(text: String): Long? {
     val units = if (prefix.isEmpty()) emptyList() else prefix.split(':')
     if (units.size > 2) return null
     val seconds = secondsPart.toDoubleOrNull() ?: return null
-    if (seconds < 0 || (units.isNotEmpty() && seconds >= 60)) return null
+    if (!seconds.isFinite() || seconds < 0 || (units.isNotEmpty() && seconds >= 60)) return null
     var total = 0L
     for (unit in units) {
         val value = unit.toLongOrNull() ?: return null

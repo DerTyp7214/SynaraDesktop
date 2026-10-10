@@ -11,13 +11,18 @@ import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.player.SongCache
 import dev.dertyp.synara.rpc.RpcServiceManager
+import dev.dertyp.synara.testing.TestDispatchers
+import dev.dertyp.synara.testing.testSong
 import dev.dertyp.synara.utils.SynaraDispatchers
 import io.mockk.*
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import java.io.IOException
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import synara.synara.generated.resources.Res
 import synara.synara.generated.resources.error_server_unreachable
+import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -155,5 +160,32 @@ class AllSongsScreenModelTest {
 
         model.playSong(mockk(), 7)
         verify { playerModel.playQueue(PlaybackQueue(source = expected), 7) }
+    }
+
+    @Test
+    fun aPageRequestedRightAfterAFilterChangeIsLoadedIntoTheFilteredList() = runTest {
+        val filtered = testSong(1)
+        coEvery { songService.allSongs(0, any(), any(), any(), any(), any(), any()) } returns
+            PaginatedResponse(data = emptyList<UserSong>(), total = 1000)
+        coEvery { songService.allSongs(3, 150, true, listOf(SongTag.B_24), emptyList(), emptyList(), emptyList()) } returns
+            PaginatedResponse(data = listOf(filtered), page = 3, total = 1000)
+        val model = AllSongsScreenModel(
+            rpcServiceManager,
+            songService,
+            SongCache(),
+            playerModel,
+            TestDispatchers(StandardTestDispatcher(testScheduler)),
+            mockk<Logger>(relaxed = true)
+        )
+        runCurrent()
+
+        model.cycleTag(SongTag.B_24)
+        model.loadPage(3)
+        runCurrent()
+
+        val state = model.success()
+        assertEquals(listOf(SongTag.B_24), state.tags)
+        assertEquals(filtered, state.songs[3 * model.pageSize])
+        coVerify(exactly = 1) { songService.allSongs(3, any(), any(), any(), any(), any(), any()) }
     }
 }

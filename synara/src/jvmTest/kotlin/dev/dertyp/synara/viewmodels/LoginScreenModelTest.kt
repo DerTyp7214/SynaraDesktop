@@ -6,25 +6,32 @@ import dev.dertyp.services.IAuthService
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.testing.UnconfinedDispatchers
 import io.mockk.*
+import kotlinx.coroutines.CompletableDeferred
 import synara.synara.generated.resources.Res
 import synara.synara.generated.resources.error_server_unreachable
 import synara.synara.generated.resources.login_failed
 import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 class LoginScreenModelTest {
 
     private val authService = mockk<IAuthService>()
     private val rpcServiceManager = mockk<RpcServiceManager>(relaxed = true)
+    private var encryptionCheck: suspend () -> Boolean = { true }
 
-    private fun createModel() = LoginScreenModel(
-        authService,
-        rpcServiceManager,
-        UnconfinedDispatchers,
-        mockk<Logger>(relaxed = true)
-    )
+    private fun createModel(): LoginScreenModel {
+        coEvery { rpcServiceManager.checkSslSupport() } coAnswers { encryptionCheck() }
+        return LoginScreenModel(
+            authService,
+            rpcServiceManager,
+            UnconfinedDispatchers,
+            mockk<Logger>(relaxed = true)
+        )
+    }
 
     @Test
     fun theModelStartsIdle() {
@@ -65,6 +72,68 @@ class LoginScreenModelTest {
 
         assertEquals(LoginResult.Success, model.loginResult.value)
         coVerify(exactly = 1) { rpcServiceManager.updateAuth(response) }
+    }
+
+    @Test
+    fun theLoginIsNotSentWhenItsOwnCheckFallsBackToAnUnencryptedConnection() {
+        coEvery { authService.authenticate(any(), any()) } returns mockk<AuthenticationResponse>()
+        val checks = ArrayDeque(listOf(false, true))
+        encryptionCheck = { checks.removeFirst() }
+        val model = createModel()
+
+        model.login("admin", "secret")
+
+        assertEquals(LoginResult.Idle, model.loginResult.value)
+        coVerify(exactly = 0) { authService.authenticate(any(), any()) }
+        coVerify(exactly = 0) { rpcServiceManager.updateAuth(any()) }
+
+        model.login("admin", "secret")
+
+        assertEquals(LoginResult.Success, model.loginResult.value)
+        coVerify(exactly = 1) { authService.authenticate("admin", "secret") }
+    }
+
+    @Test
+    fun theEncryptionIsCheckedBeforeTheCredentialsAreSent() {
+        coEvery { authService.authenticate(any(), any()) } returns mockk<AuthenticationResponse>()
+        val model = createModel()
+
+        model.login("admin", "secret")
+
+        coVerifyOrder {
+            rpcServiceManager.checkSslSupport()
+            authService.authenticate("admin", "secret")
+        }
+    }
+
+    @Test
+    fun openingTheLoginScreenRunsTheEncryptionCheckAndBlocksTheLoginUntilItEnded() {
+        coEvery { authService.authenticate(any(), any()) } returns mockk<AuthenticationResponse>()
+        val pending = CompletableDeferred<Boolean>()
+        encryptionCheck = { pending.await() }
+        val model = createModel()
+        assertFalse(model.encryptionCheckRunning.value)
+
+        model.checkEncryption()
+
+        assertTrue(model.encryptionCheckRunning.value)
+        coVerify(exactly = 1) { rpcServiceManager.checkSslSupport() }
+
+        model.login("admin", "secret")
+
+        assertEquals(LoginResult.Idle, model.loginResult.value)
+        coVerify(exactly = 0) { authService.authenticate(any(), any()) }
+
+        encryptionCheck = { true }
+        pending.complete(false)
+
+        assertFalse(model.encryptionCheckRunning.value)
+        coVerify(exactly = 0) { authService.authenticate(any(), any()) }
+
+        model.login("admin", "secret")
+
+        assertEquals(LoginResult.Success, model.loginResult.value)
+        coVerify(exactly = 1) { authService.authenticate("admin", "secret") }
     }
 
     @Test

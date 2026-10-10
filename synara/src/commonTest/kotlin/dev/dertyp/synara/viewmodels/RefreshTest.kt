@@ -1,9 +1,16 @@
 package dev.dertyp.synara.viewmodels
 
 import androidx.compose.ui.input.key.Key
+import dev.dertyp.logging.LogTag
+import dev.dertyp.logging.Logger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import org.koin.core.context.startKoin
+import org.koin.core.context.stopKoin
+import org.koin.dsl.module
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -18,6 +25,34 @@ class RefreshTest {
         override fun refresh() {
             count++
         }
+    }
+
+    private class RecordingLogger : Logger {
+        val errors = mutableListOf<Throwable?>()
+
+        override fun info(tag: LogTag, message: String, data: Any?) = Unit
+        override fun warning(tag: LogTag, message: String, data: Any?) = Unit
+        override fun error(tag: LogTag, message: String, throwable: Throwable?, data: Any?) {
+            errors += throwable
+        }
+        override fun crash(tag: LogTag, message: String, throwable: Throwable?, data: Any?) = Unit
+        override suspend fun infoSuspended(tag: LogTag, message: String, data: Any?) = Unit
+        override suspend fun warningSuspended(tag: LogTag, message: String, data: Any?) = Unit
+        override suspend fun errorSuspended(tag: LogTag, message: String, throwable: Throwable?, data: Any?) = Unit
+        override suspend fun crashSuspended(tag: LogTag, message: String, throwable: Throwable?, data: Any?) = Unit
+    }
+
+    private val logger = RecordingLogger()
+
+    @BeforeTest
+    fun startKoinWithLogger() {
+        stopKoin()
+        startKoin { modules(module { single<Logger> { this@RefreshTest.logger } }) }
+    }
+
+    @AfterTest
+    fun stopKoinAgain() {
+        stopKoin()
     }
 
     @Test
@@ -55,6 +90,29 @@ class RefreshTest {
         assertFalse(coalescer.isRefreshing.value)
         assertTrue(coalescer.refresh())
         assertEquals(2, runs)
+    }
+
+    @Test
+    fun aFailingRefreshIsLoggedAndClearsTheFlag() {
+        val failure = IllegalStateException("boom")
+        val coalescer = RefreshCoalescer(CoroutineScope(Dispatchers.Unconfined)) { throw failure }
+
+        assertTrue(coalescer.refresh())
+
+        assertEquals(listOf<Throwable?>(failure), logger.errors)
+        assertFalse(coalescer.isRefreshing.value)
+    }
+
+    @Test
+    fun aCancelledRefreshIsNotLogged() {
+        val scope = CoroutineScope(Dispatchers.Unconfined + Job())
+        val coalescer = RefreshCoalescer(scope) { awaitCancellation() }
+
+        assertTrue(coalescer.refresh())
+        scope.cancel()
+
+        assertTrue(logger.errors.isEmpty())
+        assertFalse(coalescer.isRefreshing.value)
     }
 
     @Test

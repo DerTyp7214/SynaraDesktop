@@ -28,6 +28,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import io.mockk.verifyOrder
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -39,6 +40,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import java.io.IOException
 import kotlin.test.AfterTest
@@ -81,10 +83,14 @@ class QueueSyncServiceTest {
     private val reachableFlow = MutableStateFlow(true)
     private val connectionFlow = MutableStateFlow(ConnectionState.Authenticated)
 
+    private var userId = "me"
+    private var host = "h"
+
     private val playerModel = mockk<PlayerModel>(relaxed = true)
     private val presenceService = mockk<PresenceService>(relaxed = true)
     private val clientRequestService = mockk<IClientRequestService>(relaxed = true)
     private val rpcServiceManager = mockk<RpcServiceManager>(relaxed = true)
+    private val logger = mockk<Logger>(relaxed = true)
 
     private data class AppliedQueue(val snapshot: QueueSnapshot, val keepCurrentQueueId: Long?)
 
@@ -120,6 +126,9 @@ class QueueSyncServiceTest {
         every { rpcServiceManager.isServerReachable } returns reachableFlow
         every { rpcServiceManager.connectionState } returns connectionFlow
         every { rpcServiceManager.sessionId } returns ownSession.toString()
+        every { rpcServiceManager.userId } answers { userId }
+        every { rpcServiceManager.host } answers { host }
+        every { rpcServiceManager.port } returns 1
 
         identity = DeviceIdentity(InMemorySettings())
         service = QueueSyncService(
@@ -131,7 +140,7 @@ class QueueSyncServiceTest {
             songCache = songCache,
             settings = settings,
             rpcServiceManager = rpcServiceManager,
-            logger = mockk<Logger>(relaxed = true),
+            logger = logger,
             dispatchers = TestDispatchers(dispatcher)
         )
     }
@@ -141,6 +150,55 @@ class QueueSyncServiceTest {
         ConfigFixture.resetToDefaults()
         stopTestKoin()
     }
+
+    private fun <T> offline(block: () -> T): T {
+        reachableFlow.value = false
+        scheduler.runCurrent()
+        val result = block()
+        reachableFlow.value = true
+        scheduler.runCurrent()
+        return result
+    }
+
+    private fun settle() {
+        scheduler.runCurrent()
+        scheduler.advanceTimeBy(10_000)
+        scheduler.runCurrent()
+    }
+
+    private fun collectEvents(scope: TestScope): List<QueueSyncEvent> {
+        val events = mutableListOf<QueueSyncEvent>()
+        scope.backgroundScope.launch { service.events.toList(events) }
+        scheduler.runCurrent()
+        return events
+    }
+
+    private fun insertedItem(entry: QueueEntry.FromSource) =
+        QueueItem(songId = entry.songId, queueId = entry.queueId, position = 0, shuffledPosition = null, userAdded = false)
+
+    private fun replayInsertsAtIndex(index: Int) {
+        every { playerModel.insertEntries(any(), any()) } answers {
+            emit(QueueChange.Inserted(firstArg(), secondArg(), index))
+        }
+    }
+
+    private fun applyRemoteQueueLikeThePlayer() {
+        every { playerModel.applyRemoteQueue(any(), any()) } answers {
+            val snapshot = firstArg<QueueSnapshot>()
+            val keep = secondArg<Long?>()
+            val kept = keep?.let { id -> snapshot.active.indexOfFirst { it.queueId == id } }?.takeIf { it >= 0 }
+            queueFlow.value = snapshot.active
+            indexFlow.value = when {
+                snapshot.active.isEmpty() -> -1
+                kept != null -> kept
+                else -> snapshot.currentIndex.coerceIn(0, snapshot.active.size - 1)
+            }
+            appliedQueues += AppliedQueue(snapshot, keep)
+        }
+    }
+
+    private fun remoteWithLocalEntries(entries: List<QueueEntry>, extraQueueId: Long = 900L): List<QueueItem> =
+        itemsOf(entries) + QueueItem(songId = randomPlatformUUID(), queueId = extraQueueId, position = entries.size)
 
     private fun localEntries(count: Int, firstQueueId: Long = 1L): List<QueueEntry> = List(count) { index ->
         if (index % 2 == 0) {
@@ -446,6 +504,744 @@ class QueueSyncServiceTest {
         assertNull(service.status.value.behindDevice)
         assertEquals(first.version, service.syncedVersionFlow.value)
         verify(exactly = 1) { playerModel.applyRemoteQueue(any(), any()) }
+    }
+
+    private fun dismissAForeignWriteWhilePlaying(remote: List<QueueItem>): QueueInfo {
+        playingFlow.value = true
+        val info = foreignWrite(remote)
+        scheduler.runCurrent()
+        assertEquals(info, service.pendingRemote.value)
+        service.dismissPendingRemote()
+        scheduler.runCurrent()
+        assertNull(service.pendingRemote.value)
+        return info
+    }
+
+    @Test
+    fun aLocalChangeAfterADismissedRemoteBannerDoesNotReplaceTheQueue() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        val remote = remoteItems(4)
+        val info = dismissAForeignWriteWhilePlaying(remote)
+
+        emit(QueueChange.CurrentChanged(entries[2].queueId, 2))
+        indexFlow.value = 2
+        settle()
+
+        assertEquals(listOf<Call>(Call.SetCurrentIndex(SYNCED, 2, false)), fake.callsOf<Call.Write>())
+        assertEquals(info, service.pendingConflict.value)
+        assertEquals(emptyList(), appliedQueues)
+        assertEquals(SYNCED, service.syncedVersionFlow.value)
+        assertEquals(remote.map { it.queueId }, fake.activeQueueIds)
+        assertEquals(info, fake.info)
+        assertNull(service.pendingRemote.value)
+    }
+
+    @Test
+    fun keepingLocalAtTheConflictAfterADismissUploadsAndEndsTheDismissal() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        dismissAForeignWriteWhilePlaying(remoteItems(4))
+        emit(QueueChange.CurrentChanged(entries[2].queueId, 2))
+        indexFlow.value = 2
+        localSnapshot = localSnapshot.copy(currentIndex = 2)
+        settle()
+        assertNotNull(service.pendingConflict.value)
+
+        service.resolveConflict(true)
+        settle()
+
+        assertNull(service.pendingConflict.value)
+        assertEquals(listOf(Call.BeginUpload(SYNCED, true)), fake.callsOf<Call.BeginUpload>())
+        assertEquals(entries.map { it.queueId }, fake.activeQueueIds)
+        assertEquals(2, fake.info.currentIndex)
+        assertEquals(fake.info.version, service.syncedVersionFlow.value)
+        assertEquals(emptyList(), appliedQueues)
+
+        playingFlow.value = false
+        val newer = remoteItems(2, 20_000L)
+        val later = foreignWrite(newer)
+        scheduler.runCurrent()
+
+        assertEquals(listOf(newer.map { it.queueId }), appliedQueueIds())
+        assertNull(service.pendingRemote.value)
+        assertNull(service.pendingConflict.value)
+        assertEquals(later.version, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun takingTheirsAtTheConflictAfterADismissPullsTheForeignQueue() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        val remote = remoteItems(4)
+        val info = dismissAForeignWriteWhilePlaying(remote)
+        emit(QueueChange.CurrentChanged(entries[2].queueId, 2))
+        indexFlow.value = 2
+        settle()
+        assertEquals(info, service.pendingConflict.value)
+
+        service.resolveConflict(false)
+        settle()
+
+        assertNull(service.pendingConflict.value)
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        assertEquals(listOf<Long?>(null), appliedQueues.map { it.keepCurrentQueueId })
+        assertEquals(emptyList(), fake.callsOf<Call.BeginUpload>())
+        assertEquals(listOf<Call>(Call.SetCurrentIndex(SYNCED, 2, false)), fake.callsOf<Call.Write>())
+        assertEquals(info.version, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun aNewerForeignWriteAfterADismissShowsTheBannerAgainInsteadOfPulling() = runTest(dispatcher) {
+        startSynced()
+        dismissAForeignWriteWhilePlaying(remoteItems(4))
+        playingFlow.value = false
+        val newer = remoteItems(2, 20_000L)
+
+        val later = foreignWrite(newer)
+        scheduler.runCurrent()
+
+        assertEquals(later, service.pendingRemote.value)
+        assertEquals(OTHER_DEVICE, service.status.value.behindDevice)
+        assertEquals(emptyList(), appliedQueues)
+        assertEquals(emptyList(), fake.callsOf<Call.GetQueue>())
+        assertEquals(SYNCED, service.syncedVersionFlow.value)
+
+        service.applyPendingRemote()
+        scheduler.runCurrent()
+
+        assertEquals(listOf(newer.map { it.queueId }), appliedQueueIds())
+        assertNull(service.pendingRemote.value)
+        assertEquals(later.version, service.syncedVersionFlow.value)
+
+        val third = foreignWrite(remoteItems(3, 30_000L))
+        scheduler.runCurrent()
+
+        assertEquals(2, appliedQueues.size)
+        assertNull(service.pendingRemote.value)
+        assertEquals(third.version, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun aDismissalHoldsAcrossAReconnect() = runTest(dispatcher) {
+        startSynced()
+        val info = dismissAForeignWriteWhilePlaying(remoteItems(4))
+        playingFlow.value = false
+
+        offline { }
+
+        assertEquals(info, service.pendingRemote.value)
+        assertEquals(emptyList(), appliedQueues)
+        assertEquals(emptyList(), fake.callsOf<Call.Write>())
+        assertEquals(SYNCED, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun aDismissedBannerDoesNotStopTheControllerFromWinning() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        val remote = remoteItems(4)
+        val info = dismissAForeignWriteWhilePlaying(remote)
+        controlledFlow.value = true
+
+        emit(QueueChange.CurrentChanged(entries[2].queueId, 2))
+        indexFlow.value = 2
+        settle()
+
+        assertNull(service.pendingConflict.value)
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        assertEquals(listOf<Long?>(entries[2].queueId), appliedQueues.map { it.keepCurrentQueueId })
+        verify(exactly = 1) { playerModel.skipToQueueId(entries[2].queueId) }
+        assertEquals(info.version, service.syncedVersionFlow.value)
+        verify(exactly = 1) { logger.warning(any(), any(), any()) }
+    }
+
+    @Test
+    fun aPullInsideTheDebounceWindowDoesNotStopTheWorker() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        every { playerModel.skipToQueueId(any()) } answers {
+            emit(QueueChange.CurrentChanged(firstArg(), indexFlow.value))
+            true
+        }
+        emit(QueueChange.CurrentChanged(entries[1].queueId, 1))
+        scheduler.runCurrent()
+        scheduler.advanceTimeBy(100)
+        val remote = remoteItems(2)
+
+        val info = foreignWrite(remote)
+        scheduler.runCurrent()
+
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        settle()
+        assertEquals(listOf<Call>(Call.SetCurrentIndex(info.version, 1, false)), fake.callsOf<Call.Write>())
+
+        emit(QueueChange.Removed(listOf(entries[2].queueId)))
+        settle()
+
+        assertEquals(
+            listOf(
+                Call.SetCurrentIndex(info.version, 1, false),
+                Call.Remove(info.version + 1, listOf(entries[2].queueId), false)
+            ),
+            fake.callsOf<Call.Write>()
+        )
+        assertEquals(info.version + 2, service.syncedVersionFlow.value)
+        assertFalse(service.status.value.uploadPending)
+    }
+
+    @Test
+    fun aReplacedBehindAPendingCurrentChangeMeetingAForeignWriteAsksInsteadOfMerging() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        val remote = remoteItems(2)
+
+        val info = offline {
+            emit(QueueChange.CurrentChanged(entries[2].queueId, 2))
+            indexFlow.value = 2
+            emit(QueueChange.Replaced)
+            settle()
+            foreignWrite(remote, notify = false)
+        }
+        settle()
+
+        assertEquals(listOf<Call>(Call.SetCurrentIndex(SYNCED, 2, false)), fake.callsOf<Call.Write>())
+        assertEquals(info, service.pendingConflict.value)
+        assertEquals(emptyList(), appliedQueues)
+        assertEquals(remote.map { it.queueId }, fake.activeQueueIds)
+
+        service.resolveConflict(true)
+        settle()
+
+        assertNull(service.pendingConflict.value)
+        assertEquals(listOf(Call.BeginUpload(SYNCED, true)), fake.callsOf<Call.BeginUpload>())
+        assertEquals(entries.map { it.queueId }, fake.activeQueueIds)
+        assertEquals(emptyList(), appliedQueues)
+        assertEquals(fake.info.version, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun aReplacedBehindAPendingCurrentChangeMeetingAForeignWriteWhileControlledIsDroppedWithALog() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        controlledFlow.value = true
+        val remote = remoteItems(2)
+
+        val info = offline {
+            emit(QueueChange.CurrentChanged(entries[2].queueId, 2))
+            indexFlow.value = 2
+            emit(QueueChange.Replaced)
+            settle()
+            foreignWrite(remote, notify = false)
+        }
+        settle()
+
+        assertEquals(listOf<Call>(Call.SetCurrentIndex(SYNCED, 2, false)), fake.callsOf<Call.Write>())
+        assertNull(service.pendingConflict.value)
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        assertEquals(listOf<Long?>(entries[2].queueId), appliedQueues.map { it.keepCurrentQueueId })
+        assertEquals(emptyList(), fake.callsOf<Call.BeginUpload>())
+        assertEquals(info.version, service.syncedVersionFlow.value)
+        verify(exactly = 1) { logger.warning(any(), any(), any()) }
+    }
+
+    @Test
+    fun onlyTheLatestCurrentChangeIsReplayedAndOnlyAsAnIndexAnnouncement() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        val inserted = QueueEntry.FromSource(randomPlatformUUID(), 301L)
+        val remote = itemsOf(entries) + QueueItem(songId = randomPlatformUUID(), queueId = 900L, position = entries.size)
+
+        val info = offline {
+            emit(QueueChange.CurrentChanged(entries[1].queueId, 1))
+            emit(QueueChange.Inserted(Anchor.AFTER_CURRENT, listOf(inserted), 2))
+            emit(QueueChange.CurrentChanged(entries[2].queueId, 2))
+            indexFlow.value = 2
+            settle()
+            foreignWrite(remote, notify = false)
+        }
+        settle()
+
+        assertEquals(listOf<Call>(Call.SetCurrentIndex(SYNCED, 1, false)), fake.callsOf<Call.Write>())
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        assertEquals(listOf<Long?>(entries[2].queueId), appliedQueues.map { it.keepCurrentQueueId })
+        verify(exactly = 1) { playerModel.insertEntries(Anchor.AFTER_CURRENT, listOf(inserted)) }
+        verify(exactly = 0) { playerModel.skipToQueueId(entries[1].queueId) }
+        verify(exactly = 1) { playerModel.skipToQueueId(entries[2].queueId) }
+        verify(exactly = 0) { playerModel.playAtIndex(any(), any()) }
+        assertEquals(info.version, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun aParkedCurrentChangeDoesNotMoveTheTrackWhenAForeignQueueIsPulledWhilePaused() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        fake.onCall = { call -> if (call is Call.SetCurrentIndex) throw IOException("write failed") }
+        emit(QueueChange.CurrentChanged(entries[2].queueId, 2))
+        indexFlow.value = 2
+        settle()
+        assertTrue(service.status.value.uploadPending)
+        fake.onCall = {}
+        applyRemoteQueueLikeThePlayer()
+        val remote = remoteItems(3)
+
+        val info = foreignWrite(remote)
+        settle()
+
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        verify(exactly = 0) { playerModel.skipToQueueId(any()) }
+        verify(exactly = 0) { playerModel.playAtIndex(any(), any()) }
+        assertEquals(listOf<Call>(Call.SetCurrentIndex(SYNCED, 2, false)), fake.callsOf<Call.Write>())
+        assertEquals(info.version, service.syncedVersionFlow.value)
+        assertFalse(service.status.value.uploadPending)
+    }
+
+    @Test
+    fun anOwnEchoAtTheNextVersionRetiresTheParkedWriteInsteadOfRetryingIt() = runTest(dispatcher) {
+        val entries = startSynced()
+        val change = insertChange(200L)
+        fake.onCall = { call ->
+            if (call is Call.Insert) {
+                fake.store(itemsOf(change.entries + entries), version = SYNCED + 1, notify = true)
+                throw IOException("response lost")
+            }
+        }
+
+        emit(change)
+        scheduler.runCurrent()
+        fake.onCall = {}
+
+        assertEquals(SYNCED + 1, service.syncedVersionFlow.value)
+        assertFalse(service.status.value.uploadPending)
+
+        emit(QueueChange.Removed(listOf(entries[2].queueId)))
+        settle()
+
+        assertEquals(
+            listOf(
+                Call.Insert(SYNCED, 0, itemsOf(change.entries), false),
+                Call.Remove(SYNCED + 1, listOf(entries[2].queueId), false)
+            ),
+            fake.callsOf<Call.Write>()
+        )
+        assertEquals(listOf(200L, entries[0].queueId, entries[1].queueId), fake.activeQueueIds)
+        assertEquals(SYNCED + 2, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun aWriteTheServerRejectsIsReplacedByAnUnforcedFullUpload() = runTest(dispatcher) {
+        val entries = startSynced()
+
+        emit(insertChange(entries[0].queueId))
+        scheduler.runCurrent()
+
+        assertEquals(1, fake.callsOf<Call.Insert>().size)
+        assertEquals(listOf(Call.BeginUpload(SYNCED, false)), fake.callsOf<Call.BeginUpload>())
+        assertEquals(1, fake.callsOf<Call.CommitUpload>().size)
+        assertEquals(entries.map { it.queueId }, fake.activeQueueIds)
+        assertEquals(SYNCED + 1, service.syncedVersionFlow.value)
+        assertFalse(service.status.value.uploadPending)
+        verify(exactly = 1) { logger.warning(any(), any(), any()) }
+
+        emit(QueueChange.Removed(listOf(entries[2].queueId)))
+        settle()
+
+        assertEquals(listOf(Call.Remove(SYNCED + 1, listOf(entries[2].queueId), false)), fake.callsOf<Call.Remove>())
+        assertEquals(SYNCED + 2, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun aChangeForwardedAfterTheSnapshotOfAFullUploadIsNotPushedAgain() = runTest(dispatcher) {
+        startSynced()
+        emit(QueueChange.Replaced)
+        serial.value++
+        scheduler.runCurrent()
+        assertEquals(1, fake.callsOf<Call.CommitUpload>().size)
+
+        assertTrue(changes.tryEmit(insertChange(200L)))
+        settle()
+
+        assertEquals(emptyList(), fake.callsOf<Call.Insert>())
+        assertEquals(SYNCED + 1, service.syncedVersionFlow.value)
+        assertEquals(SYNCED + 1, service.awaitFlushed(1.seconds))
+    }
+
+    @Test
+    fun aPullWaitsForAChangeEmittedButNotYetForwardedAndReplaysIt() = runTest(dispatcher) {
+        startSynced()
+        val change = insertChange(200L)
+        val remote = remoteItems(2)
+        serial.value++
+
+        val info = foreignWrite(remote)
+        scheduler.runCurrent()
+        assertEquals(emptyList(), appliedQueues)
+        assertEquals(1, fake.callsOf<Call.GetQueue>().size)
+
+        assertTrue(changes.tryEmit(change))
+        scheduler.runCurrent()
+
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        verify(exactly = 1) { playerModel.insertEntries(Anchor.END, change.entries) }
+        assertEquals(info.version, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun aSessionCancelledDuringAnOfflineAlbumUploadRetriesItAfterTheReconnect() = runTest(dispatcher) {
+        val entries = startSynced()
+        val gate = CompletableDeferred<Unit>()
+        fake.onCall = { call -> if (call is Call.UploadPage) gate.await() }
+        emit(QueueChange.Replaced)
+        scheduler.runCurrent()
+        assertEquals(1, fake.callsOf<Call.BeginUpload>().size)
+
+        reachableFlow.value = false
+        scheduler.runCurrent()
+        assertTrue(service.status.value.uploadPending)
+        assertEquals(emptyList(), fake.callsOf<Call.CommitUpload>())
+
+        fake.onCall = {}
+        reachableFlow.value = true
+        settle()
+
+        assertEquals(
+            listOf(Call.BeginUpload(SYNCED, false), Call.BeginUpload(SYNCED, false)),
+            fake.callsOf<Call.BeginUpload>()
+        )
+        assertEquals(1, fake.callsOf<Call.CommitUpload>().size)
+        assertEquals(entries.map { it.queueId }, fake.activeQueueIds)
+        assertEquals(SYNCED + 1, service.syncedVersionFlow.value)
+        assertFalse(service.status.value.uploadPending)
+    }
+
+    @Test
+    fun aKeepLocalAnswerThatFailsWithTheConnectionIsAskedAgainInsteadOfPulled() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        raiseConflictPrompt(entries[1].queueId)
+        val appliedBefore = appliedQueues.size
+        fake.onCall = { call ->
+            if (call is Call.BeginUpload) {
+                reachableFlow.value = false
+                throw IOException("connection lost")
+            }
+        }
+
+        service.resolveConflict(true)
+        settle()
+        assertNull(service.pendingConflict.value)
+        assertTrue(service.status.value.uploadPending)
+
+        fake.onCall = {}
+        reachableFlow.value = true
+        settle()
+
+        assertEquals(fake.info, service.pendingConflict.value)
+        assertEquals(appliedBefore, appliedQueues.size)
+        assertEquals(emptyList(), fake.callsOf<Call.CommitUpload>())
+    }
+
+    @Test
+    fun anOwnLostWriteFollowedByALaterLocalChangeKeepsBoth() = runTest(dispatcher) {
+        val entries = startSynced()
+        val change = insertChange(200L)
+        fake.onCall = { call ->
+            if (call is Call.Insert) {
+                fake.store(itemsOf(change.entries + entries), version = SYNCED + 1)
+                throw IOException("response lost")
+            }
+        }
+        emit(change)
+        scheduler.runCurrent()
+        fake.onCall = {}
+
+        emit(QueueChange.Removed(listOf(entries[2].queueId)))
+        settle()
+
+        val insert = Call.Insert(SYNCED, 0, itemsOf(change.entries), false)
+        assertEquals(
+            listOf(insert, insert, Call.Remove(SYNCED + 1, listOf(entries[2].queueId), false)),
+            fake.callsOf<Call.Write>()
+        )
+        verify(exactly = 0) { playerModel.applyRemoteQueue(any(), any()) }
+        assertEquals(listOf(200L, entries[0].queueId, entries[1].queueId), fake.activeQueueIds)
+        assertEquals(SYNCED + 2, service.syncedVersionFlow.value)
+        assertFalse(service.status.value.uploadPending)
+    }
+
+    @Test
+    fun aReplacedEmittedWhileAPullFetchesAsksInsteadOfApplying() = runTest(dispatcher) {
+        val entries = startSynced()
+        var emitted = false
+        fake.onCall = { call ->
+            if (call is Call.GetQueue && !emitted) {
+                emitted = true
+                emit(QueueChange.Replaced)
+            }
+        }
+
+        val info = foreignWrite(remoteItems(2))
+        settle()
+
+        assertEquals(info, service.pendingConflict.value)
+        assertEquals(emptyList(), appliedQueues)
+        assertEquals(emptyList(), fake.callsOf<Call.Write>())
+        assertEquals(SYNCED, service.syncedVersionFlow.value)
+
+        service.resolveConflict(true)
+        settle()
+
+        assertEquals(listOf(Call.BeginUpload(SYNCED, true)), fake.callsOf<Call.BeginUpload>())
+        assertEquals(entries.map { it.queueId }, fake.activeQueueIds)
+        assertEquals(emptyList(), appliedQueues)
+    }
+
+    @Test
+    fun aReplacedEmittedWhileAPullFetchesWhileControlledIsDroppedWithALog() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        controlledFlow.value = true
+        var emitted = false
+        fake.onCall = { call ->
+            if (call is Call.GetQueue && !emitted) {
+                emitted = true
+                emit(QueueChange.Replaced)
+            }
+        }
+        val remote = remoteItems(2)
+
+        val info = foreignWrite(remote)
+        settle()
+
+        assertNull(service.pendingConflict.value)
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        assertEquals(listOf<Long?>(entries[1].queueId), appliedQueues.map { it.keepCurrentQueueId })
+        assertEquals(emptyList(), fake.callsOf<Call.Write>())
+        assertEquals(info.version, service.syncedVersionFlow.value)
+        verify(exactly = 1) { logger.warning(any(), any(), any()) }
+    }
+
+    @Test
+    fun anInsertAlreadyOnTheServerIsNotReplayedOntoAForeignQueueAgain() = runTest(dispatcher) {
+        val entries = startSynced()
+        val change = insertChange(200L)
+        fake.onCall = { call ->
+            if (call is Call.Insert) {
+                fake.store(itemsOf(change.entries + entries), version = SYNCED + 1)
+                throw IOException("response lost")
+            }
+        }
+        emit(change)
+        scheduler.runCurrent()
+        fake.onCall = {}
+        val remote = remoteWithLocalEntries(change.entries + entries)
+
+        val info = offline { foreignWrite(remote, notify = false) }
+
+        assertEquals(2, fake.callsOf<Call.Insert>().size)
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        verify(exactly = 0) { playerModel.insertEntries(any(), any()) }
+        verify(exactly = 0) { playerModel.reassignQueueIds(any(), any()) }
+        assertEquals(remote.map { it.queueId }, fake.activeQueueIds)
+        assertEquals(info.version, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun aRejectedFullUploadDoesNotBlockALaterChange() = runTest(dispatcher) {
+        val entries = startSynced()
+        var evicted = false
+        fake.onCall = { call ->
+            if (call is Call.UploadPage && !evicted) {
+                evicted = true
+                throw IllegalStateException("Unknown upload")
+            }
+        }
+        emit(QueueChange.Replaced)
+        scheduler.runCurrent()
+        assertTrue(service.status.value.uploadPending)
+        assertEquals(emptyList(), fake.callsOf<Call.CommitUpload>())
+
+        emit(QueueChange.Removed(listOf(entries[2].queueId)))
+        settle()
+
+        assertEquals(2, fake.callsOf<Call.BeginUpload>().size)
+        assertEquals(1, fake.callsOf<Call.CommitUpload>().size)
+        assertEquals(emptyList(), fake.callsOf<Call.Remove>())
+        assertEquals(entries.map { it.queueId }, fake.activeQueueIds)
+        assertEquals(SYNCED + 1, service.syncedVersionFlow.value)
+        assertFalse(service.status.value.uploadPending)
+    }
+
+    @Test
+    fun aLaterLocalChangeRetriesAParkedWrite() = runTest(dispatcher) {
+        val entries = startSynced()
+        fake.onCall = { call -> if (call is Call.Insert) throw IOException("insert failed") }
+        val change = insertChange(200L)
+        emit(change)
+        scheduler.runCurrent()
+        assertTrue(service.status.value.uploadPending)
+        fake.onCall = {}
+
+        emit(QueueChange.Removed(listOf(entries[2].queueId)))
+        settle()
+
+        val insert = Call.Insert(SYNCED, 0, itemsOf(change.entries), false)
+        assertEquals(
+            listOf(insert, insert, Call.Remove(SYNCED + 1, listOf(entries[2].queueId), false)),
+            fake.callsOf<Call.Write>()
+        )
+        assertEquals(SYNCED + 2, service.syncedVersionFlow.value)
+        assertFalse(service.status.value.uploadPending)
+    }
+
+    @Test
+    fun aSessionCancelledWhileTheEnableChoiceIsOpenClosesItAndAsksAgainOnReconnect() = runTest(dispatcher) {
+        localQueue(localEntries(3))
+        val info = foreignWrite(remoteItems(4), notify = false)
+        service.start()
+        scheduler.runCurrent()
+        assertEquals(info, service.pendingEnableChoice.value)
+
+        reachableFlow.value = false
+        scheduler.runCurrent()
+        assertNull(service.pendingEnableChoice.value)
+
+        reachableFlow.value = true
+        scheduler.runCurrent()
+        assertEquals(info, service.pendingEnableChoice.value)
+
+        service.resolveEnableChoice(false)
+        settle()
+
+        assertEquals(listOf(Call.BeginUpload(0L, true)), fake.callsOf<Call.BeginUpload>())
+        assertNull(service.pendingEnableChoice.value)
+    }
+
+    @Test
+    fun aRepeatOnlyChangeReplayedOntoAShuffledForeignQueueKeepsTheirShuffle() = runTest(dispatcher) {
+        startSynced()
+        val remote = remoteItems(3).mapIndexed { index, item -> item.copy(shuffledPosition = 2 - index) }
+
+        val info = offline {
+            emit(QueueChange.ModesChanged(false, RepeatMode.ALL))
+            settle()
+            foreignWrite(remote, notify = false, shuffled = true)
+        }
+
+        assertEquals(listOf<Call>(Call.SetModes(SYNCED, false, RepeatMode.ALL, false)), fake.callsOf<Call.Write>())
+        assertEquals(1, appliedQueues.size)
+        assertTrue(appliedQueues.single().snapshot.shuffle)
+        verify(exactly = 1) { playerModel.setRepeatMode(RepeatMode.ALL) }
+        verify(exactly = 0) { playerModel.setShuffleMode(any()) }
+        assertEquals(info.version, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun aReadFailureDuringARebaseKeepsTheChangeAndDoesNotMarkTheQueueDirty() = runTest(dispatcher) {
+        val entries = startSynced()
+        val change = insertChange(200L)
+        val remote = remoteItems(2)
+        val info = foreignWrite(remote, notify = false)
+        fake.onCall = { call -> if (call is Call.GetQueue) throw IllegalStateException("read failed") }
+
+        emit(change)
+        scheduler.runCurrent()
+
+        assertEquals(1, fake.callsOf<Call.Insert>().size)
+        assertFalse(service.status.value.uploadPending)
+        assertFalse(settings.get(SettingKey.QueueSyncDirty, false))
+        assertEquals(emptyList(), fake.callsOf<Call.BeginUpload>())
+        verify(exactly = 0) { logger.warning(any(), any(), any()) }
+        assertEquals(SYNCED, service.syncedVersionFlow.value)
+
+        fake.onCall = {}
+        emit(QueueChange.Removed(listOf(entries[2].queueId)))
+        settle()
+
+        assertEquals(2, fake.callsOf<Call.Insert>().size)
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        verify(exactly = 1) { playerModel.insertEntries(Anchor.END, change.entries) }
+        verify(exactly = 1) { playerModel.removeByQueueIds(listOf(entries[2].queueId)) }
+        assertEquals(info.version, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun changesMadeWhileLoggedOutAreNotReplayedIntoTheNextSession() = runTest(dispatcher) {
+        prepareSynced()
+        connectionFlow.value = ConnectionState.LoginRequired
+        service.start()
+        scheduler.runCurrent()
+        emit(insertChange(200L))
+        settle()
+
+        connectionFlow.value = ConnectionState.Authenticated
+        settle()
+
+        assertEquals(emptyList(), fake.callsOf<Call.Write>())
+        assertEquals(SYNCED, service.syncedVersionFlow.value)
+        assertEquals(1, fake.callsOf<Call.GetQueueInfo>().size)
+    }
+
+    @Test
+    fun keepingLocalInTheConflictPromptClearsAStaleBanner() = runTest(dispatcher) {
+        startSynced()
+        playingFlow.value = true
+        val info = foreignWrite(remoteItems(2))
+        scheduler.runCurrent()
+        assertEquals(info, service.pendingRemote.value)
+
+        emit(QueueChange.Replaced)
+        settle()
+        assertEquals(info, service.pendingConflict.value)
+
+        service.resolveConflict(true)
+        settle()
+
+        assertNull(service.pendingConflict.value)
+        assertNull(service.pendingRemote.value)
+        assertNull(service.status.value.behindDevice)
+        assertEquals(listOf(Call.BeginUpload(SYNCED, false), Call.BeginUpload(SYNCED, true)), fake.callsOf<Call.BeginUpload>())
+    }
+
+    @Test
+    fun ensureVersionIsFalseWhileAPromptIsOpenAndDoesNotPull() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        raiseConflictPrompt(entries[1].queueId)
+        val appliedBefore = appliedQueues.size
+        val startedAt = scheduler.currentTime
+
+        assertFalse(service.ensureVersion(fake.info.version, 1.seconds))
+
+        assertEquals(startedAt, scheduler.currentTime)
+        assertEquals(appliedBefore, appliedQueues.size)
+        assertNotNull(service.pendingConflict.value)
+    }
+
+    @Test
+    fun ensureVersionWithAPendingReplacedWhileControlledDropsItWithALog() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        controlledFlow.value = true
+        fake.onCall = { call -> if (call is Call.UploadPage) throw IOException("page failed") }
+        emit(QueueChange.Replaced)
+        scheduler.runCurrent()
+        fake.onCall = {}
+        val remote = remoteItems(2)
+        val info = foreignWrite(remote, notify = false)
+
+        assertTrue(service.ensureVersion(info.version, 1.seconds))
+
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        assertEquals(listOf<Long?>(entries[1].queueId), appliedQueues.map { it.keepCurrentQueueId })
+        assertEquals(1, fake.callsOf<Call.BeginUpload>().size)
+        assertEquals(info.version, service.syncedVersionFlow.value)
+        verify(exactly = 1) { logger.warning(any(), any(), any()) }
+    }
+
+    @Test
+    fun aNewerForeignWriteAfterADismissWhileControlledIsPulledAndLogged() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        dismissAForeignWriteWhilePlaying(remoteItems(4))
+        controlledFlow.value = true
+        val newer = remoteItems(2, 20_000L)
+
+        val later = foreignWrite(newer)
+        scheduler.runCurrent()
+
+        assertEquals(listOf(newer.map { it.queueId }), appliedQueueIds())
+        assertEquals(listOf<Long?>(entries[1].queueId), appliedQueues.map { it.keepCurrentQueueId })
+        assertNull(service.pendingRemote.value)
+        assertNull(service.pendingConflict.value)
+        assertEquals(later.version, service.syncedVersionFlow.value)
+        verify(exactly = 1) { logger.warning(any(), any(), any()) }
     }
 
     @Test
@@ -765,27 +1561,166 @@ class QueueSyncServiceTest {
     }
 
     @Test
-    fun failedWriteMarksTheQueueDirtyAndTheNextChangeForcesAFullUpload() = runTest(dispatcher) {
+    fun failedWriteIsSentAgainAfterTheReconnect() = runTest(dispatcher) {
         val entries = startSynced()
-        fake.onCall = { call -> if (call is Call.Insert) throw IOException("insert failed") }
+        fake.onCall = { call ->
+            if (call is Call.Insert) {
+                reachableFlow.value = false
+                throw IOException("connection lost")
+            }
+        }
+        val change = insertChange(200L)
 
-        emit(insertChange(200L))
+        emit(change)
         scheduler.runCurrent()
 
         assertTrue(service.status.value.uploadPending)
         assertTrue(settings.get(SettingKey.QueueSyncDirty, false))
         assertEquals(SYNCED, service.syncedVersionFlow.value)
+        assertEquals(1, fake.callsOf<Call.Write>().size)
 
         fake.onCall = {}
         emit(QueueChange.Removed(listOf(entries[2].queueId)))
-        scheduler.runCurrent()
+        settle()
+        assertEquals(1, fake.callsOf<Call.Write>().size)
+        assertTrue(service.status.value.uploadPending)
 
-        assertEquals(listOf(Call.BeginUpload(SYNCED, true)), fake.callsOf<Call.BeginUpload>())
-        assertEquals(1, fake.callsOf<Call.CommitUpload>().size)
-        assertEquals(emptyList(), fake.callsOf<Call.Remove>())
+        reachableFlow.value = true
+        settle()
+
+        val insert = Call.Insert(SYNCED, 0, itemsOf(change.entries), false)
+        assertEquals(
+            listOf(insert, insert, Call.Remove(SYNCED + 1, listOf(entries[2].queueId), false)),
+            fake.callsOf<Call.Write>()
+        )
+        assertEquals(listOf(200L, entries[0].queueId, entries[1].queueId), fake.activeQueueIds)
         assertFalse(service.status.value.uploadPending)
         assertFalse(settings.get(SettingKey.QueueSyncDirty, true))
+        assertEquals(SYNCED + 2, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun failedWriteMeetingAForeignWriteAtTheReconnectIsMergedInsteadOfForced() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        val events = collectEvents(this)
+        fake.onCall = { call -> if (call is Call.Insert) throw IOException("insert failed") }
+        val inserted = QueueEntry.FromSource(randomPlatformUUID(), 301L)
+        replayInsertsAtIndex(3)
+
+        emit(QueueChange.Inserted(Anchor.AFTER_CURRENT, listOf(inserted), 2))
+        scheduler.runCurrent()
+        assertTrue(service.status.value.uploadPending)
+        fake.onCall = {}
+        val remote = remoteItems(4)
+        val info = offline { foreignWrite(remote, notify = false) }
+
+        val item = insertedItem(inserted)
+        assertEquals(
+            listOf(
+                Call.Insert(SYNCED, 2, listOf(item), false),
+                Call.Insert(SYNCED, 2, listOf(item), false),
+                Call.Insert(info.version, 3, listOf(item), false)
+            ),
+            fake.callsOf<Call.Insert>()
+        )
+        assertEquals(emptyList(), fake.callsOf<Call.BeginUpload>())
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        assertEquals(listOf<Long?>(entries[1].queueId), appliedQueues.map { it.keepCurrentQueueId })
+        assertEquals(listOf<QueueSyncEvent>(QueueSyncEvent.Merged(OTHER_DEVICE)), events)
+        assertEquals(remote.take(3).map { it.queueId } + 301L + remote.drop(3).map { it.queueId }, fake.activeQueueIds)
+        assertEquals(info.version + 1, service.syncedVersionFlow.value)
+        assertFalse(service.status.value.uploadPending)
+        assertFalse(settings.get(SettingKey.QueueSyncDirty, true))
+        assertNull(service.pendingConflict.value)
+    }
+
+    @Test
+    fun aForeignWriteAfterAFailedWriteResumesTheWorkerThroughTheMerge() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        val events = collectEvents(this)
+        fake.onCall = { call -> if (call is Call.Insert) throw IOException("insert failed") }
+        val inserted = QueueEntry.FromSource(randomPlatformUUID(), 301L)
+        replayInsertsAtIndex(3)
+        emit(QueueChange.Inserted(Anchor.AFTER_CURRENT, listOf(inserted), 2))
+        scheduler.runCurrent()
+        fake.onCall = {}
+        val remote = remoteItems(4)
+
+        val info = foreignWrite(remote)
+        scheduler.runCurrent()
+
+        val item = insertedItem(inserted)
+        assertEquals(
+            listOf(Call.Insert(SYNCED, 2, listOf(item), false), Call.Insert(info.version, 3, listOf(item), false)),
+            fake.callsOf<Call.Insert>()
+        )
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        assertEquals(listOf<Long?>(null), appliedQueues.map { it.keepCurrentQueueId })
+        assertEquals(listOf<QueueSyncEvent>(QueueSyncEvent.Merged(OTHER_DEVICE)), events)
+        assertEquals(remote.take(3).map { it.queueId } + 301L + remote.drop(3).map { it.queueId }, fake.activeQueueIds)
+        assertEquals(info.version + 1, service.syncedVersionFlow.value)
+        assertFalse(service.status.value.uploadPending)
+    }
+
+    @Test
+    fun applyingTheRemoteQueueWhileAFailedInsertIsPendingMergesTheInsert() = runTest(dispatcher) {
+        startSynced()
+        playingFlow.value = true
+        fake.onCall = { call -> if (call is Call.Insert) throw IOException("insert failed") }
+        val inserted = QueueEntry.FromSource(randomPlatformUUID(), 301L)
+        replayInsertsAtIndex(1)
+        emit(QueueChange.Inserted(Anchor.AFTER_CURRENT, listOf(inserted), 1))
+        scheduler.runCurrent()
+        fake.onCall = {}
+        val remote = remoteItems(4)
+        val info = foreignWrite(remote)
+        scheduler.runCurrent()
+        assertEquals(info, service.pendingRemote.value)
+        assertEquals(1, fake.callsOf<Call.Insert>().size)
+
+        service.applyPendingRemote()
+        scheduler.runCurrent()
+
+        val item = insertedItem(inserted)
+        assertEquals(
+            listOf(Call.Insert(SYNCED, 1, listOf(item), false), Call.Insert(info.version, 1, listOf(item), false)),
+            fake.callsOf<Call.Insert>()
+        )
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        assertEquals(remote.take(1).map { it.queueId } + 301L + remote.drop(1).map { it.queueId }, fake.activeQueueIds)
+        assertNull(service.pendingRemote.value)
+        assertEquals(info.version + 1, service.syncedVersionFlow.value)
+        assertFalse(service.status.value.uploadPending)
+    }
+
+    @Test
+    fun aWriteWhoseResponseWasLostIsNotAppliedTwiceAfterTheReconnect() = runTest(dispatcher) {
+        val entries = startSynced()
+        val events = collectEvents(this)
+        val change = insertChange(200L)
+        fake.onCall = { call ->
+            if (call is Call.Insert) {
+                fake.store(itemsOf(change.entries + entries), version = SYNCED + 1)
+                throw IOException("response lost")
+            }
+        }
+
+        emit(change)
+        scheduler.runCurrent()
+        assertTrue(service.status.value.uploadPending)
+        fake.onCall = {}
+
+        offline { }
+
+        val insert = Call.Insert(SYNCED, 0, itemsOf(change.entries), false)
+        assertEquals(listOf<Call>(insert, insert), fake.callsOf<Call.Write>())
+        assertEquals(emptyList(), appliedQueues)
+        assertEquals(listOf(200L) + entries.map { it.queueId }, fake.activeQueueIds)
+        verify(exactly = 0) { playerModel.insertEntries(any(), any()) }
+        assertEquals(emptyList(), events)
         assertEquals(SYNCED + 1, service.syncedVersionFlow.value)
+        assertEquals(SYNCED + 1, fake.info.version)
+        assertFalse(service.status.value.uploadPending)
     }
 
     @Test
@@ -838,20 +1773,133 @@ class QueueSyncServiceTest {
     }
 
     @Test
-    fun replacedQueueThatConflictsAtBeginIsUploadedAgainWithForce() = runTest(dispatcher) {
+    fun replacedQueueThatMeetsAForeignWriteAsksTheUserAndKeepingLocalForcesTheUpload() = runTest(dispatcher) {
+        val entries = startSynced()
+        val info = foreignWrite(remoteItems(2), notify = false)
+
+        emit(QueueChange.Replaced)
+        settle()
+
+        assertEquals(listOf(Call.BeginUpload(SYNCED, false)), fake.callsOf<Call.BeginUpload>())
+        assertEquals(emptyList(), fake.callsOf<Call.CommitUpload>())
+        assertEquals(info, service.pendingConflict.value)
+        assertEquals(info, fake.info)
+        assertEquals(SYNCED, service.syncedVersionFlow.value)
+        verify(exactly = 0) { playerModel.applyRemoteQueue(any(), any()) }
+
+        service.resolveConflict(true)
+        settle()
+
+        assertNull(service.pendingConflict.value)
+        assertEquals(
+            listOf(Call.BeginUpload(SYNCED, false), Call.BeginUpload(SYNCED, true)),
+            fake.callsOf<Call.BeginUpload>()
+        )
+        assertEquals(1, fake.callsOf<Call.CommitUpload>().size)
+        assertEquals(entries.map { it.queueId }, fake.activeQueueIds)
+        assertEquals(info.version + 1, service.syncedVersionFlow.value)
+        verify(exactly = 0) { playerModel.applyRemoteQueue(any(), any()) }
+    }
+
+    @Test
+    fun replacedQueueThatMeetsAForeignWriteAndDroppingLocalPullsTheForeignQueue() = runTest(dispatcher) {
         startSynced()
-        foreignWrite(remoteItems(2), notify = false)
+        val remote = remoteItems(2)
+        val info = foreignWrite(remote, notify = false)
+
+        emit(QueueChange.Replaced)
+        settle()
+        assertEquals(info, service.pendingConflict.value)
+
+        service.resolveConflict(false)
+        settle()
+
+        assertNull(service.pendingConflict.value)
+        assertEquals(listOf(Call.BeginUpload(SYNCED, false)), fake.callsOf<Call.BeginUpload>())
+        assertEquals(emptyList(), fake.callsOf<Call.CommitUpload>())
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        assertEquals(remote.map { it.queueId }, fake.activeQueueIds)
+        assertEquals(info.version, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun replacedQueueWhileControlledThatMeetsAForeignWriteIsDroppedForTheForeignQueueAndLogged() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        controlledFlow.value = true
+        val remote = remoteItems(2)
+        val info = foreignWrite(remote, notify = false)
+
+        emit(QueueChange.Replaced)
+        settle()
+
+        assertEquals(listOf(Call.BeginUpload(SYNCED, false)), fake.callsOf<Call.BeginUpload>())
+        assertEquals(emptyList(), fake.callsOf<Call.CommitUpload>())
+        assertNull(service.pendingConflict.value)
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        assertEquals(listOf<Long?>(entries[1].queueId), appliedQueues.map { it.keepCurrentQueueId })
+        assertEquals(remote.map { it.queueId }, fake.activeQueueIds)
+        assertEquals(info.version, service.syncedVersionFlow.value)
+        verify(exactly = 1) { logger.warning(any(), any(), any()) }
+    }
+
+    @Test
+    fun replacedQueueWhoseCommitResponseWasLostIsNotTreatedAsAConflict() = runTest(dispatcher) {
+        val entries = startSynced()
+        var lost = false
+        fake.onCall = { call ->
+            if (call is Call.CommitUpload && !lost) {
+                lost = true
+                fake.store(itemsOf(entries), version = SYNCED + 1)
+                throw IOException("response lost")
+            }
+        }
 
         emit(QueueChange.Replaced)
         scheduler.runCurrent()
+        assertTrue(service.status.value.uploadPending)
+
+        offline { }
+
+        assertEquals(
+            listOf(Call.BeginUpload(SYNCED, false), Call.BeginUpload(SYNCED, false)),
+            fake.callsOf<Call.BeginUpload>()
+        )
+        assertNull(service.pendingConflict.value)
+        assertEquals(emptyList(), appliedQueues)
+        assertEquals(entries.map { it.queueId }, fake.activeQueueIds)
+        assertEquals(SYNCED + 1, service.syncedVersionFlow.value)
+        assertEquals(SYNCED + 1, fake.info.version)
+        assertFalse(service.status.value.uploadPending)
+    }
+
+    @Test
+    fun foreignWriteWhileAFailedReplacedIsPendingAsksTheUserInsteadOfPulling() = runTest(dispatcher) {
+        val entries = startSynced()
+        fake.onCall = { call -> if (call is Call.UploadPage) throw IOException("page failed") }
+        emit(QueueChange.Replaced)
+        scheduler.runCurrent()
+        assertTrue(service.status.value.uploadPending)
+        fake.onCall = {}
+
+        val info = foreignWrite(remoteItems(2))
+        scheduler.runCurrent()
+
+        assertEquals(info, service.pendingConflict.value)
+        assertNull(service.pendingRemote.value)
+        verify(exactly = 0) { playerModel.applyRemoteQueue(any(), any()) }
+        assertEquals(listOf(Call.BeginUpload(SYNCED, false)), fake.callsOf<Call.BeginUpload>())
+
+        service.resolveConflict(true)
+        settle()
 
         assertEquals(
             listOf(Call.BeginUpload(SYNCED, false), Call.BeginUpload(SYNCED, true)),
             fake.callsOf<Call.BeginUpload>()
         )
         assertEquals(1, fake.callsOf<Call.CommitUpload>().size)
-        assertEquals(SYNCED + 2, service.syncedVersionFlow.value)
-        verify(exactly = 0) { playerModel.applyRemoteQueue(any(), any()) }
+        assertEquals(entries.map { it.queueId }, fake.activeQueueIds)
+        assertEquals(info.version + 1, service.syncedVersionFlow.value)
+        assertFalse(service.status.value.uploadPending)
     }
 
     @Test
@@ -1005,14 +2053,14 @@ class QueueSyncServiceTest {
     }
 
     @Test
-    fun persistedDirtyFlagForcesAnUploadAtSessionStart() = runTest(dispatcher) {
+    fun persistedDirtyFlagUploadsTheQueueUnforcedAtSessionStart() = runTest(dispatcher) {
         prepareSynced()
         settings.put(SettingKey.QueueSyncDirty, true)
 
         service.start()
         scheduler.runCurrent()
 
-        assertEquals(listOf(Call.BeginUpload(SYNCED, true)), fake.callsOf<Call.BeginUpload>())
+        assertEquals(listOf(Call.BeginUpload(SYNCED, false)), fake.callsOf<Call.BeginUpload>())
         assertEquals(1, fake.callsOf<Call.CommitUpload>().size)
         assertFalse(settings.get(SettingKey.QueueSyncDirty, true))
         assertFalse(service.status.value.uploadPending)
@@ -1045,25 +2093,442 @@ class QueueSyncServiceTest {
     }
 
     @Test
-    fun reconnectAfterAnOfflineChangeForcesAnUpload() = runTest(dispatcher) {
-        startSynced()
+    fun reconnectAfterAnOfflineInsertReplaysItAtTheKnownBase() = runTest(dispatcher) {
+        val entries = startSynced()
+        val change = insertChange(200L)
 
-        reachableFlow.value = false
-        scheduler.runCurrent()
-        emit(insertChange(200L))
-        scheduler.runCurrent()
-        assertEquals(emptyList(), fake.callsOf<Call.Write>())
+        offline {
+            emit(change)
+            settle()
+            assertEquals(emptyList(), fake.callsOf<Call.Write>())
+        }
 
-        reachableFlow.value = true
-        scheduler.runCurrent()
-
-        assertEquals(listOf(Call.BeginUpload(SYNCED, true)), fake.callsOf<Call.BeginUpload>())
-        assertEquals(1, fake.callsOf<Call.CommitUpload>().size)
-        assertEquals(emptyList(), fake.callsOf<Call.Insert>())
+        assertEquals(listOf<Call>(Call.Insert(SYNCED, 0, itemsOf(change.entries), false)), fake.callsOf<Call.Write>())
+        assertEquals(listOf(200L) + entries.map { it.queueId }, fake.activeQueueIds)
+        assertEquals(SYNCED + 1, service.syncedVersionFlow.value)
+        assertFalse(service.status.value.uploadPending)
         assertEquals(
             listOf(Call.SetSyncEnabled(true, identity.deviceName()), Call.SetSyncEnabled(true, identity.deviceName())),
             fake.callsOf<Call.SetSyncEnabled>()
         )
+        verify(exactly = 0) { playerModel.applyRemoteQueue(any(), any()) }
+    }
+
+    @Test
+    fun offlineCurrentChangesCollapseAndAreReplayedAtTheKnownBaseWhenTheServerDidNotMove() = runTest(dispatcher) {
+        val entries = startSynced()
+        playingFlow.value = true
+
+        offline {
+            emit(QueueChange.CurrentChanged(entries[1].queueId, 1))
+            emit(QueueChange.CurrentChanged(entries[2].queueId, 2))
+            indexFlow.value = 2
+            settle()
+            assertEquals(emptyList(), fake.callsOf<Call.Write>())
+        }
+        assertEquals(emptyList(), fake.callsOf<Call.Write>())
+        scheduler.advanceTimeBy(QueueSyncService.CURRENT_DEBOUNCE.inWholeMilliseconds)
+        scheduler.runCurrent()
+
+        assertEquals(listOf<Call>(Call.SetCurrentIndex(SYNCED, 2, false)), fake.callsOf<Call.Write>())
+        assertEquals(2, fake.info.currentIndex)
+        assertEquals(SYNCED + 1, service.syncedVersionFlow.value)
+        assertNull(service.pendingRemote.value)
+        assertNull(service.pendingConflict.value)
+        assertFalse(service.status.value.uploadPending)
+        verify(exactly = 0) { playerModel.applyRemoteQueue(any(), any()) }
+    }
+
+    private fun TestScope.offlineCurrentChangeMeetsAForeignWrite() {
+        val entries = startSynced()
+        val events = collectEvents(this)
+        applyRemoteQueueLikeThePlayer()
+        val remote = remoteWithLocalEntries(entries)
+
+        val info = offline {
+            emit(QueueChange.CurrentChanged(entries[1].queueId, 1))
+            indexFlow.value = 1
+            settle()
+            foreignWrite(remote, notify = false)
+        }
+        scheduler.advanceTimeBy(QueueSyncService.CURRENT_DEBOUNCE.inWholeMilliseconds)
+        scheduler.runCurrent()
+
+        assertEquals(listOf<Call>(Call.SetCurrentIndex(SYNCED, 1, false)), fake.callsOf<Call.Write>())
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        assertEquals(listOf<Long?>(entries[1].queueId), appliedQueues.map { it.keepCurrentQueueId })
+        assertEquals(1, indexFlow.value)
+        verify(exactly = 1) { playerModel.skipToQueueId(entries[1].queueId) }
+        verify(exactly = 0) { playerModel.playAtIndex(any(), any()) }
+        assertEquals(emptyList(), events)
+        assertEquals(remote.map { it.queueId }, fake.activeQueueIds)
+        assertEquals(info.version, service.syncedVersionFlow.value)
+        assertEquals(info, fake.info)
+        assertNull(service.pendingRemote.value)
+        assertNull(service.pendingConflict.value)
+        assertFalse(service.status.value.uploadPending)
+    }
+
+    @Test
+    fun offlineCurrentChangeMeetingAForeignWriteIsRebasedOntoTheForeignQueueWithoutAnUpload() = runTest(dispatcher) {
+        offlineCurrentChangeMeetsAForeignWrite()
+    }
+
+    @Test
+    fun offlineCurrentChangeMeetingAForeignWriteWhilePlayingIsRebasedWithoutABanner() = runTest(dispatcher) {
+        playingFlow.value = true
+        offlineCurrentChangeMeetsAForeignWrite()
+    }
+
+    @Test
+    fun offlineCurrentChangeMeetingAForeignWriteWhileControlledIsRebasedWithoutALog() = runTest(dispatcher) {
+        playingFlow.value = true
+        controlledFlow.value = true
+        offlineCurrentChangeMeetsAForeignWrite()
+        verify(exactly = 0) { logger.warning(any(), any(), any()) }
+    }
+
+    @Test
+    fun offlineRemoveAndMoveAreReplayedInOrderAtTheKnownBase() = runTest(dispatcher) {
+        val entries = startSynced()
+
+        offline {
+            emit(QueueChange.Removed(listOf(entries[2].queueId)))
+            emit(QueueChange.Moved(entries[0].queueId, 1))
+            settle()
+        }
+
+        assertEquals(
+            listOf(
+                Call.Remove(SYNCED, listOf(entries[2].queueId), false),
+                Call.Move(SYNCED + 1, entries[0].queueId, 1, false)
+            ),
+            fake.callsOf<Call.Write>()
+        )
+        assertEquals(listOf(entries[1].queueId, entries[0].queueId), fake.activeQueueIds)
+        assertEquals(SYNCED + 2, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun offlineInsertMeetingAForeignWriteIsMergedAndTheForeignEntriesStayOnTheServer() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        val events = collectEvents(this)
+        val remote = remoteItems(4)
+        val inserted = QueueEntry.FromSource(randomPlatformUUID(), 301L)
+        replayInsertsAtIndex(3)
+
+        val info = offline {
+            emit(QueueChange.Inserted(Anchor.AFTER_CURRENT, listOf(inserted), 2))
+            settle()
+            foreignWrite(remote, notify = false)
+        }
+
+        val item = insertedItem(inserted)
+        assertEquals(
+            listOf(Call.Insert(SYNCED, 2, listOf(item), false), Call.Insert(info.version, 3, listOf(item), false)),
+            fake.callsOf<Call.Insert>()
+        )
+        assertEquals(emptyList(), fake.callsOf<Call.BeginUpload>())
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        assertEquals(listOf<Long?>(entries[1].queueId), appliedQueues.map { it.keepCurrentQueueId })
+        assertEquals(listOf<QueueSyncEvent>(QueueSyncEvent.Merged(OTHER_DEVICE)), events)
+        assertEquals(remote.take(3).map { it.queueId } + 301L + remote.drop(3).map { it.queueId }, fake.activeQueueIds)
+        assertEquals(info.version + 1, service.syncedVersionFlow.value)
+        assertNull(service.pendingConflict.value)
+    }
+
+    @Test
+    fun everyOfflineChangeIsReplayedThroughThePlayerOnceTheForeignQueueIsApplied() = runTest(dispatcher) {
+        val entries = startSynced()
+        playingFlow.value = true
+        applyRemoteQueueLikeThePlayer()
+        val remote = remoteWithLocalEntries(entries)
+        val inserted = QueueEntry.FromSource(randomPlatformUUID(), 301L)
+
+        val info = offline {
+            emit(QueueChange.Inserted(Anchor.END, listOf(inserted), 3))
+            emit(QueueChange.Removed(listOf(entries[2].queueId)))
+            emit(QueueChange.ModesChanged(false, RepeatMode.ALL))
+            emit(QueueChange.CurrentChanged(entries[1].queueId, 1))
+            indexFlow.value = 1
+            settle()
+            foreignWrite(remote, notify = false)
+        }
+
+        assertEquals(listOf<Call>(Call.Insert(SYNCED, 3, listOf(insertedItem(inserted)), false)), fake.callsOf<Call.Write>())
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        assertEquals(listOf<Long?>(entries[1].queueId), appliedQueues.map { it.keepCurrentQueueId })
+        assertEquals(1, indexFlow.value)
+        verifyOrder {
+            playerModel.applyRemoteQueue(any(), entries[1].queueId)
+            playerModel.insertEntries(Anchor.END, listOf(inserted))
+            playerModel.removeByQueueIds(listOf(entries[2].queueId))
+            playerModel.setRepeatMode(RepeatMode.ALL)
+            playerModel.skipToQueueId(entries[1].queueId)
+        }
+        verify(exactly = 0) { playerModel.setShuffleMode(any()) }
+        assertEquals(info.version, service.syncedVersionFlow.value)
+        assertNull(service.pendingRemote.value)
+        assertNull(service.pendingConflict.value)
+    }
+
+    @Test
+    fun changeBetweenStartAndTheFirstSessionIsReplayedAtThePersistedBase() = runTest(dispatcher) {
+        reachableFlow.value = false
+        prepareSynced()
+        service.start()
+        scheduler.runCurrent()
+        val change = insertChange(200L)
+        emit(change)
+        settle()
+        assertEquals(emptyList(), fake.calls)
+
+        reachableFlow.value = true
+        scheduler.runCurrent()
+
+        assertEquals(listOf<Call>(Call.Insert(SYNCED, 0, itemsOf(change.entries), false)), fake.callsOf<Call.Write>())
+        assertEquals(SYNCED + 1, service.syncedVersionFlow.value)
+        verify(exactly = 0) { playerModel.applyRemoteQueue(any(), any()) }
+    }
+
+    @Test
+    fun changeBetweenStartAndTheFirstSessionMeetingAForeignWriteIsMerged() = runTest(dispatcher) {
+        reachableFlow.value = false
+        prepareSynced()
+        service.start()
+        scheduler.runCurrent()
+        val inserted = QueueEntry.FromSource(randomPlatformUUID(), 301L)
+        replayInsertsAtIndex(3)
+        emit(QueueChange.Inserted(Anchor.END, listOf(inserted), 3))
+        settle()
+        val remote = remoteItems(3)
+        val info = foreignWrite(remote, notify = false)
+
+        reachableFlow.value = true
+        scheduler.runCurrent()
+
+        val item = insertedItem(inserted)
+        assertEquals(
+            listOf<Call>(Call.Insert(SYNCED, 3, listOf(item), false), Call.Insert(info.version, 3, listOf(item), false)),
+            fake.callsOf<Call.Write>()
+        )
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        assertEquals(remote.map { it.queueId } + 301L, fake.activeQueueIds)
+        assertEquals(info.version + 1, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun changeBeforeTheFirstEverSessionIsCoveredByTheUnforcedUploadOfTheWholeQueue() = runTest(dispatcher) {
+        reachableFlow.value = false
+        localQueue(localEntries(3))
+        service.start()
+        scheduler.runCurrent()
+        emit(insertChange(200L))
+        settle()
+
+        reachableFlow.value = true
+        scheduler.runCurrent()
+
+        assertEquals(listOf(Call.BeginUpload(0L, false)), fake.callsOf<Call.BeginUpload>())
+        assertEquals(1, fake.callsOf<Call.CommitUpload>().size)
+        assertEquals(emptyList(), fake.callsOf<Call.Insert>())
+        assertEquals(1L, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun persistedDirtyFlagMeetingAForeignWriteAsksTheUserInsteadOfForcing() = runTest(dispatcher) {
+        val entries = localEntries(3)
+        prepareSynced(entries)
+        settings.put(SettingKey.QueueSyncDirty, true)
+        val info = foreignWrite(remoteItems(2), notify = false)
+
+        service.start()
+        settle()
+
+        assertEquals(emptyList(), fake.callsOf<Call.Write>())
+        assertEquals(info, service.pendingConflict.value)
+        assertTrue(service.status.value.uploadPending)
+        verify(exactly = 0) { playerModel.applyRemoteQueue(any(), any()) }
+
+        service.resolveConflict(true)
+        settle()
+
+        assertEquals(listOf(Call.BeginUpload(SYNCED, true)), fake.callsOf<Call.BeginUpload>())
+        assertEquals(entries.map { it.queueId }, fake.activeQueueIds)
+        assertFalse(service.status.value.uploadPending)
+    }
+
+    @Test
+    fun persistedDirtyFlagMeetingAForeignWriteWhileControlledTakesTheForeignQueueAndLogs() = runTest(dispatcher) {
+        val entries = localEntries(3)
+        prepareSynced(entries, currentIndex = 1)
+        settings.put(SettingKey.QueueSyncDirty, true)
+        controlledFlow.value = true
+        val remote = remoteItems(2)
+        val info = foreignWrite(remote, notify = false)
+
+        service.start()
+        settle()
+
+        assertEquals(emptyList(), fake.callsOf<Call.Write>())
+        assertNull(service.pendingConflict.value)
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        assertEquals(listOf<Long?>(entries[1].queueId), appliedQueues.map { it.keepCurrentQueueId })
+        assertEquals(info.version, service.syncedVersionFlow.value)
+        assertFalse(service.status.value.uploadPending)
+        verify(exactly = 1) { logger.warning(any(), any(), any()) }
+    }
+
+    @Test
+    fun conflictWhoseServerQueueKeepsMovingWhileControlledDropsTheChangeAndLogsIt() = runTest(dispatcher) {
+        val entries = startSynced()
+        controlledFlow.value = true
+        val inserted = QueueEntry.FromSource(randomPlatformUUID(), 200L)
+        localQueue(entries + inserted)
+        var round = 0L
+        fake.onCall = { call ->
+            if (call is Call.Insert || call is Call.GetQueue) {
+                round++
+                foreignWrite(remoteItems(2, 20_000L * round), notify = false)
+            }
+        }
+
+        emit(QueueChange.Inserted(Anchor.END, listOf(inserted), entries.size))
+        scheduler.runCurrent()
+
+        assertEquals(QueueSyncService.PULL_ATTEMPTS, fake.callsOf<Call.GetQueue>().size)
+        assertEquals(emptyList(), appliedQueues)
+        assertNull(service.pendingConflict.value)
+        assertEquals(SYNCED, service.syncedVersionFlow.value)
+        assertFalse(service.status.value.uploadPending)
+        verify(exactly = 1) { logger.warning(any(), any(), any()) }
+
+        fake.onCall = {}
+        emit(insertChange(300L))
+        scheduler.runCurrent()
+
+        assertEquals(2, fake.callsOf<Call.Insert>().size)
+        assertEquals(1, appliedQueues.size)
+        assertEquals(fake.info.version, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun failedPullOfAForeignQueueDoesNotMarkTheLocalQueueForUpload() = runTest(dispatcher) {
+        val entries = startSynced()
+        fake.onCall = { call -> if (call is Call.GetQueue) throw IOException("pull failed") }
+
+        foreignWrite(remoteItems(2))
+        scheduler.runCurrent()
+
+        assertEquals(1, fake.callsOf<Call.GetQueue>().size)
+        assertFalse(service.status.value.uploadPending)
+        assertFalse(settings.get(SettingKey.QueueSyncDirty, false))
+        assertEquals(SYNCED, service.syncedVersionFlow.value)
+
+        fake.onCall = {}
+        emit(QueueChange.CurrentChanged(entries[1].queueId, 1))
+        indexFlow.value = 1
+        settle()
+
+        assertEquals(emptyList(), fake.callsOf<Call.BeginUpload>())
+        assertEquals(listOf<Call>(Call.SetCurrentIndex(SYNCED, 1, false)), fake.callsOf<Call.Write>())
+        assertEquals(1, appliedQueues.size)
+        assertEquals(fake.info.version, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun sessionCancelledDuringAPullDoesNotMarkTheQueueDirty() = runTest(dispatcher) {
+        startSynced()
+        val gate = CompletableDeferred<Unit>()
+        fake.onCall = { call -> if (call is Call.GetQueue) gate.await() }
+        foreignWrite(remoteItems(2))
+        scheduler.runCurrent()
+        assertEquals(1, fake.callsOf<Call.GetQueue>().size)
+
+        reachableFlow.value = false
+        scheduler.runCurrent()
+
+        assertFalse(service.status.value.uploadPending)
+        assertFalse(settings.get(SettingKey.QueueSyncDirty, false))
+        assertEquals(SYNCED, settings.get(SettingKey.QueueSyncVersion, 0L))
+        verify(exactly = 0) { playerModel.applyRemoteQueue(any(), any()) }
+
+        fake.onCall = {}
+        reachableFlow.value = true
+        scheduler.runCurrent()
+
+        assertEquals(emptyList(), fake.callsOf<Call.Write>())
+        assertEquals(1, appliedQueues.size)
+        assertEquals(fake.info.version, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun changeBehindACurrentChangeAfterARequestedUploadIsStillSent() = runTest(dispatcher) {
+        val entries = startSynced()
+        assertTrue(requestFlow.tryEmit(uploadRequest()))
+        scheduler.runCurrent()
+        assertEquals(1, fake.callsOf<Call.CommitUpload>().size)
+        assertEquals(SYNCED + 1, service.syncedVersionFlow.value)
+
+        emit(QueueChange.CurrentChanged(entries[1].queueId, 1))
+        scheduler.runCurrent()
+        scheduler.advanceTimeBy(100)
+        emit(QueueChange.Removed(listOf(entries[2].queueId)))
+        settle()
+
+        assertEquals(
+            listOf(
+                Call.SetCurrentIndex(SYNCED + 1, 1, false),
+                Call.Remove(SYNCED + 2, listOf(entries[2].queueId), false)
+            ),
+            fake.callsOf<Call.Write>().drop(3)
+        )
+        assertEquals(SYNCED + 3, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun foreignWriteWhileTheFirstEnableChoiceIsOpenDoesNotReplaceTheLocalQueue() = runTest(dispatcher) {
+        val entries = localEntries(3)
+        localQueue(entries)
+        val info = foreignWrite(remoteItems(4), notify = false)
+        service.start()
+        scheduler.runCurrent()
+        assertEquals(info, service.pendingEnableChoice.value)
+
+        foreignWrite(remoteItems(2, 20_000L))
+        settle()
+
+        verify(exactly = 0) { playerModel.applyRemoteQueue(any(), any()) }
+        assertEquals(0L, service.syncedVersionFlow.value)
+        assertEquals(info, service.pendingEnableChoice.value)
+
+        service.resolveEnableChoice(false)
+        settle()
+
+        assertEquals(entries.map { it.queueId }, fake.activeQueueIds)
+        assertEquals(fake.info.version, service.syncedVersionFlow.value)
+        verify(exactly = 0) { playerModel.applyRemoteQueue(any(), any()) }
+    }
+
+    @Test
+    fun foreignWriteWhileTheConflictPromptIsOpenDoesNotReplaceTheLocalQueue() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        raiseConflictPrompt(entries[1].queueId)
+        val appliedBefore = appliedQueues.size
+        val prompt = service.pendingConflict.value
+
+        foreignWrite(remoteItems(2, 50_000L))
+        settle()
+
+        assertEquals(appliedBefore, appliedQueues.size)
+        assertEquals(prompt, service.pendingConflict.value)
+
+        service.resolveConflict(true)
+        settle()
+
+        assertEquals(appliedBefore, appliedQueues.size)
+        assertEquals(entries.map { it.queueId }, fake.activeQueueIds)
+        assertEquals(fake.info.version, service.syncedVersionFlow.value)
     }
 
     @Test
@@ -1394,5 +2859,200 @@ class QueueSyncServiceTest {
             listOf(Call.SetSyncEnabled(true, before), Call.SetSyncEnabled(true, after)),
             fake.callsOf<Call.SetSyncEnabled>()
         )
+    }
+
+    private fun bannerThenGatedCurrentChange(entries: List<QueueEntry>): Pair<QueueInfo, CompletableDeferred<Unit>> {
+        playingFlow.value = true
+        val info = foreignWrite(remoteItems(4))
+        scheduler.runCurrent()
+        assertEquals(info, service.pendingRemote.value)
+        val gate = CompletableDeferred<Unit>()
+        fake.onCall = { call -> if (call is Call.SetCurrentIndex) gate.await() }
+        emit(QueueChange.CurrentChanged(entries[2].queueId, 2))
+        indexFlow.value = 2
+        settle()
+        assertEquals(listOf<Call>(Call.SetCurrentIndex(SYNCED, 2, false)), fake.callsOf<Call.Write>())
+        return info to gate
+    }
+
+    @Test
+    fun dismissingTheBannerDoesNotWaitForAWriteInFlightAndWinsOverItsResult() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        val (info, gate) = bannerThenGatedCurrentChange(entries)
+
+        service.dismissPendingRemote()
+        scheduler.runCurrent()
+
+        assertNull(service.pendingRemote.value)
+        assertNull(service.status.value.behindDevice)
+        assertFalse(gate.isCompleted)
+
+        gate.complete(Unit)
+        settle()
+
+        assertEquals(info, service.pendingConflict.value)
+        assertEquals(emptyList(), appliedQueues)
+        assertEquals(emptyList(), fake.callsOf<Call.GetQueue>())
+        assertEquals(SYNCED, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun applyingTheBannerDuringAWriteInFlightClearsItAtOnceAndPullsAfterTheWrite() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        val (info, gate) = bannerThenGatedCurrentChange(entries)
+
+        service.applyPendingRemote()
+        scheduler.runCurrent()
+
+        assertNull(service.pendingRemote.value)
+        assertEquals(emptyList(), fake.callsOf<Call.GetQueue>())
+        assertFalse(gate.isCompleted)
+
+        gate.complete(Unit)
+        settle()
+
+        assertEquals(1, fake.callsOf<Call.GetQueue>().size)
+        assertTrue(fake.calls.indexOfFirst { it is Call.GetQueue } > fake.calls.indexOfFirst { it is Call.SetCurrentIndex })
+        assertEquals(listOf(fake.items.map { it.queueId }), appliedQueueIds())
+        assertEquals(listOf<Long?>(entries[2].queueId), appliedQueues.map { it.keepCurrentQueueId })
+        assertNull(service.pendingRemote.value)
+        assertNull(service.pendingConflict.value)
+        assertEquals(info.version, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun answeringTheConflictDuringAPullInFlightWinsOverThePullResult() = runTest(dispatcher) {
+        val entries = startSynced()
+        playingFlow.value = true
+        val info = foreignWrite(remoteItems(2))
+        scheduler.runCurrent()
+        assertEquals(info, service.pendingRemote.value)
+        emit(QueueChange.Replaced)
+        settle()
+        assertEquals(info, service.pendingConflict.value)
+        val gate = CompletableDeferred<Unit>()
+        fake.onCall = { call -> if (call is Call.GetQueue) gate.await() }
+        service.applyPendingRemote()
+        scheduler.runCurrent()
+        assertEquals(1, fake.callsOf<Call.GetQueue>().size)
+        assertNull(service.pendingRemote.value)
+
+        service.resolveConflict(true)
+        scheduler.runCurrent()
+
+        assertNull(service.pendingConflict.value)
+        assertFalse(gate.isCompleted)
+        assertEquals(listOf(Call.BeginUpload(SYNCED, false)), fake.callsOf<Call.BeginUpload>())
+
+        gate.complete(Unit)
+        settle()
+
+        assertEquals(emptyList(), appliedQueues)
+        assertEquals(
+            listOf(Call.BeginUpload(SYNCED, false), Call.BeginUpload(SYNCED, true)),
+            fake.callsOf<Call.BeginUpload>()
+        )
+        assertEquals(1, fake.callsOf<Call.CommitUpload>().size)
+        assertEquals(entries.map { it.queueId }, fake.activeQueueIds)
+        assertEquals(info.version + 1, service.syncedVersionFlow.value)
+        assertNull(service.pendingRemote.value)
+        assertNull(service.pendingConflict.value)
+    }
+
+    @Test
+    fun aSecondChangeWaitsForTheWriteInFlight() = runTest(dispatcher) {
+        val entries = startSynced()
+        val gate = CompletableDeferred<Unit>()
+        fake.onCall = { call -> if (call is Call.Insert) gate.await() }
+        val change = insertChange(200L)
+        val insert = Call.Insert(SYNCED, 0, itemsOf(change.entries), false)
+
+        emit(change)
+        emit(QueueChange.Removed(listOf(entries[2].queueId)))
+        settle()
+
+        assertEquals(listOf<Call>(insert), fake.callsOf<Call.Write>())
+
+        gate.complete(Unit)
+        settle()
+
+        assertEquals(
+            listOf(insert, Call.Remove(SYNCED + 1, listOf(entries[2].queueId), false)),
+            fake.callsOf<Call.Write>()
+        )
+        assertEquals(SYNCED + 2, service.syncedVersionFlow.value)
+    }
+
+    @Test
+    fun aForeignWriteDuringAWriteInFlightIsPulledOnlyAfterTheWrite() = runTest(dispatcher) {
+        val entries = startSynced(currentIndex = 1)
+        val gate = CompletableDeferred<Unit>()
+        fake.onCall = { call -> if (call is Call.Remove) gate.await() }
+        emit(QueueChange.Removed(listOf(entries[2].queueId)))
+        scheduler.runCurrent()
+        assertEquals(1, fake.callsOf<Call.Remove>().size)
+        val remote = remoteItems(3)
+
+        val info = foreignWrite(remote)
+        settle()
+
+        assertEquals(emptyList(), fake.callsOf<Call.GetQueue>())
+        assertEquals(emptyList(), appliedQueues)
+
+        gate.complete(Unit)
+        settle()
+
+        assertEquals(listOf<Call>(Call.Remove(SYNCED, listOf(entries[2].queueId), false)), fake.callsOf<Call.Write>())
+        assertTrue(fake.calls.indexOfFirst { it is Call.GetQueue } > fake.calls.indexOfFirst { it is Call.Remove })
+        assertEquals(listOf(remote.map { it.queueId }), appliedQueueIds())
+        assertEquals(listOf<Long?>(entries[1].queueId), appliedQueues.map { it.keepCurrentQueueId })
+        verify(exactly = 1) { playerModel.removeByQueueIds(listOf(entries[2].queueId)) }
+        assertEquals(info.version, service.syncedVersionFlow.value)
+        assertNull(service.pendingConflict.value)
+    }
+
+    @Test
+    fun stateStoredWithoutAnOwnerBelongsToTheCurrentUserAndIsKeptAcrossSessions() = runTest(dispatcher) {
+        startSynced()
+
+        assertNull(service.pendingEnableChoice.value)
+        assertNotNull(settings.getStringOrNull(SettingKey.QueueSyncOwner.name))
+
+        offline { }
+
+        assertEquals(SYNCED, service.syncedVersionFlow.value)
+        assertEquals(SYNCED, settings.get(SettingKey.QueueSyncVersion, 0L))
+        assertEquals(emptyList(), fake.callsOf<Call.Write>())
+        assertNull(service.pendingEnableChoice.value)
+        verify(exactly = 0) { playerModel.applyRemoteQueue(any(), any()) }
+    }
+
+    private fun sessionOfSomeoneElseStartsFromNothingSynced(switch: () -> Unit) {
+        startSynced()
+        reachableFlow.value = false
+        scheduler.runCurrent()
+        settings.put(SettingKey.QueueSyncDirty, true)
+        switch()
+
+        reachableFlow.value = true
+        settle()
+
+        assertEquals(fake.info, service.pendingEnableChoice.value)
+        assertEquals(0L, service.syncedVersionFlow.value)
+        assertEquals(0L, settings.get(SettingKey.QueueSyncVersion, SYNCED))
+        assertFalse(settings.get(SettingKey.QueueSyncDirty, true))
+        assertFalse(service.status.value.uploadPending)
+        assertEquals(emptyList(), fake.callsOf<Call.Write>())
+        verify(exactly = 0) { playerModel.applyRemoteQueue(any(), any()) }
+    }
+
+    @Test
+    fun aSessionOfAnotherUserStartsFromNothingSynced() = runTest(dispatcher) {
+        sessionOfSomeoneElseStartsFromNothingSynced { userId = "someone-else" }
+    }
+
+    @Test
+    fun aSessionOfTheSameUserOnAnotherServerStartsFromNothingSynced() = runTest(dispatcher) {
+        sessionOfSomeoneElseStartsFromNothingSynced { host = "elsewhere" }
     }
 }

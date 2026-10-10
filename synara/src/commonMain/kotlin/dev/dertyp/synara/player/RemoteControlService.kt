@@ -151,7 +151,12 @@ class RemoteControlService(
             if (!queueSyncService.ensureVersion(command.queueVersion, ENSURE_VERSION_TIMEOUT)) {
                 false
             } else {
-                onMain { playerModel.skipToQueueId(command.queueId) }
+                onMain {
+                    val current = playerModel.queue.value.getOrNull(playerModel.currentIndex.value)
+                    val applied = playerModel.skipToQueueId(command.queueId)
+                    if (applied && current?.queueId == command.queueId && !playerModel.playbackRequested) playerModel.play()
+                    applied
+                }
             }
         }
     }

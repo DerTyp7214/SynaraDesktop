@@ -6,8 +6,10 @@ import dev.dertyp.synara.utils.AppDispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.io.EOFException
 import java.io.IOException
 import java.io.InputStream
 import kotlin.math.min
@@ -27,8 +29,8 @@ class FlowInputStream(
                 channel.send(it)
             }
             channel.close()
-        } catch (_: CancellationException) {
-            channel.cancel()
+        } catch (e: CancellationException) {
+            if (isClosed || !isActive) channel.cancel() else channel.close(IOException(e))
         } catch (e: Exception) {
             channel.close(e)
         }
@@ -49,7 +51,9 @@ class FlowInputStream(
             } catch (_: Exception) {
                 null
             }
-            result?.exceptionOrNull()?.let { if (it !is CancellationException) throw IOException(it) }
+            result?.exceptionOrNull()?.let {
+                if (it !is CancellationException) throw if (it is IOException && it !is EOFException) it else IOException(it)
+            }
             currentBuffer = result?.getOrNull()
             bufferOffset = 0
             if (currentBuffer == null) return -1

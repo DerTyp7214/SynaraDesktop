@@ -103,7 +103,8 @@ class JvmLocalStorageService(private val logger: Logger) : LocalStorageService {
     }
 
     private fun sanitizeFileName(name: String): String {
-        return name.replace(Regex("[\\\\/:*?\"<>|]"), "_")
+        val sanitized = name.replace(Regex("[\\\\/:*?\"<>|]"), "_")
+        return if (sanitized.all { it == '.' || it.isWhitespace() }) sanitized.replace('.', '_') else sanitized
     }
 
     private fun getAppDir(type: AppDirType): File {

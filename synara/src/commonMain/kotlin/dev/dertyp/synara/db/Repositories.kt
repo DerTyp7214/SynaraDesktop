@@ -121,10 +121,6 @@ interface LibraryRepository {
     fun observeChanges(): Flow<Unit>
 }
 
-interface DatabaseMigrationRepository {
-    suspend fun migrateUserIds(newUserId: PlatformUUID)
-}
-
 /** The last value and scope version this client saw for one synced settings key. */
 data class SettingsSyncKnown(
     val value: String? = null,

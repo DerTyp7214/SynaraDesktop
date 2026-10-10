@@ -3,7 +3,9 @@ package dev.dertyp.synara.player.audio
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
@@ -11,8 +13,10 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import java.io.EOFException
 import java.io.IOException
 import java.io.InputStream
 import java.util.concurrent.CompletableFuture
@@ -25,8 +29,10 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertIsNot
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 class FlowInputStreamTest {
@@ -259,5 +265,130 @@ class FlowInputStreamTest {
 
         assertIs<IOException>(failure)
         assertSame(upstreamFailure, failure.cause)
+    }
+
+    @Test
+    fun upstreamIOExceptionIsSignalledAsThatException() {
+        val upstreamFailure = IOException("connection reset")
+        val stream = stream(
+            flow {
+                emit(byteArrayOf(1, 2))
+                throw upstreamFailure
+            }
+        )
+        val buffer = ByteArray(10)
+        assertEquals(2, bounded { stream.read(buffer, 0, 10) })
+
+        val failure = bounded {
+            try {
+                stream.read(buffer, 0, 10)
+                null
+            } catch (e: Throwable) {
+                e
+            }
+        }
+
+        assertSame(upstreamFailure, failure)
+    }
+
+    @Test
+    fun upstreamEOFExceptionIsSignalledAsAnIOExceptionThatIsNotAnEOFException() {
+        val upstreamFailure = EOFException("truncated")
+        val stream = stream(
+            flow {
+                emit(byteArrayOf(1, 2))
+                throw upstreamFailure
+            }
+        )
+        val buffer = ByteArray(10)
+        assertEquals(2, bounded { stream.read(buffer, 0, 10) })
+
+        val failure = bounded {
+            try {
+                stream.read(buffer, 0, 10)
+                null
+            } catch (e: Throwable) {
+                e
+            }
+        }
+
+        assertIs<IOException>(failure)
+        assertIsNot<EOFException>(failure)
+        assertSame(upstreamFailure, failure.cause)
+    }
+
+    @Test
+    fun upstreamTimeoutAfterFirstChunkIsSignalledAsIOException() {
+        val stream = stream(
+            flow {
+                emit(byteArrayOf(1, 2))
+                withTimeout(1.milliseconds) { awaitCancellation() }
+            }
+        )
+        val buffer = ByteArray(10)
+        assertEquals(2, bounded { stream.read(buffer, 0, 10) })
+
+        val failure = bounded {
+            try {
+                stream.read(buffer, 0, 10)
+                null
+            } catch (e: Throwable) {
+                e
+            }
+        }
+
+        assertIs<IOException>(failure)
+        assertIs<TimeoutCancellationException>(failure.cause)
+    }
+
+    @Test
+    fun upstreamCancellationThatIsNotTheReadersIsSignalledAsIOException() {
+        val upstreamCancellation = CancellationException("producer gave up")
+        val stream = stream(
+            flow {
+                emit(byteArrayOf(1, 2))
+                throw upstreamCancellation
+            }
+        )
+        val buffer = ByteArray(10)
+        assertEquals(2, bounded { stream.read(buffer, 0, 10) })
+
+        val failure = bounded {
+            try {
+                stream.read(buffer, 0, 10)
+                null
+            } catch (e: Throwable) {
+                e
+            }
+        }
+
+        assertIs<IOException>(failure)
+        assertSame(upstreamCancellation, failure.cause)
+    }
+
+    @Test
+    fun cancellingTheScopeOfTheStreamEndsABlockedReadAsEndOfStream() {
+        val started = CompletableDeferred<Unit>()
+        val completion = CompletableDeferred<Throwable?>()
+        val upstream = flow<ByteArray> {
+            started.complete(Unit)
+            awaitCancellation()
+        }.onCompletion { cause -> completion.complete(cause) }
+        val streamScope = CoroutineScope(Job(scope.coroutineContext.job))
+        val stream = FlowInputStream(upstream, streamScope)
+        awaitDeferred(started)
+
+        val readerStarted = CountDownLatch(1)
+        val pending = CompletableFuture.supplyAsync {
+            readerStarted.countDown()
+            stream.read()
+        }
+        assertTrue(readerStarted.await(10, TimeUnit.SECONDS))
+        assertFalse(pending.isDone)
+
+        streamScope.cancel()
+
+        assertEquals(-1, pending.get(10, TimeUnit.SECONDS))
+        assertIs<CancellationException>(awaitDeferred(completion))
     }
 }

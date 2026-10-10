@@ -3,13 +3,18 @@ package dev.dertyp.synara.db
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.User
 import dev.dertyp.randomPlatformUUID
+import dev.dertyp.synara.settings.SettingKey
+import dev.dertyp.synara.settings.put
+import dev.dertyp.synara.testing.InMemorySettings
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.deleteIfExists
@@ -23,6 +28,7 @@ class ExposedUserRekeyTest {
     private lateinit var database: Database
     private lateinit var repository: ExposedUserRepository
 
+    private val settings = InMemorySettings()
     private val staleId = randomPlatformUUID()
     private val currentId = randomPlatformUUID()
     private val otherId = randomPlatformUUID()
@@ -46,7 +52,8 @@ class ExposedUserRekeyTest {
                 SongGuessSavedGames
             )
         }
-        repository = ExposedUserRepository()
+        useServer("first.example")
+        repository = ExposedUserRepository(settings)
         runBlocking {
             repository.saveUser(User(id = staleId, username = "mac"))
             repository.saveUser(User(id = otherId, username = "other"))
@@ -57,6 +64,63 @@ class ExposedUserRekeyTest {
     fun tearDown() {
         TransactionManager.closeAndUnregister(database)
         file.deleteIfExists()
+    }
+
+    private fun useServer(host: String) {
+        settings.put(SettingKey.Host, host)
+        settings.put(SettingKey.Port, 8080)
+    }
+
+    private fun forgetTheServerOf(user: PlatformUUID) = transaction(database) {
+        DownloadedUsers.update({ DownloadedUsers.id eq user }) { it[server] = null }
+    }
+
+    private fun fillEveryTable(user: PlatformUUID, mark: String, at: Long) {
+        transaction(database) {
+            DownloadedUserPlaylists.insert {
+                it[id] = randomPlatformUUID()
+                it[name] = mark
+                it[creator] = user
+            }
+            ScrobbleQueue.insert {
+                it[userId] = user
+                it[songId] = "song"
+                it[timestamp] = at
+                it[target] = "server"
+                it[payload] = mark
+            }
+            LocalHistory.insert {
+                it[userId] = user
+                it[songId] = "song"
+                it[timestamp] = at
+                it[payload] = mark
+            }
+            SongGuessGames.insert {
+                it[userId] = user
+                it[playedAt] = at
+                it[score] = 1
+                it[maxScore] = 30
+                it[rounds] = 5
+                it[config] = "config"
+                it[roundResults] = mark
+            }
+        }
+        playedSong(user, "song", at, mark)
+        playedAlbum(user, "album", at, mark)
+        playedArtist(user, "artist", at, mark)
+        savedGame(user, at, mark)
+    }
+
+    private fun owners(): Map<String, Set<List<Any>>> = transaction(database) {
+        mapOf(
+            "users" to DownloadedUsers.selectAll().mapTo(HashSet()) { listOf(it[DownloadedUsers.id].value, it[DownloadedUsers.username]) },
+            "playlists" to DownloadedUserPlaylists.selectAll().mapTo(HashSet()) {
+                listOf(it[DownloadedUserPlaylists.creator].value, it[DownloadedUserPlaylists.name])
+            },
+            "scrobbles" to ScrobbleQueue.selectAll().mapTo(HashSet()) { listOf(it[ScrobbleQueue.userId].value, it[ScrobbleQueue.payload]) },
+            "history" to LocalHistory.selectAll().mapTo(HashSet()) { listOf(it[LocalHistory.userId].value, it[LocalHistory.payload]) },
+            "games" to SongGuessGames.selectAll().mapTo(HashSet()) { listOf(it[SongGuessGames.userId].value, it[SongGuessGames.roundResults]) }
+        )
     }
 
     private fun playedSong(user: PlatformUUID, song: String, at: Long, content: String) = transaction(database) {
@@ -276,5 +340,119 @@ class ExposedUserRekeyTest {
 
         assertEquals(songsAfterFirst, songs())
         assertEquals(gamesAfterFirst, savedGames())
+    }
+
+    @Test
+    fun theSameUsernameOnAnotherServerTakesOverNothingAndBothUsersExist() {
+        fillEveryTable(staleId, "first", 10)
+        fillEveryTable(currentId, "second", 20)
+        val ownersBefore = owners()
+        val songsBefore = songs()
+        val albumsBefore = albums()
+        val artistsBefore = artists()
+        val gamesBefore = savedGames()
+        useServer("second.example")
+
+        saveCurrent()
+
+        assertEquals(
+            ownersBefore + ("users" to setOf<List<Any>>(listOf(staleId, "mac"), listOf(currentId, "mac"), listOf(otherId, "other"))),
+            owners()
+        )
+        assertEquals(songsBefore, songs())
+        assertEquals(albumsBefore, albums())
+        assertEquals(artistsBefore, artists())
+        assertEquals(gamesBefore, savedGames())
+    }
+
+    @Test
+    fun switchingBackAndForthBetweenTwoServersNeverMovesARow() {
+        fillEveryTable(staleId, "first", 10)
+        fillEveryTable(currentId, "second", 20)
+        useServer("second.example")
+        saveCurrent()
+        val ownersBefore = owners()
+        val songsBefore = songs()
+        val gamesBefore = savedGames()
+
+        useServer("first.example")
+        runBlocking { repository.saveUser(User(id = staleId, username = "mac")) }
+        useServer("second.example")
+        saveCurrent()
+
+        assertEquals(ownersBefore, owners())
+        assertEquals(songsBefore, songs())
+        assertEquals(gamesBefore, savedGames())
+    }
+
+    @Test
+    fun aStaleIdOfTheSameServerIsStillTakenOverWhileAnotherServerHoldsTheUsername() {
+        val elsewhereId = randomPlatformUUID()
+        useServer("second.example")
+        runBlocking { repository.saveUser(User(id = elsewhereId, username = "mac")) }
+        fillEveryTable(elsewhereId, "second", 20)
+        fillEveryTable(staleId, "first", 10)
+        useServer("first.example")
+
+        saveCurrent()
+
+        assertEquals(
+            mapOf(
+                "users" to setOf<List<Any>>(listOf(currentId, "mac"), listOf(elsewhereId, "mac"), listOf(otherId, "other")),
+                "playlists" to setOf<List<Any>>(listOf(currentId, "first"), listOf(elsewhereId, "second")),
+                "scrobbles" to setOf<List<Any>>(listOf(currentId, "first"), listOf(elsewhereId, "second")),
+                "history" to setOf<List<Any>>(listOf(currentId, "first"), listOf(elsewhereId, "second")),
+                "games" to setOf<List<Any>>(listOf(currentId, "first"), listOf(elsewhereId, "second"))
+            ),
+            owners()
+        )
+        assertEquals(
+            setOf<List<Any>>(listOf(currentId, "song", 10L, "first"), listOf(elsewhereId, "song", 20L, "second")),
+            songs()
+        )
+        assertEquals(setOf<List<Any>>(listOf(currentId, 10L, "first"), listOf(elsewhereId, 20L, "second")), savedGames())
+    }
+
+    @Test
+    fun aRowOfAnUnknownServerWithTheSameUsernameKeepsItsRowsAndTheLoginIsSaved() {
+        fillEveryTable(staleId, "unknown", 10)
+        forgetTheServerOf(staleId)
+        val ownersBefore = owners()
+        val songsBefore = songs()
+        val albumsBefore = albums()
+        val artistsBefore = artists()
+        val gamesBefore = savedGames()
+
+        saveCurrent()
+
+        assertEquals(
+            ownersBefore + ("users" to setOf<List<Any>>(listOf(staleId, "mac"), listOf(currentId, "mac"), listOf(otherId, "other"))),
+            owners()
+        )
+        assertEquals(songsBefore, songs())
+        assertEquals(albumsBefore, albums())
+        assertEquals(artistsBefore, artists())
+        assertEquals(gamesBefore, savedGames())
+        assertEquals(currentId, runBlocking { repository.getUser(currentId) }!!.id)
+    }
+
+    @Test
+    fun aRowOfAnUnknownServerIsTakenOverOnceItsOwnLoginAttributedIt() {
+        fillEveryTable(staleId, "first", 10)
+        forgetTheServerOf(staleId)
+        runBlocking { repository.saveUser(User(id = staleId, username = "mac")) }
+
+        saveCurrent()
+
+        assertEquals(
+            mapOf(
+                "users" to setOf<List<Any>>(listOf(currentId, "mac"), listOf(otherId, "other")),
+                "playlists" to setOf<List<Any>>(listOf(currentId, "first")),
+                "scrobbles" to setOf<List<Any>>(listOf(currentId, "first")),
+                "history" to setOf<List<Any>>(listOf(currentId, "first")),
+                "games" to setOf<List<Any>>(listOf(currentId, "first"))
+            ),
+            owners()
+        )
     }
 }

@@ -172,6 +172,33 @@ class StatsScreenModelTest {
     }
 
     @Test
+    fun aLateFailureForAnOlderRangeLeavesTheNewerLoadUntouched() = runTest {
+        val monthStats = mockk<ListeningStats>()
+        val weekGate = CompletableDeferred<ListeningStats>()
+        val monthGate = CompletableDeferred<ListeningStats>()
+        coEvery { listeningStatsService.getStats(StatsRange.WEEK, any(), any(), any()) } coAnswers { weekGate.await() }
+        coEvery { listeningStatsService.getStats(StatsRange.MONTH, any(), any(), any()) } coAnswers { monthGate.await() }
+        val model = createModel()
+        model.load(StatsRange.MONTH)
+        runCurrent()
+        assertEquals(true, model.state.value.isLoading)
+
+        weekGate.completeExceptionally(IOException("down"))
+        runCurrent()
+
+        assertEquals(StatsRange.MONTH, model.state.value.selectedRange)
+        assertEquals(true, model.state.value.isLoading)
+        assertNull(model.state.value.error)
+
+        monthGate.complete(monthStats)
+        runCurrent()
+
+        assertEquals(monthStats, model.state.value.stats)
+        assertEquals(false, model.state.value.isLoading)
+        assertNull(model.state.value.error)
+    }
+
+    @Test
     fun aLinkQueryUnderTwoCharactersClearsTheResultsWithoutACall() = runTest {
         val results = testSongs(2)
         coEvery { songService.rankedSearch(any(), any(), any(), any(), any()) } returns PaginatedResponse(data = results)
