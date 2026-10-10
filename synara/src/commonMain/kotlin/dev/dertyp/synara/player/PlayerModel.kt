@@ -1221,10 +1221,7 @@ class PlayerModel(
     fun toggleLike(song: UserSong) {
         scope.launch {
             try {
-                val level = if (song.isFavourite == true) LikeLevel.NONE else LikeLevel.LIKE
-                val updated = songService.setLikeLevel(song.id, level) ?: return@launch
-                songCache.put(updated)
-                songCache.notifyLikedSongsChanged()
+                setLikeLevel(song.id, if (song.isFavourite == true) LikeLevel.NONE else LikeLevel.LIKE)
             } catch (e: Exception) {
                 logger.error(logTag, "Failed to toggle the like level", e)
             }
@@ -1238,14 +1235,18 @@ class PlayerModel(
     fun toggleSuperLike(song: UserSong) {
         scope.launch {
             try {
-                val level = if (song.likeLevel == LikeLevel.SUPER) LikeLevel.LIKE else LikeLevel.SUPER
-                val updated = songService.setLikeLevel(song.id, level) ?: return@launch
-                songCache.put(updated)
-                songCache.notifyLikedSongsChanged()
+                setLikeLevel(song.id, if (song.likeLevel == LikeLevel.SUPER) LikeLevel.LIKE else LikeLevel.SUPER)
             } catch (e: Exception) {
                 logger.error(logTag, "Failed to toggle the super like level", e)
             }
         }
+    }
+
+    suspend fun setLikeLevel(songId: PlatformUUID, level: LikeLevel): UserSong? {
+        val updated = songService.setLikeLevel(songId, level) ?: return null
+        songCache.put(updated)
+        songCache.notifyLikedSongsChanged()
+        return updated
     }
 
     fun addSongsToPlaylist(playlistId: PlatformUUID, playbackQueue: PlaybackQueue) {

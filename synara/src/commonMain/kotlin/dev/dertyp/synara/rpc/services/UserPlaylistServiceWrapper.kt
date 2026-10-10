@@ -4,6 +4,7 @@ import dev.dertyp.PlatformUUID
 import dev.dertyp.data.ArtistPlaylistSortStrategy
 import dev.dertyp.data.InsertablePlaylist
 import dev.dertyp.data.PaginatedResponse
+import dev.dertyp.data.PlaylistAccess
 import dev.dertyp.data.UserPlaylist
 import dev.dertyp.services.IUserPlaylistService
 import dev.dertyp.synara.rpc.RpcServiceManager
@@ -96,5 +97,25 @@ class UserPlaylistServiceWrapper(manager: RpcServiceManager) : BaseServiceWrappe
     ): PlatformUUID {
         return manager.getService<IUserPlaylistService>()
             .createPlaylistFromArtists(userId, name, artistIds, maxSongsPerArtist, sortStrategy)
+    }
+
+    override suspend fun setPublic(id: PlatformUUID, isPublic: Boolean): Boolean {
+        return manager.getService<IUserPlaylistService>().setPublic(id, isPublic)
+    }
+
+    override suspend fun setShare(id: PlatformUUID, userId: PlatformUUID, access: PlaylistAccess) {
+        manager.getService<IUserPlaylistService>().setShare(id, userId, access)
+    }
+
+    override suspend fun removeShare(id: PlatformUUID, userId: PlatformUUID): Boolean {
+        return manager.getService<IUserPlaylistService>().removeShare(id, userId)
+    }
+
+    override suspend fun sharedPlaylists(page: Int, pageSize: Int): PaginatedResponse<UserPlaylist> {
+        return manager.getService<IUserPlaylistService>().sharedPlaylists(page, pageSize)
+    }
+
+    override suspend fun transferOwnership(id: PlatformUUID, newOwnerId: PlatformUUID): Boolean {
+        return manager.getService<IUserPlaylistService>().transferOwnership(id, newOwnerId)
     }
 }

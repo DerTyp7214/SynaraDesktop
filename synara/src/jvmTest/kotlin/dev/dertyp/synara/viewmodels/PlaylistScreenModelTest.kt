@@ -3,7 +3,11 @@ package dev.dertyp.synara.viewmodels
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.PaginatedResponse
 import dev.dertyp.data.Playlist
+import dev.dertyp.data.PlaylistAccess
+import dev.dertyp.data.PlaylistShare
+import dev.dertyp.data.User
 import dev.dertyp.data.UserPlaylist
+import dev.dertyp.data.UserProfile
 import dev.dertyp.data.UserSong
 import dev.dertyp.logging.Logger
 import dev.dertyp.randomPlatformUUID
@@ -11,6 +15,8 @@ import dev.dertyp.services.IImageService
 import dev.dertyp.services.IPlaylistService
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
+import dev.dertyp.services.IUserService
+import dev.dertyp.synara.core.PlaylistRole
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
@@ -23,6 +29,7 @@ import dev.dertyp.synara.testing.testSongs
 import dev.dertyp.synara.utils.SynaraDispatchers
 import io.mockk.*
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -33,6 +40,7 @@ import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 
 class PlaylistScreenModelTest {
 
@@ -40,6 +48,15 @@ class PlaylistScreenModelTest {
     private val songCache = SongCache()
     private val playlistService = mockk<IPlaylistService>()
     private val userPlaylistService = mockk<IUserPlaylistService>()
+    private val me = User(id = randomPlatformUUID(), username = "me")
+    private val other = UserProfile(id = randomPlatformUUID(), username = "other", displayName = "Other")
+    private val currentUser = MutableStateFlow<User?>(me)
+    private val globalState = mockk<GlobalStateModel> {
+        every { user } returns currentUser
+    }
+    private val userService = mockk<IUserService> {
+        coEvery { allProfiles() } returns listOf(UserProfile(id = me.id, username = me.username), other)
+    }
     private val songService = mockk<ISongService>()
     private val imageService = mockk<IImageService>()
     private val playerModel = mockk<PlayerModel>(relaxed = true)
@@ -53,16 +70,32 @@ class PlaylistScreenModelTest {
     private fun systemPlaylist(name: String = "Mix", imageId: PlatformUUID? = null, duration: Long = 1234L) =
         Playlist(id = playlistId, name = name, songs = emptyList(), totalDuration = duration, imageId = imageId)
 
-    private fun userPlaylist(name: String = "Mine", imageId: PlatformUUID? = null, duration: Long = 1234L) =
+    private fun userPlaylist(
+        name: String = "Mine",
+        imageId: PlatformUUID? = null,
+        duration: Long = 1234L,
+        creator: PlatformUUID = me.id,
+        isPublic: Boolean = false,
+        shares: List<PlaylistShare> = emptyList()
+    ) =
         UserPlaylist(
             id = playlistId,
             name = name,
             songs = emptyList(),
             totalDuration = duration,
             imageId = imageId,
-            creator = randomPlatformUUID(),
-            description = ""
+            creator = creator,
+            description = "",
+            isPublic = isPublic,
+            shares = shares
         )
+
+    private fun playlistOfOther(access: PlaylistAccess? = null, isPublic: Boolean = false) = userPlaylist(
+        name = "Theirs",
+        creator = other.id,
+        isPublic = isPublic,
+        shares = listOfNotNull(access?.let { PlaylistShare(me.id, it) })
+    )
 
     private fun stubSystem(first: PaginatedResponse<UserSong>, playlist: Playlist? = systemPlaylist()) {
         coEvery { playlistService.byId(playlistId) } returns playlist
@@ -83,6 +116,8 @@ class PlaylistScreenModelTest {
         rpcServiceManager,
         playlistService,
         userPlaylistService,
+        userService,
+        globalState,
         songService,
         imageService,
         songCache,
@@ -108,6 +143,158 @@ class PlaylistScreenModelTest {
         coVerify(exactly = 1) { songService.byUserPlaylist(0, 50, playlistId) }
         coVerify(exactly = 0) { playlistService.byId(any()) }
         coVerify(exactly = 0) { songService.byPlaylist(any(), any(), any()) }
+    }
+
+    @Test
+    fun theOwnerOfAUserPlaylistMayWriteAndIsTheOwner() {
+        stubUser(page(testSongs(1), hasNext = false), userPlaylist(shares = listOf(PlaylistShare(other.id, PlaylistAccess.READ))))
+
+        val state = createModel(isUserPlaylist = true).success()
+
+        assertEquals(PlaylistRole.OWNER, state.role)
+        assertEquals(true, state.isOwner)
+        assertEquals(true, state.canWrite)
+        assertEquals(true, state.isShared)
+        assertEquals(false, state.isPublic)
+        assertNull(state.owner)
+        coVerify(exactly = 0) { userService.allProfiles() }
+    }
+
+    @Test
+    fun aUserWithAWriteShareMayWriteButIsNotTheOwner() {
+        stubUser(page(testSongs(1), hasNext = false), playlistOfOther(PlaylistAccess.WRITE))
+
+        val state = createModel(isUserPlaylist = true).success()
+
+        assertEquals(PlaylistRole.EDITOR, state.role)
+        assertEquals(false, state.isOwner)
+        assertEquals(true, state.canWrite)
+        assertEquals(true, state.isShared)
+        assertEquals(other, state.owner)
+    }
+
+    @Test
+    fun aUserWithAReadShareMayNotWrite() {
+        stubUser(page(testSongs(1), hasNext = false), playlistOfOther(PlaylistAccess.READ))
+
+        val state = createModel(isUserPlaylist = true).success()
+
+        assertEquals(PlaylistRole.VIEWER, state.role)
+        assertEquals(false, state.isOwner)
+        assertEquals(false, state.canWrite)
+        assertEquals(true, state.isShared)
+        assertEquals(other, state.owner)
+    }
+
+    @Test
+    fun aStrangerOnAPublicPlaylistMayNotWriteAndHasNoShare() {
+        stubUser(page(testSongs(1), hasNext = false), playlistOfOther(isPublic = true))
+
+        val state = createModel(isUserPlaylist = true).success()
+
+        assertEquals(PlaylistRole.VISITOR, state.role)
+        assertEquals(false, state.isOwner)
+        assertEquals(false, state.canWrite)
+        assertEquals(false, state.isShared)
+        assertEquals(true, state.isPublic)
+        assertEquals(other, state.owner)
+        coVerify(exactly = 1) { userService.allProfiles() }
+    }
+
+    @Test
+    fun aShareOfAnotherUserGivesTheCurrentUserNoAccess() {
+        val playlist = userPlaylist(creator = other.id, shares = listOf(PlaylistShare(randomPlatformUUID(), PlaylistAccess.WRITE)))
+        stubUser(page(testSongs(1), hasNext = false), playlist)
+
+        val state = createModel(isUserPlaylist = true).success()
+
+        assertEquals(PlaylistRole.VISITOR, state.role)
+        assertEquals(false, state.canWrite)
+    }
+
+    @Test
+    fun aSystemPlaylistHasNoRoleAndCannotBeWritten() {
+        stubSystem(page(testSongs(1), hasNext = false))
+
+        val state = createModel(isUserPlaylist = false).success()
+
+        assertNull(state.role)
+        assertEquals(false, state.isOwner)
+        assertEquals(false, state.canWrite)
+        assertNull(state.owner)
+        coVerify(exactly = 0) { userService.allProfiles() }
+    }
+
+    @Test
+    fun theRoleFollowsTheUserOnceItIsKnown() {
+        currentUser.value = null
+        stubUser(page(testSongs(1), hasNext = false))
+        val model = createModel(isUserPlaylist = true)
+        assertEquals(PlaylistRole.VISITOR, model.success().role)
+
+        currentUser.value = me
+
+        assertEquals(PlaylistRole.OWNER, model.success().role)
+        assertEquals(true, model.success().canWrite)
+    }
+
+    @Test
+    fun aReloadPicksUpAChangedShareAndVisibility() {
+        stubUser(page(testSongs(1), hasNext = false), playlistOfOther(PlaylistAccess.READ))
+        val model = createModel(isUserPlaylist = true)
+        assertEquals(PlaylistRole.VIEWER, model.success().role)
+
+        stubUser(page(testSongs(1), hasNext = false), playlistOfOther(PlaylistAccess.WRITE, isPublic = true))
+        songCache.notifyPlaylistChanged(playlistId)
+
+        val state = model.success()
+        assertEquals(PlaylistRole.EDITOR, state.role)
+        assertEquals(true, state.isPublic)
+        assertEquals(other, state.owner)
+        coVerify(exactly = 1) { userService.allProfiles() }
+    }
+
+    @Test
+    fun aReloadAfterATransferMakesThePreviousOwnerAnEditor() {
+        stubUser(page(testSongs(1), hasNext = false))
+        val model = createModel(isUserPlaylist = true)
+        assertEquals(PlaylistRole.OWNER, model.success().role)
+
+        stubUser(page(testSongs(1), hasNext = false), playlistOfOther(PlaylistAccess.WRITE))
+        songCache.notifyPlaylistChanged(playlistId)
+
+        val state = model.success()
+        assertEquals(PlaylistRole.EDITOR, state.role)
+        assertEquals(other, state.owner)
+    }
+
+    @Test
+    fun aLaterPageKeepsRoleOwnerAndMarkers() {
+        stubUser(page(testSongs(2), hasNext = true), playlistOfOther(PlaylistAccess.WRITE, isPublic = true))
+        coEvery { songService.byUserPlaylist(1, 50, playlistId) } returns page(listOf(testSong(10)), hasNext = false)
+        val model = createModel(isUserPlaylist = true)
+
+        model.loadNextPage()
+
+        val state = model.success()
+        assertEquals(3, state.songs.size)
+        assertEquals(PlaylistRole.EDITOR, state.role)
+        assertEquals(other, state.owner)
+        assertEquals(true, state.isPublic)
+        assertEquals(true, state.isShared)
+        coVerify(exactly = 1) { userPlaylistService.byId(playlistId) }
+    }
+
+    @Test
+    fun aFailingOwnerRequestStillShowsThePlaylist() {
+        coEvery { userService.allProfiles() } throws IOException("down")
+        stubUser(page(testSongs(2), hasNext = false), playlistOfOther(PlaylistAccess.READ))
+
+        val state = createModel(isUserPlaylist = true).success()
+
+        assertEquals("Theirs", state.name)
+        assertEquals(PlaylistRole.VIEWER, state.role)
+        assertNull(state.owner)
     }
 
     @Test
@@ -295,6 +482,18 @@ class PlaylistScreenModelTest {
         coVerify(exactly = 1) { imageService.createImage(any(), any()) }
         coVerify(exactly = 1) { userPlaylistService.setPlaylistImage(playlistId, newImage) }
         assertEquals(newImage, model.success().imageId)
+    }
+
+    @Test
+    fun settingACoverOnAPlaylistTheUserMayOnlyWriteToDoesNothing() {
+        stubUser(page(testSongs(1), hasNext = false), playlistOfOther(PlaylistAccess.WRITE))
+        val model = createModel(isUserPlaylist = true)
+
+        model.setCover(byteArrayOf(1, 2, 3))
+
+        coVerify(exactly = 0) { imageService.createImage(any(), any()) }
+        coVerify(exactly = 0) { userPlaylistService.setPlaylistImage(any(), any()) }
+        assertEquals(null, model.success().imageId)
     }
 
     @Test

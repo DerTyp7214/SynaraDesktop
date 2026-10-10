@@ -9,7 +9,7 @@ Interface for interacting with Synara from external programs.
 
 | Method | Parameters | Returns | Description |
 | :--- | :--- | :--- | :--- |
-| [`GetServerInfo`](#getserverinfo) | - | [SynaraServerInfo](#synaraserverinfo) | Get information about the Synara server (host, port). |
+| [`GetServerInfo`](#getserverinfo) | - | [SynaraServerInfo](#synaraserverinfo) | Get information about the Synara server (host, port, image address). |
 | [`GetPlaybackState`](#getplaybackstate) | - | [SynaraPlaybackState](#synaraplaybackstate) | Get the current playback state (position, duration, isPlaying). |
 | [`GetCurrentSong`](#getcurrentsong) | - | [UserSong](#usersong) | Get metadata of the currently playing song. |
 | [`Search`](#search) | `query` (String)<br>`options` (Map<[SearchFilter](#searchfilter), Variant<Any>>) | [SynaraSearchResult](#synarasearchresult) | Search for music and playlists. |
@@ -22,11 +22,14 @@ Interface for interacting with Synara from external programs.
 | [`PlayAlbum`](#playalbum) | `id` (String) | Unit | Play a specific album by its UUID. |
 | [`PlayArtist`](#playartist) | `id` (String) | Unit | Play all songs by a specific artist. |
 | [`PlayPlaylist`](#playplaylist) | `id` (String) | Unit | Play a specific playlist by its UUID. |
+| [`GetPlaylists`](#getplaylists) | - | [SynaraPlaylists](#synaraplaylists) | Get the playlists of the user, both the own ones and the ones shared with the user. |
+| [`SetLikeLevel`](#setlikelevel) | `id` (String)<br>`level` (String) | [UserSong](#usersong) | Set the like level of a song. Returns the updated song, or an empty string when the id or the level is invalid or the song is unknown. |
+| [`AddToPlaylist`](#addtoplaylist) | `playlistId` (String)<br>`id` (String)<br>`type` (String) | Unit | Add an item to a playlist of the user. Needs write access to the playlist. |
 
 ### Methods
 
 #### `GetServerInfo`
-Get information about the Synara server (host, port).
+Get information about the Synara server (host, port, image address).
 
 **Example Usage:**
 ```shell
@@ -186,6 +189,45 @@ Play a specific playlist by its UUID.
 dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.dertyp.synara.Api.PlayPlaylist string:"playlist-uuid"
 ```
 
+#### `GetPlaylists`
+Get the playlists of the user, both the own ones and the ones shared with the user.
+
+**Example Usage:**
+```shell
+dbus-send --session --print-reply=literal --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.dertyp.synara.Api.GetPlaylists  | jq .
+```
+
+#### `SetLikeLevel`
+Set the like level of a song. Returns the updated song, or an empty string when the id or the level is invalid or the song is unknown.
+
+**Parameters:**
+
+| Name | Type | Description |
+| :--- | :--- | :--- |
+| `id` | String | The UUID of the song. |
+| `level` | String | The new like level (NONE, LIKE, SUPER). |
+
+**Example Usage:**
+```shell
+dbus-send --session --print-reply=literal --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.dertyp.synara.Api.SetLikeLevel string:"song-uuid" string:"LIKE" | jq .
+```
+
+#### `AddToPlaylist`
+Add an item to a playlist of the user. Needs write access to the playlist.
+
+**Parameters:**
+
+| Name | Type | Description |
+| :--- | :--- | :--- |
+| `playlistId` | String | The UUID of the playlist the item is added to. |
+| `id` | String | The UUID of the item. |
+| `type` | String | The type of the item (song, album, artist, playlist). |
+
+**Example Usage:**
+```shell
+dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.dertyp.synara.Api.AddToPlaylist string:"playlist-uuid" string:"album-uuid" string:"album"
+```
+
 ---
 ## Data Models
 
@@ -279,6 +321,29 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `LIKE` |  |
 | `SUPER` |  |
 
+### PlaylistAccess
+
+| Value | Description |
+| :--- | :--- |
+| `READ` |  |
+| `WRITE` |  |
+
+### PlaylistRole
+
+| Value | Description |
+| :--- | :--- |
+| `OWNER` | The user owns the playlist and can change and share it. |
+| `EDITOR` | The playlist is shared with the user with write access. The user can add and remove songs. |
+| `VIEWER` | The playlist is shared with the user with read access. |
+| `VISITOR` | The playlist belongs to someone else and is not shared with the user. It is visible because it is public. |
+
+### PlaylistShare
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `userId` | PlatformUUID |  |
+| `access` | [PlaylistAccess](#playlistaccess) |  |
+
 ### SearchFilter
 
 | Value | Description |
@@ -296,6 +361,21 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `position` | Long | Current playback position in milliseconds. |
 | `duration` | Long | Total duration of the current song in milliseconds. |
 
+### SynaraPlaylistInfo
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `playlistId` | String | The UUID of the playlist this information belongs to. |
+| `ownerName` | String | The name of the owner of the playlist. Empty when the owner is unknown. |
+| `role` | [PlaylistRole](#playlistrole) | What the user may do with the playlist. |
+
+### SynaraPlaylists
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `playlists` | List<[UserPlaylist](#userplaylist)> | The own playlists of the user and the playlists shared with the user. |
+| `playlistInfo` | List<[SynaraPlaylistInfo](#synaraplaylistinfo)> | Owner and role for each of the playlists. |
+
 ### SynaraQueueItem
 
 | Field | Type | Description |
@@ -311,6 +391,7 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `albums` | List<[Album](#album)> | List of albums found in the search. |
 | `artists` | List<[Artist](#artist)> | List of artists found in the search. |
 | `playlists` | List<[UserPlaylist](#userplaylist)> | List of playlists found in the search. |
+| `playlistInfo` | List<[SynaraPlaylistInfo](#synaraplaylistinfo)> | Owner and role for each of the playlists found in the search. |
 
 ### SynaraServerInfo
 
@@ -318,6 +399,7 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | :--- | :--- | :--- |
 | `host` | String | The host of the Synara server. |
 | `port` | Int | The port of the Synara server. |
+| `imageBaseUrl` | String | The address that an image id is appended to in order to load an image, for example a cover. It ends with a slash and accepts a size query parameter after the id. Empty while no server is configured. |
 
 ### TimecodeTag
 
@@ -394,6 +476,8 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `origin` | String? |  |
 | `modifiedAt` | PlatformDate? |  |
 | `imageSource` | [ImageSource](#imagesource)? |  |
+| `isPublic` | Boolean |  |
+| `shares` | List<[PlaylistShare](#playlistshare)> |  |
 
 ### UserPlaylistSong
 

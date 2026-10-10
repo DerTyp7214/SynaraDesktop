@@ -4,6 +4,7 @@ import dev.dertyp.PlatformUUID
 import dev.dertyp.data.AuthenticationRequest
 import dev.dertyp.data.User
 import dev.dertyp.data.UserCapability
+import dev.dertyp.data.UserProfile
 import dev.dertyp.services.IUserService
 import dev.dertyp.synara.rpc.RpcServiceManager
 
@@ -22,6 +23,10 @@ class UserServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
 
     override suspend fun allUsers(): List<User> {
         return manager.getService<IUserService>().allUsers()
+    }
+
+    override suspend fun allProfiles(): List<UserProfile> {
+        return manager.getService<IUserService>().allProfiles()
     }
 
     override suspend fun setProfileImage(bytes: ByteArray) {

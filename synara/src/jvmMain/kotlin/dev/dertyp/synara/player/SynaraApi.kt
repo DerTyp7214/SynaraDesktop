@@ -4,6 +4,7 @@ import dev.dertyp.core.ifCatch
 import dev.dertyp.core.toUUIDOrNull
 import dev.dertyp.data.Album
 import dev.dertyp.data.Artist
+import dev.dertyp.data.LikeLevel
 import dev.dertyp.data.UserPlaylist
 import dev.dertyp.data.UserSong
 import dev.dertyp.dbus.annotations.DbusDoc
@@ -14,7 +15,11 @@ import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
+import dev.dertyp.services.IUserService
+import dev.dertyp.synara.core.PlaylistRole
+import dev.dertyp.synara.core.roleOf
 import dev.dertyp.synara.rpc.RpcServiceManager
+import dev.dertyp.synara.rpc.imageBaseUrl
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
@@ -33,7 +38,7 @@ import org.koin.core.component.inject
 @DbusDoc("Interface for interacting with Synara from external programs.")
 interface ISynaraApi : DBusInterface {
     @DbusMethodDoc(
-        description = "Get information about the Synara server (host, port).",
+        description = "Get information about the Synara server (host, port, image address).",
         returnsModel = SynaraServerInfo::class
     )
     fun GetServerInfo(): String
@@ -107,6 +112,28 @@ interface ISynaraApi : DBusInterface {
     fun PlayPlaylist(
         @DbusParamDoc("id", "The UUID of the playlist.", example = "playlist-uuid") id: String
     )
+
+    @DbusMethodDoc(
+        description = "Get the playlists of the user, both the own ones and the ones shared with the user.",
+        returnsModel = SynaraPlaylists::class
+    )
+    fun GetPlaylists(): String
+
+    @DbusMethodDoc(
+        description = "Set the like level of a song. Returns the updated song, or an empty string when the id or the level is invalid or the song is unknown.",
+        returnsModel = UserSong::class
+    )
+    fun SetLikeLevel(
+        @DbusParamDoc("id", "The UUID of the song.", example = "song-uuid") id: String,
+        @DbusParamDoc("level", "The new like level (NONE, LIKE, SUPER).", example = "LIKE") level: String
+    ): String
+
+    @DbusMethodDoc("Add an item to a playlist of the user. Needs write access to the playlist.")
+    fun AddToPlaylist(
+        @DbusParamDoc("playlistId", "The UUID of the playlist the item is added to.", example = "playlist-uuid") playlistId: String,
+        @DbusParamDoc("id", "The UUID of the item.", example = "album-uuid") id: String,
+        @DbusParamDoc("type", "The type of the item (song, album, artist, playlist).", example = "album") type: String
+    )
 }
 
 @Suppress("EnumEntryName")
@@ -136,7 +163,27 @@ data class SynaraServerInfo(
     @field:DbusFieldDoc("The host of the Synara server.")
     val host: String,
     @field:DbusFieldDoc("The port of the Synara server.")
-    val port: Int
+    val port: Int,
+    @field:DbusFieldDoc("The address that an image id is appended to in order to load an image, for example a cover. It ends with a slash and accepts a size query parameter after the id. Empty while no server is configured.")
+    val imageBaseUrl: String
+)
+
+@Serializable
+data class SynaraPlaylistInfo(
+    @field:DbusFieldDoc("The UUID of the playlist this information belongs to.")
+    val playlistId: String,
+    @field:DbusFieldDoc("The name of the owner of the playlist. Empty when the owner is unknown.")
+    val ownerName: String,
+    @field:DbusFieldDoc("What the user may do with the playlist.")
+    val role: PlaylistRole
+)
+
+@Serializable
+data class SynaraPlaylists(
+    @field:DbusFieldDoc("The own playlists of the user and the playlists shared with the user.")
+    val playlists: List<UserPlaylist>,
+    @field:DbusFieldDoc("Owner and role for each of the playlists.")
+    val playlistInfo: List<SynaraPlaylistInfo>
 )
 
 @Serializable
@@ -148,7 +195,9 @@ data class SynaraSearchResult(
     @field:DbusFieldDoc("List of artists found in the search.")
     val artists: List<Artist>,
     @field:DbusFieldDoc("List of playlists found in the search.")
-    val playlists: List<UserPlaylist>
+    val playlists: List<UserPlaylist>,
+    @field:DbusFieldDoc("Owner and role for each of the playlists found in the search.")
+    val playlistInfo: List<SynaraPlaylistInfo> = emptyList()
 )
 
 @Serializable
@@ -168,7 +217,8 @@ class SynaraApiImpl(
     override fun GetServerInfo(): String {
         val info = SynaraServerInfo(
             host = rpcServiceManager.host ?: "localhost",
-            port = rpcServiceManager.port ?: 8080
+            port = rpcServiceManager.port ?: 8080,
+            imageBaseUrl = rpcServiceManager.imageBaseUrl() ?: ""
         )
         return json.encodeToString(SynaraServerInfo.serializer(), info)
     }
@@ -206,6 +256,7 @@ class SynaraApiImpl(
     private val albumService by inject<IAlbumService>()
     private val artistService by inject<IArtistService>()
     private val userPlaylistService by inject<IUserPlaylistService>()
+    private val userService by inject<IUserService>()
     private val globalState by inject<GlobalStateModel>()
     private val json by inject<Json>()
 
@@ -234,13 +285,15 @@ class SynaraApiImpl(
                 val songsDef = if (includeSongs) async { songService.rankedSearch(0, 10, query, explicit = true).data } else null
                 val albumsDef = if (includeAlbums) async { albumService.rankedSearch(0, 10, query).data } else null
                 val artistsDef = if (includeArtists) async { artistService.rankedSearch(0, 10, query).data } else null
-                val playlistsDef = if (includePlaylists) async { userPlaylistService.rankedSearch(globalState.user.value?.id, 0, 10, query).data } else null
+                val playlistsDef = if (includePlaylists) async { userPlaylistService.rankedSearch(null, 0, 10, query).data } else null
 
+                val playlists = playlistsDef?.ifCatch(emptyList()) ?: emptyList()
                 val result = SynaraSearchResult(
                     songs = songsDef?.ifCatch(emptyList()) ?: emptyList(),
                     albums = albumsDef?.ifCatch(emptyList()) ?: emptyList(),
                     artists = artistsDef?.ifCatch(emptyList()) ?: emptyList(),
-                    playlists = playlistsDef?.ifCatch(emptyList()) ?: emptyList()
+                    playlists = playlists,
+                    playlistInfo = playlistInfo(playlists)
                 )
 
                 json.encodeToString(SynaraSearchResult.serializer(), result)
@@ -306,6 +359,52 @@ class SynaraApiImpl(
     override fun PlayAlbum(id: String) = playFromSource(id) { PlaybackSource.Album(it) }
     override fun PlayArtist(id: String) = playFromSource(id) { PlaybackSource.Artist(it) }
     override fun PlayPlaylist(id: String) = playFromSource(id) { PlaybackSource.Playlist(it) }
+
+    override fun GetPlaylists(): String {
+        val playlists = globalState.userPlaylists.value
+        val result = SynaraPlaylists(
+            playlists = playlists,
+            playlistInfo = runBlocking { playlistInfo(playlists) }
+        )
+        return json.encodeToString(SynaraPlaylists.serializer(), result)
+    }
+
+    override fun SetLikeLevel(id: String, level: String): String {
+        val uuid = id.toUUIDOrNull() ?: return ""
+        val likeLevel = LikeLevel.entries.find { it.name == level } ?: return ""
+        val song = runBlocking { playerModel::setLikeLevel.ifCatch(uuid, likeLevel, null) } ?: return ""
+        return json.encodeToString(UserSong.serializer(), song)
+    }
+
+    override fun AddToPlaylist(playlistId: String, id: String, type: String) {
+        val playlistUuid = playlistId.toUUIDOrNull() ?: return
+        resolvePlayback(
+            id = id,
+            type = type,
+            onSong = { song ->
+                playerModel.addSongsToPlaylist(playlistUuid, PlaybackQueue(items = listOf(QueueEntry.Explicit(song))))
+            },
+            onQueue = { queue -> playerModel.addSongsToPlaylist(playlistUuid, queue) }
+        )
+    }
+
+    private suspend fun playlistInfo(playlists: List<UserPlaylist>): List<SynaraPlaylistInfo> {
+        val user = globalState.user.value
+        val profiles = if (playlists.any { it.creator != user?.id }) {
+            userService::allProfiles.ifCatch(emptyList())
+        } else {
+            emptyList()
+        }
+        val ownerNames = profiles.associate { it.id to (it.displayName ?: it.username) } +
+            listOfNotNull(user?.let { it.id to (it.displayName ?: it.username) })
+        return playlists.map { playlist ->
+            SynaraPlaylistInfo(
+                playlistId = playlist.id.toString(),
+                ownerName = ownerNames[playlist.creator] ?: "",
+                role = playlist.roleOf(user?.id)
+            )
+        }
+    }
 
     private fun playFromSource(id: String, sourceFactory: (dev.dertyp.PlatformUUID) -> PlaybackSource) {
         id.toUUIDOrNull()?.let { uuid ->

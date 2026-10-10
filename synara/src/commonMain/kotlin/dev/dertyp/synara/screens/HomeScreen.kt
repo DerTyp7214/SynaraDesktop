@@ -35,6 +35,8 @@ import dev.dertyp.data.UserPlaylist
 import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.Config
 import dev.dertyp.synara.onboarding.OnboardingCoordinator
+import dev.dertyp.synara.core.PlaylistRole
+import dev.dertyp.synara.core.roleOf
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.screens.podcasts.PodcastShowScreen
 import dev.dertyp.synara.screens.podcasts.PodcastsScreen
@@ -224,6 +226,7 @@ class HomeScreen : Screen {
         onItemClick: (() -> Unit)? = null
     ) {
         val playlists by screenModel.globalState.userPlaylists.collectAsState()
+        val user by screenModel.globalState.user.collectAsState()
 
         LazyColumn(contentPadding = PaddingValues(16.dp)) {
             item {
@@ -236,6 +239,7 @@ class HomeScreen : Screen {
                 PlaylistNavItem(
                     playlist = playlist,
                     selected = isSelected,
+                    role = playlist.roleOf(user?.id),
                     onClick = {
                         if (!isSelected) {
                             navigator.push(PlaylistScreen(playlist.id, isUserPlaylist = true))
@@ -537,6 +541,7 @@ class HomeScreen : Screen {
     private fun PlaylistNavItem(
         playlist: UserPlaylist,
         selected: Boolean,
+        role: PlaylistRole,
         onClick: () -> Unit
     ) {
         var showContextMenu by remember { mutableStateOf(false) }
@@ -595,7 +600,8 @@ class HomeScreen : Screen {
                     playlistId = playlist.id,
                     playlistName = playlist.name,
                     expanded = showContextMenu,
-                    onDismissRequest = { showContextMenu = false }
+                    onDismissRequest = { showContextMenu = false },
+                    role = role
                 )
             }
         }

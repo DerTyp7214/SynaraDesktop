@@ -22,16 +22,20 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.navigator.LocalNavigator
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.CollectionItemType
+import dev.dertyp.synara.core.PlaylistRole
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
 import dev.dertyp.synara.player.PlayerModel
+import dev.dertyp.synara.screens.PlaylistScreen
 import dev.dertyp.synara.screens.SimilarSongsScreen
 import dev.dertyp.synara.services.IDownloadManager
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.AddToCollectionDialog
 import dev.dertyp.synara.ui.components.dialogs.CreatePlaylistDialog
+import dev.dertyp.synara.ui.components.dialogs.LeavePlaylistDialog
 import dev.dertyp.synara.ui.components.dialogs.PlaylistPickerDialog
+import dev.dertyp.synara.ui.components.dialogs.PlaylistShareDialog
 import dev.dertyp.synara.ui.components.dialogs.SimilarSongsDialog
 import dev.dertyp.synara.ui.components.dialogs.SimilarSongsSeed
 import org.jetbrains.compose.resources.stringResource
@@ -43,6 +47,8 @@ import synara.synara.generated.resources.add_to_queue
 import synara.synara.generated.resources.get_similar_songs
 import synara.synara.generated.resources.menu_download
 import synara.synara.generated.resources.play_next
+import synara.synara.generated.resources.playlist_leave
+import synara.synara.generated.resources.playlist_share
 import synara.synara.generated.resources.remove_download
 
 @Composable
@@ -51,6 +57,7 @@ fun PlaylistContextMenu(
     playlistName: String,
     expanded: Boolean,
     onDismissRequest: () -> Unit,
+    role: PlaylistRole? = null,
     playerModel: PlayerModel = koinInject(),
     downloadManager: IDownloadManager? = koinInject<IDownloadManager?>(),
 ) {
@@ -58,6 +65,8 @@ fun PlaylistContextMenu(
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     var showSimilarSongsDialog by remember { mutableStateOf(false) }
     var showCollectionPickerDialog by remember { mutableStateOf(false) }
+    var showShareDialog by remember { mutableStateOf(false) }
+    var showLeaveDialog by remember { mutableStateOf(false) }
     val navigator = LocalNavigator.current
 
     SynaraMenu(
@@ -126,6 +135,28 @@ fun PlaylistContextMenu(
             leadingIcon = { Icon(SynaraIcons.Discovery.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
 
+        if (role?.isOwner == true) {
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.playlist_share)) },
+                onClick = {
+                    showShareDialog = true
+                    onDismissRequest()
+                },
+                leadingIcon = { Icon(SynaraIcons.Users.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+            )
+        }
+
+        if (role?.isShared == true) {
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.playlist_leave)) },
+                onClick = {
+                    showLeaveDialog = true
+                    onDismissRequest()
+                },
+                leadingIcon = { Icon(SynaraIcons.Close.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+            )
+        }
+
         downloadManager?.let { dm ->
             val isDownloaded by dm.isPlaylistDownloaded(playlistId).collectAsState(false)
 
@@ -176,6 +207,23 @@ fun PlaylistContextMenu(
         itemType = CollectionItemType.PLAYLIST,
         itemId = playlistId,
         onDismissRequest = { showCollectionPickerDialog = false }
+    )
+
+    PlaylistShareDialog(
+        isOpen = showShareDialog,
+        playlistId = playlistId,
+        playlistName = playlistName,
+        onDismissRequest = { showShareDialog = false }
+    )
+
+    LeavePlaylistDialog(
+        isOpen = showLeaveDialog,
+        playlistId = playlistId,
+        playlistName = playlistName,
+        onLeft = {
+            if ((navigator?.lastItem as? PlaylistScreen)?.playlistId == playlistId) navigator.pop()
+        },
+        onDismissRequest = { showLeaveDialog = false }
     )
 
     SimilarSongsDialog(

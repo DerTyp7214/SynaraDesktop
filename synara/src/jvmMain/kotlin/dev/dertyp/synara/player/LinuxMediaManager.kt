@@ -7,6 +7,7 @@ import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
 import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.rpc.RpcServiceManager
+import dev.dertyp.synara.rpc.imageBaseUrl
 import dev.dertyp.synara.services.LocalStorageService
 import dev.dertyp.synara.utils.OSUtils
 import kotlinx.coroutines.CoroutineScope
@@ -435,11 +436,9 @@ private fun createMetadata(metadata: NowPlayingMetadata?): Map<String, Variant<*
             val koin = getKoin()
             val manager = koin.get<RpcServiceManager>()
             val storageService = koin.get<LocalStorageService>()
-            val host = manager.host
-            val port = manager.port
-            if (host != null && port != null && imageId != null) {
-                val scheme = if (manager.ssl && manager.sessionSslOverride.value != false) "https" else "http"
-                m["mpris:artUrl"] = Variant("$scheme://$host:$port/image/imageData/$imageId")
+            val imageBaseUrl = manager.imageBaseUrl()
+            if (imageBaseUrl != null && imageId != null) {
+                m["mpris:artUrl"] = Variant("$imageBaseUrl$imageId")
             } else {
                 imageId?.let {
                     m["mpris:artUrl"] =

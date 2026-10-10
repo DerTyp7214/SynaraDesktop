@@ -3,17 +3,25 @@ package dev.dertyp.synara.services
 import com.russhwolf.settings.Settings
 import dev.dertyp.data.AudioInfo
 import dev.dertyp.data.BaseSong
+import dev.dertyp.data.PaginatedResponse
+import dev.dertyp.data.User
+import dev.dertyp.data.UserPlaylist
+import dev.dertyp.data.UserProfile
 import dev.dertyp.data.UserSong
 import dev.dertyp.logging.Logger
 import dev.dertyp.randomPlatformUUID
 import dev.dertyp.services.ISongService
+import dev.dertyp.services.IUserPlaylistService
+import dev.dertyp.services.IUserService
 import dev.dertyp.synara.db.LibraryRepository
 import dev.dertyp.synara.db.SavedLibraryIds
+import dev.dertyp.synara.db.UserRepository
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.utils.SynaraDispatchers
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -73,6 +81,9 @@ class DownloadManagerTest {
         every { observeChanges() } returns emptyFlow()
         coEvery { getExplicitlySavedIds() } returns SavedLibraryIds(emptySet(), emptySet(), emptySet(), emptySet())
     }
+    private val playlistService = mockk<IUserPlaylistService>()
+    private val userService = mockk<IUserService>()
+    private val userRepository = mockk<UserRepository>(relaxed = true)
     private val snackbarManager = mockk<SnackbarManager>(relaxed = true)
     private val logger = mockk<Logger>(relaxed = true)
 
@@ -100,7 +111,9 @@ class DownloadManagerTest {
         songService = songService,
         albumService = mockk(),
         artistService = mockk(),
-        playlistService = mockk(),
+        playlistService = playlistService,
+        userService = userService,
+        userRepository = userRepository,
         storageService = storage,
         libraryRepository = libraryRepository,
         settings = mockk<Settings>(relaxed = true),
@@ -122,6 +135,63 @@ class DownloadManagerTest {
     private fun partFiles(): List<File> = root.walkTopDown().filter { it.isFile && it.name.endsWith(".part") }.toList()
 
     private fun failureMessage(song: UserSong): String = runBlocking { getString(Res.string.download_failed, song.title) }
+
+    private fun playlistOf(creator: UserProfile) = UserPlaylist(
+        id = randomPlatformUUID(),
+        name = "Shared",
+        songs = emptyList(),
+        creator = creator.id,
+        description = ""
+    ).also {
+        coEvery { playlistService.byId(it.id) } returns it
+        coEvery { songService.byUserPlaylist(any(), any(), it.id) } returns PaginatedResponse(emptyList())
+    }
+
+    @Test
+    fun downloadingAPlaylistOfAnotherUserStoresTheOwnerBeforeThePlaylist() {
+        val owner = UserProfile(id = randomPlatformUUID(), username = "owner", displayName = "Owner", profileImageId = randomPlatformUUID())
+        val playlist = playlistOf(owner)
+        val storedOwner = User(id = owner.id, username = "owner", displayName = "Owner", profileImageId = owner.profileImageId)
+        coEvery { userRepository.getUser(owner.id) } returns null
+        coEvery { userService.allProfiles() } returns listOf(UserProfile(randomPlatformUUID(), "someone"), owner)
+
+        createManager().downloadPlaylist(playlist.id, explicitlySaved = true)
+        scheduler.advanceUntilIdle()
+
+        coVerifyOrder {
+            userRepository.saveUser(storedOwner)
+            libraryRepository.savePlaylistMetadata(playlist, true)
+        }
+        coVerify(exactly = 1) { userRepository.saveUser(any()) }
+    }
+
+    @Test
+    fun downloadingAPlaylistWhoseOwnerIsStoredRequestsNoProfiles() {
+        val owner = UserProfile(id = randomPlatformUUID(), username = "me")
+        val playlist = playlistOf(owner)
+        coEvery { userRepository.getUser(owner.id) } returns User(id = owner.id, username = "me")
+
+        createManager().downloadPlaylist(playlist.id, explicitlySaved = true)
+        scheduler.advanceUntilIdle()
+
+        coVerify(exactly = 1) { libraryRepository.savePlaylistMetadata(playlist, true) }
+        coVerify(exactly = 0) { userService.allProfiles() }
+        coVerify(exactly = 0) { userRepository.saveUser(any()) }
+    }
+
+    @Test
+    fun downloadingAPlaylistWhoseOwnerIsUnknownSavesNothing() {
+        val owner = UserProfile(id = randomPlatformUUID(), username = "gone")
+        val playlist = playlistOf(owner)
+        coEvery { userRepository.getUser(owner.id) } returns null
+        coEvery { userService.allProfiles() } returns emptyList()
+
+        createManager().downloadPlaylist(playlist.id, explicitlySaved = true)
+        scheduler.advanceUntilIdle()
+
+        coVerify(exactly = 0) { userRepository.saveUser(any()) }
+        coVerify(exactly = 0) { libraryRepository.savePlaylistMetadata(any(), any()) }
+    }
 
     @Test
     fun abortedStreamLeavesNoFileAndIsReportedAfterThreeAttempts() {

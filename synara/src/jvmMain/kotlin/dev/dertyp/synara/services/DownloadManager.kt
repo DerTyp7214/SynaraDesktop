@@ -2,6 +2,7 @@ package dev.dertyp.synara.services
 
 import com.russhwolf.settings.Settings
 import dev.dertyp.PlatformUUID
+import dev.dertyp.data.User
 import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
@@ -9,6 +10,7 @@ import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
+import dev.dertyp.services.IUserService
 import dev.dertyp.synara.db.*
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.settings.SettingKey
@@ -43,6 +45,8 @@ class DownloadManager(
     private val albumService: IAlbumService,
     private val artistService: IArtistService,
     private val playlistService: IUserPlaylistService,
+    private val userService: IUserService,
+    private val userRepository: UserRepository,
     private val storageService: LocalStorageService,
     private val libraryRepository: LibraryRepository,
     private val settings: Settings,
@@ -223,6 +227,17 @@ class DownloadManager(
     override fun downloadPlaylist(playlistId: PlatformUUID, explicitlySaved: Boolean) {
         scope.launch {
             val playlist = playlistService.byId(playlistId) ?: return@launch
+            if (userRepository.getUser(playlist.creator) == null) {
+                val owner = userService.allProfiles().find { it.id == playlist.creator } ?: return@launch
+                userRepository.saveUser(
+                    User(
+                        id = owner.id,
+                        username = owner.username,
+                        displayName = owner.displayName,
+                        profileImageId = owner.profileImageId
+                    )
+                )
+            }
             libraryRepository.savePlaylistMetadata(playlist, explicitlySaved)
 
             var page = 0

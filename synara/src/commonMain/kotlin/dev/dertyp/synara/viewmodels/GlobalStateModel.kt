@@ -222,9 +222,11 @@ class GlobalStateModel(
             try {
                 val currentUser = _user.value ?: userService.me().also { if (session == started) _user.value = it }
                 if (session != started) return@launch
-                val response = userPlaylistService.allPlaylists(currentUser.id, 0, Int.MAX_VALUE)
+                val own = userPlaylistService.allPlaylists(currentUser.id, 0, Int.MAX_VALUE)
                 if (session != started) return@launch
-                _userPlaylists.value = response.data
+                val shared = userPlaylistService.sharedPlaylists(0, Int.MAX_VALUE)
+                if (session != started) return@launch
+                _userPlaylists.value = own.data + shared.data
             } catch (e: Exception) {
                 logger.error(logTag, "Failed to refresh the playlists", e)
             } finally {

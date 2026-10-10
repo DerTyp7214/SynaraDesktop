@@ -12,7 +12,6 @@ import dev.dertyp.synara.testing.TestDispatchers
 import dev.dertyp.synara.testing.testAlbum
 import dev.dertyp.synara.testing.testSongs
 import io.mockk.*
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -44,9 +43,6 @@ class SearchScreenModelTest {
     private val userPlaylistService = mockk<IUserPlaylistService> {
         coEvery { rankedSearch(any(), any(), any(), any()) } returns PaginatedResponse(data = playlists)
     }
-    private val globalState = mockk<GlobalStateModel> {
-        every { user } returns MutableStateFlow(null)
-    }
     private val logger = mockk<Logger>(relaxed = true)
 
     private fun TestScope.createModel() = SearchScreenModel(
@@ -54,7 +50,6 @@ class SearchScreenModelTest {
         albumService,
         artistService,
         userPlaylistService,
-        globalState,
         logger,
         TestDispatchers(StandardTestDispatcher(testScheduler))
     )
@@ -88,6 +83,18 @@ class SearchScreenModelTest {
         assertEquals(artists, model.artists.value)
         assertEquals(playlists, model.playlists.value)
         assertEquals(false, model.isSearching.value)
+    }
+
+    @Test
+    fun thePlaylistSearchIsNotRestrictedToACreator() = runTest {
+        val model = createModel()
+
+        model.search("fin")
+        passDebounce()
+
+        coVerify(exactly = 1) { userPlaylistService.rankedSearch(null, 0, 10, "fin") }
+        coVerify(exactly = 1) { userPlaylistService.rankedSearch(any(), any(), any(), any()) }
+        assertEquals(playlists, model.playlists.value)
     }
 
     @Test

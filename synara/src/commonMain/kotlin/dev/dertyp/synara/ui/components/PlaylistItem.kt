@@ -25,8 +25,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.dertyp.data.UserPlaylist
+import dev.dertyp.synara.core.roleOf
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.menus.PlaylistContextMenu
+import dev.dertyp.synara.viewmodels.GlobalStateModel
+import org.koin.compose.koinInject
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -34,8 +37,10 @@ fun PlaylistItem(
     playlist: UserPlaylist,
     modifier: Modifier = Modifier,
     horizontal: Boolean = false,
+    globalState: GlobalStateModel = koinInject(),
     onClick: () -> Unit,
 ) {
+    val user by globalState.user.collectAsState()
     var showContextMenu by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
@@ -117,7 +122,8 @@ fun PlaylistItem(
                 playlistId = playlist.id,
                 playlistName = playlist.name,
                 expanded = showContextMenu,
-                onDismissRequest = { showContextMenu = false }
+                onDismissRequest = { showContextMenu = false },
+                role = playlist.roleOf(user?.id)
             )
         }
     }

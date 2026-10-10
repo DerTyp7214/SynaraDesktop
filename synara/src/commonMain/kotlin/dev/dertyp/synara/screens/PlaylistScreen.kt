@@ -3,11 +3,13 @@
 package dev.dertyp.synara.screens
 
 import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import dev.dertyp.synara.utils.pickImageBytes
@@ -87,7 +89,8 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                                         playlistId = playlistId,
                                         playlistName = success.name,
                                         expanded = showPlaylistMenu,
-                                        onDismissRequest = { showPlaylistMenu = false }
+                                        onDismissRequest = { showPlaylistMenu = false },
+                                        role = success.role
                                     )
                                 }
                             }
@@ -160,7 +163,7 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                         showCover = true,
                         onClick = { screenModel.playSong(song) },
                         onPlayNext = { screenModel.playerModel.playNext(song) },
-                        isInPlaylist = state.isUserPlaylist,
+                        isInPlaylist = state.canWrite,
                         onRemoveFromPlaylist = { screenModel.playerModel.removeSongFromPlaylist(playlistId, song.id) }
                     )
                 }
@@ -194,6 +197,29 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                 adapter = rememberScrollbarAdapter(
                     scrollState = lazyListState
                 )
+            )
+        }
+    }
+
+    @Composable
+    private fun PlaylistMarker(icon: SynaraIcons, label: String) {
+        Row(
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.shapes.extraSmall)
+                .padding(horizontal = 6.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                icon.get(),
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
             )
         }
     }
@@ -239,6 +265,38 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                     )
                 }
 
+                val owner = state.owner?.takeUnless { state.isOwner }
+                if (owner != null || state.isPublic || state.isShared) {
+                    Row(
+                        modifier = Modifier.padding(top = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (owner != null) {
+                            SynaraImage(
+                                imageId = owner.profileImageId,
+                                size = 24.dp,
+                                shape = CircleShape,
+                                fallbackIcon = SynaraIcons.Artists
+                            )
+                            Text(
+                                text = stringResource(
+                                    Res.string.playlist_owner,
+                                    owner.displayName?.takeIf { it.isNotBlank() } ?: owner.username
+                                ),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (state.isPublic) {
+                            PlaylistMarker(SynaraIcons.Globe, stringResource(Res.string.playlist_public))
+                        }
+                        if (state.isShared) {
+                            PlaylistMarker(SynaraIcons.Users, stringResource(Res.string.playlist_shared))
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -251,7 +309,7 @@ data class PlaylistScreen(val playlistId: PlatformUUID, val isUserPlaylist: Bool
                         Text(stringResource(Res.string.play))
                     }
 
-                    if (state.isUserPlaylist) {
+                    if (state.isOwner) {
                         val scope = rememberCoroutineScope()
                         OutlinedButton(
                             onClick = {

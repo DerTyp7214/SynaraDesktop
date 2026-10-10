@@ -30,7 +30,6 @@ class SearchScreenModel(
     private val albumService: IAlbumService,
     private val artistService: IArtistService,
     private val userPlaylistService: IUserPlaylistService,
-    private val globalStateModel: GlobalStateModel,
     private val logger: Logger,
     dispatchers: SynaraDispatchers
 ) : ScreenModel, Refreshable {
@@ -122,7 +121,7 @@ class SearchScreenModel(
                 launch { fetchSection(_artists, "artists") { artistService.rankedSearch(0, 10, query).data } }
                 launch {
                     fetchSection(_playlists, "playlists") {
-                        userPlaylistService.rankedSearch(globalStateModel.user.value?.id, 0, 10, query).data
+                        userPlaylistService.rankedSearch(null, 0, 10, query).data
                     }
                 }
             }

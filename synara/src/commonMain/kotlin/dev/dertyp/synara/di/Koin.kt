@@ -178,6 +178,7 @@ val appModule = module {
     factoryOf(::PodcastsScreenModel)
     factoryOf(::PodcastShowScreenModel)
     factoryOf(::PlaylistScreenModel)
+    factoryOf(::PlaylistShareModel)
     factoryOf(::SimilarSongsScreenModel)
 
     factoryOf(::SearchSongsViewModel)

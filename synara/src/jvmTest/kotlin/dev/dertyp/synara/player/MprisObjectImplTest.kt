@@ -90,6 +90,7 @@ class MprisObjectImplTest {
         every { manager.host } returns host
         every { manager.port } returns port
         every { manager.ssl } returns ssl
+        every { manager.rpcPath } returns "/"
         every { manager.sessionSslOverride } returns MutableStateFlow(sslOverride)
         startTestKoin(
             module {

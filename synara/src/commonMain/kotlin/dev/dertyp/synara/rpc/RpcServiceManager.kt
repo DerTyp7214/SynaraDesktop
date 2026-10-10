@@ -446,3 +446,10 @@ class RpcServiceManager(
         val FALLBACK_FLIP_WINDOW = 2.seconds
     }
 }
+
+fun RpcServiceManager.imageBaseUrl(): String? {
+    val h = host ?: return null
+    val p = port ?: return null
+    val scheme = if (ssl && sessionSslOverride.value != false) "https" else "http"
+    return "$scheme://$h:$p${rpcPath.removeSuffix("/")}/image/imageData/"
+}

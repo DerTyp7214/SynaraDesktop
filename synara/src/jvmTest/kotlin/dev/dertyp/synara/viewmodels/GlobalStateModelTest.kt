@@ -1,6 +1,8 @@
 package dev.dertyp.synara.viewmodels
 
 import dev.dertyp.data.PaginatedResponse
+import dev.dertyp.data.PlaylistAccess
+import dev.dertyp.data.PlaylistShare
 import dev.dertyp.data.User
 import dev.dertyp.data.UserPlaylist
 import dev.dertyp.logging.Logger
@@ -92,6 +94,15 @@ class GlobalStateModelTest {
         description = ""
     )
 
+    private fun sharedPlaylist(name: String, access: PlaylistAccess) = UserPlaylist(
+        id = randomPlatformUUID(),
+        name = name,
+        songs = emptyList(),
+        creator = randomPlatformUUID(),
+        description = "",
+        shares = listOf(PlaylistShare(me.id, access))
+    )
+
     @BeforeTest
     fun setUp() {
         startTestKoin()
@@ -108,6 +119,7 @@ class GlobalStateModelTest {
         }
         userPlaylistService = mockk {
             coEvery { allPlaylists(any(), any(), any()) } returns PaginatedResponse(firstPlaylists)
+            coEvery { sharedPlaylists(any(), any()) } returns PaginatedResponse(emptyList())
         }
         scrobblerService = mockk(relaxed = true)
         presenceService = mockk(relaxed = true)
@@ -301,6 +313,72 @@ class GlobalStateModelTest {
 
         assertEquals(secondPlaylists, model.userPlaylists.value)
         coVerify(exactly = 2) { userPlaylistService.allPlaylists(me.id, 0, Int.MAX_VALUE) }
+    }
+
+    @Test
+    fun thePlaylistsAreTheOwnOnesFollowedByTheOnesSharedWithTheUser() = runTest(dispatcher) {
+        val shared = listOf(sharedPlaylist("read", PlaylistAccess.READ), sharedPlaylist("write", PlaylistAccess.WRITE))
+        coEvery { userPlaylistService.sharedPlaylists(any(), any()) } returns PaginatedResponse(shared)
+        val model = createModel()
+
+        authenticate()
+
+        assertEquals(firstPlaylists + shared, model.userPlaylists.value)
+        coVerify(exactly = 1) { userPlaylistService.allPlaylists(me.id, 0, Int.MAX_VALUE) }
+        coVerify(exactly = 1) { userPlaylistService.sharedPlaylists(0, Int.MAX_VALUE) }
+    }
+
+    @Test
+    fun aPlaylistsReloadRequestReloadsTheSharedPlaylistsToo() = runTest(dispatcher) {
+        val shared = listOf(sharedPlaylist("read", PlaylistAccess.READ))
+        val model = createModel()
+        authenticate()
+        assertEquals(firstPlaylists, model.userPlaylists.value)
+        coEvery { userPlaylistService.sharedPlaylists(any(), any()) } returns PaginatedResponse(shared)
+
+        playlistUpdates.tryEmit(PlaylistUpdate.PlaylistsReloadRequired)
+        scheduler.runCurrent()
+
+        assertEquals(firstPlaylists + shared, model.userPlaylists.value)
+        coVerify(exactly = 2) { userPlaylistService.sharedPlaylists(0, Int.MAX_VALUE) }
+    }
+
+    @Test
+    fun aFailingSharedPlaylistRequestKeepsTheOldPlaylistsAndEndsTheRefresh() = runTest(dispatcher) {
+        val model = createModel()
+        authenticate()
+        val failure = IllegalStateException("down")
+        coEvery { userPlaylistService.allPlaylists(any(), any(), any()) } returns PaginatedResponse(secondPlaylists)
+        coEvery { userPlaylistService.sharedPlaylists(any(), any()) } throws failure
+
+        model.refreshPlaylists()
+        scheduler.runCurrent()
+
+        assertEquals(firstPlaylists, model.userPlaylists.value)
+        assertFalse(model.isRefreshingPlaylists.value)
+        verify(exactly = 1) { logger.error(any(), any(), failure, any()) }
+    }
+
+    @Test
+    fun aSharedPlaylistRequestThatReturnsAfterALogoutLeavesNoPlaylists() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        val model = createModel()
+        authenticate()
+        coEvery { userPlaylistService.sharedPlaylists(any(), any()) } coAnswers {
+            gate.await()
+            PaginatedResponse(listOf(sharedPlaylist("read", PlaylistAccess.READ)))
+        }
+        model.refreshPlaylists()
+        scheduler.runCurrent()
+        assertTrue(model.isRefreshingPlaylists.value)
+
+        connection.value = ConnectionState.LoginRequired
+        scheduler.runCurrent()
+        gate.complete(Unit)
+        scheduler.runCurrent()
+
+        assertTrue(model.userPlaylists.value.isEmpty())
+        assertFalse(model.isRefreshingPlaylists.value)
     }
 
     @Test

@@ -13,6 +13,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.dertyp.data.UserPlaylist
+import dev.dertyp.synara.core.roleOf
 import dev.dertyp.synara.ui.SynaraIcons
 import dev.dertyp.synara.ui.components.SynaraImage
 import dev.dertyp.synara.ui.verticalScrollScrim
@@ -29,7 +30,9 @@ fun PlaylistPickerDialog(
     onDismissRequest: () -> Unit,
     globalState: GlobalStateModel = koinInject()
 ) {
-    val playlists by globalState.userPlaylists.collectAsState()
+    val allPlaylists by globalState.userPlaylists.collectAsState()
+    val user by globalState.user.collectAsState()
+    val playlists = remember(allPlaylists, user) { allPlaylists.filter { it.roleOf(user?.id).canWrite } }
 
     SynaraAlertDialog(
         isOpen = isOpen,

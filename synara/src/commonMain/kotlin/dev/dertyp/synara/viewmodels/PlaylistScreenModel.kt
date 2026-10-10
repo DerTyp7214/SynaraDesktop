@@ -5,11 +5,16 @@ import dev.dertyp.logging.LogTag
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import dev.dertyp.PlatformUUID
+import dev.dertyp.data.UserPlaylist
+import dev.dertyp.data.UserProfile
 import dev.dertyp.data.UserSong
 import dev.dertyp.services.IImageService
 import dev.dertyp.services.IPlaylistService
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
+import dev.dertyp.services.IUserService
+import dev.dertyp.synara.core.PlaylistRole
+import dev.dertyp.synara.core.roleOf
 import dev.dertyp.synara.player.*
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.utils.SynaraDispatchers
@@ -26,6 +31,8 @@ class PlaylistScreenModel(
     private val rpcServiceManager: RpcServiceManager,
     private val playlistService: IPlaylistService,
     private val userPlaylistService: IUserPlaylistService,
+    private val userService: IUserService,
+    private val globalState: GlobalStateModel,
     private val songService: ISongService,
     private val imageService: IImageService,
     private val songCache: SongCache,
@@ -55,6 +62,7 @@ class PlaylistScreenModel(
     private val pageSize = 50
     private var hasNextPage = true
     private var isFetching = false
+    private var userPlaylist: UserPlaylist? = null
 
     init {
         screenModelScope.launch(modelDispatcher) {
@@ -94,10 +102,56 @@ class PlaylistScreenModel(
                 }
             }
         }
+
+        screenModelScope.launch(modelDispatcher) {
+            globalState.user.collect { user ->
+                val playlist = userPlaylist ?: return@collect
+                val currentState = _state.value as? PlaylistState.Success ?: return@collect
+                _state.value = currentState.copy(role = playlist.roleOf(user?.id))
+            }
+        }
     }
 
     override fun refresh() {
         refresher.refresh()
+    }
+
+    private suspend fun userPlaylistState(
+        playlist: UserPlaylist?,
+        previous: PlaylistState.Success?,
+        songs: List<UserSong>,
+        hasNextPage: Boolean
+    ): PlaylistState.Success {
+        if (playlist != null) userPlaylist = playlist
+        val role = playlist?.roleOf(globalState.user.value?.id) ?: previous?.role
+        return PlaylistState.Success(
+            name = playlist?.name ?: previous?.name ?: "Playlist",
+            imageId = playlist?.imageId ?: previous?.imageId,
+            songs = songs,
+            totalDuration = playlist?.totalDuration ?: previous?.totalDuration ?: 0L,
+            isUserPlaylist = isUserPlaylist,
+            hasNextPage = hasNextPage,
+            role = role,
+            owner = when {
+                role == PlaylistRole.OWNER -> null
+                playlist == null -> previous?.owner
+                else -> ownerOf(playlist, previous)
+            },
+            isPublic = playlist?.isPublic ?: previous?.isPublic ?: false,
+            isShared = playlist?.shares?.isNotEmpty() ?: previous?.isShared ?: false
+        )
+    }
+
+    private suspend fun ownerOf(playlist: UserPlaylist, previous: PlaylistState.Success?): UserProfile? {
+        previous?.owner?.takeIf { it.id == playlist.creator }?.let { return it }
+        return try {
+            userService.allProfiles().find { it.id == playlist.creator }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.error(logTag, "Failed to load the playlist owner", e)
+            null
+        }
     }
 
     private suspend fun reload() {
@@ -110,14 +164,7 @@ class PlaylistScreenModel(
                     val songsDeferred = async { songService.byUserPlaylist(0, pageSize, playlistId) }
                     val playlist = playlistDeferred.await()
                     val songsResponse = songsDeferred.await()
-                    PlaylistState.Success(
-                        name = playlist?.name ?: previous?.name ?: "Playlist",
-                        imageId = playlist?.imageId ?: previous?.imageId,
-                        songs = songsResponse.data,
-                        totalDuration = playlist?.totalDuration ?: previous?.totalDuration ?: 0L,
-                        isUserPlaylist = isUserPlaylist,
-                        hasNextPage = songsResponse.hasNextPage
-                    )
+                    userPlaylistState(playlist, previous, songsResponse.data, songsResponse.hasNextPage)
                 } else {
                     val playlistDeferred = async { playlistService.byId(playlistId) }
                     val songsDeferred = async { songService.byPlaylist(0, pageSize, playlistId) }
@@ -149,7 +196,7 @@ class PlaylistScreenModel(
     }
 
     fun setCover(bytes: ByteArray) {
-        if (!isUserPlaylist) return
+        if ((_state.value as? PlaylistState.Success)?.isOwner != true) return
         screenModelScope.launch(modelDispatcher) {
             try {
                 val imageId = imageService.createImage(bytes)
@@ -175,10 +222,11 @@ class PlaylistScreenModel(
             }
 
             try {
-                val currentSongs = if (currentPage == 0) emptyList() else (_state.value as? PlaylistState.Success)?.songs ?: emptyList()
-                val playlistName = (_state.value as? PlaylistState.Success)?.name
-                val playlistImageId = (_state.value as? PlaylistState.Success)?.imageId
-                val playlistDuration = (_state.value as? PlaylistState.Success)?.totalDuration ?: 0L
+                val previous = _state.value as? PlaylistState.Success
+                val currentSongs = if (currentPage == 0) emptyList() else previous?.songs ?: emptyList()
+                val playlistName = previous?.name
+                val playlistImageId = previous?.imageId
+                val playlistDuration = previous?.totalDuration ?: 0L
                 val laterPage = currentPage > 0
 
                 val loaded = coroutineScope {
@@ -189,14 +237,7 @@ class PlaylistScreenModel(
                         val playlist = playlistDeferred?.await()
                         val songsResponse = songsResponseDeferred.await()
 
-                        PlaylistState.Success(
-                            name = playlist?.name ?: playlistName ?: "Playlist",
-                            imageId = playlist?.imageId ?: playlistImageId,
-                            songs = currentSongs + songsResponse.data,
-                            totalDuration = playlist?.totalDuration ?: playlistDuration,
-                            isUserPlaylist = isUserPlaylist,
-                            hasNextPage = songsResponse.hasNextPage
-                        )
+                        userPlaylistState(playlist, previous, currentSongs + songsResponse.data, songsResponse.hasNextPage)
                     } else {
                         val playlistDeferred = if (currentPage == 0) async { playlistService.byId(playlistId) } else null
                         val songsResponseDeferred = async { songService.byPlaylist(currentPage, pageSize, playlistId) }
@@ -273,8 +314,15 @@ class PlaylistScreenModel(
             val songs: List<UserSong>,
             val totalDuration: Long,
             val isUserPlaylist: Boolean,
-            val hasNextPage: Boolean
-        ) : PlaylistState()
+            val hasNextPage: Boolean,
+            val role: PlaylistRole? = null,
+            val owner: UserProfile? = null,
+            val isPublic: Boolean = false,
+            val isShared: Boolean = false
+        ) : PlaylistState() {
+            val isOwner: Boolean get() = role?.isOwner == true
+            val canWrite: Boolean get() = role?.canWrite == true
+        }
         data class Error(val message: String) : PlaylistState()
     }
 }

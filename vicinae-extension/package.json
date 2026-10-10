@@ -9,6 +9,9 @@
   "categories": [
     "Media"
   ],
+  "platforms": [
+    "Linux"
+  ],
   "commands": [
     {
       "name": "search",
@@ -26,10 +29,24 @@
       ]
     },
     {
+      "name": "now-playing",
+      "title": "Now Playing",
+      "subtitle": "Current song",
+      "description": "Show and control the song that is playing",
+      "mode": "view"
+    },
+    {
       "name": "queue",
       "title": "Show Queue",
       "subtitle": "View upcoming tracks",
       "description": "View upcoming tracks in the queue",
+      "mode": "view"
+    },
+    {
+      "name": "playlists",
+      "title": "Show Playlists",
+      "subtitle": "Own and shared playlists",
+      "description": "Browse and play your own playlists and the ones shared with you",
       "mode": "view"
     },
     {
@@ -38,6 +55,34 @@
       "subtitle": "Current lyrics",
       "description": "View lyrics of the currently playing song",
       "mode": "view"
+    },
+    {
+      "name": "play-pause",
+      "title": "Play / Pause",
+      "subtitle": "Toggle playback",
+      "description": "Toggle playback in Synara",
+      "mode": "no-view"
+    },
+    {
+      "name": "next-track",
+      "title": "Next Track",
+      "subtitle": "Skip to the next song",
+      "description": "Skip to the next song in Synara",
+      "mode": "no-view"
+    },
+    {
+      "name": "previous-track",
+      "title": "Previous Track",
+      "subtitle": "Go back to the previous song",
+      "description": "Go back to the previous song in Synara",
+      "mode": "no-view"
+    },
+    {
+      "name": "like-current",
+      "title": "Like Current Song",
+      "subtitle": "Like the song that is playing",
+      "description": "Like the song that is playing in Synara",
+      "mode": "no-view"
     }
   ],
   "preferences": [
@@ -55,7 +100,7 @@
       "type": "dropdown",
       "required": true,
       "title": "Default Search Action",
-      "description": "Primary action when selecting a result in Search",
+      "description": "Primary action when selecting a result in Search or a playlist in Playlists",
       "default": "play",
       "data": [
         {
@@ -80,9 +125,18 @@
       "description": "Primary action when selecting an item in the Queue",
       "default": "play",
       "data": [
-        { "title": "Play at Position", "value": "play" },
-        { "title": "Play Next", "value": "playNext" },
-        { "title": "Add to Queue", "value": "addToQueue" }
+        {
+          "title": "Play at Position",
+          "value": "play"
+        },
+        {
+          "title": "Play Next",
+          "value": "playNext"
+        },
+        {
+          "title": "Add to Queue",
+          "value": "addToQueue"
+        }
       ]
     }
   ],
@@ -93,13 +147,14 @@
     "lint": "vici lint"
   },
   "dependencies": {
-    "@vicinae/api": "^0.20.13",
+    "@vicinae/api": "0.29.1",
     "dbus-next": "^0.10.2"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.10",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
+    "debug": "^4.4.3",
     "react": "^19.2.5",
     "typescript": "^6.0.2",
     "x11": "^2.3.0"

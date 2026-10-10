@@ -70,6 +70,18 @@ class ChangelogScreen : Screen {
                         changes = listOf(
                             Change(ChangeType.New, "Tracks that run into each other play without a pause."),
                             Change(ChangeType.New, "Gapless playback can be turned off in the audio settings."),
+                            Change(ChangeType.New, "Playlists can be shared with other users with read or write access."),
+                            Change(ChangeType.New, "A playlist can be made public so that every user can find and play it."),
+                            Change(ChangeType.New, "The ownership of a playlist can be transferred to another user."),
+                            Change(ChangeType.New, "Playlists that others shared with you appear in your library and can be left again."),
+                            Change(ChangeType.New, "A playlist of another user shows its owner."),
+                            Change(ChangeType.New, "The D-Bus API lists your own playlists and the playlists shared with you."),
+                            Change(ChangeType.New, "The D-Bus API can set the like level of a song."),
+                            Change(ChangeType.New, "The D-Bus API can add a song, an album, an artist or a playlist to one of your playlists."),
+                            Change(ChangeType.Improved, "Search finds public playlists of other users."),
+                            Change(ChangeType.Improved, "The playlist picker lists only playlists you can add songs to."),
+                            Change(ChangeType.Improved, "The D-Bus API reports the owner of a playlist and what you may do with it."),
+                            Change(ChangeType.Improved, "The D-Bus API reports the address for loading images, which also works for servers with TLS."),
                             Change(ChangeType.Improved, "Skipping to the next track near the end of a song starts it instantly."),
                             Change(ChangeType.Fixed, "Opus streams no longer play a few milliseconds of silence at the end of a track."),
                             Change(ChangeType.Fixed, "A timecode tag that acts in the last moment of a song no longer affects the following song.")

@@ -4,10 +4,14 @@ import dev.dertyp.PlatformUUID
 import dev.dertyp.data.Album
 import dev.dertyp.data.Artist
 import dev.dertyp.data.ClientCapability
+import dev.dertyp.data.LikeLevel
 import dev.dertyp.data.OnlineDevice
 import dev.dertyp.data.PaginatedResponse
+import dev.dertyp.data.PlaylistAccess
+import dev.dertyp.data.PlaylistShare
 import dev.dertyp.data.User
 import dev.dertyp.data.UserPlaylist
+import dev.dertyp.data.UserProfile
 import dev.dertyp.data.UserSong
 import dev.dertyp.randomPlatformUUID
 import dev.dertyp.serializers.AppJson
@@ -15,6 +19,8 @@ import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
+import dev.dertyp.services.IUserService
+import dev.dertyp.synara.core.PlaylistRole
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.testing.queueOf
 import dev.dertyp.synara.testing.startTestKoin
@@ -46,6 +52,9 @@ class SynaraApiImplTest {
     private val albumService = mockk<IAlbumService>()
     private val artistService = mockk<IArtistService>()
     private val userPlaylistService = mockk<IUserPlaylistService>()
+    private val userService = mockk<IUserService>()
+    private val userPlaylistsFlow = MutableStateFlow<List<UserPlaylist>>(emptyList())
+    private val sslOverrideFlow = MutableStateFlow<Boolean?>(null)
     private val globalState = mockk<GlobalStateModel>()
     private val songFlow = MutableStateFlow<UserSong?>(null)
     private val playingFlow = MutableStateFlow(false)
@@ -78,13 +87,19 @@ class SynaraApiImplTest {
         every { remotePlaybackController.currentQueueId } returns remoteQueueId
         every { rpcServiceManager.host } returns null
         every { rpcServiceManager.port } returns null
+        every { rpcServiceManager.ssl } returns false
+        every { rpcServiceManager.rpcPath } returns "/"
+        every { rpcServiceManager.sessionSslOverride } returns sslOverrideFlow
         every { globalState.user } returns MutableStateFlow(null)
+        every { globalState.userPlaylists } returns userPlaylistsFlow
+        coEvery { userService.allProfiles() } returns emptyList()
         startTestKoin(
             module {
                 single<ISongService> { songService }
                 single<IAlbumService> { albumService }
                 single<IArtistService> { artistService }
                 single<IUserPlaylistService> { userPlaylistService }
+                single<IUserService> { userService }
                 single { globalState }
                 single<Json> { AppJson }
                 single { rpcServiceManager }
@@ -120,13 +135,35 @@ class SynaraApiImplTest {
         coEvery { userPlaylistService.rankedSearch(any(), any(), any(), any()) } returns PaginatedResponse(playlists)
     }
 
-    private fun testPlaylist(name: String) = UserPlaylist(
+    private fun testPlaylist(
+        name: String,
+        creator: PlatformUUID = randomPlatformUUID(),
+        isPublic: Boolean = false,
+        shares: List<PlaylistShare> = emptyList()
+    ) = UserPlaylist(
         id = randomPlatformUUID(),
         name = name,
         songs = emptyList(),
-        creator = randomPlatformUUID(),
-        description = ""
+        creator = creator,
+        description = "",
+        isPublic = isPublic,
+        shares = shares
     )
+
+    private fun logIn(user: User) {
+        every { globalState.user } returns MutableStateFlow(user)
+    }
+
+    private fun configureServer(ssl: Boolean, path: String = "/") {
+        every { rpcServiceManager.host } returns "music.example"
+        every { rpcServiceManager.port } returns 4433
+        every { rpcServiceManager.ssl } returns ssl
+        every { rpcServiceManager.rpcPath } returns path
+    }
+
+    private fun serverInfo() = AppJson.decodeFromString(SynaraServerInfo.serializer(), api.GetServerInfo())
+
+    private fun decodePlaylists(json: String) = AppJson.decodeFromString(SynaraPlaylists.serializer(), json)
 
     private fun decodeSearch(json: String) = AppJson.decodeFromString(SynaraSearchResult.serializer(), json)
 
@@ -141,7 +178,7 @@ class SynaraApiImplTest {
     fun `GetServerInfo falls back to localhost and 8080 without a configured server`() {
         val info = AppJson.decodeFromString(SynaraServerInfo.serializer(), api.GetServerInfo())
 
-        assertEquals(SynaraServerInfo("localhost", 8080), info)
+        assertEquals(SynaraServerInfo("localhost", 8080, ""), info)
     }
 
     @Test
@@ -151,7 +188,54 @@ class SynaraApiImplTest {
 
         val info = AppJson.decodeFromString(SynaraServerInfo.serializer(), api.GetServerInfo())
 
-        assertEquals(SynaraServerInfo("music.example", 4433), info)
+        assertEquals(SynaraServerInfo("music.example", 4433, "http://music.example:4433/image/imageData/"), info)
+    }
+
+    @Test
+    fun `GetServerInfo reports an http image address for a server without ssl`() {
+        configureServer(ssl = false)
+
+        assertEquals("http://music.example:4433/image/imageData/", serverInfo().imageBaseUrl)
+    }
+
+    @Test
+    fun `GetServerInfo reports an https image address for a server with ssl`() {
+        configureServer(ssl = true)
+
+        assertEquals("https://music.example:4433/image/imageData/", serverInfo().imageBaseUrl)
+    }
+
+    @Test
+    fun `GetServerInfo reports an http image address when the session ssl override is false`() {
+        configureServer(ssl = true)
+        sslOverrideFlow.value = false
+
+        assertEquals("http://music.example:4433/image/imageData/", serverInfo().imageBaseUrl)
+    }
+
+    @Test
+    fun `GetServerInfo keeps https when the session ssl override is true`() {
+        configureServer(ssl = true)
+        sslOverrideFlow.value = true
+
+        assertEquals("https://music.example:4433/image/imageData/", serverInfo().imageBaseUrl)
+    }
+
+    @Test
+    fun `GetServerInfo puts the configured path in front of the image route`() {
+        configureServer(ssl = true, path = "/synara/")
+
+        assertEquals("https://music.example:4433/synara/image/imageData/", serverInfo().imageBaseUrl)
+    }
+
+    @Test
+    fun `GetServerInfo encodes host port and imageBaseUrl`() {
+        configureServer(ssl = true)
+
+        assertEquals(
+            """{"host":"music.example","port":4433,"imageBaseUrl":"https://music.example:4433/image/imageData/"}""",
+            api.GetServerInfo()
+        )
     }
 
     @Test
@@ -563,14 +647,15 @@ class SynaraApiImplTest {
     }
 
     @Test
-    fun `Search restricts the playlist search to the logged in user`() {
+    fun `Search does not restrict the playlist search to the logged in user`() {
         val user = User(randomPlatformUUID(), "listener")
         every { globalState.user } returns MutableStateFlow(user)
         stubSearch()
 
         api.Search("query", emptyMap())
 
-        coVerify(exactly = 1) { userPlaylistService.rankedSearch(user.id, 0, 10, "query") }
+        coVerify(exactly = 1) { userPlaylistService.rankedSearch(null, 0, 10, "query") }
+        coVerify(exactly = 1) { userPlaylistService.rankedSearch(any(), any(), any(), any()) }
     }
 
     @Test
@@ -619,5 +704,269 @@ class SynaraApiImplTest {
 
         coVerify(exactly = 0) { artistService.rankedSearch(any(), any(), any()) }
         coVerify(exactly = 1) { songService.rankedSearch(any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `Search reports owner and role for own shared and public playlists`() {
+        val user = User(randomPlatformUUID(), "listener", displayName = "The Listener")
+        val friend = UserProfile(randomPlatformUUID(), "friend", displayName = "Best Friend")
+        val colleague = UserProfile(randomPlatformUUID(), "colleague")
+        val stranger = UserProfile(randomPlatformUUID(), "stranger")
+        val own = testPlaylist("own", creator = user.id)
+        val editable = testPlaylist("editable", creator = friend.id, shares = listOf(PlaylistShare(user.id, PlaylistAccess.WRITE)))
+        val readable = testPlaylist("readable", creator = colleague.id, shares = listOf(PlaylistShare(user.id, PlaylistAccess.READ)))
+        val public = testPlaylist("public", creator = stranger.id, isPublic = true)
+        logIn(user)
+        coEvery { userService.allProfiles() } returns listOf(friend, colleague, stranger)
+        stubSearch(playlists = listOf(own, editable, readable, public))
+
+        val result = decodeSearch(api.Search("query", emptyMap()))
+
+        assertEquals(listOf(own, editable, readable, public), result.playlists)
+        assertEquals(
+            listOf(
+                SynaraPlaylistInfo(own.id.toString(), "The Listener", PlaylistRole.OWNER),
+                SynaraPlaylistInfo(editable.id.toString(), "Best Friend", PlaylistRole.EDITOR),
+                SynaraPlaylistInfo(readable.id.toString(), "colleague", PlaylistRole.VIEWER),
+                SynaraPlaylistInfo(public.id.toString(), "stranger", PlaylistRole.VISITOR)
+            ),
+            result.playlistInfo
+        )
+        coVerify(exactly = 1) { userService.allProfiles() }
+    }
+
+    @Test
+    fun `Search names the owner of an own playlist by username without a display name and loads no profiles`() {
+        val user = User(randomPlatformUUID(), "listener")
+        val own = testPlaylist("own", creator = user.id)
+        logIn(user)
+        stubSearch(playlists = listOf(own))
+
+        val result = decodeSearch(api.Search("query", emptyMap()))
+
+        assertEquals(listOf(SynaraPlaylistInfo(own.id.toString(), "listener", PlaylistRole.OWNER)), result.playlistInfo)
+        coVerify(exactly = 0) { userService.allProfiles() }
+    }
+
+    @Test
+    fun `Search still returns results when the profile lookup fails`() {
+        val user = User(randomPlatformUUID(), "listener")
+        val song = testSong(1)
+        val own = testPlaylist("own", creator = user.id)
+        val public = testPlaylist("public", isPublic = true)
+        logIn(user)
+        coEvery { userService.allProfiles() } throws IllegalStateException("profiles down")
+        stubSearch(songs = listOf(song), playlists = listOf(own, public))
+
+        val result = decodeSearch(api.Search("query", emptyMap()))
+
+        assertEquals(listOf(song), result.songs)
+        assertEquals(listOf(own, public), result.playlists)
+        assertEquals(
+            listOf(
+                SynaraPlaylistInfo(own.id.toString(), "listener", PlaylistRole.OWNER),
+                SynaraPlaylistInfo(public.id.toString(), "", PlaylistRole.VISITOR)
+            ),
+            result.playlistInfo
+        )
+    }
+
+    @Test
+    fun `Search without playlists reports no playlist info and loads no profiles`() {
+        stubSearch(songs = listOf(testSong(1)))
+
+        val result = decodeSearch(api.Search("query", emptyMap()))
+
+        assertTrue(result.playlistInfo.isEmpty())
+        coVerify(exactly = 0) { userService.allProfiles() }
+    }
+
+    @Test
+    fun `Search encodes the role of a playlist by its name`() {
+        val user = User(randomPlatformUUID(), "listener")
+        val own = testPlaylist("own", creator = user.id)
+        logIn(user)
+        stubSearch(playlists = listOf(own))
+
+        val json = api.Search("query", emptyMap())
+
+        assertTrue(json.contains(""""playlistInfo":[{"playlistId":"${own.id}","ownerName":"listener","role":"OWNER"}]"""))
+    }
+
+    @Test
+    fun `GetPlaylists returns the own and shared playlists with owner and role`() {
+        val user = User(randomPlatformUUID(), "listener", displayName = "The Listener")
+        val friend = UserProfile(randomPlatformUUID(), "friend", displayName = "Best Friend")
+        val colleague = UserProfile(randomPlatformUUID(), "colleague")
+        val own = testPlaylist("own", creator = user.id)
+        val editable = testPlaylist("editable", creator = friend.id, shares = listOf(PlaylistShare(user.id, PlaylistAccess.WRITE)))
+        val readable = testPlaylist("readable", creator = colleague.id, shares = listOf(PlaylistShare(user.id, PlaylistAccess.READ)))
+        logIn(user)
+        coEvery { userService.allProfiles() } returns listOf(friend, colleague)
+        userPlaylistsFlow.value = listOf(own, editable, readable)
+
+        val result = decodePlaylists(api.GetPlaylists())
+
+        assertEquals(
+            SynaraPlaylists(
+                playlists = listOf(own, editable, readable),
+                playlistInfo = listOf(
+                    SynaraPlaylistInfo(own.id.toString(), "The Listener", PlaylistRole.OWNER),
+                    SynaraPlaylistInfo(editable.id.toString(), "Best Friend", PlaylistRole.EDITOR),
+                    SynaraPlaylistInfo(readable.id.toString(), "colleague", PlaylistRole.VIEWER)
+                )
+            ),
+            result
+        )
+        coVerify(exactly = 1) { userService.allProfiles() }
+    }
+
+    @Test
+    fun `GetPlaylists loads no profiles when every playlist belongs to the user`() {
+        val user = User(randomPlatformUUID(), "listener")
+        val playlists = listOf(testPlaylist("one", creator = user.id), testPlaylist("two", creator = user.id))
+        logIn(user)
+        userPlaylistsFlow.value = playlists
+
+        val result = decodePlaylists(api.GetPlaylists())
+
+        assertEquals(playlists, result.playlists)
+        assertEquals(
+            playlists.map { SynaraPlaylistInfo(it.id.toString(), "listener", PlaylistRole.OWNER) },
+            result.playlistInfo
+        )
+        coVerify(exactly = 0) { userService.allProfiles() }
+    }
+
+    @Test
+    fun `GetPlaylists still returns the playlists when the profile lookup fails`() {
+        val user = User(randomPlatformUUID(), "listener")
+        val shared = testPlaylist("shared", shares = listOf(PlaylistShare(user.id, PlaylistAccess.WRITE)))
+        logIn(user)
+        coEvery { userService.allProfiles() } throws IllegalStateException("profiles down")
+        userPlaylistsFlow.value = listOf(shared)
+
+        val result = decodePlaylists(api.GetPlaylists())
+
+        assertEquals(listOf(shared), result.playlists)
+        assertEquals(listOf(SynaraPlaylistInfo(shared.id.toString(), "", PlaylistRole.EDITOR)), result.playlistInfo)
+    }
+
+    @Test
+    fun `GetPlaylists without playlists returns two empty lists`() {
+        assertEquals("""{"playlists":[],"playlistInfo":[]}""", api.GetPlaylists())
+    }
+
+    @Test
+    fun `SetLikeLevel sets every like level and returns the updated song`() {
+        LikeLevel.entries.forEach { level ->
+            val song = testSong(1)
+            val updated = song.copy(likeLevel = level)
+            coEvery { playerModel.setLikeLevel(song.id, level) } returns updated
+
+            val result = api.SetLikeLevel(song.id.toString(), level.name)
+
+            assertEquals(updated, AppJson.decodeFromString(UserSong.serializer(), result))
+            assertTrue(result.contains(""""likeLevel":"${level.name}""""))
+            coVerify(exactly = 1) { playerModel.setLikeLevel(song.id, level) }
+        }
+    }
+
+    @Test
+    fun `SetLikeLevel with an unknown level is empty and sets nothing`() {
+        val id = randomPlatformUUID().toString()
+
+        assertEquals("", api.SetLikeLevel(id, "LOVE"))
+        assertEquals("", api.SetLikeLevel(id, "like"))
+        assertEquals("", api.SetLikeLevel(id, ""))
+
+        coVerify(exactly = 0) { playerModel.setLikeLevel(any(), any()) }
+    }
+
+    @Test
+    fun `SetLikeLevel with an invalid id is empty and sets nothing`() {
+        assertEquals("", api.SetLikeLevel("not-a-uuid", LikeLevel.LIKE.name))
+
+        coVerify(exactly = 0) { playerModel.setLikeLevel(any(), any()) }
+    }
+
+    @Test
+    fun `SetLikeLevel is empty for a song the server does not know`() {
+        val id = randomPlatformUUID()
+        coEvery { playerModel.setLikeLevel(id, LikeLevel.LIKE) } returns null
+
+        assertEquals("", api.SetLikeLevel(id.toString(), LikeLevel.LIKE.name))
+    }
+
+    @Test
+    fun `SetLikeLevel is empty when the server call fails`() {
+        val id = randomPlatformUUID()
+        coEvery { playerModel.setLikeLevel(id, LikeLevel.SUPER) } throws IllegalStateException("server down")
+
+        assertEquals("", api.SetLikeLevel(id.toString(), LikeLevel.SUPER.name))
+    }
+
+    @Test
+    fun `AddToPlaylist adds albums artists and playlists by source and ignores the case of the type`() {
+        val target = randomPlatformUUID()
+        val albumId = randomPlatformUUID()
+        val artistId = randomPlatformUUID()
+        val playlistId = randomPlatformUUID()
+
+        api.AddToPlaylist(target.toString(), albumId.toString(), "ALBUM")
+        api.AddToPlaylist(target.toString(), artistId.toString(), "Artist")
+        api.AddToPlaylist(target.toString(), playlistId.toString(), "playlist")
+
+        verify(exactly = 1) { playerModel.addSongsToPlaylist(target, PlaybackQueue(source = PlaybackSource.Album(albumId))) }
+        verify(exactly = 1) { playerModel.addSongsToPlaylist(target, PlaybackQueue(source = PlaybackSource.Artist(artistId))) }
+        verify(exactly = 1) { playerModel.addSongsToPlaylist(target, PlaybackQueue(source = PlaybackSource.Playlist(playlistId))) }
+        verify(exactly = 3) { playerModel.addSongsToPlaylist(any(), any()) }
+    }
+
+    @Test
+    fun `AddToPlaylist with a song id loads the song and adds it`() {
+        val target = randomPlatformUUID()
+        val song = testSong(1)
+        coEvery { songService.byId(song.id) } returns song
+
+        api.AddToPlaylist(target.toString(), song.id.toString(), "SONG")
+
+        verify(exactly = 1) {
+            playerModel.addSongsToPlaylist(
+                target,
+                match { queue ->
+                    queue.source == PlaybackSource.Manual &&
+                        queue.items.map { (it as QueueEntry.Explicit).song } == listOf(song)
+                }
+            )
+        }
+        verify(exactly = 1) { playerModel.addSongsToPlaylist(any(), any()) }
+    }
+
+    @Test
+    fun `AddToPlaylist with a song id the server does not know does nothing`() {
+        val id = randomPlatformUUID()
+        coEvery { songService.byId(id) } returns null
+
+        api.AddToPlaylist(randomPlatformUUID().toString(), id.toString(), "song")
+
+        verify(exactly = 0) { playerModel.addSongsToPlaylist(any(), any()) }
+    }
+
+    @Test
+    fun `AddToPlaylist with an invalid playlist id or item id does nothing`() {
+        api.AddToPlaylist("not-a-uuid", randomPlatformUUID().toString(), "album")
+        api.AddToPlaylist(randomPlatformUUID().toString(), "not-a-uuid", "album")
+        api.AddToPlaylist("not-a-uuid", randomPlatformUUID().toString(), "song")
+
+        verify(exactly = 0) { playerModel.addSongsToPlaylist(any(), any()) }
+        coVerify(exactly = 0) { songService.byId(any()) }
+    }
+
+    @Test
+    fun `AddToPlaylist with an unknown type does nothing`() {
+        api.AddToPlaylist(randomPlatformUUID().toString(), randomPlatformUUID().toString(), "podcast")
+
+        verify(exactly = 0) { playerModel.addSongsToPlaylist(any(), any()) }
     }
 }
