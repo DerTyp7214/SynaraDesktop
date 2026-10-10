@@ -1,5 +1,7 @@
 package dev.dertyp.synara.viewmodels
 
+import dev.dertyp.logging.Logger
+import dev.dertyp.logging.LogTag
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import dev.dertyp.PlatformUUID
@@ -27,14 +29,18 @@ class PlaylistScreenModel(
     private val imageService: IImageService,
     private val songCache: SongCache,
     val playerModel: PlayerModel,
+    private val logger: Logger,
     dispatchers: SynaraDispatchers
 ) : ScreenModel, Refreshable {
+
+    private val logTag = LogTag("playlist")
 
     private val modelDispatcher = dispatchers.createNamed("PlaylistScreenModel")
 
     private val refresher = RefreshCoalescer(screenModelScope, modelDispatcher) { reload() }
     override val isRefreshing = refresher.isRefreshing
     private var generation = 0
+    private var appliedGeneration = 0
 
     override fun onDispose() {
         (modelDispatcher as? AutoCloseable)?.close()
@@ -127,12 +133,13 @@ class PlaylistScreenModel(
                 }
             }
             if (requestGeneration != generation) return
+            appliedGeneration = requestGeneration
             _state.value = refreshed
             hasNextPage = refreshed.hasNextPage
             currentPage = if (refreshed.hasNextPage) 1 else 0
             songCache.refreshCached(refreshed.songs)
         } catch (e: Exception) {
-            if (previous == null) {
+            if (previous == null && !isFetching) {
                 _state.value = PlaylistState.Error(e.message ?: "Unknown error")
             }
         }
@@ -149,7 +156,7 @@ class PlaylistScreenModel(
                     _state.value = currentState.copy(imageId = imageId)
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error(logTag, "Failed to set the playlist cover", e)
             }
         }
     }
@@ -157,7 +164,7 @@ class PlaylistScreenModel(
     fun loadPlaylist() {
         if (isFetching) return
         isFetching = true
-        val requestGeneration = generation
+        val requestGeneration = appliedGeneration
 
         screenModelScope.launch(modelDispatcher) {
             if (currentPage == 0) {
@@ -177,7 +184,7 @@ class PlaylistScreenModel(
 
                         val playlist = playlistDeferred?.await()
                         val songsResponse = songsResponseDeferred.await()
-                        if (requestGeneration != generation) return@coroutineScope
+                        if (requestGeneration != appliedGeneration) return@coroutineScope
 
                         val name = playlist?.name ?: playlistName ?: "Playlist"
                         val imageId = playlist?.imageId ?: playlistImageId
@@ -198,7 +205,7 @@ class PlaylistScreenModel(
 
                         val playlist = playlistDeferred?.await()
                         val songsResponse = songsResponseDeferred.await()
-                        if (requestGeneration != generation) return@coroutineScope
+                        if (requestGeneration != appliedGeneration) return@coroutineScope
 
                         val name = playlist?.name ?: playlistName ?: "Playlist"
                         val imageId = playlist?.imageId ?: playlistImageId
@@ -220,7 +227,7 @@ class PlaylistScreenModel(
                     }
                 }
             } catch (e: Exception) {
-                if (currentPage == 0 && requestGeneration == generation) {
+                if (currentPage == 0 && requestGeneration == appliedGeneration) {
                     _state.value = PlaylistState.Error(e.message ?: "Unknown error")
                 }
             } finally {

@@ -19,7 +19,9 @@ import dev.dertyp.services.ISongService
 import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.utils.SynaraDispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -102,6 +104,8 @@ class RadioScreenModel(
             val id = radioChannelService.createChannel(channel)
             loadChannels()
             id
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             mutableState.update { it.copy(error = e.message ?: "Unknown error") }
             null
@@ -113,6 +117,8 @@ class RadioScreenModel(
             val result = radioChannelService.updateChannel(id, channel)
             loadChannels()
             result
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             mutableState.update { it.copy(error = e.message ?: "Unknown error") }
             false
@@ -121,12 +127,16 @@ class RadioScreenModel(
 
     fun deleteChannel(id: PlatformUUID) {
         screenModelScope.launch(dispatchers.io) {
-            try {
+            val failure = try {
                 radioChannelService.deleteChannel(id)
+                null
             } catch (e: Exception) {
-                mutableState.update { it.copy(error = e.message ?: "Unknown error") }
+                e
             }
-            loadChannels()
+            fetchChannels()
+            if (failure != null) {
+                mutableState.update { it.copy(error = failure.message ?: "Unknown error") }
+            }
         }
     }
 
@@ -134,6 +144,8 @@ class RadioScreenModel(
         try {
             radioChannelService.setChannelImage(id, bytes)
             loadChannels()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             mutableState.update { it.copy(error = e.message ?: "Unknown error") }
         }
@@ -149,6 +161,8 @@ class RadioScreenModel(
             try {
                 val results = radioChannelService.rankedSearch(channelId, query, explicit = true)
                 mutableState.update { it.copy(channelContent = results, channelContentLoading = false) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 mutableState.update { it.copy(channelContentLoading = false, error = e.message) }
             }
@@ -161,6 +175,7 @@ class RadioScreenModel(
         mutableState.update {
             it.copy(
                 channelContent = null,
+                channelContentLoading = false,
                 librarySongs = emptyList(),
                 libraryAlbums = emptyList(),
                 libraryArtists = emptyList()
@@ -181,21 +196,22 @@ class RadioScreenModel(
         librarySearchJob = screenModelScope.launch(dispatchers.io) {
             delay(300.milliseconds)
             try {
-                val songsJob = launch {
-                    val songs = songService.rankedSearch(0, 10, query, explicit = true).data
-                    mutableState.update { it.copy(librarySongs = songs) }
+                coroutineScope {
+                    launch {
+                        val songs = songService.rankedSearch(0, 10, query, explicit = true).data
+                        mutableState.update { it.copy(librarySongs = songs) }
+                    }
+                    launch {
+                        val albums = albumService.rankedSearch(0, 10, query).data
+                        mutableState.update { it.copy(libraryAlbums = albums) }
+                    }
+                    launch {
+                        val artists = artistService.rankedSearch(0, 10, query).data
+                        mutableState.update { it.copy(libraryArtists = artists) }
+                    }
                 }
-                val albumsJob = launch {
-                    val albums = albumService.rankedSearch(0, 10, query).data
-                    mutableState.update { it.copy(libraryAlbums = albums) }
-                }
-                val artistsJob = launch {
-                    val artists = artistService.rankedSearch(0, 10, query).data
-                    mutableState.update { it.copy(libraryArtists = artists) }
-                }
-                songsJob.join()
-                albumsJob.join()
-                artistsJob.join()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 mutableState.update { it.copy(error = e.message) }
             }
@@ -204,25 +220,33 @@ class RadioScreenModel(
 
     fun addChannelItem(channelId: PlatformUUID, type: RadioChannelItemType, itemId: PlatformUUID, contentQuery: String) {
         screenModelScope.launch(dispatchers.io) {
-            try {
+            val failure = try {
                 radioChannelService.addChannelItem(channelId, type, itemId)
+                null
             } catch (e: Exception) {
-                mutableState.update { it.copy(error = e.message) }
+                e
             }
             loadChannelContent(channelId, contentQuery)
-            loadChannels()
+            fetchChannels()
+            if (failure != null) {
+                mutableState.update { it.copy(error = failure.message) }
+            }
         }
     }
 
     fun removeChannelItem(channelId: PlatformUUID, type: RadioChannelItemType, itemId: PlatformUUID, contentQuery: String) {
         screenModelScope.launch(dispatchers.io) {
-            try {
+            val failure = try {
                 radioChannelService.removeChannelItem(channelId, type, itemId)
+                null
             } catch (e: Exception) {
-                mutableState.update { it.copy(error = e.message) }
+                e
             }
             loadChannelContent(channelId, contentQuery)
-            loadChannels()
+            fetchChannels()
+            if (failure != null) {
+                mutableState.update { it.copy(error = failure.message) }
+            }
         }
     }
 }

@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
@@ -56,6 +57,7 @@ import dev.dertyp.synara.ui.server.rememberSlotRenders
 import dev.dertyp.synara.ui.server.rememberUiHost
 import dev.dertyp.synara.viewmodels.HomeCardsModel
 import dev.dertyp.synara.viewmodels.HomeScreenModel
+import dev.dertyp.synara.viewmodels.ServerStatsState
 import dev.dertyp.ui.UiAction
 import dev.dertyp.ui.UiComponent
 import dev.dertyp.ui.UiContext
@@ -144,35 +146,7 @@ class HomeScreen : Screen {
                                 }
                             }
 
-                            SnackbarHost(
-                                hostState = snackbarManager.snackbarHostState,
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .padding(bottom = playerHeight + 16.dp, end = 16.dp)
-                            ) { data ->
-                                val visuals = data.visuals
-                                if (visuals is AnnotatedSnackbarVisuals) {
-                                    Snackbar(
-                                        modifier = Modifier.padding(12.dp),
-                                        action = data.visuals.actionLabel?.let {
-                                            {
-                                                TextButton(onClick = { data.performAction() }) {
-                                                    Text(it)
-                                                }
-                                            }
-                                        }
-                                    ) {
-                                        Text(visuals.annotatedMessage)
-                                    }
-                                } else {
-                                    Snackbar(data)
-                                }
-                            }
-
-                            PlayerBar(
-                                modifier = Modifier.align(Alignment.BottomCenter),
-                                height = playerHeight
-                            )
+                            SnackbarAndPlayerBar(snackbarManager, playerHeight)
                         }
                     }
                 } else {
@@ -189,39 +163,44 @@ class HomeScreen : Screen {
                             }
                         }
 
-                        SnackbarHost(
-                            hostState = snackbarManager.snackbarHostState,
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(bottom = playerHeight + 16.dp, end = 16.dp)
-                        ) { data ->
-                            val visuals = data.visuals
-                            if (visuals is AnnotatedSnackbarVisuals) {
-                                Snackbar(
-                                    modifier = Modifier.padding(12.dp),
-                                    action = data.visuals.actionLabel?.let {
-                                        {
-                                            TextButton(onClick = { data.performAction() }) {
-                                                Text(it)
-                                            }
-                                        }
-                                    }
-                                ) {
-                                    Text(visuals.annotatedMessage)
-                                }
-                            } else {
-                                Snackbar(data)
-                            }
-                        }
-
-                        PlayerBar(
-                            modifier = Modifier.align(Alignment.BottomCenter),
-                            height = playerHeight
-                        )
+                        SnackbarAndPlayerBar(snackbarManager, playerHeight)
                     }
                 }
             }
         }
+    }
+
+    @Composable
+    private fun BoxScope.SnackbarAndPlayerBar(snackbarManager: SnackbarManager, playerHeight: Dp) {
+        SnackbarHost(
+            hostState = snackbarManager.snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = playerHeight + 16.dp, end = 16.dp)
+        ) { data ->
+            val visuals = data.visuals
+            if (visuals is AnnotatedSnackbarVisuals) {
+                Snackbar(
+                    modifier = Modifier.padding(12.dp),
+                    action = data.visuals.actionLabel?.let {
+                        {
+                            TextButton(onClick = { data.performAction() }) {
+                                Text(it)
+                            }
+                        }
+                    }
+                ) {
+                    Text(visuals.annotatedMessage)
+                }
+            } else {
+                Snackbar(data)
+            }
+        }
+
+        PlayerBar(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            height = playerHeight
+        )
     }
 
     @Composable
@@ -245,10 +224,40 @@ class HomeScreen : Screen {
         onItemClick: (() -> Unit)? = null
     ) {
         val playlists by screenModel.globalState.userPlaylists.collectAsState()
+
+        LazyColumn(contentPadding = PaddingValues(16.dp)) {
+            item {
+                SidebarNavigation(screenModel, navigator, onItemClick)
+            }
+            items(playlists) { playlist ->
+                val current = navigator.lastItem
+                val isSelected = current is PlaylistScreen && current.playlistId == playlist.id
+
+                PlaylistNavItem(
+                    playlist = playlist,
+                    selected = isSelected,
+                    onClick = {
+                        if (!isSelected) {
+                            navigator.push(PlaylistScreen(playlist.id, isUserPlaylist = true))
+                        }
+                        onItemClick?.invoke()
+                    }
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+        }
+    }
+
+    @Composable
+    private fun SidebarNavigation(
+        screenModel: HomeScreenModel,
+        navigator: Navigator,
+        onItemClick: (() -> Unit)?
+    ) {
         val isRefreshing by screenModel.globalState.isRefreshingPlaylists.collectAsState()
         val isPodcastsEnabled by Config.isPodcastsEnabled.collectAsState()
 
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column {
             Text(
                 text = stringResource(Res.string.library),
                 style = MaterialTheme.typography.titleSmall,
@@ -405,24 +414,6 @@ class HomeScreen : Screen {
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
-                }
-            }
-
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                items(playlists) { playlist ->
-                    val current = navigator.lastItem
-                    val isSelected = current is PlaylistScreen && current.playlistId == playlist.id
-
-                    PlaylistNavItem(
-                        playlist = playlist,
-                        selected = isSelected,
-                        onClick = {
-                            if (!isSelected) {
-                                navigator.push(PlaylistScreen(playlist.id, isUserPlaylist = true))
-                            }
-                            onItemClick?.invoke()
-                        }
-                    )
                 }
             }
         }
@@ -844,10 +835,22 @@ private class DashboardScreen : Screen {
                             fadeIn() togetherWith fadeOut()
                         }
                     ) { targetStats ->
-                        if (targetStats != null) {
-                            DashboardStats(targetStats)
-                        } else {
-                            Box(
+                        when (targetStats) {
+                            is ServerStatsState.Loaded -> DashboardStats(targetStats.stats)
+                            is ServerStatsState.Failed -> Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(targetStats.message),
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                TextButton(onClick = { screenModel.loadStats() }) {
+                                    Text(stringResource(Res.string.retry))
+                                }
+                            }
+                            ServerStatsState.Loading -> Box(
                                 modifier = Modifier.fillMaxWidth(),
                                 contentAlignment = Alignment.Center
                             ) {

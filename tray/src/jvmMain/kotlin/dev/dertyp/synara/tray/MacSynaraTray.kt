@@ -6,7 +6,7 @@ import java.awt.*
 import java.awt.image.BufferedImage
 import javax.imageio.ImageIO
 
-class MacSynaraTray : SynaraTray {
+class MacSynaraTray(private val onError: (message: String, error: Throwable) -> Unit) : SynaraTray {
     private var trayIcon: TrayIcon? = null
     private var baseIcon: BufferedImage? = null
 
@@ -53,7 +53,7 @@ class MacSynaraTray : SynaraTray {
         try {
             tray.add(trayIcon)
         } catch (e: Exception) {
-            e.printStackTrace()
+            onError("Failed to add the tray icon", e)
         }
     }
 

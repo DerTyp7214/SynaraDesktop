@@ -1,5 +1,7 @@
 package dev.dertyp.synara.viewmodels
 
+import dev.dertyp.logging.Logger
+import dev.dertyp.logging.LogTag
 import androidx.compose.foundation.lazy.LazyListState
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
@@ -29,8 +31,11 @@ class SearchScreenModel(
     private val artistService: IArtistService,
     private val userPlaylistService: IUserPlaylistService,
     private val globalStateModel: GlobalStateModel,
+    private val logger: Logger,
     dispatchers: SynaraDispatchers
 ) : ScreenModel, Refreshable {
+
+    private val logTag = LogTag("search")
 
     private val modelDispatcher = dispatchers.createNamed("SearchScreenModel")
 
@@ -95,7 +100,7 @@ class SearchScreenModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error(logTag, "Search failed", e)
             } finally {
                 _isSearching.value = false
             }

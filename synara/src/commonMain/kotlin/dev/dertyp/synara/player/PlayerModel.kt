@@ -10,6 +10,8 @@ import dev.dertyp.data.LikeLevel
 import dev.dertyp.data.PlaybackState
 import dev.dertyp.data.RepeatMode
 import dev.dertyp.data.UserSong
+import dev.dertyp.logging.LogTag
+import dev.dertyp.logging.Logger
 import dev.dertyp.synara.core.textName
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.services.*
@@ -24,21 +26,27 @@ import dev.dertyp.synara.utils.decompress
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
 import okio.FileSystem
+import okio.IOException
 import okio.Path
 import okio.Path.Companion.toPath
 import org.jetbrains.compose.resources.getString
 import synara.synara.generated.resources.*
+import kotlin.math.min
 import kotlin.random.Random
 
-@Suppress("unused")
 private const val RADIO_BATCH_SIZE = 20
 private const val RADIO_TOP_UP_THRESHOLD = 8
+private const val MAX_AUTOMATIC_SKIPS = 5
+private const val STATE_MOVE_ATTEMPTS = 3
+private const val STATE_MOVE_RETRY_DELAY = 50L
 
 class PlayerModel(
     private val rpcServiceManager: RpcServiceManager,
@@ -53,13 +61,18 @@ class PlayerModel(
     private val settings: Settings,
     private val snackbarManager: SnackbarManager,
     private val cbor: Cbor,
+    private val logger: Logger,
     dispatchers: SynaraDispatchers,
     settingsFactory: SettingsFactory,
 ) {
     private val modelDispatcher = dispatchers.createNamed("PlayerModel", 2)
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val stateDispatcher = dispatchers.createNamed("PlayerModelState")
+    private val stateWriteLock = Mutex()
+    private val mainDispatcher = dispatchers.main
+    private val scope = CoroutineScope(mainDispatcher + SupervisorJob())
     private val fileSystem = FileSystem.SYSTEM
     private val path: Path = settingsFactory.getStatePath("player_state.v2.cbor.zstd").toPath()
+    private val tempPath: Path = "$path.tmp".toPath()
     private val legacyCborPath: Path = settingsFactory.getStatePath("player_state.cbor.zstd").toPath()
     private val oldPath: Path = settingsFactory.getStatePath("player_state.pb").toPath()
 
@@ -68,8 +81,16 @@ class PlayerModel(
         serializersModule = cbor.serializersModule
     }
 
+    private val logTag = LogTag("player")
+
     private var originalQueue: List<QueueEntry> = emptyList()
     private var setSourceJob: Job? = null
+    private var automaticSkips = 0
+    private var playRequested = false
+    private var startGeneration = 0L
+    private var savedQueueId: Long? = null
+    private var savedPosition = 0L
+    private val pendingStart = MutableStateFlow<Long?>(null)
 
     private val _seekEvents = MutableSharedFlow<Long>(extraBufferCapacity = 8)
     val seekEvents: SharedFlow<Long> = _seekEvents.asSharedFlow()
@@ -88,6 +109,13 @@ class PlayerModel(
 
     private val _currentSong = MutableStateFlow<UserSong?>(null)
     val currentSong: StateFlow<UserSong?> = _currentSong.asStateFlow()
+
+    val currentSongId: PlatformUUID? get() = _queue.value.getOrNull(_currentIndex.value)?.let { songIdOf(it) }
+
+    private val _loadedSongId = MutableStateFlow<PlatformUUID?>(null)
+    val loadedSongId: StateFlow<PlatformUUID?> = _loadedSongId.asStateFlow()
+
+    val playbackRequested: Boolean get() = playRequested
 
     private val _repeatMode = MutableStateFlow(RepeatMode.OFF)
     val repeatMode: StateFlow<RepeatMode> = _repeatMode.asStateFlow()
@@ -112,7 +140,7 @@ class PlayerModel(
 
     val isRemote: Boolean get() = remotePlayHandler != null
 
-    data class TrackStart(val songId: PlatformUUID, val song: UserSong?)
+    data class TrackStart(val songId: PlatformUUID, val song: UserSong?, val startMs: Long)
 
     sealed class QueueChange {
         data object Replaced : QueueChange()
@@ -135,8 +163,12 @@ class PlayerModel(
     )
 
     val isPlaying: StateFlow<Boolean> = audioPlayer.isPlaying
-    val currentPosition: StateFlow<Long> = audioPlayer.currentPosition
-    val duration: StateFlow<Long> = audioPlayer.duration
+    val currentPosition: StateFlow<Long> = combine(audioPlayer.currentPosition, pendingStart) { position, pending ->
+        pending ?: position
+    }.stateIn(scope, SharingStarted.Eagerly, audioPlayer.currentPosition.value)
+    val duration: StateFlow<Long> = combine(audioPlayer.duration, _currentSong, pendingStart) { loaded, song, pending ->
+        if (pending != null) song?.duration ?: 0L else loaded
+    }.stateIn(scope, SharingStarted.Eagerly, audioPlayer.duration.value)
     val volume: StateFlow<Float> = audioPlayer.volume
     val sampleRate: StateFlow<Int> = audioPlayer.sampleRate
     val bitsPerSample: StateFlow<Int> = audioPlayer.bitsPerSample
@@ -159,7 +191,7 @@ class PlayerModel(
 
         scope.launch {
             combine(_queue, _currentIndex, _currentSource, _repeatMode, _shuffleMode) { q, idx, src, repeat, shuffle ->
-                PlayerState(q, originalQueue, src, idx, repeat, shuffle)
+                PlayerState(q, originalQueue, src, idx, repeat, shuffle, savedPositionFor(q.getOrNull(idx)))
             }.distinctUntilChanged { old, new ->
                 old.queue == new.queue &&
                     old.currentIndex == new.currentIndex &&
@@ -179,8 +211,20 @@ class PlayerModel(
         }
 
         scope.launch {
-            audioPlayer.onFinished.collect {
-                handlePlaybackFinished()
+            audioPlayer.onFinished.collect { songId ->
+                if (songId != null && songId == _loadedSongId.value) handlePlaybackFinished()
+            }
+        }
+
+        scope.launch {
+            audioPlayer.isPlaying.collect { playing ->
+                if (playing) automaticSkips = 0
+            }
+        }
+
+        scope.launch {
+            audioPlayer.loadErrors.collect { error ->
+                handleLoadError(error)
             }
         }
 
@@ -214,22 +258,90 @@ class PlayerModel(
         }
     }
 
-    private fun startPlayback(entry: QueueEntry?, play: Boolean, notifyRemote: Boolean = true) {
+    private fun startPlayback(entry: QueueEntry?, play: Boolean, notifyRemote: Boolean = true, startMs: Long = 0L) {
         val handler = remotePlayHandler
         if (handler != null) {
             if (notifyRemote && play && entry != null) handler(entry.queueId)
             return
         }
         if (entry == null) {
+            playRequested = false
+            startGeneration++
+            pendingStart.value = null
+            _loadedSongId.value = null
+            savedQueueId = null
             audioPlayer.stop()
             return
         }
-        scope.launch {
-            resolveSongId(entry)?.let { id ->
-                _trackStarts.tryEmit(TrackStart(id, knownSong(entry)))
-                audioPlayer.load(id, playImmediately = play)
-            }
+        if (!play) {
+            _loadedSongId.value = null
+            audioPlayer.stop()
         }
+        playRequested = play
+        pendingStart.value = startMs
+        savedQueueId = entry.queueId
+        savedPosition = startMs
+        val generation = ++startGeneration
+        scope.launch {
+            if (generation != startGeneration) return@launch
+            val id = resolveSongId(entry) ?: return@launch
+            val song = knownSong(entry)
+            if (generation != startGeneration) return@launch
+            val start = pendingStart.value ?: startMs
+            _trackStarts.tryEmit(TrackStart(id, song, start))
+            if (!playRequested) return@launch
+            _loadedSongId.value = null
+            audioPlayer.load(id, playImmediately = true, startMs = start)
+            audioPlayer.isLoading.first { !it }
+            if (generation != startGeneration) return@launch
+            pendingStart.value?.let { moved -> if (moved != start) audioPlayer.seekTo(moved) }
+            pendingStart.value = null
+            _loadedSongId.value = id
+        }
+    }
+
+    private fun savedPositionFor(entry: QueueEntry?): Long =
+        if (entry != null && entry.queueId == savedQueueId) savedPosition else 0L
+
+    private fun currentState() = PlayerState(
+        _queue.value,
+        originalQueue,
+        _currentSource.value,
+        _currentIndex.value,
+        _repeatMode.value,
+        _shuffleMode.value,
+        savedPositionFor(_queue.value.getOrNull(_currentIndex.value))
+    )
+
+    private suspend fun handleLoadError(failure: AudioLoadFailure) {
+        if (isRemote) return
+        val entry = _queue.value.getOrNull(_currentIndex.value) ?: return
+        val songId = songIdOf(entry)
+        if (failure.songId != songId) return
+        val title = (_currentSong.value?.takeIf { it.id == songId } ?: knownSong(entry))?.title
+        logger.error(logTag, "Failed to load track", data = "songId=$songId, title=$title, error=${failure.error}")
+        val requested = playRequested
+        val resumeAt = pendingStart.value ?: audioPlayer.currentPosition.value
+        playRequested = false
+        startGeneration++
+        pendingStart.value = resumeAt
+        _loadedSongId.value = null
+        savedQueueId = entry.queueId
+        savedPosition = resumeAt
+        if (!requested) return
+
+        val skips = automaticSkips + 1
+        automaticSkips = skips
+        val stop = _repeatMode.value == RepeatMode.ONE || skips >= min(_queue.value.size, MAX_AUTOMATIC_SKIPS)
+        if (stop) audioPlayer.stop() else handlePlaybackFinished(play = true)
+
+        snackbarManager.showSnackbar(
+            when {
+                stop -> getString(Res.string.playback_failed_stopped)
+                title != null -> getString(Res.string.playback_failed_skipped, title)
+                else -> getString(Res.string.playback_failed_skipped_unknown)
+            }
+        )
     }
 
     private fun emitChange(change: QueueChange) {
@@ -258,8 +370,14 @@ class PlayerModel(
                 fileSystem.exists(path) -> cbor.decodeFromByteArray<PlayerState>(readCompressed(path))
                 fileSystem.exists(legacyCborPath) -> {
                     val migrated = decodeLegacyPlayerState(cbor, readCompressed(legacyCborPath))
-                    writeState(migrated)
-                    fileSystem.delete(legacyCborPath)
+                    scope.launch(stateDispatcher) {
+                        try {
+                            writeState(migrated)
+                            fileSystem.delete(legacyCborPath)
+                        } catch (e: Exception) {
+                            logger.error(logTag, "Failed to migrate the saved player state", e)
+                        }
+                    }
                     migrated
                 }
                 fileSystem.exists(oldPath) -> {
@@ -280,15 +398,10 @@ class PlayerModel(
 
             val currentEntry = _queue.value.getOrNull(_currentIndex.value)
             if (currentEntry != null) {
-                scope.launch {
-                    resolveSongId(currentEntry)?.let { id ->
-                        _trackStarts.tryEmit(TrackStart(id, knownSong(currentEntry)))
-                        audioPlayer.load(id, playImmediately = false)
-                    }
-                }
+                startPlayback(currentEntry, play = false, startMs = state.lastPosition.coerceAtLeast(0L))
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            logger.error(logTag, "Failed to load the saved player state", e)
             _queue.value = emptyList()
             originalQueue = emptyList()
             _currentIndex.value = -1
@@ -304,19 +417,35 @@ class PlayerModel(
         }
     }
 
-    private fun writeState(state: PlayerState) {
+    private suspend fun writeState(state: PlayerState) = stateWriteLock.withLock {
         val compressed = compress(cbor.encodeToByteArray(state))
-        fileSystem.write(path) {
+        fileSystem.delete(tempPath, mustExist = false)
+        fileSystem.write(tempPath) {
             write(compressed)
         }
+        repeat(STATE_MOVE_ATTEMPTS) { attempt ->
+            try {
+                fileSystem.atomicMove(tempPath, path)
+                return@withLock
+            } catch (e: IOException) {
+                if (attempt == STATE_MOVE_ATTEMPTS - 1) {
+                    logger.warning(logTag, "Atomic replace of the player state was denied, replacing without it", e.message)
+                } else {
+                    delay(STATE_MOVE_RETRY_DELAY)
+                }
+            }
+        }
+        if (!fileSystem.exists(tempPath)) return@withLock
+        fileSystem.delete(path, mustExist = false)
+        fileSystem.atomicMove(tempPath, path)
     }
 
     private fun saveState(state: PlayerState) {
-        scope.launch(modelDispatcher) {
+        scope.launch(stateDispatcher) {
             try {
                 writeState(state)
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error(logTag, "Failed to save the player state", e)
             }
         }
     }
@@ -397,27 +526,27 @@ class PlayerModel(
         }
     }
 
-    private fun handlePlaybackFinished() {
-        when (_repeatMode.value) {
-            RepeatMode.ONE -> {
-                val index = _currentIndex.value
-                val entry = _queue.value.getOrNull(index)
-                if (entry != null) startPlayback(entry, play = true, notifyRemote = false)
-            }
-            RepeatMode.ALL -> {
-                val nextIndex = if (_queue.value.isNotEmpty()) (_currentIndex.value + 1) % _queue.value.size else -1
-                playAtIndex(nextIndex)
-            }
-            RepeatMode.OFF -> {
-                val nextIndex = _currentIndex.value + 1
-                if (nextIndex in _queue.value.indices) {
-                    playAtIndex(nextIndex)
-                } else {
-                    startPlayback(null, play = false)
-                    _currentIndex.value = -1
-                }
-            }
+    private fun handlePlaybackFinished(play: Boolean = playRequested) {
+        val queue = _queue.value
+        val repeatOne = _repeatMode.value == RepeatMode.ONE
+        val nextIndex = when (_repeatMode.value) {
+            RepeatMode.ONE -> _currentIndex.value
+            RepeatMode.ALL -> if (queue.isNotEmpty()) (_currentIndex.value + 1) % queue.size else -1
+            RepeatMode.OFF -> _currentIndex.value + 1
         }
+        val entry = queue.getOrNull(nextIndex)
+        if (entry == null) {
+            if (_repeatMode.value == RepeatMode.OFF) {
+                startPlayback(null, play = false)
+                _currentIndex.value = -1
+            }
+            return
+        }
+        if (!repeatOne) {
+            _currentIndex.value = nextIndex
+            emitCurrentChanged()
+        }
+        startPlayback(entry, play = play, notifyRemote = !repeatOne)
     }
 
     suspend fun resolveSong(entry: QueueEntry): UserSong? {
@@ -438,16 +567,18 @@ class PlayerModel(
         }
     }
 
-    fun playAtIndex(index: Int) {
+    fun playAtIndex(index: Int, play: Boolean = true) {
+        automaticSkips = 0
         if (index in _queue.value.indices) {
             val entry = _queue.value[index]
             _currentIndex.value = index
             emitCurrentChanged()
-            startPlayback(entry, play = true)
+            startPlayback(entry, play = play)
         }
     }
 
     fun playSong(song: UserSong) {
+        automaticSkips = 0
         val entry = QueueEntry.Explicit(song)
         _currentSource.value = PlaybackSource.Manual
         originalQueue = listOf(entry)
@@ -459,6 +590,7 @@ class PlayerModel(
     }
 
     fun playRadio(sessionId: PlatformUUID, displayName: String? = null) {
+        automaticSkips = 0
         setSourceJob?.cancel()
         radioTopUpJob?.cancel()
         setSourceJob = scope.launch {
@@ -485,8 +617,10 @@ class PlayerModel(
                     .toList()
                     .map { QueueEntry.FromSource(it) }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            e.printStackTrace()
+            logger.error(logTag, "Failed to fetch a radio batch", e, data = "sessionId=$sessionId")
             emptyList()
         }
     }
@@ -515,8 +649,10 @@ class PlayerModel(
     }
 
     fun playQueue(playbackQueue: PlaybackQueue, startIndex: Int = 0) {
+        automaticSkips = 0
         setSourceJob?.cancel()
         setSourceJob = scope.launch {
+            val previousSource = _currentSource.value
             _currentSource.value = playbackQueue.source
             val source = playbackQueue.source.toQueueSource(songService)
 
@@ -543,8 +679,13 @@ class PlayerModel(
             } else if (source != null) {
                 val startSong = try {
                     source.getSongAt(startIndex) as? UserSong
-                } catch (_: Exception) {
-                    null
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    _currentSource.value = previousSource
+                    logger.error(logTag, "Failed to fetch the first song of a source", e, data = "source=${source.id}, index=$startIndex")
+                    snackbarManager.showSnackbar(getString(Res.string.playback_source_unavailable))
+                    return@launch
                 }
 
                 if (startSong != null) {
@@ -557,8 +698,24 @@ class PlayerModel(
                 }
 
                 launch(modelDispatcher) {
-                    val collectedEntries = resolvePlaybackQueueItems(playbackQueue)
-                    withContext(Dispatchers.Main) {
+                    val collectedEntries = try {
+                        resolvePlaybackQueueItems(playbackQueue)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logger.error(logTag, "Failed to fetch the songs of a source", e, data = "source=${source.id}")
+                        withContext(mainDispatcher) {
+                            if (startSong == null) {
+                                _currentSource.value = previousSource
+                                snackbarManager.showSnackbar(getString(Res.string.playback_source_unavailable))
+                            } else {
+                                originalQueue = _queue.value
+                                emitChange(QueueChange.Replaced)
+                            }
+                        }
+                        return@launch
+                    }
+                    withContext(mainDispatcher) {
                         originalQueue = collectedEntries
                         val currentSongId = startSong?.id
 
@@ -572,15 +729,17 @@ class PlayerModel(
                                 shuffled.shuffle()
                             }
                             _queue.value = shuffled
-                            _currentIndex.value = 0
+                            _currentIndex.value = if (shuffled.isEmpty()) -1 else 0
                         } else {
                             _queue.value = collectedEntries
                             if (currentSongId != null) {
                                 _currentIndex.value = collectedEntries.indexOfFirst { entry ->
                                     (entry as? QueueEntry.FromSource)?.songId == currentSongId
                                 }.coerceAtLeast(0)
+                            } else if (collectedEntries.isEmpty()) {
+                                _currentIndex.value = -1
                             } else {
-                                _currentIndex.value = startIndex.coerceIn(0, (collectedEntries.size - 1).coerceAtLeast(0))
+                                _currentIndex.value = startIndex.coerceIn(0, collectedEntries.size - 1)
                             }
                         }
                         updateWindow()
@@ -645,7 +804,7 @@ class PlayerModel(
                 getString(Res.string.added_to_queue)
             }
 
-            withContext(Dispatchers.Main) {
+            withContext(mainDispatcher) {
                 val at = _queue.value.size
                 val appended = if (_shuffleMode.value) newItems.shuffled() else newItems
                 originalQueue = originalQueue + appended
@@ -683,7 +842,7 @@ class PlayerModel(
                 getString(Res.string.play_next)
             }
 
-            withContext(Dispatchers.Main) {
+            withContext(mainDispatcher) {
                 if (_currentIndex.value == -1) {
                     playQueue(PlaybackQueue(items = newItems, source = playbackQueue.source))
                     snackbarManager.showSnackbar(message)
@@ -765,13 +924,18 @@ class PlayerModel(
         emitChange(QueueChange.Removed(listOf(entry.queueId)))
 
         if (index == currentIdx) {
-            playAtIndex(if (index < newQueue.size) index else 0)
+            playAtIndex(if (index < newQueue.size) index else 0, play = playRequested)
         } else if (index < currentIdx) {
             _currentIndex.value = currentIdx - 1
         }
     }
 
     fun clearQueue() {
+        playRequested = false
+        startGeneration++
+        pendingStart.value = null
+        _loadedSongId.value = null
+        savedQueueId = null
         audioPlayer.stop()
         _queue.value = emptyList()
         originalQueue = emptyList()
@@ -782,11 +946,7 @@ class PlayerModel(
     }
 
     fun togglePlayPause() {
-        if (audioPlayer.isPlaying.value) {
-            audioPlayer.pause()
-        } else {
-            audioPlayer.play()
-        }
+        if (playRequested) pause() else play()
     }
 
     fun skipNext() {
@@ -808,19 +968,63 @@ class PlayerModel(
     }
 
     fun stop() {
+        playRequested = false
+        startGeneration++
+        _loadedSongId.value = null
         audioPlayer.stop()
+        if (isRemote) return
+        val entry = _queue.value.getOrNull(_currentIndex.value) ?: return
+        pendingStart.value = 0L
+        savedQueueId = entry.queueId
+        savedPosition = 0L
+        saveState(currentState())
     }
 
     fun pause() {
+        playRequested = false
         audioPlayer.pause()
+        val entry = _queue.value.getOrNull(_currentIndex.value) ?: return
+        savedQueueId = entry.queueId
+        savedPosition = pendingStart.value ?: audioPlayer.currentPosition.value
+        saveState(currentState())
     }
 
     fun play() {
+        automaticSkips = 0
+        if (isRemote) {
+            playRequested = true
+            audioPlayer.play()
+            return
+        }
+        val entry = _queue.value.getOrNull(_currentIndex.value)
+        if (entry == null) {
+            if (_queue.value.isNotEmpty()) playAtIndex(0)
+            return
+        }
+        val pending = pendingStart.value
+        if (pending != null) {
+            if (!playRequested) startPlayback(entry, play = true, startMs = pending)
+            return
+        }
+        playRequested = true
         audioPlayer.play()
     }
 
     fun seekTo(positionMs: Long) {
-        audioPlayer.seekTo(positionMs)
+        val target = positionMs.coerceAtLeast(0L)
+        val unloaded = pendingStart.value != null && !isRemote
+        if (unloaded) {
+            pendingStart.value = target
+        } else {
+            audioPlayer.seekTo(positionMs)
+        }
+        if (!isRemote && (unloaded || !audioPlayer.isPlaying.value)) {
+            _queue.value.getOrNull(_currentIndex.value)?.let { entry ->
+                savedQueueId = entry.queueId
+                savedPosition = target
+                saveState(currentState())
+            }
+        }
         _seekEvents.tryEmit(positionMs)
     }
 
@@ -861,12 +1065,23 @@ class PlayerModel(
             }
             _queue.value = shuffled
             emitChange(QueueChange.Replaced)
-        } else {
+        } else if (currentEntry == null) {
             _queue.value = originalQueue
-            if (currentEntry != null) {
-                _currentIndex.value = originalQueue.indexOf(currentEntry)
-            }
             emitChange(QueueChange.ModesChanged(false, _repeatMode.value))
+        } else {
+            val byQueueId = originalQueue.indexOfFirst { it.queueId == currentEntry.queueId }
+            val index = if (byQueueId >= 0) {
+                byQueueId
+            } else {
+                val currentSongId = songIdOf(currentEntry)
+                originalQueue.indexOfFirst { songIdOf(it) == currentSongId }
+            }
+            if (index < 0) originalQueue = listOf(currentEntry) + originalQueue
+            _queue.value = originalQueue
+            _currentIndex.value = index.coerceAtLeast(0)
+            emitChange(
+                if (byQueueId >= 0) QueueChange.ModesChanged(false, _repeatMode.value) else QueueChange.Replaced
+            )
         }
     }
 
@@ -898,7 +1113,7 @@ class PlayerModel(
                 songCache.put(updated)
                 songCache.notifyLikedSongsChanged()
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error(logTag, "Failed to toggle the like level", e)
             }
         }
     }
@@ -915,7 +1130,7 @@ class PlayerModel(
                 songCache.put(updated)
                 songCache.notifyLikedSongsChanged()
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error(logTag, "Failed to toggle the super like level", e)
             }
         }
     }
@@ -950,7 +1165,7 @@ class PlayerModel(
                 }
                 snackbarManager.showSnackbar(message)
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error(logTag, "Failed to add songs to the playlist", e)
             }
         }
     }
@@ -979,7 +1194,7 @@ class PlayerModel(
                 songCache.notifyPlaylistsChanged()
                 snackbarManager.showSnackbar(getString(Res.string.playlist_created))
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error(logTag, "Failed to create the playlist", e)
             }
         }
     }
@@ -991,7 +1206,7 @@ class PlayerModel(
                 songCache.notifyPlaylistChanged(playlistId)
                 songCache.notifyPlaylistsChanged()
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error(logTag, "Failed to remove the song from the playlist", e)
             }
         }
     }
@@ -1006,13 +1221,14 @@ class PlayerModel(
     )
 
     fun applyRemoteQueue(snapshot: QueueSnapshot, keepCurrentQueueId: Long? = null) {
+        automaticSkips = 0
         suppressChanges = true
         try {
             setSourceJob?.cancel()
             radioTopUpJob?.cancel()
 
             val previousSongId = _currentSong.value?.id
-            val wasPlaying = audioPlayer.isPlaying.value
+            val wasPlaying = playRequested
 
             originalQueue = snapshot.original
             _queue.value = snapshot.active
@@ -1034,7 +1250,7 @@ class PlayerModel(
             val targetId = currentEntry?.let { songIdOf(it) }
             when {
                 targetId == null -> startPlayback(null, play = false, notifyRemote = false)
-                targetId == previousSongId -> Unit
+                targetId == previousSongId -> savedQueueId = currentEntry.queueId
                 else -> startPlayback(currentEntry, play = wasPlaying, notifyRemote = false)
             }
         } finally {
@@ -1102,7 +1318,10 @@ class PlayerModel(
 
             oldIndex < 0 -> _currentIndex.value = -1
 
-            currentRemoved -> playAtIndex((oldIndex - removedBefore).coerceIn(0, remaining.size - 1))
+            currentRemoved -> playAtIndex(
+                (oldIndex - removedBefore).coerceIn(0, remaining.size - 1),
+                play = playRequested
+            )
 
             else -> _currentIndex.value = (oldIndex - removedBefore).coerceIn(0, remaining.size - 1)
         }
@@ -1135,7 +1354,7 @@ class PlayerModel(
             },
             currentIndex = _currentIndex.value,
             isPlaying = audioPlayer.isPlaying.value,
-            positionMs = audioPlayer.currentPosition.value,
+            positionMs = currentPosition.value,
             isShuffled = _shuffleMode.value,
             repeatMode = _repeatMode.value
         )

@@ -305,7 +305,7 @@ private fun UiCard(component: UiComponent.Card, host: UiHost, modifier: Modifier
 
 @Composable
 private fun UiSection(component: UiComponent.Section, host: UiHost, modifier: Modifier) {
-    var collapsed by rememberSaveable(component.title) { mutableStateOf(component.collapsed) }
+    var collapsed by rememberSaveable { mutableStateOf(component.collapsed) }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier

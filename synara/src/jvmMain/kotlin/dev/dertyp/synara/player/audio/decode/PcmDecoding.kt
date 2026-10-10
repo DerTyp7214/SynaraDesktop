@@ -1,5 +1,6 @@
 package dev.dertyp.synara.player.audio.decode
 
+import dev.dertyp.logging.Logger
 import dev.dertyp.synara.player.audio.AudioSource
 import dev.dertyp.synara.player.audio.DecodedStream
 import dev.dertyp.synara.player.audio.PcmHeader
@@ -7,7 +8,7 @@ import dev.dertyp.synara.player.audio.convertToShortBuffer
 import dev.dertyp.synara.player.audio.readExactly
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import dev.dertyp.synara.utils.AppDispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
@@ -17,6 +18,7 @@ import kotlin.math.min
 
 internal object PcmDecoding {
     suspend fun open(
+        logger: Logger,
         source: AudioSource,
         header: PcmHeader,
         positionMs: Long,
@@ -39,7 +41,8 @@ internal object PcmDecoding {
 
         val pcmChannel = Channel<ShortBuffer>(Channel.BUFFERED)
 
-        scope.launch(Dispatchers.IO) {
+        scope.launch(AppDispatchers.io) {
+            var failure: Exception? = null
             try {
                 val chunkBytes = ((32 * 1024) / bytesPerFrame).coerceAtLeast(1) * bytesPerFrame
                 val buffer = ByteArray(chunkBytes)
@@ -71,10 +74,11 @@ internal object PcmDecoding {
                 }
             } catch (e: Exception) {
                 if (e !is CancellationException && isActive) {
-                    println("PCM decoder error for ${source.cacheKey}: ${e.message}")
+                    failure = e
+                    logger.error(DECODER_TAG, "PCM decoder error for ${source.cacheKey}: ${e.message}", e)
                 }
             } finally {
-                pcmChannel.close()
+                pcmChannel.close(failure)
                 rawStream.close()
             }
         }

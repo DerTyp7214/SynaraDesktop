@@ -6,6 +6,7 @@ import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Density
+import org.junit.Assume.assumeTrue
 import java.io.File
 import kotlin.random.Random
 import kotlin.test.Test
@@ -67,12 +68,14 @@ class ParticleNativeMemoryTest {
 
     @Test
     fun singleDrawKeepsNativeMemoryFlat() {
+        assumeTrue(File("/proc/self/status").exists())
         val grown = growth(Color(0xFFFF2BD6), Color(0xFF00E5FF), singleDraw = true)
         assertTrue(grown < MAX_GROWTH_MB, "native memory grew by $grown MB")
     }
 
     @Test
     fun perBucketDrawKeepsNativeMemoryFlat() {
+        assumeTrue(File("/proc/self/status").exists())
         val grown = growth(Color(0xFF3D2B6B).copy(alpha = .7f), Color(0x8000E5FF), singleDraw = false)
         assertTrue(grown < MAX_GROWTH_MB, "native memory grew by $grown MB")
     }

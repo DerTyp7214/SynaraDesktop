@@ -64,6 +64,31 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.14.0",
+                        date = "2026-10-10",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "After a restart the player shows the last song at the position where you left it and continues there when you press play."),
+                            Change(ChangeType.New, "Logs are also written to a file in the app's data folder."),
+                            Change(ChangeType.Improved, "The window uses almost no CPU when nothing moves or when it is hidden to the tray."),
+                            Change(ChangeType.Improved, "Animated covers use a fraction of the memory."),
+                            Change(ChangeType.Improved, "No stream is opened at launch or for a song that becomes current while paused."),
+                            Change(ChangeType.Improved, "Last.fm and ListenBrainz show a song as now playing when its audio starts, and no longer on every seek."),
+                            Change(ChangeType.Improved, "Messages are shown one after another instead of replacing each other."),
+                            Change(ChangeType.Improved, "The dashboard, the song list and the login screen show a short message with a retry when a request fails."),
+                            Change(ChangeType.Improved, "Failed downloads are retried and reported."),
+                            Change(ChangeType.Improved, "Settings are saved in the background and are readable only by your user."),
+                            Change(ChangeType.Improved, "The local control API only answers on this machine."),
+                            Change(ChangeType.Improved, "With a proxy configured, an unreachable server switches to the proxy once instead of flipping back and forth."),
+                            Change(ChangeType.Fixed, "A song that cannot be played is skipped with a message instead of stalling the queue."),
+                            Change(ChangeType.Fixed, "An interrupted download is no longer shown as downloaded."),
+                            Change(ChangeType.Fixed, "A certificate error no longer switches the saved server to an unencrypted connection permanently."),
+                            Change(ChangeType.Fixed, "Pressing play after the queue has ended starts it again."),
+                            Change(ChangeType.Fixed, "Starting a podcast while a song is still loading no longer plays both."),
+                            Change(ChangeType.Fixed, "Fullscreen opens on the monitor the window is on.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.13.6",
                         date = "2026-10-09",
                         isPrerelease = true,

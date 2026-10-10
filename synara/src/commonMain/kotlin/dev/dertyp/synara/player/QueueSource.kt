@@ -59,6 +59,7 @@ abstract class BasePagedQueueSource(override val id: String) : QueueSource {
         cacheMutex.withLock {
             cache[index]?.let { return it }
         }
+        if (totalCount != -1 && index >= totalCount) return null
 
         val page = index / pageSize
 
@@ -89,13 +90,8 @@ abstract class BasePagedQueueSource(override val id: String) : QueueSource {
             }
         }
 
-        return try {
-            deferred.await()
-            cacheMutex.withLock { cache[index] }
-        } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            null
-        }
+        deferred.await()
+        return cacheMutex.withLock { cache[index] }
     }
 
     override fun getIdFlow(): Flow<PlatformUUID> = fetchIdFlow()

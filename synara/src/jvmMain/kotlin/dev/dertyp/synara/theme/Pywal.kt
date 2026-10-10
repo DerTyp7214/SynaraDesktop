@@ -1,5 +1,7 @@
 package dev.dertyp.synara.theme
 
+import dev.dertyp.logging.LogTag
+import dev.dertyp.logging.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -13,8 +15,9 @@ import java.nio.file.*
 
 actual object PywalLoader {
     private val json = Json { ignoreUnknownKeys = true }
+    private val logTag = LogTag("pywal")
 
-    private fun loadColors(): PywalColors? {
+    private fun loadColors(logger: Logger): PywalColors? {
         if (!isSupported()) return null
 
         val home = System.getProperty("user.home")
@@ -24,7 +27,7 @@ actual object PywalLoader {
         return try {
             json.decodeFromString<PywalColors>(file.readText())
         } catch (e: Exception) {
-            e.printStackTrace()
+            logger.error(logTag, "Failed to read the pywal colors: ${e.message}", e)
             null
         }
     }
@@ -34,7 +37,7 @@ actual object PywalLoader {
         return os.contains("linux")
     }
 
-    actual fun getColorsFlow(): Flow<PywalColors?> = callbackFlow {
+    actual fun getColorsFlow(logger: Logger): Flow<PywalColors?> = callbackFlow {
         if (!isSupported()) {
             trySend(null)
             close()
@@ -45,7 +48,7 @@ actual object PywalLoader {
         val walDir = Paths.get(home, ".cache/wal")
         val fileName = "colors.json"
 
-        trySend(loadColors())
+        trySend(loadColors(logger))
 
         if (!Files.exists(walDir)) {
             close()
@@ -66,7 +69,7 @@ actual object PywalLoader {
                     for (event in key.pollEvents()) {
                         val context = event.context() as? Path
                         if (context?.toString() == fileName) {
-                            trySend(loadColors())
+                            trySend(loadColors(logger))
                         }
                     }
                     if (!key.reset()) break

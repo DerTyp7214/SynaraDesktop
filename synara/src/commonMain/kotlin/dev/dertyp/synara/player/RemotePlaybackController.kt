@@ -212,7 +212,7 @@ class RemotePlaybackController(
             null -> {
                 notify(Res.string.queue_sync_status_unreachable)
                 presenceService.refreshOnlineDevices()
-                deselect()
+                if (_target.value?.sessionId == sessionId) deselect()
             }
 
             ClientRequestStatus.COMPLETED -> Unit
@@ -224,7 +224,7 @@ class RemotePlaybackController(
             ClientRequestStatus.UNREACHABLE -> {
                 notify(Res.string.queue_sync_status_unreachable)
                 presenceService.refreshOnlineDevices()
-                deselect()
+                if (_target.value?.sessionId == sessionId) deselect()
             }
         }
     }
@@ -260,13 +260,11 @@ class RemotePlaybackController(
 
         val songId = status.songId
         if (songId != currentSongId) {
-            currentSongId = songId
-            _currentSong.value = songId?.let { id ->
-                songCache.get(id) ?: runCatching { songService.byId(id) }
-                    .onFailure { report(it) }
-                    .getOrNull()
-                    ?.also { songCache.put(it) }
-            }
+            val lookup = runCatching {
+                songId?.let { id -> songCache.get(id) ?: songService.byId(id)?.also { songCache.put(it) } }
+            }.onFailure { report(it) }
+            if (lookup.isSuccess) currentSongId = songId
+            _currentSong.value = lookup.getOrNull()
         }
 
         updateTicker(status.isPlaying)

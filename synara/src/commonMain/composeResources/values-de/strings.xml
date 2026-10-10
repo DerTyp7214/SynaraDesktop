@@ -295,6 +295,10 @@
     <string name="added_to_queue_item">**%1$s** zur Warteschlange hinzugefügt</string>
     <string name="play_next">Als nächstes spielen</string>
     <string name="playing_next_item">Spiele **%1$s** als Nächstes</string>
+    <string name="playback_failed_skipped">**%1$s** konnte nicht abgespielt werden und wurde übersprungen</string>
+    <string name="playback_failed_skipped_unknown">Ein Titel konnte nicht abgespielt werden und wurde übersprungen</string>
+    <string name="playback_failed_stopped">Wiedergabe angehalten, weil die Titel nicht abgespielt werden konnten</string>
+    <string name="playback_source_unavailable">Die Songs konnten nicht geladen werden, die Warteschlange bleibt unverändert</string>
     <string name="menu_download">Herunterladen</string>
     <string name="playlist">Playlist</string>
 
@@ -536,6 +540,7 @@
     <string name="remove_download">Download entfernen</string>
     <string name="cancel_download">Download abbrechen</string>
     <string name="downloading">Herunterladen…</string>
+    <string name="download_failed">**%1$s** konnte nicht heruntergeladen werden</string>
 
     <!-- Scheduled Tasks -->
     <string name="settings_scheduled_task_logs_title">Geplante Aufgabenprotokolle</string>
@@ -948,4 +953,8 @@
         <item quantity="one">%1$d Sendung</item>
         <item quantity="other">%1$d Sendungen</item>
     </plurals>
+    <string name="retry">Erneut versuchen</string>
+    <string name="error_server_unreachable">Der Server ist nicht erreichbar</string>
+    <string name="error_request_failed">Die Anfrage ist fehlgeschlagen</string>
+    <string name="login_failed">Anmeldung fehlgeschlagen. Prüfe Benutzername und Passwort.</string>
 </resources>

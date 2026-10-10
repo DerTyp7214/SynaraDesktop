@@ -2,12 +2,17 @@ package dev.dertyp.synara.services
 
 import dev.dertyp.core.fullName
 import dev.dertyp.data.BaseSong
+import dev.dertyp.logging.LogTag
+import dev.dertyp.logging.Logger
 import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.utils.OSUtils
 import java.io.File
 import java.nio.file.Files
+import java.nio.file.InvalidPathException
 
-class JvmLocalStorageService : LocalStorageService {
+class JvmLocalStorageService(private val logger: Logger) : LocalStorageService {
+    private val logTag = LogTag("storage")
+
     override fun getConfigDir(): String = getAppDir(AppDirType.Config).absolutePath
     override fun getCacheDir(): String = getAppDir(AppDirType.Cache).absolutePath
     override fun getDataDir(): String = getAppDir(AppDirType.Data).absolutePath
@@ -23,8 +28,19 @@ class JvmLocalStorageService : LocalStorageService {
     }
 
     override fun getInternalSongPath(song: BaseSong): String {
+        val songDir = File(getInternalSongDir()).toPath().normalize()
         val relativePath = song.path.removePrefix("/data/Tidal/Tracks").trimStart('/', '\\')
-        val file = File(getInternalSongDir(), relativePath)
+        val resolved = try {
+            songDir.resolve(relativePath).normalize()
+        } catch (_: InvalidPathException) {
+            null
+        }
+        val file = if (resolved != null && resolved != songDir && resolved.startsWith(songDir)) {
+            resolved.toFile()
+        } else {
+            val extension = song.path.substringAfterLast('/').substringAfterLast('\\').substringAfterLast('.', "")
+            File(songDir.toFile(), if (extension.isNotEmpty()) "${song.id}.$extension" else song.id.toString())
+        }
         val parent = file.parentFile
         if (parent != null && !parent.exists()) parent.mkdirs()
         return file.absolutePath
@@ -62,7 +78,7 @@ class JvmLocalStorageService : LocalStorageService {
                 if (targetFile.exists()) targetFile.delete()
                 Files.createSymbolicLink(targetFile.toPath(), sourceFile.toPath())
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error(logTag, "Failed to link a song into the music directory", e, data = "songId=$songId, target=$targetFile")
             }
         }
     }

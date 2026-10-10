@@ -1,6 +1,5 @@
 package dev.dertyp.synara.services
 
-import androidx.compose.ui.graphics.ImageBitmap
 import kotlinx.coroutines.flow.StateFlow
 
 interface VideoFrameService {
@@ -8,8 +7,10 @@ interface VideoFrameService {
     fun clearCache()
 }
 
+expect class VideoFrame
+
 data class VideoFrames(
-    val frames: List<ImageBitmap>,
+    val frames: List<VideoFrame>,
     val fps: Float,
     val seeds: List<Triple<Int?, Int?, Int?>>
 )

@@ -1,5 +1,7 @@
 package dev.dertyp.synara.player.audio
 
+import dev.dertyp.logging.LogTag
+import dev.dertyp.logging.Logger
 import dev.dertyp.synara.player.audio.decode.AdtsHeader
 import dev.dertyp.synara.player.audio.decode.Mp3Header
 import dev.dertyp.synara.player.audio.decode.Mp4Demux
@@ -7,7 +9,7 @@ import dev.dertyp.synara.player.audio.decode.VbriInfo
 import dev.dertyp.synara.player.audio.decode.XingInfo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import dev.dertyp.synara.utils.AppDispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -15,14 +17,16 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.SequenceInputStream
 
-class AudioProbe(private val cacheSize: Int = 50) {
+private val PROBE_TAG = LogTag("audio-probe")
+
+class AudioProbe(private val logger: Logger, private val cacheSize: Int = 50) {
     private val cacheMutex = Mutex()
     private val cache = object : LinkedHashMap<String, ProbeInfo>(cacheSize, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ProbeInfo>?): Boolean =
             size > cacheSize
     }
 
-    suspend fun probe(source: AudioSource): ProbeInfo? = withContext(Dispatchers.IO) {
+    suspend fun probe(source: AudioSource): ProbeInfo? = withContext(AppDispatchers.io) {
         cacheMutex.withLock {
             cache[source.cacheKey]?.let { return@withContext it }
         }
@@ -33,7 +37,7 @@ class AudioProbe(private val cacheSize: Int = 50) {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            e.printStackTrace()
+            logger.error(PROBE_TAG, "Failed to probe ${source.cacheKey}: ${e.message}", e)
             null
         }
         if (info != null) {

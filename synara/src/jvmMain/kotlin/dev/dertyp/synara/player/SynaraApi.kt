@@ -18,6 +18,7 @@ import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.supervisorScope
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -215,19 +216,21 @@ class SynaraApiImpl(
         val includePlaylists = options.getBool(SearchFilter.includePlaylists)
 
         return runBlocking {
-            val songsDef = if (includeSongs) async { songService.rankedSearch(0, 10, query, explicit = true).data } else null
-            val albumsDef = if (includeAlbums) async { albumService.rankedSearch(0, 10, query).data } else null
-            val artistsDef = if (includeArtists) async { artistService.rankedSearch(0, 10, query).data } else null
-            val playlistsDef = if (includePlaylists) async { userPlaylistService.rankedSearch(globalState.user.value?.id, 0, 10, query).data } else null
+            supervisorScope {
+                val songsDef = if (includeSongs) async { songService.rankedSearch(0, 10, query, explicit = true).data } else null
+                val albumsDef = if (includeAlbums) async { albumService.rankedSearch(0, 10, query).data } else null
+                val artistsDef = if (includeArtists) async { artistService.rankedSearch(0, 10, query).data } else null
+                val playlistsDef = if (includePlaylists) async { userPlaylistService.rankedSearch(globalState.user.value?.id, 0, 10, query).data } else null
 
-            val result = SynaraSearchResult(
-                songs = songsDef?.ifCatch(emptyList()) ?: emptyList(),
-                albums = albumsDef?.ifCatch(emptyList()) ?: emptyList(),
-                artists = artistsDef?.ifCatch(emptyList()) ?: emptyList(),
-                playlists = playlistsDef?.ifCatch(emptyList()) ?: emptyList()
-            )
+                val result = SynaraSearchResult(
+                    songs = songsDef?.ifCatch(emptyList()) ?: emptyList(),
+                    albums = albumsDef?.ifCatch(emptyList()) ?: emptyList(),
+                    artists = artistsDef?.ifCatch(emptyList()) ?: emptyList(),
+                    playlists = playlistsDef?.ifCatch(emptyList()) ?: emptyList()
+                )
 
-            json.encodeToString(SynaraSearchResult.serializer(), result)
+                json.encodeToString(SynaraSearchResult.serializer(), result)
+            }
         }
     }
 

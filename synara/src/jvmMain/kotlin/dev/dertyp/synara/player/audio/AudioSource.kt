@@ -18,9 +18,3 @@ interface AudioSource {
 }
 
 class UnsupportedAudioFormatException(val format: String?) : IOException("Unsupported audio format: ${format ?: "unknown"}")
-
-sealed class AudioLoadError {
-    data object UnsupportedFormat : AudioLoadError()
-    data object Unavailable : AudioLoadError()
-    data class Failed(val message: String?) : AudioLoadError()
-}

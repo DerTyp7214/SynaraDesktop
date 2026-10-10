@@ -54,14 +54,14 @@ class PlayerSwitcher(
     init {
         scope.launch {
             playerModel.isPlaying.filter { it }.collect {
-                if (podcastPlayer.isPlaying.value) podcastPlayer.pause()
+                if (podcastPlayer.isPlaying.value || podcastPlayer.isLoading.value) podcastPlayer.pause()
                 _active.value = ActivePlayer.SONGS
             }
         }
 
         scope.launch {
             podcastPlayer.isPlaying.filter { it }.collect {
-                if (playerModel.isPlaying.value) playerModel.pause()
+                if (playerModel.playbackRequested) playerModel.pause()
                 _active.value = ActivePlayer.PODCAST
             }
         }
@@ -84,8 +84,8 @@ class PlayerSwitcher(
         if (player == ActivePlayer.PODCAST && !podcastPlayer.hasContent.value) return
         if (_active.value == player) return
         when (player) {
-            ActivePlayer.SONGS -> if (podcastPlayer.isPlaying.value) podcastPlayer.pause()
-            ActivePlayer.PODCAST -> if (playerModel.isPlaying.value) playerModel.pause()
+            ActivePlayer.SONGS -> if (podcastPlayer.isPlaying.value || podcastPlayer.isLoading.value) podcastPlayer.pause()
+            ActivePlayer.PODCAST -> if (playerModel.playbackRequested) playerModel.pause()
         }
         _active.value = player
     }

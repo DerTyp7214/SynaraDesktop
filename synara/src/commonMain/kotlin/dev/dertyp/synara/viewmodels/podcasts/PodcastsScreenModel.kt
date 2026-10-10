@@ -219,7 +219,7 @@ class PodcastsScreenModel(
 
     private suspend fun searchDirectory(query: String, requestGeneration: Int) {
         if (query.length < MIN_DIRECTORY_QUERY) {
-            _directory.value = DirectoryState.Idle
+            if (requestGeneration == browseGeneration) _directory.value = DirectoryState.Idle
             return
         }
         val known = indexes ?: try {
@@ -233,7 +233,7 @@ class PodcastsScreenModel(
             if (requestGeneration == browseGeneration) _directory.value = DirectoryState.Unavailable
             return
         }
-        _directory.value = DirectoryState.Loading
+        if (requestGeneration == browseGeneration) _directory.value = DirectoryState.Loading
         try {
             val results = podcastService.searchIndex(query, DIRECTORY_LIMIT)
             if (requestGeneration == browseGeneration) _directory.value = DirectoryState.Results(results)

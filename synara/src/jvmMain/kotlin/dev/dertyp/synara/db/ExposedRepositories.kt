@@ -219,9 +219,59 @@ class ExposedRecentlyPlayedRepository(
     }
 }
 
+private fun rekeyRecentlyPlayed(
+    userIdColumn: Column<EntityID<UUID>>,
+    keyColumn: Column<String>,
+    timestampColumn: Column<Long>,
+    from: UUID,
+    to: UUID
+) {
+    val table = keyColumn.table
+    val present = table.select(keyColumn, timestampColumn)
+        .where { userIdColumn eq to }
+        .associate { it[keyColumn] to it[timestampColumn] }
+    val (older, newer) = table.select(keyColumn, timestampColumn)
+        .where { userIdColumn eq from }
+        .filter { it[keyColumn] in present }
+        .partition { it[timestampColumn] <= present.getValue(it[keyColumn]) }
+    older.map { it[keyColumn] }.chunked(SQL_CHUNK_SIZE).forEach { chunk ->
+        table.deleteWhere { (userIdColumn eq from) and (keyColumn inList chunk) }
+    }
+    newer.map { it[keyColumn] }.chunked(SQL_CHUNK_SIZE).forEach { chunk ->
+        table.deleteWhere { (userIdColumn eq to) and (keyColumn inList chunk) }
+    }
+    table.update({ userIdColumn eq from }) { it[userIdColumn] = to }
+}
+
+private fun rekeyUser(from: UUID, to: UUID) {
+    DownloadedUserPlaylists.update({ DownloadedUserPlaylists.creator eq from }) { it[creator] = to }
+    ScrobbleQueue.update({ ScrobbleQueue.userId eq from }) { it[userId] = to }
+    LocalHistory.update({ LocalHistory.userId eq from }) { it[userId] = to }
+    SongGuessGames.update({ SongGuessGames.userId eq from }) { it[userId] = to }
+    rekeyRecentlyPlayed(RecentlyPlayedSongs.userId, RecentlyPlayedSongs.songId, RecentlyPlayedSongs.timestamp, from, to)
+    rekeyRecentlyPlayed(RecentlyPlayedAlbums.userId, RecentlyPlayedAlbums.albumId, RecentlyPlayedAlbums.timestamp, from, to)
+    rekeyRecentlyPlayed(RecentlyPlayedArtists.userId, RecentlyPlayedArtists.artistId, RecentlyPlayedArtists.timestamp, from, to)
+
+    val savedAt = SongGuessSavedGames.select(SongGuessSavedGames.userId, SongGuessSavedGames.updatedAt)
+        .where { SongGuessSavedGames.userId inList listOf(from, to) }
+        .associate { it[SongGuessSavedGames.userId].value to it[SongGuessSavedGames.updatedAt] }
+    val staleAt = savedAt[from]
+    val currentAt = savedAt[to]
+    if (staleAt != null && currentAt != null) {
+        val superseded = if (staleAt <= currentAt) from else to
+        SongGuessSavedGames.deleteWhere { SongGuessSavedGames.userId eq superseded }
+    }
+    SongGuessSavedGames.update({ SongGuessSavedGames.userId eq from }) { it[userId] = to }
+}
+
 class ExposedUserRepository : UserRepository {
     override suspend fun saveUser(user: User) {
         dbQuery {
+            val staleIds = DownloadedUsers.select(DownloadedUsers.id)
+                .where { (DownloadedUsers.username eq user.username) and (DownloadedUsers.id neq user.id) }
+                .map { it[DownloadedUsers.id].value }
+            staleIds.forEach { rekeyUser(it, user.id) }
+            if (staleIds.isNotEmpty()) DownloadedUsers.deleteWhere { DownloadedUsers.id inList staleIds }
             DownloadedUsers.upsert(DownloadedUsers.id) {
                 it[id] = user.id
                 it[username] = user.username

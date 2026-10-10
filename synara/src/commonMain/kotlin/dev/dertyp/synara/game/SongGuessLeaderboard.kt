@@ -1,5 +1,7 @@
 package dev.dertyp.synara.game
 
+import dev.dertyp.logging.Logger
+import dev.dertyp.logging.LogTag
 import dev.dertyp.PlatformUUID
 import dev.dertyp.synara.db.SongGuessRepository
 import dev.dertyp.synara.utils.SynaraDispatchers
@@ -18,8 +20,10 @@ import kotlinx.coroutines.launch
 class SongGuessLeaderboard(
     private val repository: SongGuessRepository,
     private val globalState: GlobalStateModel,
+    private val logger: Logger,
     dispatchers: SynaraDispatchers,
 ) {
+    private val logTag = LogTag("song-guess")
     private val scope = CoroutineScope(dispatchers.default + SupervisorJob())
 
     private val _entries = MutableStateFlow<List<LeaderboardEntry>>(emptyList())
@@ -40,7 +44,7 @@ class SongGuessLeaderboard(
                 repository.insert(userId, entry)
                 reload(userId)
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error(logTag, "Failed to add the leaderboard entry", e)
             }
         }
     }
@@ -52,7 +56,7 @@ class SongGuessLeaderboard(
                 repository.clear(userId)
                 reload(userId)
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error(logTag, "Failed to clear the leaderboard", e)
             }
         }
     }
@@ -65,7 +69,7 @@ class SongGuessLeaderboard(
             try {
                 repository.saveGame(userId, game)
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error(logTag, "Failed to save the game", e)
             }
         }
     }
@@ -76,7 +80,7 @@ class SongGuessLeaderboard(
             try {
                 repository.clearGame(userId)
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error(logTag, "Failed to clear the saved game", e)
             }
         }
     }
@@ -86,7 +90,7 @@ class SongGuessLeaderboard(
         return try {
             repository.loadGame(userId)
         } catch (e: Exception) {
-            e.printStackTrace()
+            logger.error(logTag, "Failed to load the saved game", e)
             null
         }
     }
@@ -99,7 +103,7 @@ class SongGuessLeaderboard(
         try {
             _entries.value = repository.getAll(userId)
         } catch (e: Exception) {
-            e.printStackTrace()
+            logger.error(logTag, "Failed to load the leaderboard", e)
         }
     }
 }

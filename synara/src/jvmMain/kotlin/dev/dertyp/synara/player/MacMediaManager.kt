@@ -2,6 +2,8 @@ package dev.dertyp.synara.player
 
 import com.sun.jna.*
 import dev.dertyp.PlatformUUID
+import dev.dertyp.logging.LogTag
+import dev.dertyp.logging.Logger
 import dev.dertyp.services.IImageService
 import dev.dertyp.synara.utils.OSUtils
 import kotlinx.coroutines.*
@@ -11,7 +13,8 @@ import org.koin.java.KoinJavaComponent.getKoin
 import kotlin.math.abs
 import com.sun.jna.Function as JnaFunction
 
-class MacMediaManager(private val bridge: MediaControlBridge) : SystemMediaManager {
+class MacMediaManager(private val bridge: MediaControlBridge, private val logger: Logger) : SystemMediaManager {
+    private val logTag = LogTag("media-manager")
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var isStarted = false
     private var artworkJob: Job? = null
@@ -116,7 +119,7 @@ class MacMediaManager(private val bridge: MediaControlBridge) : SystemMediaManag
         if (isStarted || !OSUtils.isMac) return
         isStarted = true
 
-        println("[INFO] [platform] Starting MacMediaManager...")
+        logger.info(logTag, "Starting MacMediaManager...")
         try {
             NativeLibrary.getInstance("Foundation")
             NativeLibrary.getInstance("MediaPlayer")
@@ -174,7 +177,7 @@ class MacMediaManager(private val bridge: MediaControlBridge) : SystemMediaManag
                 }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            logger.error(logTag, "MacMediaManager failed: ${e.message}", e)
         }
     }
 

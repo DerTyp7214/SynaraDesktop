@@ -295,6 +295,10 @@
     <string name="added_to_queue_item">Added **%1$s** to queue</string>
     <string name="play_next">Play next</string>
     <string name="playing_next_item">Playing **%1$s** next</string>
+    <string name="playback_failed_skipped">**%1$s** could not be played and was skipped</string>
+    <string name="playback_failed_skipped_unknown">A track could not be played and was skipped</string>
+    <string name="playback_failed_stopped">Playback stopped because the tracks could not be played</string>
+    <string name="playback_source_unavailable">The songs could not be loaded, the queue was left unchanged</string>
     <string name="menu_download">Download</string>
     <string name="playlist">Playlist</string>
 
@@ -538,6 +542,7 @@
     <string name="remove_download">Remove Download</string>
     <string name="cancel_download">Cancel Download</string>
     <string name="downloading">Downloading…</string>
+    <string name="download_failed">**%1$s** could not be downloaded</string>
 
     <!-- Scheduled Tasks -->
     <string name="settings_scheduled_task_logs_title">Scheduled Task Logs</string>
@@ -950,4 +955,8 @@
         <item quantity="one">%1$d show</item>
         <item quantity="other">%1$d shows</item>
     </plurals>
+    <string name="retry">Retry</string>
+    <string name="error_server_unreachable">The server could not be reached</string>
+    <string name="error_request_failed">The request failed</string>
+    <string name="login_failed">Login failed. Check your username and password.</string>
 </resources>

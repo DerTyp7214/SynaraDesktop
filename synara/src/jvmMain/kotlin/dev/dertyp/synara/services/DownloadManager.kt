@@ -3,6 +3,8 @@ package dev.dertyp.synara.services
 import com.russhwolf.settings.Settings
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.UserSong
+import dev.dertyp.logging.LogTag
+import dev.dertyp.logging.Logger
 import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
@@ -12,10 +14,13 @@ import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.put
+import dev.dertyp.synara.ui.models.SnackbarManager
+import dev.dertyp.synara.utils.SynaraDispatchers
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.jetbrains.compose.resources.getString
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.select
@@ -23,8 +28,14 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.UUID
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
+import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.download_failed
 
 @OptIn(FlowPreview::class)
 class DownloadManager(
@@ -35,13 +46,20 @@ class DownloadManager(
     private val storageService: LocalStorageService,
     private val libraryRepository: LibraryRepository,
     private val settings: Settings,
-    private val rpcManager: RpcServiceManager
+    private val rpcManager: RpcServiceManager,
+    private val logger: Logger,
+    private val snackbarManager: SnackbarManager,
+    private val dispatchers: SynaraDispatchers
 ) : IDownloadManager {
     companion object {
         private const val MAX_SPEED_BYTES_PER_SECOND = 10L * 1024 * 1024
+        private const val MAX_ATTEMPTS = 3
+        private const val PART_SUFFIX = ".part"
     }
 
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val logTag = LogTag("download")
+
+    private val scope = CoroutineScope(dispatchers.default + SupervisorJob())
 
     private val _queue = MutableStateFlow<List<UserSong>>(emptyList())
     override val queue: StateFlow<List<UserSong>> = _queue.asStateFlow()
@@ -65,7 +83,7 @@ class DownloadManager(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    logger.error(logTag, "Failed to load the saved library ids", e)
                     null
                 }
             }
@@ -103,6 +121,7 @@ class DownloadManager(
 
     init {
         scope.launch {
+            removeLeftoverParts()
             queueUpdateFlow
                 .onStart { emit(Unit) }
                 .debounce(100.milliseconds)
@@ -111,14 +130,49 @@ class DownloadManager(
                     while (_queue.value.isNotEmpty()) {
                         val nextSong = _queue.value.first()
                         try {
-                            performDownload(nextSong)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
+                            downloadWithRetries(nextSong)
                         } finally {
+                            _currentDownload.value = null
                             _queue.update { q -> q.filter { it.id != nextSong.id } }
                         }
                     }
                 }
+        }
+    }
+
+    fun stop() {
+        scope.cancel()
+    }
+
+    private suspend fun removeLeftoverParts() {
+        try {
+            withContext(dispatchers.io) {
+                File(storageService.getInternalSongDir()).walkBottomUp()
+                    .filter { it.isFile && it.name.endsWith(PART_SUFFIX) }
+                    .forEach { it.delete() }
+            }
+        } catch (e: Exception) {
+            currentCoroutineContext().ensureActive()
+            logger.error(logTag, "Failed to remove leftover partial downloads", e)
+        }
+    }
+
+    private suspend fun downloadWithRetries(song: UserSong) {
+        for (attempt in 1..MAX_ATTEMPTS) {
+            if (_queue.value.none { it.id == song.id }) return
+            try {
+                performDownload(song)
+                return
+            } catch (e: Exception) {
+                currentCoroutineContext().ensureActive()
+                _currentDownload.value = null
+                if (attempt < MAX_ATTEMPTS) {
+                    delay(2.seconds * attempt)
+                } else {
+                    logger.error(logTag, "Failed to download a song", e, data = "songId=${song.id}, title=${song.title}, attempts=$attempt")
+                    snackbarManager.showSnackbar(getString(Res.string.download_failed, song.title))
+                }
+            }
         }
     }
 
@@ -205,21 +259,22 @@ class DownloadManager(
     }
 
     private suspend fun performDownload(song: UserSong) {
-        val internalPath = storageService.getInternalSongPath(song)
-        val file = File(internalPath)
+        val file = File(storageService.getInternalSongPath(song))
 
         if (!file.exists()) {
             val flow = rpcManager.getService<ISongService>(rpcManager.downloadClient).streamSong(song.id, chunkSize = 1024 * 64)
-            if (flow != null) {
-                file.parentFile?.mkdirs()
-                withContext(Dispatchers.IO) {
+                ?: throw IOException("The server returned no stream for song ${song.id}")
+            file.parentFile?.mkdirs()
+            val part = File(file.path + PART_SUFFIX)
+            try {
+                withContext(dispatchers.io) {
                     var downloaded = 0L
                     val total = song.audio?.fileSize ?: 0L
                     _currentDownload.value = DownloadProgress(song, 0, total)
 
                     val startTime = System.currentTimeMillis()
 
-                    FileOutputStream(file).use { out ->
+                    FileOutputStream(part).use { out ->
                         flow.collect { bytes ->
                             runInterruptible {
                                 out.write(bytes)
@@ -236,10 +291,18 @@ class DownloadManager(
                             yield()
                         }
                     }
+
+                    if (total > 0 && downloaded != total) {
+                        throw IOException("Downloaded $downloaded of $total bytes for song ${song.id}")
+                    }
+
+                    Files.move(part.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
                 }
-                storageService.linkSongToSystemMusicDir(song)
-                delay(10.milliseconds)
+            } finally {
+                part.delete()
             }
+            storageService.linkSongToSystemMusicDir(song)
+            delay(10.milliseconds)
         }
 
         libraryRepository.saveSongMetadata(song, false)
@@ -360,7 +423,7 @@ class DownloadManager(
             songsToDelete.map { id -> id to songs[id] }
         }
 
-        withContext(Dispatchers.IO) {
+        withContext(dispatchers.io) {
             toDelete.forEach { (_, song) ->
                 song?.let {
                     File(storageService.getInternalSongPath(it)).delete()

@@ -7,7 +7,7 @@ import java.awt.image.BufferedImage
 import javax.imageio.ImageIO
 import java.awt.Color as AwtColor
 
-class WindowsSynaraTray : SynaraTray {
+class WindowsSynaraTray(private val onError: (message: String, error: Throwable) -> Unit) : SynaraTray {
     private var trayIcon: TrayIcon? = null
     private var baseIcon: BufferedImage? = null
 
@@ -61,7 +61,7 @@ class WindowsSynaraTray : SynaraTray {
         try {
             tray.add(trayIcon)
         } catch (e: Exception) {
-            e.printStackTrace()
+            onError("Failed to add the tray icon", e)
         }
     }
 

@@ -8,7 +8,7 @@ actual fun compress(data: ByteArray): ByteArray {
 
 actual fun decompress(data: ByteArray): ByteArray {
     val size = Zstd.getFrameContentSize(data)
-    return if (size > 0) {
+    return if (size >= 0) {
         Zstd.decompress(data, size.toInt())
     } else {
         data

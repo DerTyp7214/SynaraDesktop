@@ -1,5 +1,6 @@
 package dev.dertyp.synara.player.audio.decode
 
+import dev.dertyp.logging.Logger
 import dev.dertyp.synara.player.audio.AudioSource
 import dev.dertyp.synara.player.audio.DecodedStream
 import dev.dertyp.synara.player.audio.EXACT_SEEK_MAX_MS
@@ -23,7 +24,7 @@ internal object Mp3Decoding {
         return audioBytes * 8 / info.header.bitRateKbps
     }
 
-    suspend fun open(source: AudioSource, info: ProbeInfo.Mp3, startMs: Long, scope: CoroutineScope): DecodedStream? {
+    suspend fun open(logger: Logger, source: AudioSource, info: ProbeInfo.Mp3, startMs: Long, scope: CoroutineScope): DecodedStream? {
         val size = source.size()
         val durationMs = durationMs(info, size)
         val header = info.header
@@ -36,6 +37,7 @@ internal object Mp3Decoding {
         } else header.bitRateKbps * 1000L
 
         return launchDecoding(
+            logger = logger,
             scope = scope,
             label = source.cacheKey,
             startMs = startMs,

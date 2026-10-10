@@ -1,5 +1,6 @@
 package dev.dertyp.synara.player.audio.decode
 
+import dev.dertyp.logging.Logger
 import dev.dertyp.synara.player.audio.AudioSource
 import dev.dertyp.synara.player.audio.DecodedStream
 import dev.dertyp.synara.player.audio.ProbeInfo
@@ -14,7 +15,7 @@ internal object Mp4AacDecoding {
     private const val MAX_INLINE_GAP = 1024L * 1024
     private const val PRE_ROLL_SAMPLES = 2
 
-    suspend fun open(source: AudioSource, info: ProbeInfo.Mp4, startMs: Long, scope: CoroutineScope): DecodedStream? {
+    suspend fun open(logger: Logger, source: AudioSource, info: ProbeInfo.Mp4, startMs: Long, scope: CoroutineScope): DecodedStream? {
         val track = info.track
         if (track.sampleCount == 0) return null
         val target = startMs * track.timescale / 1000
@@ -25,6 +26,7 @@ internal object Mp4AacDecoding {
         val durationMs = track.durationMs.takeIf { it > 0 }
 
         return launchDecoding(
+            logger = logger,
             scope = scope,
             label = source.cacheKey,
             startMs = startMs,

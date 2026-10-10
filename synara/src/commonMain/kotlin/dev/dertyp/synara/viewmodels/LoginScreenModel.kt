@@ -2,24 +2,33 @@ package dev.dertyp.synara.viewmodels
 
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import dev.dertyp.logging.LogTag
+import dev.dertyp.logging.Logger
 import dev.dertyp.services.IAuthService
 import dev.dertyp.synara.rpc.RpcServiceManager
+import dev.dertyp.rpc.isTransportFailure
 import dev.dertyp.synara.utils.SynaraDispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.StringResource
+import synara.synara.generated.resources.*
+
+private val LOGIN_TAG = LogTag("login")
 
 sealed class LoginResult {
     data object Idle : LoginResult()
     data object Loading : LoginResult()
     data object Success : LoginResult()
-    data class Error(val message: String) : LoginResult()
+    data class Error(val message: StringResource) : LoginResult()
 }
 
 class LoginScreenModel(
     private val authService: IAuthService,
     private val rpcServiceManager: RpcServiceManager,
-    dispatchers: SynaraDispatchers
+    dispatchers: SynaraDispatchers,
+    private val logger: Logger
 ) : ScreenModel {
     private val modelDispatcher = dispatchers.createNamed("LoginScreenModel")
 
@@ -37,8 +46,13 @@ class LoginScreenModel(
                 val response = authService.authenticate(username, password)
                 rpcServiceManager.updateAuth(response)
                 _loginResult.value = LoginResult.Success
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                _loginResult.value = LoginResult.Error(e.message ?: "Unknown error occurred")
+                logger.error(LOGIN_TAG, "Login failed", e)
+                _loginResult.value = LoginResult.Error(
+                    if (e.isTransportFailure()) Res.string.error_server_unreachable else Res.string.login_failed
+                )
             }
         }
     }

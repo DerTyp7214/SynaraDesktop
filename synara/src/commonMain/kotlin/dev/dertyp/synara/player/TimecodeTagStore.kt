@@ -108,7 +108,7 @@ class TimecodeTagStore(
             throw e
         } catch (e: Exception) {
             logger.error(LogTag.RPC, "Failed to load timecode tags of $songId", e)
-            _tagsBySong.value[songId] ?: emptyList()
+            return
         }
         _tagsBySong.update { it + (songId to tags.sortedBy { tag -> tag.timestampMs }) }
     }

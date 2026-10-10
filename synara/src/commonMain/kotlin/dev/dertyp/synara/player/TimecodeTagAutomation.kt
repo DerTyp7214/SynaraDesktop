@@ -214,9 +214,10 @@ class TimecodeTagAutomation(
         songId = id
         songTags = start.song?.playbackTags
         songDurationMs = start.song?.duration ?: 0L
+        tagStore.ensureLoaded(id)
         tagStore.refreshIfCached(id)
         prevPos = -1L
-        pendingStart = true
+        pendingStart = start.startMs in 0..START_WINDOW_MS
         resetTransientState()
     }
 
@@ -294,7 +295,6 @@ class TimecodeTagAutomation(
 
     private fun playbackTags(id: PlatformUUID): List<TimecodeTag>? {
         tagStore.cached(id)?.let { cached -> return cached.filter { it.action != TimecodeTagAction.NONE } }
-        tagStore.ensureLoaded(id)
         songTags?.let { return it }
         return playerModel.currentSong.value?.takeIf { it.id == id }?.playbackTags
     }

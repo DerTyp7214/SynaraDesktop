@@ -347,6 +347,7 @@ class SongGuessScreenModel(
 
     fun submitGuess() {
         val s = state.value
+        if (s.phase != Phase.PLAYING) return
         val guess = s.selectedGuess ?: return
         val song = s.currentSong ?: return
         if (matches(guess, song)) {
@@ -439,7 +440,7 @@ class SongGuessScreenModel(
 
     fun nextRound() {
         val s = state.value
-        if (s.phase != Phase.REVEAL) return
+        if (s.phase != Phase.REVEAL || revealJob == null) return
         stopReveal()
         if (s.roundIndex + 1 >= s.config.rounds) {
             screenModelScope.launch(dispatchers.io) { finishGame(null) }

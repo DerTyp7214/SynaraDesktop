@@ -1,5 +1,6 @@
 package dev.dertyp.synara.player.audio
 
+import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayInputStream
@@ -30,7 +31,7 @@ class AudioProbeTest {
         }
     }
 
-    private fun probe(bytes: ByteArray, probe: AudioProbe = AudioProbe()): ProbeInfo? = runBlocking {
+    private fun probe(bytes: ByteArray, probe: AudioProbe = AudioProbe(mockk(relaxed = true))): ProbeInfo? = runBlocking {
         probe.probe(BytesSource(bytes))
     }
 
@@ -123,7 +124,7 @@ class AudioProbeTest {
     fun detectsMp4WithMoovAtEnd() {
         val fixture = Mp4Fixtures.build(moovFirst = false, mdatPadding = 800_000)
         val source = BytesSource(fixture.bytes)
-        val info = assertIs<ProbeInfo.Mp4>(runBlocking { AudioProbe().probe(source) })
+        val info = assertIs<ProbeInfo.Mp4>(runBlocking { AudioProbe(mockk(relaxed = true)).probe(source) })
         assertEquals(fixture.mdatEnd, source.opens.last())
         assertEquals(10, info.track.sampleCount)
     }
@@ -143,7 +144,7 @@ class AudioProbeTest {
         val tag = id3(300)
         val bytes = tag + Mp3Fixtures.xingFrame(frames = 100, bytes = 41700) + Mp3Fixtures.frames(4)
         val source = BytesSource(bytes)
-        val info = assertIs<ProbeInfo.Mp3>(runBlocking { AudioProbe().probe(source) })
+        val info = assertIs<ProbeInfo.Mp3>(runBlocking { AudioProbe(mockk(relaxed = true)).probe(source) })
         assertEquals(listOf(0L), source.opens)
         assertEquals(tag.size.toLong(), info.firstFrameOffset)
         assertEquals(tag.size.toLong() + Mp3Fixtures.FRAME_LENGTH, info.audioStart)
@@ -155,7 +156,7 @@ class AudioProbeTest {
         val tag = id3(20_000, footer = true)
         val bytes = tag + Mp3Fixtures.frames(6)
         val source = BytesSource(bytes)
-        val info = assertIs<ProbeInfo.Mp3>(runBlocking { AudioProbe().probe(source) })
+        val info = assertIs<ProbeInfo.Mp3>(runBlocking { AudioProbe(mockk(relaxed = true)).probe(source) })
         assertEquals(listOf(0L, tag.size.toLong()), source.opens)
         assertEquals(tag.size.toLong(), info.firstFrameOffset)
         assertNull(info.xing)
@@ -176,7 +177,7 @@ class AudioProbeTest {
 
     @Test
     fun cachesByKey() {
-        val probe = AudioProbe()
+        val probe = AudioProbe(mockk(relaxed = true))
         val first = BytesSource(flac(), cacheKey = "same")
         val second = BytesSource(Mp3Fixtures.frames(5), cacheKey = "same")
         runBlocking {

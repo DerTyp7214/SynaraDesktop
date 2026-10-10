@@ -1,5 +1,7 @@
 package dev.dertyp.synara.ui
 
+import dev.dertyp.logging.LogTag
+import dev.dertyp.logging.Logger
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -35,17 +37,21 @@ import dev.dertyp.synara.ui.components.SynaraTray
 import dev.dertyp.synara.ui.components.WindowDraggableArea
 import dev.dertyp.synara.ui.models.PerformanceMonitor
 import dev.dertyp.synara.utils.OSUtils
+import dev.dertyp.synara.utils.UiDispatcher
 import dev.dertyp.synara.viewmodels.GlobalShortcuts
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Runnable
 import org.jetbrains.skia.*
 import org.koin.core.context.GlobalContext
 import org.lwjgl.glfw.Callbacks.glfwFreeCallbacks
 import org.lwjgl.glfw.GLFW.*
+import org.lwjgl.glfw.GLFWErrorCallback
 import org.lwjgl.opengl.GL
 import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.system.MemoryUtil.NULL
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.CoroutineContext
 import kotlin.system.exitProcess
 
@@ -188,12 +194,15 @@ fun runTransparentWindow(
     onBackground: @Composable () -> Color = { appTheme().colorScheme.onBackground },
     content: @Composable () -> Unit
 ) {
+    val logger = GlobalContext.get().get<Logger>()
+    val logTag = LogTag("window")
+
     glfwSetErrorCallback { error, description ->
-        println("GLFW Error [$error]: ${org.lwjgl.glfw.GLFWErrorCallback.getDescription(description)}")
+        logger.error(logTag, "GLFW Error [$error]: ${GLFWErrorCallback.getDescription(description)}")
     }
 
     if (OSUtils.isLinux) {
-        println("Linux detected. Forcing X11 platform via GLFW hint.")
+        logger.info(logTag, "Linux detected. Forcing X11 platform via GLFW hint.")
         glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11)
     }
 
@@ -270,6 +279,7 @@ fun runTransparentWindow(
             glfwPostEmptyEvent()
         }
     }
+    UiDispatcher.delegate = sceneDispatcher
 
     val scene = CanvasLayersComposeScene(
         density = density,
@@ -279,7 +289,7 @@ fun runTransparentWindow(
     )
     scenePtr = scene
 
-    var isVisible by mutableStateOf(true)
+    val isVisible = AtomicBoolean(true)
     var isFullscreen by mutableStateOf(false)
     val applicationScope = object : ApplicationScope {
         override fun exitApplication() {
@@ -291,9 +301,11 @@ fun runTransparentWindow(
     val windowActions = object : WindowActions {
         override fun toggleFullscreen() {
             isFullscreen = !isFullscreen
+            glfwPostEmptyEvent()
         }
         override fun setFullscreen(enabled: Boolean) {
             isFullscreen = enabled
+            glfwPostEmptyEvent()
         }
         override val isFullscreen: Boolean get() = isFullscreen
         override fun setCursorVisible(enabled: Boolean) {
@@ -328,7 +340,7 @@ fun runTransparentWindow(
                 with(applicationScope) {
                     SynaraTray(
                         onAction = {
-                            isVisible = !isVisible
+                            isVisible.set(!isVisible.get())
                             glfwPostEmptyEvent()
                         },
                         onExit = { exitApplication() }
@@ -379,16 +391,33 @@ fun runTransparentWindow(
         isWindowFocused = focused
     }
 
+    var windowEventPending = true
+    var monitorCheckPending = true
+
     glfwSetWindowCloseCallback(windowHandle) { _ ->
         if (Config.hideOnClose.value) {
             glfwSetWindowShouldClose(windowHandle, false)
-            isVisible = false
+            isVisible.set(false)
             glfwPostEmptyEvent()
         }
     }
 
     glfwSetFramebufferSizeCallback(windowHandle) { _, w, h ->
         scene.size = IntSize(w, h)
+        windowEventPending = true
+    }
+
+    glfwSetWindowContentScaleCallback(windowHandle) { _, x, _ ->
+        scene.density = Density(x)
+        windowEventPending = true
+    }
+
+    glfwSetWindowPosCallback(windowHandle) { _, _, _ ->
+        monitorCheckPending = true
+    }
+
+    glfwSetWindowSizeCallback(windowHandle) { _, _, _ ->
+        monitorCheckPending = true
     }
 
     glfwSetCursorPosCallback(windowHandle) { _, x, y ->
@@ -446,8 +475,8 @@ fun runTransparentWindow(
                 Offset(x[0].toFloat(), y[0].toFloat())
             },
             scrollDelta = Offset(
-                scrollX.toFloat() * 2.5f * density.density,
-                scrollY.toFloat() * 2.5f * density.density
+                scrollX.toFloat() * 2.5f * scene.density.density,
+                scrollY.toFloat() * 2.5f * scene.density.density
             ),
             keyboardModifiers = PointerKeyboardModifiers(
                 isCtrlPressed = isCtrlPressed,
@@ -503,52 +532,57 @@ fun runTransparentWindow(
     while (!glfwWindowShouldClose(windowHandle)) {
         repeat(sceneTasks.size) { sceneTasks.poll()?.run() }
 
-        stackPush().use { stack ->
-            val wx = stack.mallocInt(1)
-            val wy = stack.mallocInt(1)
-            val ww = stack.mallocInt(1)
-            val wh = stack.mallocInt(1)
-            glfwGetWindowPos(windowHandle, wx, wy)
-            glfwGetWindowSize(windowHandle, ww, wh)
+        if (monitorCheckPending) {
+            monitorCheckPending = false
+            stackPush().use { stack ->
+                val wx = stack.mallocInt(1)
+                val wy = stack.mallocInt(1)
+                val ww = stack.mallocInt(1)
+                val wh = stack.mallocInt(1)
+                glfwGetWindowPos(windowHandle, wx, wy)
+                glfwGetWindowSize(windowHandle, ww, wh)
 
-            val centerX = wx.get(0) + ww.get(0) / 2
-            val centerY = wy.get(0) + wh.get(0) / 2
+                val centerX = wx.get(0) + ww.get(0) / 2
+                val centerY = wy.get(0) + wh.get(0) / 2
 
-            val monitors = glfwGetMonitors()
-            if (monitors != null) {
-                var currentMonitor = glfwGetPrimaryMonitor()
-                for (i in 0 until monitors.capacity()) {
-                    val m = monitors.get(i)
-                    val mx = stack.mallocInt(1)
-                    val my = stack.mallocInt(1)
-                    glfwGetMonitorPos(m, mx, my)
-                    val vidMode = glfwGetVideoMode(m) ?: continue
-                    if (centerX >= mx.get(0) && centerX < mx.get(0) + vidMode.width() &&
-                        centerY >= my.get(0) && centerY < my.get(0) + vidMode.height()
-                    ) {
-                        currentMonitor = m
-                        break
+                val monitors = glfwGetMonitors()
+                if (monitors != null) {
+                    var currentMonitor = glfwGetPrimaryMonitor()
+                    for (i in 0 until monitors.capacity()) {
+                        val m = monitors.get(i)
+                        val mx = stack.mallocInt(1)
+                        val my = stack.mallocInt(1)
+                        glfwGetMonitorPos(m, mx, my)
+                        val vidMode = glfwGetVideoMode(m) ?: continue
+                        if (centerX >= mx.get(0) && centerX < mx.get(0) + vidMode.width() &&
+                            centerY >= my.get(0) && centerY < my.get(0) + vidMode.height()
+                        ) {
+                            currentMonitor = m
+                            break
+                        }
                     }
-                }
 
-                if (currentMonitor != lastMonitor) {
-                    val vidMode = glfwGetVideoMode(currentMonitor)
-                    if (vidMode != null) {
-                        performanceMonitor?.updateMaxFps(vidMode.refreshRate())
+                    if (currentMonitor != lastMonitor) {
+                        val vidMode = glfwGetVideoMode(currentMonitor)
+                        if (vidMode != null) {
+                            performanceMonitor?.updateMaxFps(vidMode.refreshRate())
+                        }
+                        lastMonitor = currentMonitor
                     }
-                    lastMonitor = currentMonitor
                 }
             }
         }
 
-        if (isVisible != lastVisibleState) {
-            if (isVisible) {
+        val visible = isVisible.get()
+        if (visible != lastVisibleState) {
+            if (visible) {
                 glfwShowWindow(windowHandle)
                 glfwFocusWindow(windowHandle)
             } else {
                 glfwHideWindow(windowHandle)
             }
-            lastVisibleState = isVisible
+            lastVisibleState = visible
+            windowEventPending = true
         }
 
         if (isFullscreen != lastFullscreenState) {
@@ -565,7 +599,7 @@ fun runTransparentWindow(
                     windowWidth = w.get(0)
                     windowHeight = h.get(0)
                 }
-                val monitor = glfwGetPrimaryMonitor()
+                val monitor = if (lastMonitor != NULL) lastMonitor else glfwGetPrimaryMonitor()
                 val vidMode = glfwGetVideoMode(monitor)
                 if (vidMode != null) {
                     glfwSetWindowMonitor(windowHandle, monitor, 0, 0, vidMode.width(), vidMode.height(), vidMode.refreshRate())
@@ -574,37 +608,43 @@ fun runTransparentWindow(
                 glfwSetWindowMonitor(windowHandle, NULL, windowX, windowY, windowWidth, windowHeight, 0)
             }
             lastFullscreenState = isFullscreen
+            windowEventPending = true
         }
 
-        if (isVisible) {
-            val size = scene.size
-            val w = size?.width ?: 0
-            val h = size?.height ?: 0
+        val size = scene.size
+        val w = size?.width ?: 0
+        val h = size?.height ?: 0
+        val canRender = visible && w > 0 && h > 0
+        val renderDue = canRender && (windowEventPending || scene.hasInvalidations())
 
-            if (w > 0 && h > 0) {
-                val renderTarget =
-                    BackendRenderTarget.makeGL(w, h, 0, 8, 0, FramebufferFormat.GR_GL_RGBA8)
-                val surface = Surface.makeFromBackendRenderTarget(
-                    skiaContext,
-                    renderTarget,
-                    SurfaceOrigin.BOTTOM_LEFT,
-                    SurfaceColorFormat.RGBA_8888,
-                    ColorSpace.sRGB
-                )
+        if (renderDue) {
+            windowEventPending = false
+            val renderTarget =
+                BackendRenderTarget.makeGL(w, h, 0, 8, 0, FramebufferFormat.GR_GL_RGBA8)
+            val surface = Surface.makeFromBackendRenderTarget(
+                skiaContext,
+                renderTarget,
+                SurfaceOrigin.BOTTOM_LEFT,
+                SurfaceColorFormat.RGBA_8888,
+                ColorSpace.sRGB
+            )
 
-                surface?.let {
-                    it.canvas.clear(Color.Transparent.toArgb())
-                    scene.render(it.canvas.asComposeCanvas(), System.nanoTime())
-                    it.flushAndSubmit()
-                    it.close()
-                }
-                renderTarget.close()
+            surface?.let {
+                it.canvas.clear(Color.Transparent.toArgb())
+                scene.render(it.canvas.asComposeCanvas(), System.nanoTime())
+                it.flushAndSubmit()
+                it.close()
             }
+            renderTarget.close()
 
             glfwSwapBuffers(windowHandle)
         }
-        glfwPollEvents()
+
+        if (!renderDue && sceneTasks.isEmpty()) glfwWaitEvents() else glfwPollEvents()
     }
+
+    UiDispatcher.delegate = Dispatchers.Main
+    repeat(sceneTasks.size) { sceneTasks.poll()?.run() }
 
     scene.close()
     skiaContext.close()

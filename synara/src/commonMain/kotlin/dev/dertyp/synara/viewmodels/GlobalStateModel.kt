@@ -1,5 +1,7 @@
 package dev.dertyp.synara.viewmodels
 
+import dev.dertyp.logging.Logger
+import dev.dertyp.logging.LogTag
 import dev.dertyp.data.User
 import dev.dertyp.data.UserPlaylist
 import dev.dertyp.synara.Config
@@ -38,8 +40,10 @@ class GlobalStateModel(
     private val songCache: SongCache,
     private val migrationRepository: DatabaseMigrationRepository,
     private val userRepository: UserRepository,
+    private val logger: Logger,
     private val dispatchers: SynaraDispatchers
 ) : KoinComponent {
+    private val logTag = LogTag("global-state")
     private val modelDispatcher = dispatchers.createNamed("GlobalStateModel")
 
     private val scope = CoroutineScope(dispatchers.main + SupervisorJob())
@@ -88,6 +92,8 @@ class GlobalStateModel(
                 if (state == RpcServiceManager.ConnectionState.Authenticated) {
                     refreshUser()
                     refreshPlaylists()
+                } else {
+                    _user.value = null
                 }
             }
         }
@@ -164,7 +170,7 @@ class GlobalStateModel(
                     Config.setNeedsUserIdMigration(false)
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error(logTag, "Failed to load the user", e)
             }
         }
     }
@@ -175,7 +181,7 @@ class GlobalStateModel(
                 userService.setDisplayName(name)
                 refreshUser()
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error(logTag, "Failed to set the display name", e)
             }
         }
     }
@@ -186,7 +192,7 @@ class GlobalStateModel(
                 userService.setProfileImage(bytes)
                 refreshUser()
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error(logTag, "Failed to set the profile image", e)
             }
         }
     }
@@ -199,7 +205,7 @@ class GlobalStateModel(
                 val response = userPlaylistService.allPlaylists(currentUser.id, 0, Int.MAX_VALUE)
                 _userPlaylists.value = response.data
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error(logTag, "Failed to refresh the playlists", e)
             } finally {
                 _isRefreshingPlaylists.value = false
             }

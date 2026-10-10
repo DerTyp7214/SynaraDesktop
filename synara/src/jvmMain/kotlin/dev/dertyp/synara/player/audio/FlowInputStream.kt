@@ -2,12 +2,13 @@ package dev.dertyp.synara.player.audio
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import dev.dertyp.synara.utils.AppDispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.io.IOException
 import java.io.InputStream
 import kotlin.math.min
 
@@ -19,7 +20,7 @@ class FlowInputStream(
     private var currentBuffer: ByteArray? = null
     private var bufferOffset = 0
     private var isClosed = false
-    private val job: Job = scope.launch(Dispatchers.IO) {
+    private val job: Job = scope.launch(AppDispatchers.io) {
         try {
             flow.collect {
                 if (isClosed) throw CancellationException()
@@ -28,8 +29,8 @@ class FlowInputStream(
             channel.close()
         } catch (_: CancellationException) {
             channel.cancel()
-        } catch (_: Exception) {
-            channel.close()
+        } catch (e: Exception) {
+            channel.close(e)
         }
     }
 
@@ -42,12 +43,14 @@ class FlowInputStream(
     override fun read(b: ByteArray, off: Int, len: Int): Int {
         if (isClosed) return -1
         if (len <= 0) return 0
-        if (currentBuffer == null || bufferOffset >= currentBuffer!!.size) {
-            currentBuffer = try {
-                runBlocking { channel.receiveCatching().getOrNull() }
+        while (currentBuffer == null || bufferOffset >= currentBuffer!!.size) {
+            val result = try {
+                runBlocking { channel.receiveCatching() }
             } catch (_: Exception) {
                 null
             }
+            result?.exceptionOrNull()?.let { if (it !is CancellationException) throw IOException(it) }
+            currentBuffer = result?.getOrNull()
             bufferOffset = 0
             if (currentBuffer == null) return -1
         }

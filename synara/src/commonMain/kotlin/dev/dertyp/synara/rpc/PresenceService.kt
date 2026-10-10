@@ -15,6 +15,7 @@ import dev.dertyp.synara.sync.DeviceIdentity
 import dev.dertyp.synara.utils.SynaraDispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.coroutineScope
@@ -97,7 +98,7 @@ class PresenceService(
                 try {
                     coroutineScope {
                         launch { changeHub.refreshOn(ChangeTopic.ONLINE_DEVICES) { loadOnlineDevices() } }
-                        launch { refreshes.collect { loadOnlineDevices() } }
+                        launch(start = CoroutineStart.UNDISPATCHED) { refreshes.collect { loadOnlineDevices() } }
                         connectLoop(description(gate))
                     }
                 } finally {

@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.dertyp.logging.Logger
 import dev.dertyp.services.IUiService
 import dev.dertyp.ui.UiContext
 import dev.dertyp.ui.UiRender
@@ -30,6 +31,7 @@ fun rememberSlotRenders(slot: String, context: UiContext = UiContext()): SlotRen
     if (!isServerUiAvailable()) return remember { SlotRenders(emptyList()) {} }
 
     val uiService = koinInject<IUiService>()
+    val logger = koinInject<Logger>()
     var refreshKey by remember(slot, context) { mutableIntStateOf(0) }
     var items by remember(slot, context) { mutableStateOf<List<UiRender>>(emptyList()) }
 
@@ -38,7 +40,8 @@ fun rememberSlotRenders(slot: String, context: UiContext = UiContext()): SlotRen
             uiService.renderSlot(slot, context).items
         } catch (e: CancellationException) {
             throw e
-        } catch (_: Throwable) {
+        } catch (e: Throwable) {
+            logger.warning(ServerUiLogTag, "Slot $slot failed", e.message)
             emptyList()
         }
     }

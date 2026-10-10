@@ -1,10 +1,12 @@
 package dev.dertyp.synara.utils
 
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.coroutines.CoroutineContext
 
 private class NamedThreadFactory(private val prefix: String) : ThreadFactory {
     private val threadCount = AtomicInteger(1)
@@ -13,9 +15,20 @@ private class NamedThreadFactory(private val prefix: String) : ThreadFactory {
     }
 }
 
+object UiDispatcher : CoroutineDispatcher() {
+    @Volatile
+    var delegate: CoroutineDispatcher = Dispatchers.Main
+
+    override fun isDispatchNeeded(context: CoroutineContext): Boolean = delegate.isDispatchNeeded(context)
+
+    override fun dispatch(context: CoroutineContext, block: Runnable) = delegate.dispatch(context, block)
+}
+
 actual val AppDispatchers: SynaraDispatchers = object : SynaraDispatchers {
     override val io: CoroutineDispatcher =
         Executors.newCachedThreadPool(NamedThreadFactory("Synara-IO")).asCoroutineDispatcher()
+
+    override val main: CoroutineDispatcher = UiDispatcher
 
     override val database: CoroutineDispatcher =
         Executors.newFixedThreadPool(3, NamedThreadFactory("Synara-DB")).asCoroutineDispatcher()

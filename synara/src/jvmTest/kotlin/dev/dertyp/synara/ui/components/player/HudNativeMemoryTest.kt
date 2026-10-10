@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import dev.dertyp.synara.ui.components.ParticleCanvas
+import org.junit.Assume.assumeTrue
 import java.io.File
 import kotlin.random.Random
 import kotlin.test.Test
@@ -40,6 +41,7 @@ class HudNativeMemoryTest {
 
     @Test
     fun hudTransitionsKeepNativeMemoryFlat() {
+        assumeTrue(File("/proc/self/status").exists())
         val random = Random(7)
         val x = FloatArray(count) { random.nextFloat() * width }
         val y = FloatArray(count) { random.nextFloat() * height }

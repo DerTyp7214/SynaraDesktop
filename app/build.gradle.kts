@@ -36,6 +36,7 @@ kotlin {
 
                 implementation(project(":tray"))
                 implementation(project(":synara"))
+                implementation(project(":common-rpc"))
             }
         }
     }

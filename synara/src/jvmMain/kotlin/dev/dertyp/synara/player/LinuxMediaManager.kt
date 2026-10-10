@@ -3,6 +3,8 @@
 package dev.dertyp.synara.player
 
 import dev.dertyp.data.RepeatMode
+import dev.dertyp.logging.LogTag
+import dev.dertyp.logging.Logger
 import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.services.LocalStorageService
@@ -300,8 +302,10 @@ open class MprisObjectImpl(private val bridge: MediaControlBridge) : IMprisMedia
 
 class LinuxMediaManager(
     private val bridge: MediaControlBridge,
-    private val synaraApi: ISynaraApi
+    private val synaraApi: ISynaraApi,
+    private val logger: Logger
 ) : SystemMediaManager {
+    private val logTag = LogTag("media-manager")
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var connection: DBusConnection? = null
     private var isStarted = false
@@ -374,7 +378,7 @@ class LinuxMediaManager(
 
                 while (isActive && connection?.isConnected == true) delay(2.seconds)
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error(logTag, "LinuxMediaManager failed: ${e.message}", e)
             } finally {
                 isStarted = false
                 try {
@@ -422,7 +426,8 @@ private fun createMetadata(metadata: NowPlayingMetadata?): Map<String, Variant<*
             val host = manager.host
             val port = manager.port
             if (host != null && port != null && imageId != null) {
-                m["mpris:artUrl"] = Variant("http://$host:$port/image/imageData/$imageId")
+                val scheme = if (manager.ssl && manager.sessionSslOverride.value != false) "https" else "http"
+                m["mpris:artUrl"] = Variant("$scheme://$host:$port/image/imageData/$imageId")
             } else {
                 imageId?.let {
                     m["mpris:artUrl"] =

@@ -209,6 +209,7 @@ class QueueSyncService(
 
     fun resolveConflict(keepLocal: Boolean) {
         val info = _pendingConflict.value ?: return
+        discardOutbound()
         _pendingConflict.value = null
         conflictStreak = 0
         scope.launch {
@@ -446,7 +447,10 @@ class QueueSyncService(
             }
 
             awaitDecisions()
-            mutex.withLock { push(change) }
+            mutex.withLock {
+                val held = dequeued - if (carried != null) 1L else 0L
+                if (held > processed.value) push(change)
+            }
             val pushedThrough = dequeued - if (carried != null) 1L else 0L
             processed.value = maxOf(processed.value, pushedThrough)
             if (outbound !== source) carried = null
@@ -543,7 +547,11 @@ class QueueSyncService(
         val keepId = playerModel.queue.value
             .getOrNull(playerModel.currentIndex.value)
             ?.queueId
-        val snapshot = pull(info, keepCurrentQueueId = keepId) ?: return
+        val snapshot = pull(info, keepCurrentQueueId = keepId)
+        if (snapshot == null) {
+            if (!presenceService.isControlled.value) _pendingConflict.value = info
+            return
+        }
         _events.tryEmit(QueueSyncEvent.Merged(info.modifiedByDeviceName))
 
         withContext(dispatchers.main) {

@@ -47,7 +47,7 @@ class LocalHttpServer(
             val ports = listOf(10767, 10768, 10769)
             for (port in ports) {
                 try {
-                    val engine = embeddedServer(CIO, port = port) {
+                    val engine = embeddedServer(CIO, host = "127.0.0.1", port = port) {
                         intercept(ApplicationCallPipeline.Plugins) {
                             logger.info(LogTag("HTTP"), "Incoming request: ${call.request.httpMethod.value} ${call.request.uri}")
                         }

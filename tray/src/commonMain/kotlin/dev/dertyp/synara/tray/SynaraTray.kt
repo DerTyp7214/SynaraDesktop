@@ -13,4 +13,4 @@ interface SynaraTray {
     fun hide()
 }
 
-expect fun createSynaraTray(): SynaraTray
+expect fun createSynaraTray(onError: (message: String, error: Throwable) -> Unit): SynaraTray

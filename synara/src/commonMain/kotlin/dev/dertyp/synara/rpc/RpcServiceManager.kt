@@ -28,10 +28,13 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import kotlin.concurrent.Volatile
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.reflect.KClass
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 
 class RpcServiceManager(
     client: HttpClient,
@@ -61,8 +64,16 @@ class RpcServiceManager(
 
     private val logger: Logger by inject()
 
+    @Volatile
     private var isUsingFallback = false
+
+    @Volatile
     private var hasFetchedProxyInfo = false
+
+    private val fallbackClockStart = TimeSource.Monotonic.markNow()
+    private val fallbackFlipGate = FallbackFlipGate(FALLBACK_FLIP_WINDOW.inWholeMilliseconds) {
+        fallbackClockStart.elapsedNow().inWholeMilliseconds
+    }
 
     private val authUpdates = MutableSharedFlow<Unit>(
         replay = 0,
@@ -79,8 +90,7 @@ class RpcServiceManager(
         }
         scope.launch {
             if (!hasFetchedProxyInfo) {
-                hasFetchedProxyInfo = true
-                launch { fetchProxyInfo() }
+                launch { hasFetchedProxyInfo = fetchProxyInfo() }
             }
             authUpdates.collect {
                 if (isAuthenticated()) {
@@ -89,8 +99,7 @@ class RpcServiceManager(
                         onServerReachable()
 
                         if (!hasFetchedProxyInfo) {
-                            hasFetchedProxyInfo = true
-                            launch { fetchProxyInfo() }
+                            launch { hasFetchedProxyInfo = fetchProxyInfo() }
                         }
                     } catch (_: Exception) {
                         onServerUnreachable()
@@ -164,7 +173,7 @@ class RpcServiceManager(
             val json = Json.parseToJsonElement(payload).jsonObject
             names.firstNotNullOfOrNull { json[it]?.jsonPrimitive?.content }
         } catch (e: Exception) {
-            e.printStackTrace()
+            logger.warning(LogTag.RPC, "Malformed auth token", e.message)
             null
         }
     }
@@ -214,12 +223,16 @@ class RpcServiceManager(
     override fun uiTimeZone(): String? = currentTimezoneId()
 
     override fun onServerUnreachable() {
-        isUsingFallback = !isUsingFallback
+        val proxyConfigured = settings.getOrNull(SettingKey.ProxyHost) != null &&
+            settings.getOrNull(SettingKey.ProxyPort) != null
+        if (proxyConfigured && fallbackFlipGate.shouldFlip()) {
+            isUsingFallback = !isUsingFallback
+        }
         super.onServerUnreachable()
     }
 
-    private suspend fun fetchProxyInfo() {
-        try {
+    private suspend fun fetchProxyInfo(): Boolean {
+        return try {
             val statsService = getServerStatsService()
             val info = statsService.getProxyInfo()
             if (info != null) {
@@ -228,7 +241,9 @@ class RpcServiceManager(
                 Config.setProxyId(info.id)
                 Config.setProxySsl(info.ssl)
             }
+            true
         } catch (_: Exception) {
+            false
         }
     }
 
@@ -396,8 +411,7 @@ class RpcServiceManager(
             if (tryPrimary() || trySecondary()) {
                 onServerReachable()
                 if (!hasFetchedProxyInfo) {
-                    hasFetchedProxyInfo = true
-                    launch { fetchProxyInfo() }
+                    launch { hasFetchedProxyInfo = fetchProxyInfo() }
                 }
                 clear()
                 if (isAuthenticated()) ensureHandshake()
@@ -415,5 +429,9 @@ class RpcServiceManager(
                 transparentClient.withService(serviceClass)
             } as T
         }
+    }
+
+    private companion object {
+        val FALLBACK_FLIP_WINDOW = 2.seconds
     }
 }

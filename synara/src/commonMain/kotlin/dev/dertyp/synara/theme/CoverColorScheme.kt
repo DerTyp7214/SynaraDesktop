@@ -5,6 +5,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.asComposeImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.collection.LruCache
 import coil3.SingletonImageLoader
 import coil3.compose.LocalPlatformContext
 import coil3.request.SuccessResult
@@ -17,7 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
-private val schemeCache = mutableMapOf<PlatformUUID, Triple<Int?, Int?, Int?>>()
+private val schemeCache = LruCache<PlatformUUID, Triple<Int?, Int?, Int?>>(500)
 
 @Composable
 fun rememberCoverScheme(coverId: PlatformUUID?, isDark: Boolean): State<ColorScheme> {
@@ -28,7 +29,7 @@ fun rememberCoverScheme(coverId: PlatformUUID?, isDark: Boolean): State<ColorSch
     val scheme = remember(coverId, isDark, defaultScheme) {
         mutableStateOf(
             coverId?.let { id ->
-                schemeCache[id]?.let { seeds ->
+                schemeCache.get(id)?.let { seeds ->
                     createColorSchemeFromSeeds(seeds, isDark)
                 }
             } ?: defaultScheme
@@ -44,7 +45,7 @@ fun rememberCoverScheme(coverId: PlatformUUID?, isDark: Boolean): State<ColorSch
             return@LaunchedEffect
         }
 
-        val cachedSeeds = schemeCache[coverId]
+        val cachedSeeds = schemeCache.get(coverId)
         if (cachedSeeds != null) {
             scheme.value = createColorSchemeFromSeeds(cachedSeeds, isDark)
             return@LaunchedEffect
@@ -58,7 +59,7 @@ fun rememberCoverScheme(coverId: PlatformUUID?, isDark: Boolean): State<ColorSch
                 val bitmap = result.image.toBitmap()
                 val palette = Palette.from(bitmap.asComposeImageBitmap()).generate()
                 val extractedSeeds = getSeedsFromPalette(palette)
-                schemeCache[coverId] = extractedSeeds
+                schemeCache.put(coverId, extractedSeeds)
                 extractedSeeds
             }
 

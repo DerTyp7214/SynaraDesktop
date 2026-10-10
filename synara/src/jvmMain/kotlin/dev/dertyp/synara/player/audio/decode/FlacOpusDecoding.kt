@@ -1,5 +1,6 @@
 package dev.dertyp.synara.player.audio.decode
 
+import dev.dertyp.logging.Logger
 import dev.dertyp.synara.player.audio.AudioSource
 import dev.dertyp.synara.player.audio.DecodedStream
 import dev.dertyp.synara.player.audio.EXACT_SEEK_MAX_MS
@@ -9,7 +10,7 @@ import dev.dertyp.synara.player.audio.convertToShortBuffer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import dev.dertyp.synara.utils.AppDispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
@@ -40,6 +41,7 @@ internal object FlacOpusDecoding {
     )
 
     suspend fun open(
+        logger: Logger,
         source: AudioSource,
         metadata: ByteArray,
         isOgg: Boolean,
@@ -131,8 +133,9 @@ internal object FlacOpusDecoding {
         val pcmChannel = Channel<ShortBuffer>(Channel.BUFFERED)
         val infoDeferred = CompletableDeferred<PlaybackInfo>()
 
-        val decoderJob = scope.launch(Dispatchers.IO) {
+        val decoderJob = scope.launch(AppDispatchers.io) {
             val decoderJob = coroutineContext.job
+            var failure: Exception? = null
             try {
                 if (!isOgg) {
                     val decoder = FLACDecoder(stream)
@@ -213,11 +216,12 @@ internal object FlacOpusDecoding {
                 }
             } catch (e: Exception) {
                 if (e !is CancellationException && isActive) {
-                    println("Decoder error for ${source.cacheKey}: ${e.message}")
+                    failure = e
+                    logger.error(DECODER_TAG, "Decoder error for ${source.cacheKey}: ${e.message}", e)
                     if (infoDeferred.isActive) infoDeferred.completeExceptionally(e)
                 }
             } finally {
-                pcmChannel.close()
+                pcmChannel.close(failure)
                 stream.close()
             }
         }

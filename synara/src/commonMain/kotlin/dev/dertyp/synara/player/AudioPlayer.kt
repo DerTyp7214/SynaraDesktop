@@ -6,10 +6,12 @@ import kotlinx.coroutines.flow.StateFlow
 
 interface AudioPlayer {
     val isPlaying: StateFlow<Boolean>
+    val isLoading: StateFlow<Boolean>
     val currentPosition: StateFlow<Long>
     val duration: StateFlow<Long>
     val volume: StateFlow<Float>
-    val onFinished: Flow<Unit>
+    val onFinished: Flow<PlatformUUID?>
+    val loadErrors: Flow<AudioLoadFailure>
 
     val sampleRate: StateFlow<Int>
     val bitsPerSample: StateFlow<Int>
@@ -27,6 +29,6 @@ interface AudioPlayer {
     fun seekTo(positionMs: Long)
     fun setVolume(volume: Float)
     fun setFadeGain(gain: Float)
-    fun load(songId: PlatformUUID, playImmediately: Boolean = true)
+    fun load(songId: PlatformUUID, playImmediately: Boolean = true, startMs: Long = 0L)
     fun release()
 }

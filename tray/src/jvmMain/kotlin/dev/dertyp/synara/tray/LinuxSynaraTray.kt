@@ -14,7 +14,7 @@ import java.nio.file.StandardCopyOption
 import javax.imageio.ImageIO
 import kotlin.concurrent.thread
 
-class LinuxSynaraTray : SynaraTray {
+class LinuxSynaraTray(private val onError: (message: String, error: Throwable) -> Unit) : SynaraTray {
     private var indicator: Pointer? = null
     private var menu: Pointer? = null
     private var baseIcon: BufferedImage? = null
@@ -136,7 +136,7 @@ class LinuxSynaraTray : SynaraTray {
 
                 GtkLib.INSTANCE.gtk_main()
             } catch (e: Throwable) {
-                e.printStackTrace()
+                onError("The tray main loop failed", e)
             }
         }
     }
@@ -199,7 +199,7 @@ class LinuxSynaraTray : SynaraTray {
                     lastBadgedIconPath = null
                 }
             } catch (e: Exception) {
-                System.err.println("SynaraTray: Failed to update badge: ${e.message}")
+                onError("Failed to update the tray badge", e)
             }
         }
     }

@@ -8,9 +8,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.toArgb
+import dev.dertyp.logging.Logger
 import dev.dertyp.synara.Config
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.Serializable
+import org.koin.compose.koinInject
 
 @Serializable
 data class PywalColors(
@@ -27,15 +29,16 @@ data class PywalSpecial(
 
 expect object PywalLoader {
     fun isSupported(): Boolean
-    fun getColorsFlow(): Flow<PywalColors?>
+    fun getColorsFlow(logger: Logger): Flow<PywalColors?>
 }
 
 @Composable
 fun rememberPywalColorScheme(isDark: Boolean): ColorScheme? {
+    val logger = koinInject<Logger>()
     val usePywal by Config.usePywal.collectAsState()
     if (!usePywal) return null
 
-    val pywalColors by remember { PywalLoader.getColorsFlow() }.collectAsState(null)
+    val pywalColors by remember { PywalLoader.getColorsFlow(logger) }.collectAsState(null)
     val colors = pywalColors ?: return null
 
     return remember(colors, isDark) {

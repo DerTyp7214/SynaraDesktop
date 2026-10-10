@@ -12,9 +12,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import dev.dertyp.synara.services.VideoFrameService
+import org.jetbrains.skia.Rect
+import org.jetbrains.skia.SamplingMode
 import org.koin.compose.koinInject
 import kotlin.math.roundToLong
 
@@ -39,25 +41,35 @@ actual fun SynaraVideoPlayer(
         val frames = videoFrames.frames
         val fps = videoFrames.fps
 
-        val currentBitmap = frames[currentIndex.coerceAtMost(frames.size - 1)]
+        val frame = frames[currentIndex.coerceAtMost(frames.size - 1)]
         Canvas(modifier = modifier.fillMaxSize()) {
-            val bitmapWidth = currentBitmap.width.toFloat()
-            val bitmapHeight = currentBitmap.height.toFloat()
+            val frameWidth = frame.width.toFloat()
+            val frameHeight = frame.height.toFloat()
             val canvasWidth = size.width
             val canvasHeight = size.height
 
-            val scale = maxOf(canvasWidth / bitmapWidth, canvasHeight / bitmapHeight)
-            val scaledWidth = bitmapWidth * scale
-            val scaledHeight = bitmapHeight * scale
+            val scale = maxOf(canvasWidth / frameWidth, canvasHeight / frameHeight)
+            val scaledWidth = frameWidth * scale
+            val scaledHeight = frameHeight * scale
 
             val offsetX = (canvasWidth - scaledWidth) / 2
             val offsetY = (canvasHeight - scaledHeight) / 2
 
-            drawImage(
-                image = currentBitmap,
-                dstOffset = IntOffset(offsetX.toInt(), offsetY.toInt()),
-                dstSize = IntSize(scaledWidth.toInt(), scaledHeight.toInt())
-            )
+            drawIntoCanvas {
+                it.nativeCanvas.drawImageRect(
+                    frame,
+                    Rect.makeWH(frameWidth, frameHeight),
+                    Rect.makeXYWH(
+                        offsetX.toInt().toFloat(),
+                        offsetY.toInt().toFloat(),
+                        scaledWidth.toInt().toFloat(),
+                        scaledHeight.toInt().toFloat()
+                    ),
+                    SamplingMode.LINEAR,
+                    null,
+                    true
+                )
+            }
         }
 
         if (frameIndex == null) {

@@ -1,11 +1,13 @@
 package dev.dertyp.synara.player.audio.decode
 
+import dev.dertyp.logging.LogTag
+import dev.dertyp.logging.Logger
 import dev.dertyp.synara.player.audio.DecodedStream
 import dev.dertyp.synara.player.audio.PcmAccumulator
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import dev.dertyp.synara.utils.AppDispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.SendChannel
@@ -49,7 +51,10 @@ class PcmSink internal constructor(private val channel: SendChannel<ShortBuffer>
     }
 }
 
+internal val DECODER_TAG = LogTag("decoder")
+
 internal suspend fun launchDecoding(
+    logger: Logger,
     scope: CoroutineScope,
     label: String,
     startMs: Long,
@@ -61,17 +66,19 @@ internal suspend fun launchDecoding(
 ): DecodedStream {
     val pcmChannel = Channel<ShortBuffer>(Channel.BUFFERED)
     val sink = PcmSink(pcmChannel)
-    val job = scope.launch(Dispatchers.IO) {
+    val job = scope.launch(AppDispatchers.io) {
+        var failure: Exception? = null
         try {
             decode(sink)
             sink.finish()
         } catch (e: Exception) {
             if (e !is CancellationException && isActive) {
-                println("Decoder error for $label: ${e.message}")
+                failure = e
+                logger.error(DECODER_TAG, "Decoder error for $label: ${e.message}", e)
                 if (sink.format.isActive) sink.format.completeExceptionally(e)
             }
         } finally {
-            pcmChannel.close()
+            pcmChannel.close(failure)
             if (sink.format.isActive) sink.format.completeExceptionally(EOFException("No audio decoded for $label"))
         }
     }

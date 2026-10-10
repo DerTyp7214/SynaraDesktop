@@ -104,6 +104,7 @@ class PodcastPlayerModel(
     override val errors: SharedFlow<PodcastPlayerError> = _errors.asSharedFlow()
 
     private var loadedEpisodeId: PlatformUUID? = null
+    private var playRequested = false
     private var restoreDone = false
     private var playShowJob: Job? = null
 
@@ -127,7 +128,10 @@ class PodcastPlayerModel(
         }
 
         scope.launch {
-            engine.errors.collect { _errors.emit(it) }
+            engine.errors.collect {
+                handleEngineError()
+                _errors.emit(it)
+            }
         }
 
         scope.launch {
@@ -293,7 +297,7 @@ class PodcastPlayerModel(
     }
 
     override fun togglePlayPause() {
-        if (engine.isPlaying.value) pause() else play()
+        if (engine.isPlaying.value || (engine.isLoading.value && playRequested)) pause() else play()
     }
 
     override fun play() {
@@ -313,11 +317,13 @@ class PodcastPlayerModel(
             pendingResume.value = null
             if (abs(resume - engine.position.value) > 1_000L) engine.seekTo(resume)
         }
+        playRequested = true
         engine.play()
         report(episode, engine.position.value)
     }
 
     override fun pause() {
+        playRequested = false
         engine.pause()
         reportCurrent()
     }
@@ -398,6 +404,7 @@ class PodcastPlayerModel(
         val start = (startMs ?: resumePosition(episode)).coerceAtLeast(0L)
         pendingResume.value = null
         loadedEpisodeId = episode.id
+        playRequested = play
         engine.load(episode, start, play)
         if (play) report(episode, start)
     }
@@ -474,12 +481,18 @@ class PodcastPlayerModel(
         }
     }
 
+    private fun handleEngineError() {
+        if (loadedEpisodeId == null || engine.isLoading.value || engine.isPlaying.value) return
+        loadedEpisodeId = null
+        if (pendingResume.value == null) pendingResume.value = engine.position.value
+    }
+
     private fun handleProgressUpdate(progress: PodcastEpisodeProgress) {
         applyProgress(progress)
         if (progress.deviceId != null && progress.deviceId == reporter.deviceId) return
         val current = _queue.value.getOrNull(_currentIndex.value) ?: return
         if (current.id != progress.episodeId) return
-        if (engine.isPlaying.value || progress.completed) return
+        if (engine.isPlaying.value || (engine.isLoading.value && playRequested) || progress.completed) return
         pendingResume.value = progress.positionMs.coerceAtLeast(0L)
     }
 

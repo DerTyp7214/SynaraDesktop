@@ -34,18 +34,21 @@ import dev.dertyp.synara.player.SystemMediaManager
 import dev.dertyp.synara.player.WindowsMediaManager
 import dev.dertyp.synara.podcast.PODCAST_AUDIO_PLAYER
 import dev.dertyp.synara.podcast.PodcastAudioEngine
+import dev.dertyp.synara.scrobble.ScrobblerService
 import dev.dertyp.synara.services.DownloadManager
 import dev.dertyp.synara.services.IDownloadManager
 import dev.dertyp.synara.services.JvmLocalStorageService
 import dev.dertyp.synara.services.JvmVideoFrameService
 import dev.dertyp.synara.services.LocalStorageService
 import dev.dertyp.synara.services.VideoFrameService
+import dev.dertyp.synara.settings.PersistentSettings
 import dev.dertyp.synara.utils.OSUtils
 import dev.dertyp.synara.utils.SynaraDispatchers
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.core.DatabaseConfig
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
+import org.koin.core.Koin
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.named
@@ -55,6 +58,8 @@ import org.koin.dsl.bind
 import org.koin.dsl.module
 import org.koin.java.KoinJavaComponent.getKoin
 import java.io.File
+
+private const val SHUTDOWN_BUDGET_MS = 5_000L
 
 actual fun platformModule(): Module = module {
     singleOf(::JvmAudioPlayer) bind AudioPlayer::class
@@ -69,8 +74,8 @@ actual fun platformModule(): Module = module {
     single<SystemMediaManager> {
         when {
             OSUtils.isWindows -> WindowsMediaManager(get())
-            OSUtils.isMac -> MacMediaManager(get())
-            else -> LinuxMediaManager(get(), get())
+            OSUtils.isMac -> MacMediaManager(get(), get())
+            else -> LinuxMediaManager(get(), get(), get())
         }
     }
 
@@ -130,6 +135,8 @@ actual fun platformInit() {
 
     koin.get<Database>()
     koin.get<PlayerSwitcher>()
+    koin.get<ScrobblerService>()
+    koin.get<DownloadManager>()
 
     try {
         val mediaManager = koin.get<SystemMediaManager>()
@@ -145,6 +152,35 @@ actual fun platformInit() {
             httpServer.start()
         } catch (e: Throwable) {
             logger.error(LogTag("platform"), "Failed to start local HTTP server", e)
+        }
+    }
+
+    Runtime.getRuntime().addShutdownHook(
+        Thread({
+            val worker = Thread({ runShutdownSteps(koin, logger) }, "Synara-Shutdown")
+            worker.start()
+            worker.join(SHUTDOWN_BUDGET_MS)
+            if (worker.isAlive) {
+                logger.warning(LogTag("platform"), "Shutdown steps did not finish within ${SHUTDOWN_BUDGET_MS}ms, halting")
+            }
+        }, "Synara-ShutdownHook")
+    )
+}
+
+private fun runShutdownSteps(koin: Koin, logger: Logger) {
+    val steps = listOf<Pair<String, () -> Unit>>(
+        "scrobbler" to { koin.get<ScrobblerService>().stop() },
+        "downloads" to { koin.get<DownloadManager>().stop() },
+        "audio player" to { koin.get<AudioPlayer>().release() },
+        "podcast audio player" to { koin.get<AudioPlayer>(named(PODCAST_AUDIO_PLAYER)).release() },
+        "settings" to { koin.get<PersistentSettings>().flush() },
+        "database" to { koin.get<HikariDataSource>().close() }
+    )
+    steps.forEach { (name, step) ->
+        try {
+            step()
+        } catch (e: Throwable) {
+            logger.error(LogTag("platform"), "Shutdown step '$name' failed", e)
         }
     }
 }

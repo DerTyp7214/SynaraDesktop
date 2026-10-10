@@ -109,11 +109,19 @@ class AllSongsScreen : Screen {
                         CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                     }
                     is AllSongsScreenModel.AllSongsState.Error -> {
-                        Text(
-                            text = currentState.message,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.align(Alignment.Center).padding(16.dp)
-                        )
+                        Column(
+                            modifier = Modifier.align(Alignment.Center).padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = stringResource(currentState.message),
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            TextButton(onClick = { screenModel.refresh() }) {
+                                Text(stringResource(Res.string.retry))
+                            }
+                        }
                     }
                     is AllSongsScreenModel.AllSongsState.Success -> {
                         SongsList(

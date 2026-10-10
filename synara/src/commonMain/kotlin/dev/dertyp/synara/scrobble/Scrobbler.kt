@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.*
 import org.jetbrains.compose.resources.StringResource
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import kotlin.concurrent.Volatile
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.reflect.KClass
 import kotlin.time.Duration
@@ -69,7 +70,8 @@ class ScrobblerService(
 
     private var isRunning = false
 
-    private val scrobblers = mutableListOf<BaseScrobbler>()
+    @Volatile
+    private var scrobblers: List<BaseScrobbler> = emptyList()
 
     private val _triggeredSong = MutableStateFlow<TriggeredListen?>(null)
     val triggeredSong: StateFlow<TriggeredListen?> = _triggeredSong
@@ -78,6 +80,11 @@ class ScrobblerService(
 
     private val _newSong = MutableStateFlow<UserSong?>(null)
     val newSong: StateFlow<UserSong?> = _newSong
+
+    private val trackedSong = MutableStateFlow<UserSong?>(null)
+
+    private val _resumed = MutableSharedFlow<UserSong>(extraBufferCapacity = 8)
+    val resumed: SharedFlow<UserSong> = _resumed
 
     private val scrobblerTimer = ScrobbleTimer(scope)
     val scrobbledFor: StateFlow<Int> = scrobblerTimer.time
@@ -111,8 +118,19 @@ class ScrobblerService(
                         scrobblerTimer.stop()
                     }
                     _triggeredSong.value = null
-                    _newSong.value = song
+                    trackedSong.value = song
                 }
+        }
+        jobs += scope.launch {
+            combine(trackedSong, playerModel.isPlaying, playerModel.loadedSongId) { song, playing, loaded ->
+                Triple(song, playing, loaded)
+            }.collect { (song, playing, loaded) ->
+                if (song == null) {
+                    _newSong.value = null
+                } else if (playing && loaded == song.id) {
+                    if (_newSong.value?.id == song.id) _resumed.emit(song) else _newSong.value = song
+                }
+            }
         }
         jobs += scope.launch {
             scrobblerTimer.time
@@ -128,8 +146,10 @@ class ScrobblerService(
                 }
         }
         jobs += scope.launch {
-            playerModel.isPlaying.collectLatest { isPlaying ->
-                if (isPlaying) scrobblerTimer.start()
+            combine(trackedSong, playerModel.isPlaying, playerModel.loadedSongId) { song, playing, loaded ->
+                playing && song != null && loaded == song.id
+            }.distinctUntilChanged().collectLatest { audible ->
+                if (audible) scrobblerTimer.start()
                 else scrobblerTimer.pause()
             }
         }
@@ -138,22 +158,26 @@ class ScrobblerService(
 
     fun <T : BaseScrobbler> registerScrobbler(scrobblerClass: KClass<T>) {
         logger.info(LogTag.SCROBBLER, "Registering: ${scrobblerClass.simpleName}")
-        if (scrobblers.any { it::class == scrobblerClass }) return
+        synchronized(this) {
+            if (scrobblers.any { it::class == scrobblerClass }) return
 
-        val scrobblerInstance = getKoin().get<T>(clazz = scrobblerClass)
+            val scrobblerInstance = getKoin().get<T>(clazz = scrobblerClass)
 
-        if (isRunning) scrobblerInstance.startScrobbler()
-        scrobblers.add(scrobblerInstance)
+            if (isRunning) scrobblerInstance.startScrobbler()
+            scrobblers = scrobblers + scrobblerInstance
+        }
 
         logger.info(LogTag.SCROBBLER, "Registered: ${scrobblerClass.simpleName}")
     }
 
     fun <T : BaseScrobbler> unregisterScrobbler(scrobblerClass: KClass<T>) {
         logger.info(LogTag.SCROBBLER, "Unregistering: ${scrobblerClass.simpleName}")
-        val scrobblerInstance = scrobblers.find { it::class == scrobblerClass } ?: return
+        synchronized(this) {
+            val scrobblerInstance = scrobblers.find { it::class == scrobblerClass } ?: return
 
-        if (scrobblerInstance.isRunning) scrobblerInstance.stopScrobbler()
-        scrobblers.remove(scrobblerInstance)
+            if (scrobblerInstance.isRunning) scrobblerInstance.stopScrobbler()
+            scrobblers = scrobblers - scrobblerInstance
+        }
 
         logger.info(LogTag.SCROBBLER, "Unregistered: ${scrobblerClass.simpleName}")
     }
@@ -262,6 +286,19 @@ abstract class BaseScrobbler : KoinComponent {
             }
         }
         jobs += scope.launch {
+            scrobblerService.resumed.collectLatest { song ->
+                try {
+                    resumed(song)
+                } catch (e: Exception) {
+                    logger.error(
+                        LogTag.SCROBBLER,
+                        "Error in resumed scrobbler ${this@BaseScrobbler::class.simpleName}",
+                        e
+                    )
+                }
+            }
+        }
+        jobs += scope.launch {
             scrobblerService.resetTrigger.collectLatest {
                 reset()
             }
@@ -296,6 +333,7 @@ abstract class BaseScrobbler : KoinComponent {
     }
 
     open suspend fun newSong(song: UserSong?) {}
+    open suspend fun resumed(song: UserSong) = newSong(song)
     open suspend fun triggered(song: UserSong, listenedAt: Long) {}
     open suspend fun listenEnded(song: UserSong, msPlayed: Long, listenedAt: Long) {}
     open suspend fun reset() {}

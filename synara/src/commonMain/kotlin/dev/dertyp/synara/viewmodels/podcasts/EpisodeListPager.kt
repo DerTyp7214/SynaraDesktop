@@ -55,6 +55,7 @@ class EpisodeListPager(
         try {
             val response = fetch(0, pageSize)
             if (requestGeneration != generation) return
+            generation++
             nextPage = 1
             _state.value = EpisodeListState(
                 episodes = response.data.withProgress(progressStore.latest.value),

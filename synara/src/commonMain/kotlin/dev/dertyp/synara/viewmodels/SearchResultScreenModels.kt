@@ -1,5 +1,7 @@
 package dev.dertyp.synara.viewmodels
 
+import dev.dertyp.logging.Logger
+import dev.dertyp.logging.LogTag
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import dev.dertyp.data.Album
@@ -16,7 +18,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-abstract class BaseSearchViewModel<T>(val query: String) : ScreenModel, Refreshable {
+abstract class BaseSearchViewModel<T>(val query: String, private val logger: Logger) : ScreenModel, Refreshable {
+    private val logTag = LogTag("search")
+
     protected val _items = MutableStateFlow<List<T>>(emptyList())
     val items = _items.asStateFlow()
 
@@ -55,7 +59,7 @@ abstract class BaseSearchViewModel<T>(val query: String) : ScreenModel, Refresha
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error(logTag, "Failed to load search results", e)
             } finally {
                 if (requestGeneration == generation) _isLoading.value = false
             }
@@ -88,8 +92,9 @@ abstract class BaseSearchViewModel<T>(val query: String) : ScreenModel, Refresha
 class SearchSongsViewModel(
     private val songService: ISongService,
     private val songCache: SongCache,
+    logger: Logger,
     query: String
-) : BaseSearchViewModel<UserSong>(query) {
+) : BaseSearchViewModel<UserSong>(query, logger) {
     init { loadMore() }
     override suspend fun fetch(offset: Int, limit: Int): List<UserSong> =
         songService.rankedSearch(offset, limit, query, explicit = true).data
@@ -101,8 +106,9 @@ class SearchSongsViewModel(
 
 class SearchArtistsViewModel(
     private val artistService: IArtistService,
+    logger: Logger,
     query: String
-) : BaseSearchViewModel<Artist>(query) {
+) : BaseSearchViewModel<Artist>(query, logger) {
     init { loadMore() }
     override suspend fun fetch(offset: Int, limit: Int): List<Artist> =
         artistService.rankedSearch(offset, limit, query).data
@@ -110,8 +116,9 @@ class SearchArtistsViewModel(
 
 class SearchAlbumsViewModel(
     private val albumService: IAlbumService,
+    logger: Logger,
     query: String
-) : BaseSearchViewModel<Album>(query) {
+) : BaseSearchViewModel<Album>(query, logger) {
     init { loadMore() }
     override suspend fun fetch(offset: Int, limit: Int): List<Album> =
         albumService.rankedSearch(offset, limit, query).data
@@ -119,8 +126,9 @@ class SearchAlbumsViewModel(
 
 class SearchPlaylistsViewModel(
     private val playlistService: IUserPlaylistService,
+    logger: Logger,
     query: String
-) : BaseSearchViewModel<UserPlaylist>(query) {
+) : BaseSearchViewModel<UserPlaylist>(query, logger) {
     init { loadMore() }
     override suspend fun fetch(offset: Int, limit: Int): List<UserPlaylist> =
         playlistService.rankedSearch(null, offset, limit, query).data

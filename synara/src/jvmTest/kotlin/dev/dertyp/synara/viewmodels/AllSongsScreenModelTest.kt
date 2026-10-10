@@ -4,6 +4,7 @@ import dev.dertyp.data.PaginatedResponse
 import dev.dertyp.data.SongTag
 import dev.dertyp.data.TitleTagKind
 import dev.dertyp.data.UserSong
+import dev.dertyp.logging.Logger
 import dev.dertyp.services.ISongService
 import dev.dertyp.synara.player.PlaybackQueue
 import dev.dertyp.synara.player.PlaybackSource
@@ -14,6 +15,9 @@ import dev.dertyp.synara.utils.SynaraDispatchers
 import io.mockk.*
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import java.io.IOException
+import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.error_server_unreachable
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -33,11 +37,25 @@ class AllSongsScreenModelTest {
     private fun createModel(total: Int = 0): AllSongsScreenModel {
         coEvery { songService.allSongs(any(), any(), any(), any(), any(), any(), any()) } returns
             PaginatedResponse(data = emptyList<UserSong>(), total = total)
-        return AllSongsScreenModel(rpcServiceManager, songService, SongCache(), playerModel, UnconfinedDispatchers)
+        return AllSongsScreenModel(rpcServiceManager, songService, SongCache(), playerModel, UnconfinedDispatchers, mockk<Logger>(relaxed = true))
     }
 
     private fun AllSongsScreenModel.success(): AllSongsScreenModel.AllSongsState.Success =
         assertIs<AllSongsScreenModel.AllSongsState.Success>(state.value)
+
+    @Test
+    fun aTransportFailureLeavesTheUnreachableErrorAndRefreshRecovers() {
+        coEvery { songService.allSongs(any(), any(), any(), any(), any(), any(), any()) } throws IOException("down")
+        val model = AllSongsScreenModel(rpcServiceManager, songService, SongCache(), playerModel, UnconfinedDispatchers, mockk<Logger>(relaxed = true))
+
+        val error = assertIs<AllSongsScreenModel.AllSongsState.Error>(model.state.value)
+        assertEquals(Res.string.error_server_unreachable, error.message)
+
+        coEvery { songService.allSongs(any(), any(), any(), any(), any(), any(), any()) } returns
+            PaginatedResponse(data = emptyList<UserSong>(), total = 0)
+        model.refresh()
+        model.success()
+    }
 
     @Test
     fun cycleFilterGoesOffIncludeExcludeOff() {

@@ -1,6 +1,7 @@
 package dev.dertyp.synara.settings
 
 import com.russhwolf.settings.Settings
+import dev.dertyp.logging.Logger
 import dev.dertyp.synara.services.LocalStorageService
 import org.jetbrains.compose.resources.StringResource
 import synara.synara.generated.resources.Res
@@ -128,6 +129,10 @@ sealed class SettingKey<T>(val name: String) {
     }
 }
 
+interface PersistentSettings : Settings {
+    fun flush()
+}
+
 fun <T : Any> Settings.put(key: SettingKey<T>, value: T?) {
     if (value == null) {
         remove(key.name)
@@ -204,7 +209,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
     }
 }
 
-expect class SettingsFactory(storageService: LocalStorageService) {
-    fun create(): Settings
+expect class SettingsFactory(storageService: LocalStorageService, logger: Logger) {
+    fun create(): PersistentSettings
     fun getStatePath(fileName: String): String
 }

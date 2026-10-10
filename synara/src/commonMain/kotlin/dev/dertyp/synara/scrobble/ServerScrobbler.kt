@@ -129,7 +129,7 @@ class ServerScrobbler(
 
     private suspend fun sendReport(playing: Boolean) {
         val song = currentSong ?: return
-        if (!isEnabled) return
+        if (!isEnabled || song.id != playerModel.currentSongId) return
 
         val report = PlaybackReport(
             songId = song.id,
@@ -157,6 +157,8 @@ class ServerScrobbler(
             logger.warning(LogTag.SCROBBLER, "Failed to clear now playing on server", e)
         }
     }
+
+    override suspend fun resumed(song: UserSong) {}
 
     override suspend fun newSong(song: UserSong?) {
         currentSong = song

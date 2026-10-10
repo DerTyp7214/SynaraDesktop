@@ -20,6 +20,7 @@ import dev.dertyp.synara.screens.ArtistScreen
 import dev.dertyp.synara.screens.PlaylistScreen
 import dev.dertyp.synara.screens.SearchScreen
 import dev.dertyp.synara.ui.models.SnackbarManager
+import dev.dertyp.synara.ui.models.userMessageResource
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import dev.dertyp.ui.IntakeItem
 import dev.dertyp.ui.UiAction
@@ -37,6 +38,7 @@ import dev.dertyp.ui.UiValue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.getString
 import org.koin.compose.koinInject
 
 val ServerUiLogTag = LogTag("server-ui")
@@ -160,7 +162,7 @@ class DefaultUiHost(
                 throw e
             } catch (e: Throwable) {
                 logger.error(ServerUiLogTag, "invoke ${action.actionId} failed", e)
-                message(e.message ?: e.toString())
+                message(getString(e.userMessageResource()))
             } finally {
                 form?.onBusy(false)
             }
@@ -180,7 +182,7 @@ class DefaultUiHost(
                 throw e
             } catch (e: Throwable) {
                 logger.error(ServerUiLogTag, "intake failed", e)
-                message(e.message ?: e.toString())
+                message(getString(e.userMessageResource()))
             }
         }
     }

@@ -2,7 +2,6 @@ package dev.dertyp.synara.player
 
 import dev.dertyp.data.PodcastEpisode
 import dev.dertyp.services.IPodcastService
-import dev.dertyp.synara.player.audio.AudioLoadError
 import dev.dertyp.synara.player.audio.source.EpisodeAudioSource
 import dev.dertyp.synara.podcast.PodcastAudioEngine
 import dev.dertyp.synara.podcast.PodcastPlayerError
@@ -11,8 +10,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
 
 class JvmPodcastAudioEngine(
@@ -28,7 +30,7 @@ class JvmPodcastAudioEngine(
     override val fftData: StateFlow<FloatArray> = player.fftData
     override val stereoFftData: StateFlow<StereoSpectrum> = player.stereoFftData
     override val sampleRate: StateFlow<Int> = player.sampleRate
-    override val finished: SharedFlow<Unit> = player.onFinished
+    override val finished: SharedFlow<Unit> = player.onFinished.map { }.shareIn(scope, SharingStarted.Eagerly)
 
     private val _errors = MutableSharedFlow<PodcastPlayerError>(extraBufferCapacity = 8)
     override val errors: SharedFlow<PodcastPlayerError> = _errors.asSharedFlow()
@@ -36,9 +38,9 @@ class JvmPodcastAudioEngine(
     init {
         player.timeStretchEnabled = true
         scope.launch {
-            player.loadErrors.collect { error ->
+            player.loadErrors.collect { failure ->
                 _errors.emit(
-                    when (error) {
+                    when (val error = failure.error) {
                         AudioLoadError.UnsupportedFormat -> PodcastPlayerError.UnsupportedFormat
                         AudioLoadError.Unavailable -> PodcastPlayerError.Unavailable
                         is AudioLoadError.Failed -> PodcastPlayerError.Failed(error.message)

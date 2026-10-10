@@ -5,20 +5,28 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import dev.dertyp.data.SongTag
 import dev.dertyp.data.TitleTagKind
 import dev.dertyp.data.UserSong
+import dev.dertyp.logging.LogTag
+import dev.dertyp.logging.Logger
 import dev.dertyp.services.ISongService
 import dev.dertyp.synara.player.*
 import dev.dertyp.synara.rpc.RpcServiceManager
+import dev.dertyp.synara.ui.models.userMessageResource
 import dev.dertyp.synara.utils.SynaraDispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.StringResource
+
+private val ALL_SONGS_TAG = LogTag("all-songs")
 
 class AllSongsScreenModel(
     private val rpcServiceManager: RpcServiceManager,
     private val songService: ISongService,
     private val songCache: SongCache,
     val playerModel: PlayerModel,
-    dispatchers: SynaraDispatchers
+    dispatchers: SynaraDispatchers,
+    private val logger: Logger
 ) : ScreenModel, Refreshable {
 
     private val modelDispatcher = dispatchers.createNamed("AllSongsScreenModel")
@@ -71,8 +79,11 @@ class AllSongsScreenModel(
             _state.value = AllSongsState.Loading
             try {
                 _state.value = fetchFirstPage(filter)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                _state.value = AllSongsState.Error(e.message ?: "Unknown error")
+                logger.error(ALL_SONGS_TAG, "Loading the songs failed", e)
+                _state.value = AllSongsState.Error(e.userMessageResource())
             }
         }
     }
@@ -112,8 +123,11 @@ class AllSongsScreenModel(
             if (requestGeneration != generation) return
             _state.value = refreshed
             songCache.refreshCached(refreshed.songs.filterNotNull())
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            if (current == null) _state.value = AllSongsState.Error(e.message ?: "Unknown error")
+            logger.error(ALL_SONGS_TAG, "Refreshing the songs failed", e)
+            if (current == null) _state.value = AllSongsState.Error(e.userMessageResource())
         }
     }
 
@@ -211,7 +225,7 @@ class AllSongsScreenModel(
 
             fun stateOf(kind: TitleTagKind): TagFilterState = filterStateOf(kind, titleTags, excludeTitleTags)
         }
-        data class Error(val message: String) : AllSongsState()
+        data class Error(val message: StringResource) : AllSongsState()
     }
 }
 

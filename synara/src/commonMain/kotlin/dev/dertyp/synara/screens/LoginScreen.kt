@@ -182,7 +182,7 @@ class LoginScreen : Screen {
                         if (loginResult is LoginResult.Error) {
                             Spacer(modifier = Modifier.height(24.dp))
                             Text(
-                                text = (loginResult as LoginResult.Error).message,
+                                text = stringResource((loginResult as LoginResult.Error).message),
                                 color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.padding(top = 8.dp)

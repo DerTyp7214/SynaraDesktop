@@ -52,6 +52,7 @@ data class PcmHeader(
             for (i in MAGIC.indices) if (bytes[i] != MAGIC[i]) return null
             if (bytes[4].toInt() != 1) return null
             val compressionIndex = bytes[12].toInt()
+            if (compressionIndex !in 0..AiffHeader.Compression.entries.size) return null
             return PcmHeader(
                 sampleRate = AiffHeader.readInt(bytes, 5),
                 channels = bytes[9].toInt(),

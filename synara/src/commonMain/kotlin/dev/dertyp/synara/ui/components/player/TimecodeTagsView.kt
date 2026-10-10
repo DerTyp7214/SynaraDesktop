@@ -26,6 +26,7 @@ import dev.dertyp.synara.ui.models.SnackbarManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlin.math.roundToLong
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
@@ -87,7 +88,7 @@ fun parseTimecode(text: String): Long? {
         if (value < 0) return null
         total = total * 60 + value
     }
-    return total * 60_000 + (seconds * 1000).toLong()
+    return total * 60_000 + (seconds * 1000).roundToLong()
 }
 
 @Composable

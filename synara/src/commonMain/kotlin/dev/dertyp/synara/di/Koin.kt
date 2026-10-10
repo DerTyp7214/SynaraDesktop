@@ -16,7 +16,9 @@ import dev.dertyp.synara.Config
 import dev.dertyp.synara.game.GAME_AUDIO_PLAYER
 import dev.dertyp.synara.game.GameAudioPlayer
 import dev.dertyp.synara.game.SongGuessLeaderboard
+import dev.dertyp.synara.logging.CompositeLogPersistence
 import dev.dertyp.synara.logging.StdoutLogPersistence
+import dev.dertyp.synara.logging.platformLogPersistence
 import dev.dertyp.synara.onboarding.OnboardingCoordinator
 import dev.dertyp.synara.player.MediaControlBridge
 import dev.dertyp.synara.player.PlayerModel
@@ -39,7 +41,9 @@ import dev.dertyp.synara.sync.SecretsCipher
 import dev.dertyp.synara.sync.SettingsSyncService
 import dev.dertyp.synara.sync.SyncedSettingsRegistry
 import dev.dertyp.synara.services.IDownloadManager
+import dev.dertyp.synara.services.LocalStorageService
 import dev.dertyp.synara.services.StubDownloadManager
+import dev.dertyp.synara.settings.PersistentSettings
 import dev.dertyp.synara.settings.SettingsFactory
 import dev.dertyp.synara.ui.components.setupCoil
 import dev.dertyp.synara.ui.models.PerformanceMonitor
@@ -87,13 +91,11 @@ private fun buildHttpClient(cbor: Cbor, json: Json): HttpClient {
             pingInterval = 15.seconds
         }
         install(DefaultRequest) {
-            // header(SynaraPackHeader, "true")
             apiVersionHeader()
             uiHeaders(Config.language.value, currentTimezoneId())
         }
         install(Krpc) {
             serialization {
-                // synaraCbor(cbor)
                 cbor(cbor)
             }
         }
@@ -113,11 +115,16 @@ val appModule = module {
     singleOf(::buildHttpClient)
 
     singleOf(::SettingsFactory)
-    single<Settings> { get<SettingsFactory>().create() }
+    single<PersistentSettings> { get<SettingsFactory>().create() } bind Settings::class
 
     single { AppDispatchers }
 
-    single<Logger> { BaseLogger(StdoutLogPersistence(), get()) }
+    single<Logger> {
+        val persistence = CompositeLogPersistence(
+            listOf(StdoutLogPersistence(), platformLogPersistence { get<LocalStorageService>().getDataDir() })
+        )
+        BaseLogger(persistence, get())
+    }
 
     singleOf(::RpcServiceManager)
     singleOf(::GlobalStateModel)
