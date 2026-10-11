@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Server problem
+    url: https://github.com/DerTyp7214/synara-api/issues/new/choose
+    about: Import, metadata, library and API problems that are not specific to the desktop app.
+  - name: Mobile and Apple app problem
+    url: https://github.com/DerTyp7214/synara-android/issues/new/choose
+    about: Bugs and requests for the Android, iOS, macOS and tvOS apps.

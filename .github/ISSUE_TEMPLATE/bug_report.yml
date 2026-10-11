@@ -1,0 +1,140 @@
+name: Bug report
+description: Report a crash, freeze or wrong behaviour in the desktop app
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Problems on the server side, such as import, metadata or library content that is wrong for every client, belong in the [synara-api issues](https://github.com/DerTyp7214/synara-api/issues). Problems with the Android, iOS, macOS or tvOS apps belong in the [synara-android issues](https://github.com/DerTyp7214/synara-android/issues).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps if you know how to trigger it.
+    validations:
+      required: false
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of problem
+      options:
+        - Crash
+        - Freeze or hang
+        - Wrong behaviour
+        - Visual glitch
+        - Performance or memory use
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Playback and audio output
+        - Queue and playback sync between devices
+        - Library, albums and artists
+        - Playlists
+        - Search
+        - Downloads and offline
+        - Lyrics
+        - Visualizer and effects
+        - Podcasts
+        - Media keys, MPRIS and tray
+        - Discord and ListenBrainz scrobbling
+        - Login and server connection
+        - Settings and settings sync
+        - Server-driven UI and plugins pages
+        - Installation and updates
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: Shown in Settings, in the Changelog entry.
+      placeholder: 3.10.3-prerelease1.15.0
+    validations:
+      required: true
+  - type: dropdown
+    id: launcher
+    attributes:
+      label: Launcher
+      options:
+        - Synara
+        - Classic
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - Windows
+        - macOS
+    validations:
+      required: true
+  - type: input
+    id: os-details
+    attributes:
+      label: OS details
+      description: Distribution and version, desktop environment or compositor, X11 or Wayland on Linux.
+      placeholder: Arch Linux, Hyprland (Wayland)
+    validations:
+      required: false
+  - type: dropdown
+    id: installed-from
+    attributes:
+      label: Installed from
+      options:
+        - Pacman repository (Arch package)
+        - ".deb"
+        - ".tar.gz"
+        - ".msi"
+        - ".dmg"
+        - Built from source
+    validations:
+      required: true
+  - type: input
+    id: server-version
+    attributes:
+      label: Server version
+      description: Settings shows the server API version.
+    validations:
+      required: false
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: |
+        Paste the lines around the problem. For a crash, paste the last `CRASH` entry with its stack trace.
+        Linux: `~/.local/share/synara/logs/synara.log` (or `$XDG_DATA_HOME/synara/logs`)
+        Windows: `%APPDATA%\synara\logs\synara.log`
+        macOS: `~/Library/Application Support/synara/logs/synara.log`
+        Built from source with `./gradlew :app:run`: `dev/data/logs/synara.log` in the repository
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: media
+    attributes:
+      label: Screenshots or recording
+      description: Drag files into this field.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: This still happens on the latest build from the `latest-dev` release
+          required: false

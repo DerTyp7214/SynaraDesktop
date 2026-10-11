@@ -1,0 +1,67 @@
+name: Feature request
+description: Suggest an improvement or new feature for the desktop app
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: Features that need new server behaviour may be moved to the synara-api repository.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What you are trying to do and what is in the way.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How you would like it to work.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Other approaches or workarounds you considered.
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Playback and audio output
+        - Queue and playback sync between devices
+        - Library, albums and artists
+        - Playlists
+        - Search
+        - Downloads and offline
+        - Lyrics
+        - Visualizer and effects
+        - Podcasts
+        - Media keys, MPRIS and tray
+        - Discord and ListenBrainz scrobbling
+        - Login and server connection
+        - Settings and settings sync
+        - Server-driven UI and plugins pages
+        - Installation and updates
+        - Other
+    validations:
+      required: false
+  - type: checkboxes
+    id: platforms
+    attributes:
+      label: Platforms
+      description: Where this should work.
+      options:
+        - label: Linux
+        - label: Windows
+        - label: macOS
+  - type: textarea
+    id: references
+    attributes:
+      label: Mockups or references
+      description: Sketches, screenshots or links to similar apps.
+    validations:
+      required: false
