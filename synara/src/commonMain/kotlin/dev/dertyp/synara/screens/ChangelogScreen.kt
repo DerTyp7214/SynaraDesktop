@@ -64,6 +64,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.15.1",
+                        date = "2026-10-11",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Improved, "ListenBrainz and MusicBrainz requests identify the app with a contact address."),
+                            Change(ChangeType.Fixed, "Listens reach ListenBrainz again while its main API answers with 404.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.15.0",
                         date = "2026-10-10",
                         isPrerelease = true,

@@ -5,7 +5,6 @@ import dev.dertyp.core.cleanTitle
 import dev.dertyp.core.nullIfEmpty
 import dev.dertyp.currentTimeMillis
 import dev.dertyp.data.UserSong
-import dev.dertyp.getPlatformName
 import dev.dertyp.logging.LogTag
 import dev.dertyp.services.ISongService
 import dev.dertyp.synara.BuildConfig
@@ -21,8 +20,10 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CancellationException
@@ -64,7 +65,7 @@ class ListenBrainzScrobbler(
     private val httpEngine: HttpClientEngine by inject(named(THIRD_PARTY_HTTP_ENGINE))
     private val httpClient = HttpClient(httpEngine) {
         install(UserAgent) {
-            agent = "Synara/Synara Desktop (${BuildConfig.VERSION}; ${getPlatformName()})"
+            agent = "Synara Desktop/${BuildConfig.VERSION} ( listenz@synara.audio )"
         }
         install(ContentNegotiation) {
             json(json)
@@ -72,6 +73,7 @@ class ListenBrainzScrobbler(
     }
 
     private val baseUrl = "https://api.listenbrainz.org/1"
+    private val betaBaseUrl = "https://beta-api.listenbrainz.org/1"
     private val target = "listenbrainz"
     private val queueUpdateFlow = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     private var isProcessing = false
@@ -206,10 +208,10 @@ class ListenBrainzScrobbler(
         )
 
         val success = try {
-            val response = httpClient.post("$baseUrl/submit-listens") {
-                header("Authorization", "Token $token")
-                contentType(ContentType.Application.Json)
-                setBody(listen)
+            var response = postListen(baseUrl, token, listen)
+            if (response.status == HttpStatusCode.NotFound) {
+                logger.warning(LogTag.LISTENBRAINZ, "ListenBrainz API answered 404, retrying on the beta API")
+                response = postListen(betaBaseUrl, token, listen)
             }
             val isSuccess = response.status.value in 200..299
             if (isSuccess) {
@@ -243,6 +245,13 @@ class ListenBrainzScrobbler(
 
         return success
     }
+
+    private suspend fun postListen(apiUrl: String, token: String, listen: ListenPayload): HttpResponse =
+        httpClient.post("$apiUrl/submit-listens") {
+            header("Authorization", "Token $token")
+            contentType(ContentType.Application.Json)
+            setBody(listen)
+        }
 
     @Serializable
     enum class ListenType {

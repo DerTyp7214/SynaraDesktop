@@ -7,7 +7,6 @@ import dev.dertyp.data.Album
 import dev.dertyp.data.MusicBrainzRecording
 import dev.dertyp.data.MusicBrainzRelease
 import dev.dertyp.data.UserSong
-import dev.dertyp.getPlatformName
 import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
 import dev.dertyp.services.metadata.IMusicBrainzService
@@ -39,7 +38,7 @@ class MusicBrainzService(
 
     private val httpClient = HttpClient {
         install(UserAgent) {
-            agent = "Synara/Synara Desktop (${BuildConfig.VERSION}; ${getPlatformName()})"
+            agent = "Synara Desktop/${BuildConfig.VERSION} ( listenz@synara.audio )"
         }
         install(ContentNegotiation) {
             json(json)
