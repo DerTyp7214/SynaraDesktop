@@ -74,6 +74,9 @@
     <string name="visualizer_section_colors">Colors</string>
     <string name="visualizer_section_motion">Motion &amp; response</string>
     <string name="visualizer_section_effects">Effects</string>
+    <string name="visualizer_section_performance">Performance</string>
+    <string name="visualizer_update_interval">Update interval</string>
+    <string name="visualizer_update_interval_hint">Lower values make the visualizer smoother, higher values use less CPU.</string>
     <string name="visualizer_shape">Shape</string>
     <string name="visualizer_shape_strip">Strip</string>
     <string name="visualizer_shape_radial">Around the cover</string>

@@ -10,9 +10,11 @@ import dev.dertyp.synara.player.audio.DecodedStream
 import dev.dertyp.synara.player.audio.MonoMix
 import dev.dertyp.synara.player.audio.PcmChunk
 import dev.dertyp.synara.player.audio.PlaybackTimeline
+import dev.dertyp.synara.player.audio.PlayheadEstimator
 import dev.dertyp.synara.player.audio.TimeStretchStage
 import dev.dertyp.synara.player.audio.UnsupportedAudioFormatException
 import dev.dertyp.synara.player.audio.decode.AudioDecoders
+import dev.dertyp.synara.Config
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.getOrNull
@@ -525,6 +527,7 @@ class JvmAudioPlayer(
 
                 val queuedChunks = ArrayDeque<PcmChunk>()
                 val fftQueue = ArrayDeque<FftFrame>()
+                val fftPlayhead = PlayheadEstimator()
 
                 var uploadFailed = false
 
@@ -703,6 +706,7 @@ class JvmAudioPlayer(
                             alSourcei(sourceId, AL_BUFFER, 0)
                             queuedChunks.clear()
                             fftQueue.clear()
+                            fftPlayhead.reset()
                             pcmChannel = next.session.pcmFlow.produceIn(producerScope)
                             segments.resetForSoftJoin(next, next.sampleRate)
                             previous.scope?.cancel()
@@ -742,18 +746,22 @@ class JvmAudioPlayer(
                         lastPositionPublish = now
                     }
 
+                    val fftFrame = fftPlayhead.estimate(
+                        currentTotalSamples, now, current.sampleRate, state == AL_PLAYING, segments.framesQueued
+                    )
+
                     // Sync FFT
                     while (fftQueue.size > 1) {
                         val it = fftQueue.iterator()
                         it.next() // current
-                        if (it.next().startFrame <= currentTotalSamples) {
+                        if (it.next().startFrame <= fftFrame) {
                             fftQueue.removeFirst()
                         } else {
                             break
                         }
                     }
                     fftQueue.peekFirst()?.let { frame ->
-                        if (frame.startFrame <= currentTotalSamples) {
+                        if (frame.startFrame <= fftFrame) {
                             fftAnalyzer.updateData(frame.mix)
                             _stereoFftData.value = frame.stereo
                         }
@@ -775,7 +783,7 @@ class JvmAudioPlayer(
                         break
                     }
 
-                    delay(POLL_INTERVAL)
+                    delay(Config.visualizerUpdateInterval.value.milliseconds)
                 }
 
                 if (isActive && _isPlaying.value && alGetSourcei(sourceId, AL_BUFFERS_QUEUED) == 0) {
@@ -912,7 +920,6 @@ class JvmAudioPlayer(
         private const val MIN_BUFFER_COUNT = 2
         private const val PRELOAD_LEAD_MS = 15_000L
         private const val POSITION_PUBLISH_INTERVAL_NANOS = 16_000_000L
-        private val POLL_INTERVAL = 4.milliseconds
         private val LOG_TAG = LogTag("audio")
     }
 }

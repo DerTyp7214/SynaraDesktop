@@ -107,6 +107,7 @@ sealed class SettingKey<T>(val name: String) {
 
     // Performance
     data object ShowPerformanceOverlay : SettingKey<Boolean>("show_performance_overlay")
+    data object VisualizerUpdateInterval : SettingKey<Int>("visualizer_update_interval")
 
     // Updates
     data object LastSeenVersion : SettingKey<String>("last_seen_version")
@@ -181,7 +182,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor,
         is SettingKey.ProxyPort, is SettingKey.AudioBufferSize, is SettingKey.AudioBufferCount,
         is SettingKey.AudioTargetSampleRate, is SettingKey.StreamingQuality,
-        is SettingKey.FullscreenHudAutoHideDelay -> getIntOrNull(
+        is SettingKey.FullscreenHudAutoHideDelay, is SettingKey.VisualizerUpdateInterval -> getIntOrNull(
             key.name
         ) as T?
 

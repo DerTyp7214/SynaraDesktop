@@ -64,6 +64,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.15.2",
+                        date = "2026-10-13",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "The update interval of the visualizer is adjustable in Settings > Visualizer."),
+                            Change(ChangeType.Fixed, "The visualizer follows the music on every frame, also with a large audio buffer size.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.15.1",
                         date = "2026-10-11",
                         isPrerelease = true,

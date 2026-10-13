@@ -126,6 +126,7 @@ class VisualizerSettingsScreen : Screen {
                         ColorSection(preset)
                         MotionSection(preset)
                         EffectsSection(preset)
+                        PerformanceSection()
                     }
                 }
             }
@@ -706,6 +707,28 @@ class VisualizerSettingsScreen : Screen {
             PresetSlider(Res.string.visualizer_glow_radius, preset.glowRadius, VisualizerLimits.glowRadius, 0.5f, ::formatDp) { p, v -> p.copy(glowRadius = v) }
             PresetSlider(Res.string.visualizer_glow_strength, preset.glowStrength, VisualizerLimits.glowStrength, 0.05f, ::formatPercent) { p, v -> p.copy(glowStrength = v) }
         }
+    }
+
+    @Composable
+    private fun PerformanceSection() {
+        val interval by Config.visualizerUpdateInterval.collectAsState()
+        val range = VisualizerUpdateIntervalLimits.intervalMillis
+
+        SectionTitle(Res.string.visualizer_section_performance)
+
+        SettingSlider(
+            title = stringResource(Res.string.visualizer_update_interval),
+            value = interval.toFloat(),
+            valueText = "$interval ms",
+            onValueChange = { Config.setVisualizerUpdateInterval(it.roundToInt()) },
+            valueRange = range.first.toFloat()..range.last.toFloat(),
+            steps = range.last - range.first - 1
+        )
+        Text(
+            text = stringResource(Res.string.visualizer_update_interval_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 
     private fun VisualizerShape.label(): StringResource = when (this) {

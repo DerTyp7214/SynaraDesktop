@@ -74,6 +74,9 @@
     <string name="visualizer_section_colors">Farben</string>
     <string name="visualizer_section_motion">Bewegung &amp; Reaktion</string>
     <string name="visualizer_section_effects">Effekte</string>
+    <string name="visualizer_section_performance">Leistung</string>
+    <string name="visualizer_update_interval">Aktualisierungsintervall</string>
+    <string name="visualizer_update_interval_hint">Kleinere Werte machen den Visualizer flüssiger, größere belasten die CPU weniger.</string>
     <string name="visualizer_shape">Form</string>
     <string name="visualizer_shape_strip">Leiste</string>
     <string name="visualizer_shape_radial">Um das Cover</string>

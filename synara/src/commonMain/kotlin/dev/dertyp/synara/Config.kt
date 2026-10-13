@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.toArgb
 import com.russhwolf.settings.Settings
 import dev.dertyp.randomPlatformUUID
 import dev.dertyp.synara.settings.FullscreenHudLimits
+import dev.dertyp.synara.settings.VisualizerUpdateIntervalLimits
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.VisualizerPreset
 import dev.dertyp.synara.settings.VisualizerPresets
@@ -175,6 +176,13 @@ object Config : KoinComponent {
         )
     )
     val fullscreenHudAutoHideDelay: StateFlow<Int> = _fullscreenHudAutoHideDelay.asStateFlow()
+
+    private val _visualizerUpdateInterval = MutableStateFlow(
+        VisualizerUpdateIntervalLimits.clampInterval(
+            settings.get(SettingKey.VisualizerUpdateInterval, VisualizerUpdateIntervalLimits.DEFAULT_INTERVAL_MILLIS)
+        )
+    )
+    val visualizerUpdateInterval: StateFlow<Int> = _visualizerUpdateInterval.asStateFlow()
 
     private val _showPerformanceOverlay = MutableStateFlow(settings.get(SettingKey.ShowPerformanceOverlay, false))
     val showPerformanceOverlay: StateFlow<Boolean> = _showPerformanceOverlay.asStateFlow()
@@ -490,6 +498,12 @@ object Config : KoinComponent {
         val clamped = FullscreenHudLimits.clampDelay(seconds)
         _fullscreenHudAutoHideDelay.value = clamped
         settings.put(SettingKey.FullscreenHudAutoHideDelay, clamped)
+    }
+
+    fun setVisualizerUpdateInterval(millis: Int) {
+        val clamped = VisualizerUpdateIntervalLimits.clampInterval(millis)
+        _visualizerUpdateInterval.value = clamped
+        settings.put(SettingKey.VisualizerUpdateInterval, clamped)
     }
 
     fun setShowPerformanceOverlay(show: Boolean) {
