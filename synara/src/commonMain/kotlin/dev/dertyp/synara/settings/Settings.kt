@@ -69,6 +69,12 @@ sealed class SettingKey<T>(val name: String) {
     data object PodcastPlaybackSpeed : SettingKey<Float>("podcast_playback_speed")
     data object PodcastOptInShown : SettingKey<Boolean>("podcast_optin_shown")
 
+    // Mixes
+    data object MixOptions : SettingKey<String>("mix_options")
+    data object PinnedMixes : SettingKey<String>("pinned_mixes")
+    data object DownloadedMixes : SettingKey<String>("downloaded_mixes")
+    data object DownloadedMixSongIds : SettingKey<String>("downloaded_mix_song_ids")
+
     // Device identity (shared by every sync feature)
     data object DeviceId : SettingKey<String>("device_id")
 
@@ -177,7 +183,9 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
         is SettingKey.SettingsSyncUserId, is SettingKey.SecretsSyncEncKey,
         is SettingKey.SecretsSyncMacKey, is SettingKey.SecretsSyncSaltFingerprint,
         is SettingKey.AudioOutputDevice, is SettingKey.VisualizerStyle,
-        is SettingKey.VisualizerPresets, is SettingKey.VisualizerActivePreset -> getStringOrNull(key.name) as T?
+        is SettingKey.VisualizerPresets, is SettingKey.VisualizerActivePreset,
+        is SettingKey.MixOptions, is SettingKey.PinnedMixes, is SettingKey.DownloadedMixes,
+        is SettingKey.DownloadedMixSongIds -> getStringOrNull(key.name) as T?
 
         is SettingKey.Port, is SettingKey.LightThemeColor, is SettingKey.DarkThemeColor,
         is SettingKey.ProxyPort, is SettingKey.AudioBufferSize, is SettingKey.AudioBufferCount,

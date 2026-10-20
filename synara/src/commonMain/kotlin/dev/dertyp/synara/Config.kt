@@ -4,7 +4,13 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import com.russhwolf.settings.Settings
+import dev.dertyp.PlatformUUID
 import dev.dertyp.randomPlatformUUID
+import dev.dertyp.serializers.AppJson
+import dev.dertyp.synara.mixes.DEFAULT_MIX_OPTIONS
+import dev.dertyp.synara.mixes.MixSpec
+import dev.dertyp.synara.mixes.MixType
+import dev.dertyp.synara.mixes.type
 import dev.dertyp.synara.settings.FullscreenHudLimits
 import dev.dertyp.synara.settings.VisualizerUpdateIntervalLimits
 import dev.dertyp.synara.settings.SettingKey
@@ -120,6 +126,21 @@ object Config : KoinComponent {
 
     private val _podcastOptInShown = MutableStateFlow(settings.get(SettingKey.PodcastOptInShown, false))
     val podcastOptInShown: StateFlow<Boolean> = _podcastOptInShown.asStateFlow()
+
+    // Mixes
+    private val _mixOptions = MutableStateFlow(decodeMixOptions(settings.getOrNull(SettingKey.MixOptions)))
+    val mixOptions: StateFlow<Map<MixType, MixSpec>> = _mixOptions.asStateFlow()
+
+    private val _pinnedMixes = MutableStateFlow(decodeMixSpecs(settings.getOrNull(SettingKey.PinnedMixes)))
+    val pinnedMixes: StateFlow<List<MixSpec>> = _pinnedMixes.asStateFlow()
+
+    private val _downloadedMixes = MutableStateFlow(decodeMixSpecs(settings.getOrNull(SettingKey.DownloadedMixes)))
+    val downloadedMixes: StateFlow<List<MixSpec>> = _downloadedMixes.asStateFlow()
+
+    private val _downloadedMixSongIds = MutableStateFlow(
+        decodeMixSongIds(settings.getOrNull(SettingKey.DownloadedMixSongIds))
+    )
+    val downloadedMixSongIds: StateFlow<Map<String, List<PlatformUUID>>> = _downloadedMixSongIds.asStateFlow()
 
     // Settings sync
     private val _isSettingsSyncEnabled = MutableStateFlow(settings.get(SettingKey.IsSettingsSyncEnabled, false))
@@ -378,6 +399,70 @@ object Config : KoinComponent {
         _podcastOptInShown.value = shown
         settings.put(SettingKey.PodcastOptInShown, shown)
     }
+
+    fun setMixOption(spec: MixSpec) {
+        setMixOptions(_mixOptions.value + (spec.type to spec))
+    }
+
+    fun setMixOptions(options: Map<MixType, MixSpec>) {
+        val normalised = normaliseMixOptions(options)
+        _mixOptions.value = normalised
+        settings.put(SettingKey.MixOptions, AppJson.encodeToString<Map<MixType, MixSpec>>(normalised))
+    }
+
+    fun setPinnedMixes(mixes: List<MixSpec>) {
+        val pinned = mixes.distinctBy { it.key }
+        _pinnedMixes.value = pinned
+        settings.put(SettingKey.PinnedMixes, AppJson.encodeToString<List<MixSpec>>(pinned))
+        val pinnedKeys = pinned.map { it.key }.toSet()
+        val downloaded = _downloadedMixes.value
+        val remaining = downloaded.filter { it.key in pinnedKeys }
+        if (remaining.size != downloaded.size) setDownloadedMixes(remaining)
+    }
+
+    fun setDownloadedMixes(mixes: List<MixSpec>) {
+        val downloaded = mixes.distinctBy { it.key }
+        _downloadedMixes.value = downloaded
+        settings.put(SettingKey.DownloadedMixes, AppJson.encodeToString<List<MixSpec>>(downloaded))
+    }
+
+    fun setDownloadedMixSongIds(key: String, ids: List<PlatformUUID>?) {
+        val current = if (ids == null) _downloadedMixSongIds.value - key else _downloadedMixSongIds.value + (key to ids)
+        _downloadedMixSongIds.value = current
+        settings.put(
+            SettingKey.DownloadedMixSongIds,
+            AppJson.encodeToString<Map<String, List<PlatformUUID>>>(current)
+        )
+    }
+
+    private fun normaliseMixOptions(options: Map<MixType, MixSpec>): Map<MixType, MixSpec> =
+        DEFAULT_MIX_OPTIONS + options.filter { (type, spec) -> spec.type == type }
+
+    private fun decodeMixOptions(json: String?): Map<MixType, MixSpec> = normaliseMixOptions(
+        json?.let {
+            try {
+                AppJson.decodeFromString<Map<MixType, MixSpec>>(it)
+            } catch (_: Exception) {
+                null
+            }
+        }.orEmpty()
+    )
+
+    private fun decodeMixSpecs(json: String?): List<MixSpec> = json?.let {
+        try {
+            AppJson.decodeFromString<List<MixSpec>>(it)
+        } catch (_: Exception) {
+            null
+        }
+    }.orEmpty()
+
+    private fun decodeMixSongIds(json: String?): Map<String, List<PlatformUUID>> = json?.let {
+        try {
+            AppJson.decodeFromString<Map<String, List<PlatformUUID>>>(it)
+        } catch (_: Exception) {
+            null
+        }
+    }.orEmpty()
 
     fun setQueueSyncDeviceName(name: String) {
         _queueSyncDeviceName.value = name

@@ -123,4 +123,6 @@ object MaterialMappings {
     @MapTo(SynaraIcons.RemoteControl) val Settings_remote = MaterialSymbols.Rounded.Settings_remote
     @MapTo(SynaraIcons.Globe) val Language = MaterialSymbols.Rounded.Language
     @MapTo(SynaraIcons.AddFeed) val Rss_feed = MaterialSymbols.Rounded.Rss_feed
+    @MapTo(SynaraIcons.Pin) val Push_pin = MaterialSymbols.Rounded.Push_pin
+    @MapTo(SynaraIcons.Share) val Share = MaterialSymbols.Rounded.Share
 }

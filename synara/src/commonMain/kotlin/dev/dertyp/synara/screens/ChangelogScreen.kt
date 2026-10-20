@@ -64,6 +64,17 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.16.0",
+                        date = "2026-10-20",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "**Mixes**: Your Mix by day, week, month or mood and Top Songs by range, ranked by listening time or plays, each in four sizes. Open them from Mixes in the sidebar, play or shuffle them and save them as a playlist."),
+                            Change(ChangeType.New, "Mixes can be pinned to the dashboard, and pinned mixes are shared with the mobile apps."),
+                            Change(ChangeType.New, "Pinned mixes can be downloaded and stay up to date while you are connected."),
+                            Change(ChangeType.New, "Songs, albums and artists have a Copy link entry in their menu that copies a share link the mobile apps can open.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.15.2",
                         date = "2026-10-13",
                         isPrerelease = true,

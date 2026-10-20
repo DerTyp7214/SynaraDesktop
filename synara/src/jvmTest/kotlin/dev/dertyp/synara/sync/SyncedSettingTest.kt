@@ -197,6 +197,8 @@ class SyncedSettingTest {
             "particle_multiplier" to SyncGroup.GENERAL,
             "is_server_scrobbling_enabled" to SyncGroup.GENERAL,
             "is_podcasts_enabled" to SyncGroup.GENERAL,
+            "mix_options" to SyncGroup.GENERAL,
+            "pinned_mixes" to SyncGroup.GENERAL,
             "desktop.light_theme_color" to SyncGroup.GENERAL,
             "desktop.dark_theme_color" to SyncGroup.GENERAL,
             "desktop.use_song_color" to SyncGroup.GENERAL,

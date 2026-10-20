@@ -5,6 +5,7 @@ import dev.dertyp.data.LinkUnmatchedTrackResult
 import dev.dertyp.data.ListeningStats
 import dev.dertyp.data.StatsRange
 import dev.dertyp.data.TopOrder
+import dev.dertyp.data.UserSong
 import dev.dertyp.services.IListeningStatsService
 import dev.dertyp.synara.rpc.RpcServiceManager
 
@@ -16,6 +17,15 @@ class ListeningStatsServiceWrapper(manager: RpcServiceManager) : BaseServiceWrap
         topOrder: TopOrder,
     ): ListeningStats {
         return manager.getService<IListeningStatsService>().getStats(range, timezone, topLimit, topOrder)
+    }
+
+    override suspend fun getTopSongs(
+        range: StatsRange,
+        timezone: String,
+        limit: Int,
+        order: TopOrder,
+    ): List<UserSong> {
+        return manager.getService<IListeningStatsService>().getTopSongs(range, timezone, limit, order)
     }
 
     override suspend fun linkUnmatchedTrack(request: LinkUnmatchedTrackRequest): LinkUnmatchedTrackResult {

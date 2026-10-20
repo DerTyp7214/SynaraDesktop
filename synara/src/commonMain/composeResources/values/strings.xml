@@ -158,6 +158,9 @@
     <string name="api_key_no_secret">This key was created before secrets were stored and cannot be revealed.</string>
     <string name="api_keys_empty">No API keys yet</string>
     <string name="copied_to_clipboard">Copied to clipboard</string>
+    <string name="copy_link">Copy link</string>
+    <string name="share_link_copied">Link copied to clipboard</string>
+    <string name="share_link_failed">Could not create the link</string>
     <string name="copy">Copy</string>
     <string name="subsonic_credential">Subsonic access</string>
     <string name="subsonic_generate">Generate credential</string>
@@ -209,6 +212,16 @@
     <string name="stats_listen_count">%1$d listens</string>
     <string name="stats_weekday_labels">Mon,Tue,Wed,Thu,Fri,Sat,Sun</string>
     <string name="stats_empty">No listens in this period yet</string>
+    <string name="mixes">Mixes</string>
+    <string name="your_mix">Your Mix</string>
+    <string name="top_songs_mix">Top Songs</string>
+    <string name="mix_size">Size</string>
+    <string name="pin_to_home">Pin to Home</string>
+    <string name="unpin_from_home">Unpin from Home</string>
+    <string name="save_as_playlist">Save as Playlist</string>
+    <string name="recommendations_mix_empty">No mix for this time window yet</string>
+    <string name="mood_playlist_empty">No songs for this mood</string>
+    <string name="stats_rank_by">Rank by</string>
     <string name="collections">Collections</string>
     <string name="stats">Stats</string>
     <string name="collection_create">Create collection</string>

@@ -3,6 +3,7 @@ package dev.dertyp.synara.testing
 import com.russhwolf.settings.Settings
 import dev.dertyp.logging.Logger
 import dev.dertyp.synara.Config
+import dev.dertyp.synara.mixes.DEFAULT_MIX_OPTIONS
 import dev.dertyp.synara.utils.SynaraDispatchers
 import io.mockk.mockk
 import org.koin.core.Koin
@@ -48,5 +49,9 @@ object ConfigFixture {
         Config.setRemoteControlOptInShown(false)
         Config.setPodcastOptInShown(false)
         Config.setShowTitleTagsInText(true)
+        Config.setMixOptions(DEFAULT_MIX_OPTIONS)
+        Config.setPinnedMixes(emptyList())
+        Config.setDownloadedMixes(emptyList())
+        Config.downloadedMixSongIds.value.keys.forEach { Config.setDownloadedMixSongIds(it, null) }
     }
 }

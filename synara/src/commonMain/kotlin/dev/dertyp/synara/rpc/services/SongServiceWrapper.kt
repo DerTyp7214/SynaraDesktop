@@ -166,6 +166,14 @@ class SongServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manage
         return manager.getService<ISongService>().getDownloadSize(id, quality, force, format)
     }
 
+    override suspend fun getDownloadSizes(
+        ids: List<PlatformUUID>,
+        quality: Int,
+        format: AudioFormat
+    ): List<SongDownloadSize> {
+        return manager.getService<ISongService>().getDownloadSizes(ids, quality, format)
+    }
+
     override fun allSongIds(
         explicit: Boolean,
         tags: List<SongTag>,

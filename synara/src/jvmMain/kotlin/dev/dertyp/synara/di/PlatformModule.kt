@@ -39,6 +39,7 @@ import dev.dertyp.synara.services.IDownloadManager
 import dev.dertyp.synara.services.JvmLocalStorageService
 import dev.dertyp.synara.services.JvmVideoFrameService
 import dev.dertyp.synara.services.LocalStorageService
+import dev.dertyp.synara.services.MixDownloadSync
 import dev.dertyp.synara.services.VideoFrameService
 import dev.dertyp.synara.settings.PersistentSettings
 import dev.dertyp.synara.utils.OSUtils
@@ -71,6 +72,7 @@ actual fun platformModule(): Module = module {
     singleOf(::JvmLocalStorageService) bind LocalStorageService::class
     singleOf(::JvmVideoFrameService) bind VideoFrameService::class
     singleOf(::DownloadManager) bind IDownloadManager::class
+    singleOf(::MixDownloadSync)
     singleOf(::SynaraApiImpl) bind ISynaraApi::class
     singleOf(::LocalHttpServer)
     single<HttpClientEngine>(named(THIRD_PARTY_HTTP_ENGINE)) { OkHttp.create() }
@@ -139,6 +141,7 @@ actual fun platformInit() {
     koin.get<PlayerSwitcher>()
     koin.get<ScrobblerService>()
     koin.get<DownloadManager>()
+    koin.get<MixDownloadSync>().start()
 
     try {
         val mediaManager = koin.get<SystemMediaManager>()
@@ -173,6 +176,7 @@ private fun runShutdownSteps(koin: Koin, logger: Logger) {
     val steps = listOf<Pair<String, () -> Unit>>(
         "current listen" to { runBlocking { koin.get<ScrobblerService>().endCurrentListen() } },
         "scrobbler" to { koin.get<ScrobblerService>().stop() },
+        "mix downloads" to { koin.get<MixDownloadSync>().stop() },
         "downloads" to { koin.get<DownloadManager>().stop() },
         "audio player" to { koin.get<AudioPlayer>().release() },
         "podcast audio player" to { koin.get<AudioPlayer>(named(PODCAST_AUDIO_PLAYER)).release() },

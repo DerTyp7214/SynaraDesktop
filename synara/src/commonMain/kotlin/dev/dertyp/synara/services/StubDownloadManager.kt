@@ -15,14 +15,17 @@ class StubDownloadManager : IDownloadManager {
     override fun isAlbumDownloaded(albumId: PlatformUUID): Flow<Boolean> = flowOf(false)
     override fun isArtistDownloaded(artistId: PlatformUUID): Flow<Boolean> = flowOf(false)
     override fun isPlaylistDownloaded(playlistId: PlatformUUID): Flow<Boolean> = flowOf(false)
+    override fun isMixDownloaded(key: String): Flow<Boolean> = flowOf(false)
 
     override fun downloadSong(songId: PlatformUUID, explicitlySaved: Boolean) {}
     override fun downloadAlbum(albumId: PlatformUUID, explicitlySaved: Boolean) {}
     override fun downloadArtist(artistId: PlatformUUID, explicitlySaved: Boolean) {}
     override fun downloadPlaylist(playlistId: PlatformUUID, explicitlySaved: Boolean) {}
     override fun downloadFavorites() {}
+    override fun downloadMix(key: String, songs: List<UserSong>) {}
     override fun removeSong(id: PlatformUUID) {}
     override fun removeAlbum(id: PlatformUUID) {}
     override fun removeArtist(id: PlatformUUID) {}
     override fun removePlaylist(id: PlatformUUID) {}
+    override fun removeMix(key: String) {}
 }

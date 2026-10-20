@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,16 +45,26 @@ import dev.dertyp.ui.UiEntityType
 import dev.dertyp.ui.UiRender
 import dev.dertyp.ui.UiSlots
 import kotlinx.coroutines.CancellationException
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.text.AnnotatedString
+import dev.dertyp.synara.services.ShareLinkBuilder
+import dev.dertyp.synara.ui.models.SnackbarManager
+import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import synara.synara.generated.resources.*
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun SongContextMenu(
     song: UserSong,
     expanded: Boolean,
     onDismissRequest: () -> Unit,
     playerModel: PlayerModel = koinInject(),
+    shareLinkBuilder: ShareLinkBuilder = koinInject(),
+    snackbarManager: SnackbarManager = koinInject(),
     globalState: GlobalStateModel = koinInject(),
     downloadManager: IDownloadManager? = koinInject<IDownloadManager?>(),
     isInQueue: Boolean = false,
@@ -62,6 +73,8 @@ fun SongContextMenu(
     onRemoveFromQueue: (() -> Unit)? = null
 ) {
     var showInfoDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboard.current
     var showArtistListDialog by remember { mutableStateOf(false) }
     var showPlaylistPickerDialog by remember { mutableStateOf(false) }
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
@@ -253,6 +266,24 @@ fun SongContextMenu(
                     modifier = Modifier.size(20.dp)
                 )
             }
+        )
+
+        DropdownMenuItem(
+            text = { Text(stringResource(Res.string.copy_link)) },
+            onClick = {
+                scope.launch {
+                    try {
+                        clipboard.setClipEntry(ClipEntry(AnnotatedString(shareLinkBuilder.songLink(song))))
+                        snackbarManager.showSnackbar(getString(Res.string.share_link_copied))
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        snackbarManager.showSnackbar(getString(Res.string.share_link_failed))
+                    }
+                }
+                onDismissRequest()
+            },
+            leadingIcon = { Icon(SynaraIcons.Share.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
 
         downloadManager?.let { dm ->

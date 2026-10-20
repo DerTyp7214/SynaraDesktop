@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.*
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -311,6 +312,22 @@ class HomeScreen : Screen {
                 selected = navigator.lastItem is RadioScreen,
                 onClick = {
                     if (navigator.lastItem !is RadioScreen) navigator.push(RadioScreen())
+                    onItemClick?.invoke()
+                }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            NavigationItem(
+                label = stringResource(Res.string.mixes),
+                icon = SynaraIcons.Discovery.get(),
+                selected = navigator.lastItem is MixesScreen || navigator.lastItem is MixScreen,
+                onClick = {
+                    when {
+                        navigator.lastItem is MixesScreen -> Unit
+                        navigator.items.any { it is MixesScreen } -> navigator.popUntil { it is MixesScreen }
+                        else -> navigator.push(MixesScreen())
+                    }
                     onItemClick?.invoke()
                 }
             )
@@ -716,6 +733,7 @@ private class DashboardScreen : Screen {
         val recentAlbums by screenModel.recentAlbums.collectAsState(emptyList())
         val recentArtists by screenModel.recentArtists.collectAsState(emptyList())
         val refreshKey by screenModel.refreshKey.collectAsState()
+        val pinnedMixes by Config.pinnedMixes.collectAsState()
 
         RegisterRefreshTarget(screenModel)
 
@@ -753,6 +771,27 @@ private class DashboardScreen : Screen {
                             style = MaterialTheme.typography.headlineLarge
                         )
                         UiHomeCardsEditButton(homeCardsModel)
+                    }
+                }
+
+                if (pinnedMixes.isNotEmpty()) {
+                    item(key = "pinned_mixes") {
+                        RecentlyPlayedSection(title = stringResource(Res.string.home_cards_pinned)) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                contentPadding = PaddingValues(vertical = 8.dp)
+                            ) {
+                                items(pinnedMixes, key = { it.key }) { spec ->
+                                    MixCard(
+                                        spec = spec,
+                                        title = spec.cardTitle(),
+                                        subtitle = "${spec.size} ${stringResource(Res.string.songs)}",
+                                        onClick = { navigator.push(MixScreen(spec)) },
+                                        modifier = Modifier.width(280.dp).animateItem().testTag("pinned_mix_${spec.key}")
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 

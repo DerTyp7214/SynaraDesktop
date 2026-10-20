@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -26,22 +27,30 @@ import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.getString
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.text.AnnotatedString
+import dev.dertyp.synara.services.ShareLinkBuilder
+import kotlinx.coroutines.CancellationException
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import synara.synara.generated.resources.*
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun ArtistContextMenu(
     artist: Artist,
     expanded: Boolean,
     onDismissRequest: () -> Unit,
     playerModel: PlayerModel = koinInject(),
+    shareLinkBuilder: ShareLinkBuilder = koinInject(),
     globalState: GlobalStateModel = koinInject(),
     artistService: IArtistService = koinInject(),
     snackbarManager: SnackbarManager = koinInject(),
     downloadManager: IDownloadManager? = koinInject<IDownloadManager?>(),
 ) {
     val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboard.current
     val user by globalState.user.collectAsState()
 
     var showMergeDialog by remember { mutableStateOf(false) }
@@ -105,6 +114,24 @@ fun ArtistContextMenu(
                 onDismissRequest()
             },
             leadingIcon = { Icon(SynaraIcons.Collections.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
+        )
+
+        DropdownMenuItem(
+            text = { Text(stringResource(Res.string.copy_link)) },
+            onClick = {
+                scope.launch {
+                    try {
+                        clipboard.setClipEntry(ClipEntry(AnnotatedString(shareLinkBuilder.artistLink(artist))))
+                        snackbarManager.showSnackbar(getString(Res.string.share_link_copied))
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        snackbarManager.showSnackbar(getString(Res.string.share_link_failed))
+                    }
+                }
+                onDismissRequest()
+            },
+            leadingIcon = { Icon(SynaraIcons.Share.get(), contentDescription = null, modifier = Modifier.size(20.dp)) }
         )
 
         downloadManager?.let { dm ->

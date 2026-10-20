@@ -184,6 +184,7 @@ Services: [RPC_SERVICES.md](RPC_SERVICES.md) · REST routes: [REST_API.md](REST_
 - [SongAudioBand](#devdertypdatasongaudioband)
 - [SongAudioData](#devdertypdatasongaudiodata)
 - [SongAudioTimeline](#devdertypdatasongaudiotimeline)
+- [SongDownloadSize](#devdertypdatasongdownloadsize)
 - [SongExtendedMetadata](#devdertypdatasongextendedmetadata)
 - [SongTag](#devdertypdatasongtag)
 - [SplitArtist](#devdertypdatasplitartist)
@@ -2303,6 +2304,14 @@ Time-based analysis data of a song: beat grid, loudness envelope, bass envelope 
 | `source` | `String` | Where the beat grid came from: essentia, rms or none. |
 | `version` | `Int` | Encoding version of the stored data. |
 
+### SongDownloadSize <a name="devdertypdatasongdownloadsize"></a>
+The download size of a song for a requested quality and format.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `songId` | `PlatformUUID` | The song unique identifier. |
+| `size` | `Long` | The size of the download in bytes. |
+
 ### SongExtendedMetadata <a name="devdertypdatasongextendedmetadata"></a>
 Extended metadata for a song.
 
@@ -2796,6 +2805,7 @@ Metadata for a track found.
 | `title` | `String` | The title of the track. |
 | `artists` | `List`<`String`> | Collection of artist names. |
 | `cover` | `Map`<`Int`, `String`> | Map of cover image sizes to URLs. |
+| `explicit` | `Boolean`? | Whether the track is marked explicit. Null when unknown. |
 
 ### ImporterCapability <a name="devdertypservicesimportimportercapability"></a>
 A capability an importer backend supports, so clients can discover what each backend can do.
@@ -2981,6 +2991,7 @@ External metadata for a music track.
 | `albumId` | `String`? | The external album ID. |
 | `albumTitle` | `String`? | The title of the album. |
 | `isrc` | `String`? | The International Standard Recording Code. |
+| `explicit` | `Boolean`? | Whether the track is marked explicit. Null when unknown. |
 
 ### FollowedArtist <a name="devdertypservicesmodelsfollowedartist"></a>
 Represents an artist that a user is following for release tracking.

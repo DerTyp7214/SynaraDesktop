@@ -133,9 +133,10 @@ fun PlaylistPickerDialog(
 fun CreatePlaylistDialog(
     isOpen: Boolean,
     onConfirm: (String) -> Unit,
-    onDismissRequest: () -> Unit
+    onDismissRequest: () -> Unit,
+    initialName: String = ""
 ) {
-    var playlistName by remember(isOpen) { mutableStateOf("") }
+    var playlistName by remember(isOpen, initialName) { mutableStateOf(initialName) }
 
     SynaraAlertDialog(
         isOpen = isOpen,

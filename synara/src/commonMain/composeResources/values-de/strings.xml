@@ -158,6 +158,9 @@
     <string name="api_key_no_secret">Dieser Schlüssel wurde erstellt, bevor Geheimnisse gespeichert wurden, und kann nicht angezeigt werden.</string>
     <string name="api_keys_empty">Noch keine API-Schlüssel</string>
     <string name="copied_to_clipboard">In die Zwischenablage kopiert</string>
+    <string name="copy_link">Link kopieren</string>
+    <string name="share_link_copied">Link in die Zwischenablage kopiert</string>
+    <string name="share_link_failed">Link konnte nicht erstellt werden</string>
     <string name="copy">Kopieren</string>
     <string name="subsonic_credential">Subsonic-Zugang</string>
     <string name="subsonic_generate">Zugangsdaten generieren</string>
@@ -209,6 +212,16 @@
     <string name="stats_listen_count">%1$d Wiedergaben</string>
     <string name="stats_weekday_labels">Mo,Di,Mi,Do,Fr,Sa,So</string>
     <string name="stats_empty">Noch keine Wiedergaben in diesem Zeitraum</string>
+    <string name="mixes">Mixes</string>
+    <string name="your_mix">Dein Mix</string>
+    <string name="top_songs_mix">Top-Songs</string>
+    <string name="mix_size">Größe</string>
+    <string name="pin_to_home">An Start anheften</string>
+    <string name="unpin_from_home">Vom Start lösen</string>
+    <string name="save_as_playlist">Als Playlist speichern</string>
+    <string name="recommendations_mix_empty">Noch kein Mix für diesen Zeitraum</string>
+    <string name="mood_playlist_empty">Keine Songs für diese Stimmung</string>
+    <string name="stats_rank_by">Sortieren nach</string>
     <string name="collections">Sammlungen</string>
     <string name="stats">Statistiken</string>
     <string name="collection_create">Sammlung erstellen</string>

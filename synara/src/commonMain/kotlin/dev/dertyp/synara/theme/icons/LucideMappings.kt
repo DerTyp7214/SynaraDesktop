@@ -125,4 +125,6 @@ object LucideMappings {
     @MapTo(SynaraIcons.RemoteControl) val MonitorSmartphone = Lucide.MonitorSmartphone
     @MapTo(SynaraIcons.Globe) val Globe = Lucide.Globe
     @MapTo(SynaraIcons.AddFeed) val Rss = Lucide.Rss
+    @MapTo(SynaraIcons.Pin) val Pin = Lucide.Pin
+    @MapTo(SynaraIcons.Share) val Share = Lucide.Share
 }

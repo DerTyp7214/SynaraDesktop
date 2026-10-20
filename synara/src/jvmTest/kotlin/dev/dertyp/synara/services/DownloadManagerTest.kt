@@ -1,6 +1,7 @@
 package dev.dertyp.synara.services
 
 import com.russhwolf.settings.Settings
+import dev.dertyp.PlatformUUID
 import dev.dertyp.data.AudioInfo
 import dev.dertyp.data.BaseSong
 import dev.dertyp.data.PaginatedResponse
@@ -13,10 +14,14 @@ import dev.dertyp.randomPlatformUUID
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
 import dev.dertyp.services.IUserService
-import dev.dertyp.synara.db.LibraryRepository
-import dev.dertyp.synara.db.SavedLibraryIds
-import dev.dertyp.synara.db.UserRepository
+import dev.dertyp.synara.Config
+import dev.dertyp.synara.db.*
 import dev.dertyp.synara.rpc.RpcServiceManager
+import dev.dertyp.synara.testing.ConfigFixture
+import dev.dertyp.synara.testing.UnconfinedDispatchers
+import dev.dertyp.synara.testing.startTestKoin
+import dev.dertyp.synara.testing.stopTestKoin
+import dev.dertyp.synara.testing.testSong
 import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.utils.SynaraDispatchers
 import io.mockk.coEvery
@@ -30,11 +35,17 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import org.jetbrains.compose.resources.getString
+import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.SchemaUtils
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import synara.synara.generated.resources.Res
 import synara.synara.generated.resources.download_failed
 import java.io.File
@@ -88,13 +99,65 @@ class DownloadManagerTest {
     private val logger = mockk<Logger>(relaxed = true)
 
     private var manager: DownloadManager? = null
+    private var database: Database? = null
 
     @AfterTest
     fun tearDown() {
         manager?.stop()
         scheduler.advanceUntilIdle()
+        database?.let {
+            TransactionManager.closeAndUnregister(it)
+            ConfigFixture.resetToDefaults()
+            stopTestKoin()
+        }
         root.deleteRecursively()
     }
+
+    private fun connectLibrary(): Database {
+        startTestKoin()
+        ConfigFixture.resetToDefaults()
+        val connected = Database.connect("jdbc:sqlite:${File(root, "library.db").path}", driver = "org.sqlite.JDBC")
+        TransactionManager.defaultDatabase = connected
+        transaction(connected) {
+            SchemaUtils.create(
+                DownloadedImages,
+                DownloadedUsers,
+                DownloadedSongs,
+                DownloadedAlbums,
+                DownloadedArtists,
+                DownloadedGenres,
+                DownloadedPlaylists,
+                DownloadedUserPlaylists,
+                DownloadedSongArtists,
+                DownloadedAlbumArtists,
+                DownloadedArtistMembers,
+                DownloadedPlaylistSongs,
+                DownloadedUserPlaylistSongs,
+                DownloadedSongGenres,
+                DownloadedAlbumGenres,
+                DownloadedArtistGenres
+            )
+        }
+        database = connected
+        return connected
+    }
+
+    private fun storedSong(index: Int): UserSong {
+        val song = testSong(index)
+        runBlocking { ExposedLibraryRepository().saveSongMetadata(song, false) }
+        File(storage.getInternalSongPath(song)).apply { parentFile?.mkdirs() }.writeBytes(ByteArray(4))
+        return song
+    }
+
+    private fun storedSongIds(): Set<PlatformUUID> = transaction(database!!) {
+        DownloadedSongs.selectAll().mapTo(HashSet()) { it[DownloadedSongs.id].value }
+    }
+
+    private fun isKept(song: UserSong): Boolean =
+        song.id in storedSongIds() && File(storage.getInternalSongPath(song)).exists()
+
+    private fun isDeleted(song: UserSong): Boolean =
+        song.id !in storedSongIds() && !File(storage.getInternalSongPath(song)).exists()
 
     private fun song(fileSize: Long) = UserSong(
         id = randomPlatformUUID(),
@@ -107,7 +170,7 @@ class DownloadManagerTest {
         audio = AudioInfo("flac", 44100, 16, 900, fileSize, 2)
     )
 
-    private fun createManager(): DownloadManager = DownloadManager(
+    private fun createManager(dispatchers: SynaraDispatchers = this.dispatchers): DownloadManager = DownloadManager(
         songService = songService,
         albumService = mockk(),
         artistService = mockk(),
@@ -328,5 +391,68 @@ class DownloadManagerTest {
 
         assertFalse(leftover.exists())
         assertTrue(finished.exists())
+    }
+
+    @Test
+    fun cleanupKeepsTheSongsOfDownloadedMixes() {
+        connectLibrary()
+        val inMix = storedSong(1)
+        val loose = storedSong(2)
+        Config.setDownloadedMixSongIds("mix:WEEK", listOf(inMix.id))
+
+        val manager = createManager(UnconfinedDispatchers)
+        runBlocking { manager.cleanup() }
+
+        assertTrue(isKept(inMix))
+        assertTrue(isDeleted(loose))
+    }
+
+    @Test
+    fun emptyMixResultKeepsTheStoredMembership() {
+        connectLibrary()
+        val inMix = storedSong(1)
+        Config.setDownloadedMixSongIds("mix:WEEK", listOf(inMix.id))
+
+        val manager = createManager(UnconfinedDispatchers)
+        manager.downloadMix("mix:WEEK", emptyList())
+        runBlocking { manager.cleanup() }
+
+        assertEquals(mapOf("mix:WEEK" to listOf(inMix.id)), Config.downloadedMixSongIds.value)
+        assertTrue(isKept(inMix))
+    }
+
+    @Test
+    fun refreshingAMixReplacesItsMembershipAndDeletesDroppedSongs() {
+        connectLibrary()
+        val dropped = storedSong(1)
+        val current = storedSong(2)
+        Config.setDownloadedMixSongIds("mix:WEEK", listOf(dropped.id))
+
+        val manager = createManager(UnconfinedDispatchers)
+        manager.downloadMix("mix:WEEK", listOf(current))
+        runBlocking { manager.cleanup() }
+
+        assertEquals(mapOf("mix:WEEK" to listOf(current.id)), Config.downloadedMixSongIds.value)
+        assertTrue(isKept(current))
+        assertTrue(isDeleted(dropped))
+    }
+
+    @Test
+    fun removingAMixDeletesSongsNoOtherMixHolds() {
+        connectLibrary()
+        val onlyHere = storedSong(1)
+        val shared = storedSong(2)
+        Config.setDownloadedMixSongIds("mix:WEEK", listOf(onlyHere.id, shared.id))
+        Config.setDownloadedMixSongIds("mood:chill", listOf(shared.id))
+
+        val manager = createManager(UnconfinedDispatchers)
+        manager.removeMix("mix:WEEK")
+        runBlocking { manager.cleanup() }
+
+        assertEquals(mapOf("mood:chill" to listOf(shared.id)), Config.downloadedMixSongIds.value)
+        assertTrue(isDeleted(onlyHere))
+        assertTrue(isKept(shared))
+        assertFalse(runBlocking { manager.isMixDownloaded("mix:WEEK").first() })
+        assertTrue(runBlocking { manager.isMixDownloaded("mood:chill").first() })
     }
 }

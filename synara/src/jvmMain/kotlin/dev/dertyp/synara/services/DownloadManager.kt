@@ -11,6 +11,7 @@ import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
 import dev.dertyp.services.IUserService
+import dev.dertyp.synara.Config
 import dev.dertyp.synara.db.*
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.settings.SettingKey
@@ -120,6 +121,9 @@ class DownloadManager(
 
     override fun isPlaylistDownloaded(playlistId: PlatformUUID): Flow<Boolean> =
         savedIds.map { it != null && playlistId in it.playlists }.distinctUntilChanged()
+
+    override fun isMixDownloaded(key: String): Flow<Boolean> =
+        Config.downloadedMixSongIds.map { key in it }.distinctUntilChanged()
 
     private suspend fun awaitSavedIds(): SavedLibraryIds = savedIds.filterNotNull().first()
 
@@ -266,6 +270,15 @@ class DownloadManager(
         }
     }
 
+    override fun downloadMix(key: String, songs: List<UserSong>) {
+        if (songs.isEmpty()) return
+        scope.launch {
+            Config.setDownloadedMixSongIds(key, songs.map { it.id })
+            songs.forEach { addToQueue(it) }
+            cleanup()
+        }
+    }
+
     private suspend fun addToQueue(song: UserSong) {
         if (_queue.value.any { it.id == song.id } || _currentDownload.value?.song?.id == song.id) return
         if (song.id in awaitSavedIds().songs && File(storageService.getInternalSongPath(song)).exists()) return
@@ -369,8 +382,19 @@ class DownloadManager(
         }
     }
 
+    override fun removeMix(key: String) {
+        scope.launch {
+            val ids = Config.downloadedMixSongIds.value[key].orEmpty().toSet()
+            Config.setDownloadedMixSongIds(key, null)
+            val stillReferenced = Config.downloadedMixSongIds.value.values.flatten().toSet()
+            _queue.update { q -> q.filter { it.id !in ids || it.id in stillReferenced } }
+            cleanup()
+        }
+    }
+
     suspend fun cleanup(): Unit = cleanupMutex.withLock {
         val downloadFavoritesEnabled = settings.get(SettingKey.DownloadFavorites, false)
+        val mixSongs = Config.downloadedMixSongIds.value.values.flatten().toSet()
 
         val toDelete: List<Pair<PlatformUUID, UserSong?>> = dbQuery {
             // Find entities to keep
@@ -408,6 +432,7 @@ class DownloadManager(
             val songsToKeep = mutableSetOf<UUID>()
             songsToKeep.addAll(explicitlySavedSongs)
             songsToKeep.addAll(playlistSongs)
+            songsToKeep.addAll(mixSongs)
 
             if (explicitlySavedAlbums.isNotEmpty()) {
                 DownloadedSongs.select(DownloadedSongs.id)

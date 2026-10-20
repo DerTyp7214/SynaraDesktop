@@ -42,6 +42,7 @@ import dev.dertyp.synara.sync.SettingsSyncService
 import dev.dertyp.synara.sync.SyncedSettingsRegistry
 import dev.dertyp.synara.services.IDownloadManager
 import dev.dertyp.synara.services.LocalStorageService
+import dev.dertyp.synara.services.ShareLinkBuilder
 import dev.dertyp.synara.services.StubDownloadManager
 import dev.dertyp.synara.settings.PersistentSettings
 import dev.dertyp.synara.settings.SettingsFactory
@@ -157,6 +158,7 @@ val appModule = module {
     singleOf(::PlayerSwitcher)
     singleOf(::MediaControlBridge)
     singleOf(::OnboardingCoordinator)
+    singleOf(::ShareLinkBuilder)
 
     single<IDownloadManager> { StubDownloadManager() }
 
@@ -180,6 +182,8 @@ val appModule = module {
     factoryOf(::PlaylistScreenModel)
     factoryOf(::PlaylistShareModel)
     factoryOf(::SimilarSongsScreenModel)
+    factoryOf(::MixesScreenModel)
+    factoryOf(::MixScreenModel)
 
     factoryOf(::SearchSongsViewModel)
     factoryOf(::SearchArtistsViewModel)
@@ -228,6 +232,7 @@ val appModule = module {
     singleOf(::RadioChannelServiceWrapper) bind IRadioChannelService::class
     singleOf(::CollectionServiceWrapper) bind ICollectionService::class
     singleOf(::ListeningStatsServiceWrapper) bind IListeningStatsService::class
+    singleOf(::RecommendationServiceWrapper) bind IRecommendationService::class
     singleOf(::ApiKeyServiceWrapper) bind IApiKeyService::class
     singleOf(::SubsonicCredentialServiceWrapper) bind ISubsonicCredentialService::class
     singleOf(::ScrobbleServiceWrapper) bind IScrobbleService::class

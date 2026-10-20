@@ -26,15 +26,18 @@ interface IDownloadManager {
     fun isAlbumDownloaded(albumId: PlatformUUID): Flow<Boolean>
     fun isArtistDownloaded(artistId: PlatformUUID): Flow<Boolean>
     fun isPlaylistDownloaded(playlistId: PlatformUUID): Flow<Boolean>
+    fun isMixDownloaded(key: String): Flow<Boolean>
 
     fun downloadSong(songId: PlatformUUID, explicitlySaved: Boolean = true)
     fun downloadAlbum(albumId: PlatformUUID, explicitlySaved: Boolean = true)
     fun downloadArtist(artistId: PlatformUUID, explicitlySaved: Boolean = true)
     fun downloadPlaylist(playlistId: PlatformUUID, explicitlySaved: Boolean = true)
     fun downloadFavorites()
+    fun downloadMix(key: String, songs: List<UserSong>)
 
     fun removeSong(id: PlatformUUID)
     fun removeAlbum(id: PlatformUUID)
     fun removeArtist(id: PlatformUUID)
     fun removePlaylist(id: PlatformUUID)
+    fun removeMix(key: String)
 }

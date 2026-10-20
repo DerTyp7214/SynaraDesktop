@@ -13,8 +13,8 @@ val major = 1
 val minor = 0
 val patch = 0
 val buildMajor = 3
-val buildMinor = 15
-val buildPatch = 2
+val buildMinor = 16
+val buildPatch = 0
 
 if (minor > 9 || patch > 9 || buildMajor > 99 || buildMinor > 99 || buildPatch > 99) {
     throw GradleException("Version component too high: minor($minor), patch($patch), buildMajor($buildMajor), buildMinor($buildMinor), buildPatch($buildPatch)")

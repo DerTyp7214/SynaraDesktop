@@ -57,6 +57,7 @@ Models: [MODELS.md](MODELS.md) · REST routes: [REST_API.md](REST_API.md) · Per
 - [IUserPlaylistService](#devdertypservicesiuserplaylistservice)
 - [IUserService](#devdertypservicesiuserservice)
 - [IImportService](#devdertypservicesimportiimportservice)
+- [ILinkResolverService](#devdertypservicesmetadatailinkresolverservice)
 - [IMetadataService](#devdertypservicesmetadataimetadataservice)
 - [IMusicBrainzService](#devdertypservicesmetadataimusicbrainzservice)
 
@@ -353,6 +354,7 @@ Listening statistics over the current user's unified listen history (local scrob
 | Function | Parameters | Returns | Permissions | Errors | Description |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `getStats` <a name="devdertypservicesilisteningstatsservice-getstats"></a> | `range` ([StatsRange](MODELS.md#devdertypdatastatsrange)): The time range to aggregate.<br>`timezone` (`String`): IANA timezone for range boundaries, e.g. Europe/Berlin. Invalid or blank falls back to UTC.<br>`topLimit` (`Int`): Maximum entries per top list. Clamped to 1..100.<br>`topOrder` ([TopOrder](MODELS.md#devdertypdatatoporder)): Metric used to rank the top and discovery lists. | [ListeningStats](MODELS.md#devdertypdatalisteningstats) | - |  | Compute listen count, previous-range comparison, top songs/artists/albums, listen clock, streaks, unique counts and new discoveries for a time range. |
+| `getTopSongs` <a name="devdertypservicesilisteningstatsservice-gettopsongs"></a> | `range` ([StatsRange](MODELS.md#devdertypdatastatsrange)): The time range to aggregate.<br>`timezone` (`String`): IANA timezone for range boundaries, e.g. Europe/Berlin. Invalid or blank falls back to UTC.<br>`limit` (`Int`): Maximum number of songs. Clamped to 1..500.<br>`order` ([TopOrder](MODELS.md#devdertypdatatoporder)): Metric used to rank the songs. | `List`<[UserSong](MODELS.md#devdertypdatausersong)> | - |  | Return the current user's most played songs in a time range as a playable list, ranked by the given metric. Songs that are not in the library are left out. |
 | `linkUnmatchedTrack` <a name="devdertypservicesilisteningstatsservice-linkunmatchedtrack"></a> | `request` ([LinkUnmatchedTrackRequest](MODELS.md#devdertypdatalinkunmatchedtrackrequest)): The unmatched track identity and the target library song. | [LinkUnmatchedTrackResult](MODELS.md#devdertypdatalinkunmatchedtrackresult) | - |  | Link the current user's unmatched listens of a track to a library song, identified by recording MSID and/or MBID. The link persists, applies to future synced listens, and is submitted to ListenBrainz as a manual mapping when the song has a recording MBID. |
 
 ### ILyricsSearch <a name="devdertypservicesilyricssearch"></a>
@@ -642,6 +644,7 @@ The primary interface for song discovery, streaming, and metadata.
 | `streamSongAtmos` <a name="devdertypservicesisongservice-streamsongatmos"></a> | `id` (`PlatformUUID`): The song unique identifier.<br>`offset` (`Long`): Byte offset to start streaming from.<br>`chunkSize` (`Int`): Size of each data chunk. | `Flow`<`ByteArray`>? | - |  | Stream the Dolby Atmos (E-AC-3 JOC in MP4) variant of a song. Returns null if the song has no Atmos variant. |
 | `getAtmosStreamSize` <a name="devdertypservicesisongservice-getatmosstreamsize"></a> | `id` (`PlatformUUID`): The song unique identifier. | `Long` | - |  | Get the size of the song's Dolby Atmos stream, or 0 if the song has no Atmos variant. |
 | `getDownloadSize` <a name="devdertypservicesisongservice-getdownloadsize"></a> | `id` (`PlatformUUID`): The song unique identifier.<br>`quality` (`Int`): The requested quality.<br>`force` (`Boolean`): Whether to force re-transcoding and duration check.<br>`format` ([AudioFormat](MODELS.md#devdertypdataaudioformat)): The target audio format. | `Long` | - |  | Get the size of the song audio for a specific quality. |
+| `getDownloadSizes` <a name="devdertypservicesisongservice-getdownloadsizes"></a> | `ids` (`List`<`PlatformUUID`>): The song unique identifiers.<br>`quality` (`Int`): The requested quality in kbps, or a value <= 0 for the original file.<br>`format` ([AudioFormat](MODELS.md#devdertypdataaudioformat)): The target audio format. | `List`<[SongDownloadSize](MODELS.md#devdertypdatasongdownloadsize)> | - |  | Get the recorded download sizes of songs for a quality and format, without transcoding. Songs without a recorded size are left out. |
 | `allSongIds` <a name="devdertypservicesisongservice-allsongids"></a> | `explicit` (`Boolean`): Whether to include explicit content.<br>`tags` (`List`<[SongTag](MODELS.md#devdertypdatasongtag)>): Only include songs that match any of these tags.<br>`excludeTags` (`List`<[SongTag](MODELS.md#devdertypdatasongtag)>): Exclude songs that match any of these tags. All filters combine with AND.<br>`titleTags` (`List`<[TitleTagKind](MODELS.md#devdertypdatatitletagkind)>): Only include songs whose title carries any of these title tag kinds.<br>`excludeTitleTags` (`List`<[TitleTagKind](MODELS.md#devdertypdatatitletagkind)>): Exclude songs whose title carries any of these title tag kinds. Songs without title tags are kept. | `Flow`<`PlatformUUID`> | - |  | Stream all song IDs with optional filtering. |
 | `likedSongIds` <a name="devdertypservicesisongservice-likedsongids"></a> | `explicit` (`Boolean`): Whether to include explicit content. | `Flow`<`PlatformUUID`> | - |  | Stream all IDs of songs liked by the current user. |
 | `superLikedSongIds` <a name="devdertypservicesisongservice-superlikedsongids"></a> | `explicit` (`Boolean`): Whether to include explicit content. | `Flow`<`PlatformUUID`> | - |  | Stream all IDs of songs super liked by the current user, most recently super liked first. |
@@ -779,6 +782,13 @@ Management of the integrated media importer.
 | `getAuthUrl` <a name="devdertypservicesimportiimportservice-getauthurl"></a> | - | `String` | **Admin** | IllegalArgumentException | Get the Tidal OAuth authorization URL. |
 | `killAllChildProcesses` <a name="devdertypservicesimportiimportservice-killallchildprocesses"></a> | - | `Unit` | **Admin** |  | Immediately stop all active importer processes. |
 | `search` <a name="devdertypservicesimportiimportservice-search"></a> | `query` (`String`?): General search query.<br>`title` (`String`?): Filter by track title.<br>`artist` (`String`?): Filter by artist name.<br>`count` (`Int`): Maximum number of results. | `List`<[ImportSong](MODELS.md#devdertypservicesimportimportsong)> | - | IllegalStateException | Search for tracks directly. |
+
+### ILinkResolverService <a name="devdertypservicesmetadatailinkresolverservice"></a>
+Find links to a song or album on other streaming platforms.
+
+| Function | Parameters | Returns | Permissions | Errors | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `resolvePlatformLinks` <a name="devdertypservicesmetadatailinkresolverservice-resolveplatformlinks"></a> | `urls` (`List`<`String`>): Links to the song or album on a streaming platform.<br>`isrc` (`String`?): The ISRC of the song.<br>`upc` (`String`?): The UPC or EAN barcode of the album. | `List`<`String`> | - |  | Resolve links to the same song or album on other platforms without touching the library. The ISRC is tried first, then the UPC, then each seed URL in order. Returns an empty list when nothing resolves. |
 
 ### IMetadataService <a name="devdertypservicesmetadataimetadataservice"></a>
 Service for fetching metadata from external sources.

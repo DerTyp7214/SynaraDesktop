@@ -125,4 +125,6 @@ object PhosphorMappings {
     @MapTo(SynaraIcons.RemoteControl) val DeviceMobileSpeaker = PhIcons.Regular.DeviceMobileSpeaker
     @MapTo(SynaraIcons.Globe) val Globe = PhIcons.Regular.Globe
     @MapTo(SynaraIcons.AddFeed) val Rss = PhIcons.Regular.Rss
+    @MapTo(SynaraIcons.Pin) val PushPin = PhIcons.Regular.PushPin
+    @MapTo(SynaraIcons.Share) val ShareNetwork = PhIcons.Regular.ShareNetwork
 }

@@ -4,6 +4,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import dev.dertyp.serializers.AppJson
 import dev.dertyp.synara.Config
+import dev.dertyp.synara.mixes.DEFAULT_MIX_OPTIONS
+import dev.dertyp.synara.mixes.MixSpec
+import dev.dertyp.synara.mixes.MixType
 import dev.dertyp.synara.settings.FullscreenHudLimits
 import dev.dertyp.synara.settings.VisualizerPreset
 import dev.dertyp.synara.settings.VisualizerPresets
@@ -158,6 +161,21 @@ class SyncedSettingsRegistry(private val cipher: SecretsCipher) {
         setter = { setter(it) }
     )
 
+    private inline fun <reified J> json(
+        key: String,
+        flow: StateFlow<J>,
+        default: J,
+        crossinline setter: (J) -> Unit
+    ): SyncedSetting<J> = SyncedSetting(
+        key = key,
+        group = SyncGroup.GENERAL,
+        flow = flow,
+        default = default,
+        encoder = { AppJson.encodeToString<J>(it) },
+        decoder = { AppJson.decodeFromString<J>(it) },
+        setter = { setter(it) }
+    )
+
     private fun color(
         key: String,
         flow: StateFlow<Color>,
@@ -232,6 +250,8 @@ class SyncedSettingsRegistry(private val cipher: SecretsCipher) {
             Config.setIsServerScrobblingEnabled(it)
         },
         boolean("is_podcasts_enabled", Config.isPodcastsEnabled, false) { Config.setPodcastsEnabled(it) },
+        json<Map<MixType, MixSpec>>("mix_options", Config.mixOptions, DEFAULT_MIX_OPTIONS) { Config.setMixOptions(it) },
+        json<List<MixSpec>>("pinned_mixes", Config.pinnedMixes, emptyList()) { Config.setPinnedMixes(it) },
 
         // Desktop only
         color("desktop.light_theme_color", Config.lightThemeColor, Color(Color.Green.toArgb())) {
