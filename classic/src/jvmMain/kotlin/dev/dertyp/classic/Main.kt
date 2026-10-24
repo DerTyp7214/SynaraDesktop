@@ -30,6 +30,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import dev.dertyp.synara.Config
 import dev.dertyp.synara.SynaraView
+import dev.dertyp.synara.db.DatabaseNotAtBaseException
 import dev.dertyp.synara.di.initializeSynara
 import dev.dertyp.synara.theme.SynaraAppTheme
 import dev.dertyp.synara.theme.isAppDark
@@ -40,6 +41,7 @@ import dev.dertyp.synara.ui.LocalWindowActions
 import dev.dertyp.synara.ui.WindowActions
 import dev.dertyp.synara.ui.components.SynaraTray
 import dev.dertyp.synara.ui.models.PerformanceMonitor
+import dev.dertyp.synara.ui.showLocalDataTooOld
 import dev.dertyp.synara.viewmodels.GlobalShortcuts
 import org.jetbrains.compose.resources.painterResource
 import org.koin.core.context.GlobalContext
@@ -68,7 +70,11 @@ fun main() {
         System.setProperty("apple.awt.windowTitleVisible", "false")
     }
 
-    initializeSynara()
+    try {
+        initializeSynara()
+    } catch (refusal: DatabaseNotAtBaseException) {
+        showLocalDataTooOld(refusal)
+    }
     application {
         var isVisible by remember { mutableStateOf(true) }
         val windowState = rememberWindowState()

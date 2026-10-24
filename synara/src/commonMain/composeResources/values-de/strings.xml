@@ -1025,4 +1025,13 @@
     <string name="error_server_unreachable">Der Server ist nicht erreichbar</string>
     <string name="error_request_failed">Die Anfrage ist fehlgeschlagen</string>
     <string name="login_failed">Anmeldung fehlgeschlagen. Prüfe Benutzername und Passwort.</string>
+    <string name="outdated_data_title">Deine lokalen Daten sind zu alt für diese Version</string>
+    <string name="outdated_data_body">Diese Synara-Version kann nur lokale Daten übernehmen, die Synara %1$s vorbereitet hat. Installiere einmal %1$s, starte es, schließe es wieder und aktualisiere dann erneut. An deinen lokalen Daten wurde nichts geändert.</string>
+    <string name="outdated_data_version">Version der lokalen Daten: %1$s, benötigt: %2$s</string>
+    <string name="outdated_data_version_unknown">unbekannt</string>
+    <string name="outdated_data_arch_title">Arch Linux</string>
+    <string name="outdated_data_arch_steps">Setze in /etc/pacman.conf die Server-Zeile im Abschnitt [synara] auf die Adresse unten und führe den Befehl aus, er installiert %1$s. Starte Synara einmal, setze die Server-Zeile dann zurück und aktualisiere wie gewohnt.</string>
+    <string name="outdated_data_other_title">Windows, macOS und andere Linux-Systeme</string>
+    <string name="outdated_data_other_steps">Lade Synara %1$s von der Release-Seite herunter, installiere es und starte es einmal. Installiere danach diese Version erneut.</string>
+    <string name="outdated_data_open_release">Release-Seite öffnen</string>
 </resources>

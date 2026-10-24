@@ -64,6 +64,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.18.0",
+                        date = "2026-10-24",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Improved, "If your local data comes from a very old version, Synara asks you to install 3.17.0 once before updating and shows you how.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.17.0",
                         date = "2026-10-24",
                         isPrerelease = true,

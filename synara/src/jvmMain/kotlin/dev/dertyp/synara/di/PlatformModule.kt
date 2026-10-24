@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
+import dev.dertyp.synara.db.DatabaseNotAtBaseException
 import dev.dertyp.synara.db.ExposedLibraryRepository
 import dev.dertyp.synara.db.ExposedLocalHistoryRepository
 import dev.dertyp.synara.db.ExposedOfflineLyricsStore
@@ -13,6 +14,7 @@ import dev.dertyp.synara.db.ExposedSettingsSyncRepository
 import dev.dertyp.synara.db.SettingsSyncRepository
 import dev.dertyp.synara.db.ExposedUserRepository
 import dev.dertyp.synara.db.LibraryRepository
+import dev.dertyp.synara.db.LocalDatabaseMigration
 import dev.dertyp.synara.db.LocalHistoryRepository
 import dev.dertyp.synara.db.OfflineLyricsStore
 import dev.dertyp.synara.db.RecentlyPlayedRepository
@@ -49,7 +51,6 @@ import dev.dertyp.synara.utils.SynaraDispatchers
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.coroutines.runBlocking
-import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.core.DatabaseConfig
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
@@ -107,14 +108,6 @@ actual fun platformModule(): Module = module {
 
     single<Database> {
         val dataSource = get<HikariDataSource>()
-
-        Flyway.configure()
-            .dataSource(dataSource)
-            .locations("classpath:db/migration", "classpath:dev/dertyp/synara/db/migration")
-            .baselineOnMigrate(true)
-            .load()
-            .migrate()
-
         val dispatchers = get<SynaraDispatchers>()
         Database.connect(
             datasource = dataSource,
@@ -139,6 +132,15 @@ actual fun platformInit() {
     val logger = koin.get<Logger>()
     val storageService = koin.get<LocalStorageService>()
     logger.info(LogTag("platform"), "Application directory: ${storageService.getDataDir()}")
+
+    val dataSource = koin.get<HikariDataSource>()
+    try {
+        LocalDatabaseMigration.migrate(dataSource)
+    } catch (refusal: DatabaseNotAtBaseException) {
+        logger.error(LogTag("platform"), "The local database was not changed", refusal)
+        dataSource.close()
+        throw refusal
+    }
 
     koin.get<Database>()
     koin.get<PlayerSwitcher>()

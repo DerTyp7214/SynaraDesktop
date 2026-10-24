@@ -1027,4 +1027,13 @@
     <string name="error_server_unreachable">The server could not be reached</string>
     <string name="error_request_failed">The request failed</string>
     <string name="login_failed">Login failed. Check your username and password.</string>
+    <string name="outdated_data_title">Your local data is too old for this version</string>
+    <string name="outdated_data_body">This version of Synara can only update local data that Synara %1$s has prepared. Install %1$s once, start it, close it, and then update again. Nothing in your local data has been changed.</string>
+    <string name="outdated_data_version">Local data version: %1$s, needed: %2$s</string>
+    <string name="outdated_data_version_unknown">unknown</string>
+    <string name="outdated_data_arch_title">Arch Linux</string>
+    <string name="outdated_data_arch_steps">In /etc/pacman.conf, set the Server line of the [synara] section to the address below and run the command, which installs %1$s. Start Synara once, then set the Server line back and update as usual.</string>
+    <string name="outdated_data_other_title">Windows, macOS and other Linux systems</string>
+    <string name="outdated_data_other_steps">Download Synara %1$s from its release page, install it and start it once. Then install this version again.</string>
+    <string name="outdated_data_open_release">Open release page</string>
 </resources>

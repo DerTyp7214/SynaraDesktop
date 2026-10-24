@@ -13,7 +13,7 @@ val major = 1
 val minor = 0
 val patch = 0
 val buildMajor = 3
-val buildMinor = 17
+val buildMinor = 18
 val buildPatch = 0
 
 if (minor > 9 || patch > 9 || buildMajor > 99 || buildMinor > 99 || buildPatch > 99) {
@@ -148,6 +148,8 @@ kotlin {
                 implementation(libs.mockk)
                 implementation(libs.kotlinx.coroutines.test)
                 implementation(libs.ktor.client.mock)
+                implementation(libs.exposed.migration.jdbc)
+                implementation(libs.classgraph)
             }
         }
 
@@ -213,6 +215,21 @@ compose.resources {
 configurations.all {
     exclude(group = "org.jetbrains.compose.material", module = "material-desktop")
     exclude(group = "com.github.hypfvieh", module = "dbus-java-transport-jnr-unixsocket")
+}
+
+tasks.register<JavaExec>("generateMigration") {
+    group = "build setup"
+    description =
+        "Writes the next local database migration as an SQL file from what Exposed still needs. Usage: -Pname=AddSomething."
+    val testCompilation = kotlin.jvm().compilations.getByName("test")
+    dependsOn(testCompilation.compileTaskProvider)
+    mainClass.set("dev.dertyp.synara.migrations.MigrationGeneratorKt")
+    classpath = files(testCompilation.output.allOutputs, testCompilation.runtimeDependencyFiles)
+    workingDir = rootProject.projectDir
+    args(
+        layout.projectDirectory.dir("src/jvmMain/resources/db/migrations").asFile.path,
+        providers.gradleProperty("name").getOrElse(""),
+    )
 }
 
 tasks.register("printReleaseVersion") {
