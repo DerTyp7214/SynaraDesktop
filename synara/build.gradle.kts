@@ -215,6 +215,13 @@ configurations.all {
     exclude(group = "com.github.hypfvieh", module = "dbus-java-transport-jnr-unixsocket")
 }
 
+tasks.register("printReleaseVersion") {
+    val releaseVersion = "$buildMajor.$buildMinor.$buildPatch"
+    doLast {
+        println(releaseVersion)
+    }
+}
+
 tasks.register("generateIcons") {
     val inputIcon = file("src/commonMain/resources/icon.png")
     val outputDir = layout.buildDirectory.dir("generated/icons")

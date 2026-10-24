@@ -76,6 +76,7 @@ jobs:
           rm -rf "$STAGE" "$PREV" "$OUT"
           mkdir -p "$STAGE" "$PREV" "$OUT"
           : > "$OUT/reused-packages.txt"
+          ./gradlew -q :synara:printReleaseVersion | tr -d '\r' > "$OUT/release-version.txt"
 
           (cd "$APP_IMAGE/.." && tar -czf "$ROOT/Synara-linux-x64.tar.gz" Synara)
           (cd "$CLASSIC_IMAGE/.." && tar -czf "$ROOT/ClassicApp-linux-x64.tar.gz" Synara)
@@ -265,6 +266,14 @@ jobs:
           path: all-artifacts
           merge-multiple: true
 
+      - name: Read Release Version
+        id: version
+        run: |
+          set -euo pipefail
+          RELEASE_VERSION=$(tr -d '\r\n' < all-artifacts/release-version.txt)
+          [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          echo "release_version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Create Arch Linux Repository Database
         run: |
           set -euo pipefail
@@ -343,4 +352,93 @@ jobs:
                 fi
                 ;;
             esac
+          done
+
+      - name: Prepare Versioned Release
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.release_version }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TAG="v$RELEASE_VERSION"
+          BASE_URL="https://github.com/$REPO/releases/download/$TAG"
+          mkdir versioned
+
+          for f in all-artifacts/Synara-* all-artifacts/ClassicApp-*; do
+            [ -f "$f" ] || continue
+            name=$(basename "$f")
+            case "$name" in
+              *.pkg.tar.zst) continue ;;
+            esac
+            cp "$f" "versioned/$(echo "$name" | sed -E "s/^(Synara|ClassicApp)-/\1-$RELEASE_VERSION-/")"
+          done
+
+          cp all-artifacts/*.pkg.tar.zst versioned/
+          if [ -d all-artifacts/reused ]; then
+            cp all-artifacts/reused/*.pkg.tar.zst versioned/
+          fi
+
+          for pkg in synara-runtime synara-libs synara-classic-libs synara synara-classic; do
+            [ "$(ls versioned/ | grep -cE "^$pkg-[^-]+-1-x86_64\.pkg\.tar\.zst$")" = 1 ] || { echo "::error::Expected exactly one $pkg package in versioned/"; exit 1; }
+          done
+
+          docker run --rm -v "$(pwd)/versioned":/repo archlinux:base bash -c "cd /repo && repo-add synara.db.tar.gz *.pkg.tar.zst"
+          rm -f versioned/synara.db versioned/synara.files
+          cp versioned/synara.db.tar.gz versioned/synara.db
+          cp versioned/synara.files.tar.gz versioned/synara.files
+
+          cat <<EOF > versioned/synara.conf
+          [synara]
+          SigLevel = Optional TrustAll
+          Server = $BASE_URL
+          EOF
+
+          pkg_url() {
+            echo "$BASE_URL/$(ls versioned/ | grep -E "^$1-[^-]+-1-x86_64\.pkg\.tar\.zst$")"
+          }
+
+          {
+            echo "Synara $RELEASE_VERSION. This release is updated on every push to \`master\` while this version is current."
+            echo
+            echo "### Arch Linux Repository"
+            echo "Add the following to your \`/etc/pacman.conf\`:"
+            echo '```ini'
+            echo "[synara]"
+            echo "SigLevel = Optional TrustAll"
+            echo "Server = $BASE_URL"
+            echo '```'
+            echo
+            echo "Or install the packages directly:"
+            echo '```sh'
+            echo "sudo pacman -U $(pkg_url synara-runtime) $(pkg_url synara-libs) $(pkg_url synara)"
+            echo "sudo pacman -U $(pkg_url synara-runtime) $(pkg_url synara-classic-libs) $(pkg_url synara-classic)"
+            echo '```'
+          } > "$RUNNER_TEMP/versioned-body.md"
+
+          ls -1 versioned > "$RUNNER_TEMP/keep-versioned.txt"
+          ls -l versioned
+
+      - name: Create or Update Versioned Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.release_version }}
+          name: Synara ${{ steps.version.outputs.release_version }}
+          body_path: ${{ runner.temp }}/versioned-body.md
+          prerelease: true
+          make_latest: false
+          files: versioned/*
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove Stale Versioned Assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: v${{ steps.version.outputs.release_version }}
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name' | while IFS= read -r asset; do
+            if ! grep -qxF "$asset" "$RUNNER_TEMP/keep-versioned.txt"; then
+              echo "Deleting stale asset $asset"
+              gh release delete-asset "$TAG" "$asset" --repo "$REPO" --yes
+            fi
           done
