@@ -1,6 +1,9 @@
 package dev.dertyp.synara.rpc.services
 
+import dev.dertyp.PlatformUUID
 import dev.dertyp.data.LinkUnmatchedTrackRequest
+import dev.dertyp.data.LinkedListenGroup
+import dev.dertyp.data.LinkedListenGroupKey
 import dev.dertyp.data.LinkUnmatchedTrackResult
 import dev.dertyp.data.ListeningStats
 import dev.dertyp.data.StatsRange
@@ -30,5 +33,17 @@ class ListeningStatsServiceWrapper(manager: RpcServiceManager) : BaseServiceWrap
 
     override suspend fun linkUnmatchedTrack(request: LinkUnmatchedTrackRequest): LinkUnmatchedTrackResult {
         return manager.getService<IListeningStatsService>().linkUnmatchedTrack(request)
+    }
+
+    override suspend fun getLinkedListenGroups(songId: PlatformUUID): List<LinkedListenGroup> {
+        return manager.getService<IListeningStatsService>().getLinkedListenGroups(songId)
+    }
+
+    override suspend fun relinkSong(
+        fromSongId: PlatformUUID,
+        toSongId: PlatformUUID,
+        groups: List<LinkedListenGroupKey>?,
+    ): LinkUnmatchedTrackResult {
+        return manager.getService<IListeningStatsService>().relinkSong(fromSongId, toSongId, groups)
     }
 }

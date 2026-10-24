@@ -23,9 +23,10 @@ import dev.dertyp.services.IPodcastService
 import dev.dertyp.synara.podcast.ParsedTranscript
 import dev.dertyp.synara.podcast.PodcastTranscriptParser
 import dev.dertyp.synara.ui.SynaraIcons
-import dev.dertyp.synara.ui.components.LyricLine
 import dev.dertyp.synara.ui.components.LyricsView
 import dev.dertyp.synara.ui.components.SynaraMenu
+import dev.dertyp.synara.ui.components.lyrics.DisplayLine
+import dev.dertyp.synara.ui.components.lyrics.LyricsDisplay
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.StateFlow
 import org.jetbrains.compose.resources.stringResource
@@ -132,8 +133,7 @@ fun TranscriptPanel(
                     val parsed = state.transcript
                     if (parsed.timed) {
                         val lines = remember(parsed) {
-                            parsed.cues.map { LyricLine(time = it.startMs, content = it.text, label = it.speaker) }
-                                .let(::dropRepeatedLabels)
+                            LyricsDisplay.fromTranscript(parsed.cues).lines.let(::dropRepeatedLabels)
                         }
                         LyricsView(
                             lines = lines,
@@ -161,7 +161,7 @@ fun TranscriptPanel(
     }
 }
 
-private fun dropRepeatedLabels(lines: List<LyricLine>): List<LyricLine> {
+private fun dropRepeatedLabels(lines: List<DisplayLine>): List<DisplayLine> {
     var previous: String? = null
     return lines.map { line ->
         val label = line.label

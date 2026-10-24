@@ -13,14 +13,22 @@ import dev.dertyp.data.User
 import dev.dertyp.data.UserPlaylist
 import dev.dertyp.data.UserProfile
 import dev.dertyp.data.UserSong
+import dev.dertyp.logging.Logger
 import dev.dertyp.randomPlatformUUID
 import dev.dertyp.serializers.AppJson
 import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
+import dev.dertyp.services.ILyricsCandidateService
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
 import dev.dertyp.services.IUserService
+import dev.dertyp.services.models.LyricsCandidate
+import dev.dertyp.services.models.LyricsMatch
+import dev.dertyp.services.models.LyricsProviderInfo
+import dev.dertyp.services.models.LyricsSyncLevel
 import dev.dertyp.synara.core.PlaylistRole
+import dev.dertyp.synara.db.OfflineLyricsStore
+import dev.dertyp.synara.lyrics.LyricsRepository
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.testing.queueOf
 import dev.dertyp.synara.testing.startTestKoin
@@ -34,10 +42,12 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import org.freedesktop.dbus.types.Variant
 import org.koin.dsl.module
+import java.util.Date
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -69,6 +79,9 @@ class SynaraApiImplTest {
     private val remotePosition = MutableStateFlow(0L)
     private val remoteDuration = MutableStateFlow(0L)
     private val remoteQueueId = MutableStateFlow<Long?>(null)
+    private val serverReachable = MutableStateFlow(true)
+    private val lyricsService = mockk<ILyricsCandidateService>()
+    private val offlineLyricsStore = mockk<OfflineLyricsStore>()
     private lateinit var api: SynaraApiImpl
 
     @BeforeTest
@@ -90,9 +103,12 @@ class SynaraApiImplTest {
         every { rpcServiceManager.ssl } returns false
         every { rpcServiceManager.rpcPath } returns "/"
         every { rpcServiceManager.sessionSslOverride } returns sslOverrideFlow
+        every { rpcServiceManager.isServerReachable } returns serverReachable
+        every { rpcServiceManager.connectionState } returns MutableStateFlow(RpcServiceManager.ConnectionState.Authenticated)
         every { globalState.user } returns MutableStateFlow(null)
         every { globalState.userPlaylists } returns userPlaylistsFlow
         coEvery { userService.allProfiles() } returns emptyList()
+        lyricsRepository = LyricsRepository(lyricsService, offlineLyricsStore, rpcServiceManager, mockk<Logger>(relaxed = true))
         startTestKoin(
             module {
                 single<ISongService> { songService }
@@ -100,6 +116,7 @@ class SynaraApiImplTest {
                 single<IArtistService> { artistService }
                 single<IUserPlaylistService> { userPlaylistService }
                 single<IUserService> { userService }
+                single { lyricsRepository }
                 single { globalState }
                 single<Json> { AppJson }
                 single { rpcServiceManager }
@@ -114,7 +131,23 @@ class SynaraApiImplTest {
         stopTestKoin()
     }
 
+    private lateinit var lyricsRepository: LyricsRepository
+
     private fun entries(songs: List<UserSong>): List<QueueEntry> = queueOf(songs).items
+
+    private fun lyricsOf(song: UserSong, plain: String) = LyricsCandidate(
+        id = randomPlatformUUID(),
+        songId = song.id,
+        provider = LyricsProviderInfo("lrclib", "LRCLIB", null, enabled = true, priority = 0),
+        syncLevel = LyricsSyncLevel.PLAIN,
+        instrumental = false,
+        match = LyricsMatch.VERIFIED,
+        durationGapSec = null,
+        rank = 1,
+        preferred = false,
+        fetchedAt = Date(0L),
+        plain = plain
+    )
 
     private fun stubResolveSong(vararg unresolved: QueueEntry) {
         coEvery { playerModel.resolveSong(any()) } answers {
@@ -273,9 +306,53 @@ class SynaraApiImplTest {
 
     @Test
     fun `GetCurrentLyrics returns the lyrics of the current song`() {
-        songFlow.value = testSong(1).copy(lyrics = "first line\nsecond line")
+        val song = testSong(1)
+        songFlow.value = song
+        coEvery { lyricsService.getLyrics(song.id, null) } returns lyricsOf(song, "first line\nsecond line")
+        showLyrics(song)
 
         assertEquals("first line\nsecond line", api.GetCurrentLyrics())
+    }
+
+    @Test
+    fun `GetCurrentLyrics never asks the server for lyrics the player has not loaded`() {
+        val song = testSong(1)
+        songFlow.value = song
+        coEvery { offlineLyricsStore.getLyrics(song.id) } returns null
+
+        assertEquals("", api.GetCurrentLyrics())
+        coVerify(exactly = 0) { lyricsService.getLyrics(any(), any()) }
+    }
+
+    @Test
+    fun `GetCurrentLyrics is empty when the current song has no lyrics`() {
+        val song = testSong(1)
+        songFlow.value = song
+        coEvery { lyricsService.getLyrics(song.id, null) } returns null
+        showLyrics(song)
+
+        assertEquals("", api.GetCurrentLyrics())
+    }
+
+    @Test
+    fun `GetCurrentLyrics reads the stored lyrics when the server fails`() {
+        val song = testSong(1)
+        songFlow.value = song
+        coEvery { lyricsService.getLyrics(song.id, null) } throws IllegalStateException("offline")
+        coEvery { offlineLyricsStore.getLyrics(song.id) } returns lyricsOf(song, "stored line")
+
+        assertEquals("stored line", api.GetCurrentLyrics())
+    }
+
+    @Test
+    fun `GetCurrentLyrics reads the stored lyrics without asking an unreachable server`() {
+        val song = testSong(1)
+        songFlow.value = song
+        serverReachable.value = false
+        coEvery { offlineLyricsStore.getLyrics(song.id) } returns lyricsOf(song, "stored line")
+
+        assertEquals("stored line", api.GetCurrentLyrics())
+        coVerify(exactly = 0) { lyricsService.getLyrics(any(), any()) }
     }
 
     @Test
@@ -390,8 +467,14 @@ class SynaraApiImplTest {
 
     @Test
     fun `GetCurrentLyrics returns the lyrics of the song of the controlled device`() {
-        songFlow.value = testSong(1).copy(lyrics = "local line")
-        remoteSong.value = testSong(2).copy(lyrics = "remote line")
+        val local = testSong(1)
+        val remote = testSong(2)
+        songFlow.value = local
+        remoteSong.value = remote
+        coEvery { lyricsService.getLyrics(local.id, null) } returns lyricsOf(local, "local line")
+        coEvery { lyricsService.getLyrics(remote.id, null) } returns lyricsOf(remote, "remote line")
+        showLyrics(local)
+        showLyrics(remote)
         controlDevice()
 
         assertEquals("remote line", api.GetCurrentLyrics())
@@ -968,5 +1051,9 @@ class SynaraApiImplTest {
         api.AddToPlaylist(randomPlatformUUID().toString(), randomPlatformUUID().toString(), "podcast")
 
         verify(exactly = 0) { playerModel.addSongsToPlaylist(any(), any()) }
+    }
+
+    private fun showLyrics(song: UserSong) {
+        runBlocking { lyricsRepository.lyricsFor(song.id) }
     }
 }

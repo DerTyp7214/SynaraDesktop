@@ -5,12 +5,14 @@ import type { UserSong } from "./lib/types";
 
 export default function NowPlaying() {
   const [song, setSong] = useState<UserSong | null>(null);
+  const [lyrics, setLyrics] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    synara.getCurrentSong()
-      .then(setSong)
-      .finally(() => setIsLoading(false));
+    Promise.all([
+      synara.getCurrentSong().then(setSong),
+      synara.getCurrentLyrics().then(setLyrics).catch(() => setLyrics("")),
+    ]).finally(() => setIsLoading(false));
   }, []);
 
   if (isLoading) return <Detail isLoading />;
@@ -26,7 +28,7 @@ export default function NowPlaying() {
 ---
 
 ## Lyrics
-${song.lyrics || "*No lyrics available*"}
+${lyrics || "*No lyrics available*"}
   `;
 
   return (

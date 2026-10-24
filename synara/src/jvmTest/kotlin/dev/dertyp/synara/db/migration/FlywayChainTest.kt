@@ -41,13 +41,15 @@ class FlywayChainTest {
         V1_10__SharedModelRenames::class,
         V1_11__AlbumTitleTags::class,
         V1_12__RepairForeignKeyTargets::class,
-        V1_13__UserServer::class
+        V1_13__UserServer::class,
+        V1_14__SongLyrics::class
     )
 
     private val allTables: Array<Table> = arrayOf(
         DownloadedImages,
         DownloadedUsers,
         DownloadedSongs,
+        DownloadedSongLyrics,
         DownloadedAlbums,
         DownloadedArtists,
         DownloadedGenres,

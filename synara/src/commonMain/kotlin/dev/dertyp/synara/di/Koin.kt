@@ -19,6 +19,7 @@ import dev.dertyp.synara.game.SongGuessLeaderboard
 import dev.dertyp.synara.logging.CompositeLogPersistence
 import dev.dertyp.synara.logging.StdoutLogPersistence
 import dev.dertyp.synara.logging.platformLogPersistence
+import dev.dertyp.synara.lyrics.LyricsRepository
 import dev.dertyp.synara.onboarding.OnboardingCoordinator
 import dev.dertyp.synara.player.MediaControlBridge
 import dev.dertyp.synara.player.PlayerModel
@@ -143,6 +144,7 @@ val appModule = module {
     singleOf(::RemoteControlService)
     singleOf(::RemotePlaybackController)
     singleOf(::TimecodeTagStore)
+    singleOf(::LyricsRepository)
     singleOf(::TimecodeTagAutomation)
     singleOf(::SecretsCipher)
     singleOf(::SyncedSettingsRegistry)
@@ -209,12 +211,14 @@ val appModule = module {
     singleOf(::FavSyncServiceWrapper) bind IFavSyncService::class
     singleOf(::ImageServiceWrapper) bind IImageService::class
     singleOf(::LyricsSearchWrapper) bind ILyricsSearch::class
+    singleOf(::LyricsCandidateServiceWrapper) bind ILyricsCandidateService::class
     singleOf(::MetadataServiceWrapper) bind IMetadataService::class
     singleOf(::MusicBrainzServiceWrapper) bind IMusicBrainzService::class
     singleOf(::PlaybackServiceWrapper) bind IPlaybackService::class
     singleOf(::QueueServiceWrapper) bind IQueueService::class
     singleOf(::ClientRequestServiceWrapper) bind IClientRequestService::class
     singleOf(::ChangeServiceWrapper) bind IChangeService::class
+    singleOf(::EntityChangeServiceWrapper) bind IEntityChangeService::class
     singleOf(::RemoteControlServiceWrapper) bind IRemoteControlService::class
     singleOf(::ClientSettingsServiceWrapper) bind IClientSettingsService::class
     singleOf(::PlaylistServiceWrapper) bind IPlaylistService::class

@@ -734,6 +734,29 @@ class DefaultUiHostTest {
     }
 
     @Test
+    fun searchAsksTheServiceWithTheHostContributionAndContext() = testScope.runTest {
+        val options = listOf(UiOption("v", "Label"))
+        coEvery { uiService.search(any(), any(), any(), any()) } returns options
+
+        assertEquals(options, host().search("artist", "abba"))
+        coVerify(exactly = 1) { uiService.search("contribution", "artist", "abba", context) }
+    }
+
+    @Test
+    fun searchFailuresReachTheCaller() = testScope.runTest {
+        coEvery { uiService.search(any(), any(), any(), any()) } throws IOException("down")
+
+        assertIs<IOException>(runCatching { host().search("artist", "abba") }.exceptionOrNull())
+    }
+
+    @Test
+    fun listItemImageIsCarriedIntoTheEntry() {
+        val image = UiImageRef(imageId = randomPlatformUUID())
+
+        assertEquals(image, UiComponent.ListItem(title = "t", image = image).asEntry()?.image)
+    }
+
+    @Test
     fun componentsWithoutAnActionAreNotEntries() {
         assertNull(UiComponent.Text(text = "t").asEntry())
     }

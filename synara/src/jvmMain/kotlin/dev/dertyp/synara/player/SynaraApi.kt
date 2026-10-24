@@ -18,6 +18,7 @@ import dev.dertyp.services.IUserPlaylistService
 import dev.dertyp.services.IUserService
 import dev.dertyp.synara.core.PlaylistRole
 import dev.dertyp.synara.core.roleOf
+import dev.dertyp.synara.lyrics.LyricsRepository
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.rpc.imageBaseUrl
 import dev.dertyp.synara.viewmodels.GlobalStateModel
@@ -64,7 +65,7 @@ interface ISynaraApi : DBusInterface {
         @DbusParamDoc("options", "Search filters.", example = "false") options: Map<SearchFilter, Variant<*>>
     ): String
 
-    @DbusMethodDoc("Get the lyrics of the currently playing song.")
+    @DbusMethodDoc("Get the plain text of the lyrics of the currently playing song. It is empty when the song has no lyrics.")
     fun GetCurrentLyrics(): String
 
     @DbusMethodDoc(
@@ -253,6 +254,7 @@ class SynaraApiImpl(
     private val rpcServiceManager by inject<RpcServiceManager>()
     private val remotePlaybackController by inject<RemotePlaybackController>()
     private val songService by inject<ISongService>()
+    private val lyricsRepository by inject<LyricsRepository>()
     private val albumService by inject<IAlbumService>()
     private val artistService by inject<IArtistService>()
     private val userPlaylistService by inject<IUserPlaylistService>()
@@ -302,7 +304,8 @@ class SynaraApiImpl(
     }
 
     override fun GetCurrentLyrics(): String {
-        return surface().currentSong.value?.lyrics ?: ""
+        val song = surface().currentSong.value ?: return ""
+        return runBlocking { lyricsRepository.shownLyrics(song.id)?.plain }.orEmpty()
     }
 
     override fun GetQueue(limit: Int): String {

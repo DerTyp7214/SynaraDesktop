@@ -1,5 +1,7 @@
 package dev.dertyp.synara.db
 
+import dev.dertyp.services.models.LyricsMatch
+import dev.dertyp.services.models.LyricsSyncLevel
 import org.jetbrains.exposed.v1.core.ReferenceOption
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.core.dao.id.IntIdTable
@@ -31,7 +33,6 @@ object DownloadedSongs : UUIDTable("song") {
     val albumId = reference("albumId", DownloadedAlbums.id, onDelete = ReferenceOption.SET_NULL).nullable()
     val duration = long("duration").default(0L)
     val releaseDate = varchar("releaseDate", 128).nullable()
-    val lyrics = text("lyrics").default("")
     val explicit = bool("explicit").default(false)
     val filePath = text("filePath").default("")
     val cover = reference("cover", DownloadedImages.id, onDelete = ReferenceOption.SET_NULL).nullable()
@@ -56,6 +57,26 @@ object DownloadedSongs : UUIDTable("song") {
 
     val explicitlySaved = bool("explicitlySaved").default(false)
     val musicBrainzId = javaUUID("musicBrainzId").nullable()
+}
+
+object DownloadedSongLyrics : Table("song_lyrics") {
+    val songId = reference("songId", DownloadedSongs.id, onDelete = ReferenceOption.CASCADE)
+    val candidateId = javaUUID("candidateId")
+    val provider = text("provider")
+    val providerName = text("providerName")
+    val providerUrl = text("providerUrl").nullable()
+    val providerEnabled = bool("providerEnabled")
+    val providerPriority = integer("providerPriority")
+    val syncLevel = enumerationByName<LyricsSyncLevel>("syncLevel", 16)
+    val instrumental = bool("instrumental")
+    val match = enumerationByName<LyricsMatch>("match", 16)
+    val durationGapSec = integer("durationGapSec").nullable()
+    val rank = integer("rank")
+    val preferred = bool("preferred")
+    val content = blob("content").nullable()
+    val plain = text("plain")
+    val fetchedAt = long("fetchedAt")
+    override val primaryKey = PrimaryKey(songId)
 }
 
 object DownloadedAlbums : UUIDTable("album") {

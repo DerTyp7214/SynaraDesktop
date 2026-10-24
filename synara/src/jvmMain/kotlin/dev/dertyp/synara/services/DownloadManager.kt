@@ -2,20 +2,27 @@ package dev.dertyp.synara.services
 
 import com.russhwolf.settings.Settings
 import dev.dertyp.PlatformUUID
+import dev.dertyp.data.EntityChangeAspect
+import dev.dertyp.data.EntityChangeKind
+import dev.dertyp.data.EntityType
 import dev.dertyp.data.User
 import dev.dertyp.data.UserSong
 import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
 import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
+import dev.dertyp.services.IEntityChangeService
+import dev.dertyp.services.ILyricsCandidateService
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
 import dev.dertyp.services.IUserService
 import dev.dertyp.synara.Config
 import dev.dertyp.synara.db.*
+import dev.dertyp.synara.lyrics.LyricsRepository
 import dev.dertyp.synara.rpc.RpcServiceManager
 import dev.dertyp.synara.settings.SettingKey
 import dev.dertyp.synara.settings.get
+import dev.dertyp.synara.settings.getOrNull
 import dev.dertyp.synara.settings.put
 import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.utils.SynaraDispatchers
@@ -47,6 +54,10 @@ class DownloadManager(
     private val artistService: IArtistService,
     private val playlistService: IUserPlaylistService,
     private val userService: IUserService,
+    private val lyricsService: ILyricsCandidateService,
+    private val entityChangeService: IEntityChangeService,
+    private val offlineLyricsStore: OfflineLyricsStore,
+    private val lyricsRepository: LyricsRepository,
     private val userRepository: UserRepository,
     private val storageService: LocalStorageService,
     private val libraryRepository: LibraryRepository,
@@ -146,10 +157,56 @@ class DownloadManager(
                     }
                 }
         }
+        scope.launch {
+            combine(rpcManager.isServerReachable, rpcManager.connectionState) { reachable, connection ->
+                reachable && connection == RpcServiceManager.ConnectionState.Authenticated
+            }.distinctUntilChanged().collectLatest { active ->
+                if (!active) return@collectLatest
+                try {
+                    pullSongChanges()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.error(logTag, "Failed to pull the song changes", e)
+                }
+            }
+        }
     }
 
     fun stop() {
         scope.cancel()
+    }
+
+    private suspend fun pullSongChanges() {
+        val window = entityChangeService.getWindow()
+        val since = settings.getOrNull(SettingKey.SongChangesSince)
+        val downloaded = libraryRepository.getSongs(explicitlySavedOnly = false).mapTo(HashSet()) { it.id }
+        var complete = true
+        if (since == null || since < window.availableSince) {
+            downloaded.forEach { if (!storeLyrics(it)) complete = false }
+        } else {
+            entityChangeService.allChanges(since)
+                .filter { it.entityType == EntityType.SONG && it.aspect == EntityChangeAspect.DATA }
+                .collect { change ->
+                    val songId = change.entityId
+                    if (change.kind != EntityChangeKind.DELETED && songId in downloaded && !storeLyrics(songId)) complete = false
+                    lyricsRepository.invalidate(songId)
+                }
+        }
+        if (complete) settings.put(SettingKey.SongChangesSince, window.serverTime)
+    }
+
+    private suspend fun storeLyrics(songId: PlatformUUID): Boolean {
+        return try {
+            val candidate = lyricsService.getLyrics(songId)
+            if (candidate == null) offlineLyricsStore.deleteLyrics(songId) else offlineLyricsStore.saveLyrics(songId, candidate)
+            true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.error(logTag, "Failed to store the lyrics of a downloaded song", e, data = "songId=$songId")
+            false
+        }
     }
 
     private suspend fun removeLeftoverParts() {
@@ -334,6 +391,7 @@ class DownloadManager(
         }
 
         libraryRepository.saveSongMetadata(song, false)
+        storeLyrics(song.id)
         _currentDownload.value = null
     }
 
@@ -477,6 +535,7 @@ class DownloadManager(
 
             ids.chunked(500).forEach { chunk ->
                 DownloadedSongs.deleteWhere { DownloadedSongs.id inList chunk }
+                DownloadedSongLyrics.deleteWhere { DownloadedSongLyrics.songId inList chunk }
                 DownloadedUserPlaylistSongs.deleteWhere { DownloadedUserPlaylistSongs.songId inList chunk }
             }
 

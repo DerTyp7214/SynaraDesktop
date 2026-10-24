@@ -3,9 +3,13 @@ package dev.dertyp.synara.db
 import com.russhwolf.settings.Settings
 import dev.dertyp.*
 import dev.dertyp.data.*
+import dev.dertyp.serializers.AppCbor
 import dev.dertyp.services.IAlbumService
 import dev.dertyp.services.IArtistService
 import dev.dertyp.services.ISongService
+import dev.dertyp.services.models.LyricsCandidate
+import dev.dertyp.services.models.LyricsProviderInfo
+import dev.dertyp.services.models.SyncedLyrics
 import dev.dertyp.synara.core.toCredit
 import dev.dertyp.synara.game.LeaderboardEntry
 import dev.dertyp.synara.game.SavedGame
@@ -17,7 +21,9 @@ import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.core.dao.id.EntityID
+import org.jetbrains.exposed.v1.core.statements.api.ExposedBlob
 import org.jetbrains.exposed.v1.jdbc.*
+import java.util.Date
 import java.util.UUID
 import kotlin.uuid.ExperimentalUuidApi
 
@@ -658,6 +664,7 @@ class ExposedLibraryRepository : LibraryRepository {
     override suspend fun deleteSong(id: PlatformUUID) {
         dbQuery {
             DownloadedSongs.deleteWhere { DownloadedSongs.id eq id }
+            DownloadedSongLyrics.deleteWhere { DownloadedSongLyrics.songId eq id }
             DownloadedSongArtists.deleteWhere { DownloadedSongArtists.songId eq id }
             DownloadedUserPlaylistSongs.deleteWhere { DownloadedUserPlaylistSongs.songId eq id }
             DownloadedSongGenres.deleteWhere { DownloadedSongGenres.songId eq id }
@@ -868,7 +875,6 @@ private fun mapSongs(rows: List<ResultRow>): List<UserSong> {
             duration = row[DownloadedSongs.duration],
             explicit = row[DownloadedSongs.explicit],
             releaseDate = row[DownloadedSongs.releaseDate]?.toPlatformLocalDateISO(),
-            lyrics = row[DownloadedSongs.lyrics],
             path = row[DownloadedSongs.filePath],
             originalUrl = row[DownloadedSongs.originalUrl],
             trackNumber = row[DownloadedSongs.trackNumber],
@@ -933,7 +939,6 @@ private fun saveSongMetadataInternal(song: UserSong, explicitlySaved: Boolean) {
         it[duration] = song.duration
         it[explicit] = song.explicit
         it[releaseDate] = song.releaseDate?.formatISO()
-        it[lyrics] = song.lyrics
         it[filePath] = song.path
         it[originalUrl] = song.originalUrl
         it[trackNumber] = song.trackNumber
@@ -1163,5 +1168,62 @@ class ExposedSettingsSyncRepository : SettingsSyncRepository {
 
     override suspend fun clear() {
         dbQuery { SettingsSyncKnownEntries.deleteAll() }
+    }
+}
+
+class ExposedOfflineLyricsStore : OfflineLyricsStore {
+    override suspend fun saveLyrics(songId: PlatformUUID, candidate: LyricsCandidate) {
+        dbQuery {
+            DownloadedSongLyrics.upsert(DownloadedSongLyrics.songId) {
+                it[DownloadedSongLyrics.songId] = songId
+                it[candidateId] = candidate.id
+                it[provider] = candidate.provider.id
+                it[providerName] = candidate.provider.name
+                it[providerUrl] = candidate.provider.url
+                it[providerEnabled] = candidate.provider.enabled
+                it[providerPriority] = candidate.provider.priority
+                it[syncLevel] = candidate.syncLevel
+                it[instrumental] = candidate.instrumental
+                it[match] = candidate.match
+                it[durationGapSec] = candidate.durationGapSec
+                it[rank] = candidate.rank
+                it[preferred] = candidate.preferred
+                it[content] = candidate.lyrics?.let { lyrics -> ExposedBlob(AppCbor.encodeToByteArray(SyncedLyrics.serializer(), lyrics)) }
+                it[plain] = candidate.plain
+                it[fetchedAt] = candidate.fetchedAt.time
+            }
+        }
+    }
+
+    override suspend fun getLyrics(songId: PlatformUUID): LyricsCandidate? = dbQuery {
+        DownloadedSongLyrics.selectAll()
+            .where { DownloadedSongLyrics.songId eq songId }
+            .singleOrNull()
+            ?.let { row ->
+                LyricsCandidate(
+                    id = row[DownloadedSongLyrics.candidateId],
+                    songId = songId,
+                    provider = LyricsProviderInfo(
+                        id = row[DownloadedSongLyrics.provider],
+                        name = row[DownloadedSongLyrics.providerName],
+                        url = row[DownloadedSongLyrics.providerUrl],
+                        enabled = row[DownloadedSongLyrics.providerEnabled],
+                        priority = row[DownloadedSongLyrics.providerPriority]
+                    ),
+                    syncLevel = row[DownloadedSongLyrics.syncLevel],
+                    instrumental = row[DownloadedSongLyrics.instrumental],
+                    match = row[DownloadedSongLyrics.match],
+                    durationGapSec = row[DownloadedSongLyrics.durationGapSec],
+                    rank = row[DownloadedSongLyrics.rank],
+                    preferred = row[DownloadedSongLyrics.preferred],
+                    fetchedAt = Date(row[DownloadedSongLyrics.fetchedAt]),
+                    plain = row[DownloadedSongLyrics.plain],
+                    lyrics = row[DownloadedSongLyrics.content]?.let { AppCbor.decodeFromByteArray(SyncedLyrics.serializer(), it.bytes) }
+                )
+            }
+    }
+
+    override suspend fun deleteLyrics(songId: PlatformUUID) {
+        dbQuery { DownloadedSongLyrics.deleteWhere { DownloadedSongLyrics.songId eq songId } }
     }
 }

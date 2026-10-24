@@ -1,71 +1,85 @@
 package dev.dertyp.synara.ui.components
 
 import androidx.compose.animation.*
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.dertyp.data.UserSong
-import dev.dertyp.synara.player.PlayerModel
 import dev.dertyp.synara.ui.SynaraIcons
-import kotlinx.coroutines.launch
+import dev.dertyp.synara.ui.components.lyrics.*
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
-import org.koin.compose.koinInject
-
-data class LyricLine(
-    val time: Long,
-    val content: String,
-    val label: String? = null
-)
+import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.stringResource
+import synara.synara.generated.resources.Res
+import synara.synara.generated.resources.lyrics_failed
+import synara.synara.generated.resources.lyrics_loading
+import synara.synara.generated.resources.lyrics_none
 
 @Composable
 fun LyricsView(
+    lyrics: LyricsState,
+    position: StateFlow<Long>,
+    isPlaying: StateFlow<Boolean>,
+    seekEvents: Flow<Long>,
+    onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    playerModel: PlayerModel = koinInject(),
-    song: UserSong? = playerModel.currentSong.collectAsState().value,
-    position: StateFlow<Long> = playerModel.currentPosition,
-    onSeek: (Long) -> Unit = { playerModel.seekTo(it) }
+    header: @Composable () -> Unit = {}
 ) {
-    val lyrics = song?.lyrics ?: ""
-    val parsedLyrics = remember(lyrics) { parseLyrics(lyrics) }
-
-    TimedLinesView(
-        lines = parsedLyrics,
-        position = position,
-        onSeek = onSeek,
-        modifier = modifier,
-        textStyle = MaterialTheme.typography.headlineMedium.copy(
-            fontWeight = FontWeight.Bold,
-            fontSize = 32.sp,
-            lineHeight = 40.sp,
-            textAlign = TextAlign.Center
-        ),
-        key = { _, line -> line.time.toString() + line.content },
-        followLabel = null
-    )
+    Box(modifier = modifier.fillMaxSize()) {
+        AnimatedContent(
+            targetState = lyrics,
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            contentKey = { state ->
+                when (state) {
+                    is LyricsState.Loaded -> state.display
+                    else -> state
+                }
+            },
+            label = "lyricsContent",
+            modifier = Modifier.fillMaxSize()
+        ) { state ->
+            when (state) {
+                LyricsState.Loading -> LyricsMessage(stringResource(Res.string.lyrics_loading), loading = true)
+                LyricsState.Failed -> LyricsMessage(stringResource(Res.string.lyrics_failed))
+                LyricsState.Empty -> LyricsMessage(stringResource(Res.string.lyrics_none))
+                is LyricsState.Loaded -> {
+                    if (state.display.isEmpty) {
+                        LyricsMessage(stringResource(Res.string.lyrics_none))
+                    } else {
+                        SongLyrics(state.display, position, isPlaying, seekEvents, onSeek)
+                    }
+                }
+            }
+        }
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 8.dp)
+        ) {
+            header()
+        }
+    }
 }
 
 @Composable
 fun LyricsView(
-    lines: List<LyricLine>,
+    lines: List<DisplayLine>,
     position: StateFlow<Long>,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
@@ -79,35 +93,83 @@ fun LyricsView(
 ) {
     TimedLinesView(
         lines = lines,
-        position = position,
+        position = rememberReportedPosition(position),
         onSeek = onSeek,
         modifier = modifier,
         textStyle = textStyle,
-        key = { index, _ -> index },
         followLabel = followLabel
     )
 }
 
 @Composable
-private fun TimedLinesView(
-    lines: List<LyricLine>,
+private fun SongLyrics(
+    display: LyricsDisplay,
     position: StateFlow<Long>,
+    isPlaying: StateFlow<Boolean>,
+    seekEvents: Flow<Long>,
+    onSeek: (Long) -> Unit
+) {
+    val clock = if (display.wordTimed) {
+        rememberLyricsPosition(position, isPlaying, seekEvents)
+    } else {
+        rememberReportedPosition(position)
+    }
+    TimedLinesView(
+        lines = display.lines,
+        position = clock,
+        onSeek = onSeek,
+        modifier = Modifier,
+        textStyle = MaterialTheme.typography.headlineMedium.copy(
+            fontWeight = FontWeight.Bold,
+            fontSize = 32.sp,
+            lineHeight = 40.sp,
+            textAlign = TextAlign.Center
+        ),
+        followLabel = null
+    )
+}
+
+@Composable
+private fun LyricsMessage(text: String, loading: Boolean = false) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        if (loading) {
+            CircularProgressIndicator(modifier = Modifier.size(28.dp), color = Color.White.copy(alpha = 0.7f))
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White.copy(alpha = 0.6f),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun TimedLinesView(
+    lines: List<DisplayLine>,
+    position: LongState,
     onSeek: (Long) -> Unit,
     modifier: Modifier,
     textStyle: TextStyle,
-    key: (Int, LyricLine) -> Any,
     followLabel: String?
 ) {
-    val currentPosition by position.collectAsState()
-
-    val parsedLyrics = lines
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var follow by remember(lines) { mutableStateOf(true) }
     var programmaticScroll by remember { mutableStateOf(false) }
 
-    val activeIndex = remember(parsedLyrics, currentPosition) {
-        parsedLyrics.indexOfLast { it.time <= currentPosition }.coerceAtLeast(0)
+    var activeIndex by remember(lines, position) {
+        mutableIntStateOf(Snapshot.withoutReadObservation { activeLineAt(lines, position.longValue) })
+    }
+
+    LaunchedEffect(lines, position) {
+        snapshotFlow { activeLineAt(lines, position.longValue) }
+            .collect { activeIndex = it }
     }
 
     if (followLabel != null) {
@@ -118,7 +180,7 @@ private fun TimedLinesView(
     }
 
     LaunchedEffect(activeIndex, follow) {
-        if (follow && parsedLyrics.isNotEmpty() && activeIndex >= 0) {
+        if (follow && lines.isNotEmpty() && activeIndex >= 0) {
             programmaticScroll = true
             try {
                 listState.animateScrollToItem(activeIndex, scrollOffset = -200)
@@ -151,58 +213,16 @@ private fun TimedLinesView(
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             itemsIndexed(
-                items = parsedLyrics,
-                key = key
+                items = lines,
+                key = { index, _ -> index }
             ) { index, line ->
-                val isActive = index == activeIndex
-                val color by animateColorAsState(
-                    targetValue = if (isActive) Color.White
-                    else Color.White.copy(alpha = 0.4f),
-                    label = "lyricColor"
+                LyricsRow(
+                    line = line,
+                    position = position,
+                    active = index == activeIndex,
+                    style = textStyle,
+                    onSeek = onSeek
                 )
-                val scale by animateFloatAsState(
-                    targetValue = if (isActive) 1.05f else 1f,
-                    label = "lyricScale"
-                )
-
-                if (line.label != null) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .scale(scale)
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable { onSeek(line.time) }
-                            .padding(vertical = 12.dp, horizontal = 16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = line.label,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = color.copy(alpha = color.alpha * 0.8f),
-                            textAlign = TextAlign.Center
-                        )
-                        Text(
-                            text = line.content,
-                            style = textStyle,
-                            color = color,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                } else {
-                    Text(
-                        text = line.content,
-                        style = textStyle,
-                        color = color,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .scale(scale)
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable { onSeek(line.time) }
-                            .padding(vertical = 12.dp, horizontal = 16.dp)
-                    )
-                }
             }
         }
 
@@ -242,32 +262,5 @@ private fun TimedLinesView(
     }
 }
 
-private fun parseLyrics(lyrics: String): List<LyricLine> {
-    if (lyrics.isBlank()) return emptyList()
-
-    val lyricLines = mutableListOf<LyricLine>()
-    val timeRegex = Regex("""\[(\d{2}):(\d{2})\.(\d{2,3})]""")
-
-    lyrics.lines().forEach { line ->
-        val match = timeRegex.find(line)
-        if (match != null) {
-            val min = match.groupValues[1].toLong()
-            val sec = match.groupValues[2].toLong()
-            val msStr = match.groupValues[3]
-            val ms = msStr.toLong() * (if (msStr.length == 2) 10 else 1)
-            val time = min * 60 * 1000 + sec * 1000 + ms
-            val content = line.substring(match.range.last + 1).trim()
-            if (content.isNotEmpty()) {
-                lyricLines.add(LyricLine(time, content))
-            }
-        } else if (line.isNotBlank() && !line.startsWith("[")) {
-            lyricLines.add(LyricLine(0, line.trim()))
-        }
-    }
-
-    return if (lyricLines.all { it.time == 0L }) {
-        lyricLines.mapIndexed { index, line -> line.copy(time = index * 2000L) }
-    } else {
-        lyricLines.sortedBy { it.time }
-    }
-}
+private fun activeLineAt(lines: List<DisplayLine>, time: Long): Int =
+    lines.indexOfLast { it.start <= time }.coerceAtLeast(0)

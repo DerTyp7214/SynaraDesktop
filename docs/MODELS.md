@@ -88,11 +88,14 @@ Services: [RPC_SERVICES.md](RPC_SERVICES.md) · REST routes: [REST_API.md](REST_
 - [LikeLevel](#devdertypdatalikelevel)
 - [LinkUnmatchedTrackRequest](#devdertypdatalinkunmatchedtrackrequest)
 - [LinkUnmatchedTrackResult](#devdertypdatalinkunmatchedtrackresult)
+- [LinkedListenGroup](#devdertypdatalinkedlistengroup)
+- [LinkedListenGroupKey](#devdertypdatalinkedlistengroupkey)
 - [ListenBackupConfig](#devdertypdatalistenbackupconfig)
 - [ListenBackupConnectionTest](#devdertypdatalistenbackupconnectiontest)
 - [ListenBackupState](#devdertypdatalistenbackupstate)
 - [ListenBrainzStatus](#devdertypdatalistenbrainzstatus)
 - [ListenClock](#devdertypdatalistenclock)
+- [ListenGroupSource](#devdertypdatalistengroupsource)
 - [ListenedAlbum](#devdertypdatalistenedalbum)
 - [ListenedArtist](#devdertypdatalistenedartist)
 - [ListenedSong](#devdertypdatalistenedsong)
@@ -186,6 +189,7 @@ Services: [RPC_SERVICES.md](RPC_SERVICES.md) · REST routes: [REST_API.md](REST_
 - [SongAudioTimeline](#devdertypdatasongaudiotimeline)
 - [SongDownloadSize](#devdertypdatasongdownloadsize)
 - [SongExtendedMetadata](#devdertypdatasongextendedmetadata)
+- [SongLyricsInfo](#devdertypdatasonglyricsinfo)
 - [SongTag](#devdertypdatasongtag)
 - [SplitArtist](#devdertypdatasplitartist)
 - [StatsRange](#devdertypdatastatsrange)
@@ -246,7 +250,16 @@ Services: [RPC_SERVICES.md](RPC_SERVICES.md) · REST routes: [REST_API.md](REST_
 - [FollowedArtist](#devdertypservicesmodelsfollowedartist)
 - [LyricChar](#devdertypservicesmodelslyricchar)
 - [LyricLine](#devdertypservicesmodelslyricline)
+- [LyricVoice](#devdertypservicesmodelslyricvoice)
+- [LyricVoiceType](#devdertypservicesmodelslyricvoicetype)
 - [LyricWord](#devdertypservicesmodelslyricword)
+- [LyricsCandidate](#devdertypservicesmodelslyricscandidate)
+- [LyricsImport](#devdertypservicesmodelslyricsimport)
+- [LyricsImportFormat](#devdertypservicesmodelslyricsimportformat)
+- [LyricsMatch](#devdertypservicesmodelslyricsmatch)
+- [LyricsProviderInfo](#devdertypservicesmodelslyricsproviderinfo)
+- [LyricsSearchResult](#devdertypservicesmodelslyricssearchresult)
+- [LyricsSyncLevel](#devdertypservicesmodelslyricssynclevel)
 - [RecentRelease](#devdertypservicesmodelsrecentrelease)
 - [SyncedLyrics](#devdertypservicesmodelssyncedlyrics)
 - [ClientTimeZone](#devdertypuiclienttimezone)
@@ -289,6 +302,7 @@ Services: [RPC_SERVICES.md](RPC_SERVICES.md) · REST routes: [REST_API.md](REST_
 - [NumberField](#devdertypuiuicomponentnumberfield)
 - [Progress](#devdertypuiuicomponentprogress)
 - [Row](#devdertypuiuicomponentrow)
+- [SearchField](#devdertypuiuicomponentsearchfield)
 - [Section](#devdertypuiuicomponentsection)
 - [Select](#devdertypuiuicomponentselect)
 - [Spacer](#devdertypuiuicomponentspacer)
@@ -316,6 +330,7 @@ Services: [RPC_SERVICES.md](RPC_SERVICES.md) · REST routes: [REST_API.md](REST_
 - [Named](#devdertypuiuiiconnamed)
 - [dev.dertyp.ui.UiIcon.Url](#devdertypuiuiiconurl)
 - [UiIconName](#devdertypuiuiiconname)
+- [UiImageRef](#devdertypuiuiimageref)
 - [UiIntakeCodeKind](#devdertypuiuiintakecodekind)
 - [UiIntakeResult](#devdertypuiuiintakeresult)
 - [UiIntakeStatus](#devdertypuiuiintakestatus)
@@ -1228,6 +1243,30 @@ Result of linking unmatched listens to a library song.
 | `linkedListens` | `Int` | Number of listens that were linked to the song. |
 | `submittedToListenBrainz` | `Int` | Number of manual mappings accepted by the ListenBrainz API. 0 when the song has no recording MBID, no account token is stored, or no listens carry an MSID. |
 
+### LinkedListenGroup <a name="devdertypdatalinkedlistengroup"></a>
+A group of the user's listens that is linked to a library song.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `key` | [LinkedListenGroupKey](#devdertypdatalinkedlistengroupkey) | The key that identifies the group, to pass to relinkSong. |
+| `trackName` | `String`? | The track name of the most recent listen in the group, or null if unknown. |
+| `artistName` | `String`? | The artist name of the most recent listen in the group, or null if unknown. |
+| `releaseName` | `String`? | The release name of the most recent listen in the group, or null if unknown. |
+| `listenCount` | `Long` | Number of listens in the group. |
+| `listenedMs` | `Long` | Total milliseconds listened across the group. |
+| `lastListenedAt` | `Long` | Time of the most recent listen in the group (epoch milliseconds). |
+| `linkedManually` | `Boolean` | True when the group was linked to the song by the user rather than automatically. |
+
+### LinkedListenGroupKey <a name="devdertypdatalinkedlistengroupkey"></a>
+Identifies a group of listens linked to a library song. LOCAL groups are keyed by the song that was actually played. LISTENBRAINZ groups are keyed by recording MBID, or by recording MSID when there is no MBID. A LISTENBRAINZ key with neither holds the listens that carry no recording identity.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `source` | [ListenGroupSource](#devdertypdatalistengroupsource) | The kind of listens in the group. |
+| `playedSongId` | `PlatformUUID`? | The library song that was actually played, for LOCAL groups. Null for LISTENBRAINZ groups. |
+| `recordingMbid` | `PlatformUUID`? | The MusicBrainz recording MBID of a LISTENBRAINZ group, or null. |
+| `recordingMsid` | `PlatformUUID`? | The ListenBrainz recording MSID of a LISTENBRAINZ group without a recording MBID, or null. |
+
 ### ListenBackupConfig <a name="devdertypdatalistenbackupconfig"></a>
 Configuration for backing up server-side listens to a remote listen-backup receiver.
 
@@ -1279,6 +1318,14 @@ Distribution of listens over the hours of the day and days of the week, in the r
 | :--- | :--- | :--- |
 | `hourOfDay` | `List`<`Long`> | Listen counts per hour of day. 24 entries, index 0 = 00:00-00:59. |
 | `dayOfWeek` | `List`<`Long`> | Listen counts per day of week. 7 entries, index 0 = Monday. |
+
+### ListenGroupSource <a name="devdertypdatalistengroupsource"></a>
+The kind of listens in a linked listen group. LOCAL groups hold plays on this server. LISTENBRAINZ groups hold listens imported from ListenBrainz.
+
+| Value | Description |
+| :--- | :--- |
+| `LOCAL` |  |
+| `LISTENBRAINZ` |  |
 
 ### ListenedAlbum <a name="devdertypdatalistenedalbum"></a>
 An album from the user's listen history, with when one of its songs was last played.
@@ -2236,7 +2283,6 @@ Contains core metadata about a track that is common for all users.
 | `duration` | `Long` | Duration of the song in milliseconds. |
 | `explicit` | `Boolean` | Whether the song contains explicit content. |
 | `releaseDate` | `PlatformLocalDate`? | Original release date of the track. |
-| `lyrics` | `String` | The plain text lyrics of the song. |
 | `path` | `String` | Internal server path to the audio file. |
 | `originalUrl` | `String` | The URL to the item on its original platform. |
 | `trackNumber` | `Int` | The position of the track in the album. |
@@ -2254,6 +2300,7 @@ Contains core metadata about a track that is common for all users.
 | `animatedCoverBlurHash` | `String`? | BlurHash of the animated cover's first frame. |
 | `audioStartMs` | `Long`? | Offset in milliseconds of the first audible sound, or null if not yet analyzed. |
 | `tags` | `List`<[TitleTag](#devdertypdatatitletag)> | Version markers split off the title, e.g. remix, live or featuring, in order of extraction. The title never contains them. |
+| `lyricsInfo` | [SongLyricsInfo](#devdertypdatasonglyricsinfo)? | Summary of the lyrics available for this song. |
 | `atmosVariantPath` | `String`? |  |
 
 ### SongAudioBand <a name="devdertypdatasongaudioband"></a>
@@ -2321,6 +2368,19 @@ Extended metadata for a song.
 | `audioData` | [SongAudioData](#devdertypdatasongaudiodata)? | Detailed audio analysis data. |
 | `insertedAt` | `Long` | Timestamp of when the song was first inserted into the database. |
 
+### SongLyricsInfo <a name="devdertypdatasonglyricsinfo"></a>
+Summary of the lyrics available for a song.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `available` | `Boolean` | Whether the song has any lyrics at all. |
+| `syncLevel` | [LyricsSyncLevel](#devdertypservicesmodelslyricssynclevel)? | The best sync level of the default lyrics, or null if there are none. |
+| `levels` | `Set`<[LyricsSyncLevel](#devdertypservicesmodelslyricssynclevel)> | Every sync level that at least one lyrics candidate offers. |
+| `instrumental` | `Boolean` | Whether the song is instrumental. |
+| `defaultCandidateId` | `PlatformUUID`? | The identifier of the default lyrics candidate. |
+| `defaultProvider` | `String`? | The identifier of the provider of the default lyrics candidate. |
+| `candidateCount` | `Int` | Number of stored lyrics candidates. |
+
 ### SongTag <a name="devdertypdatasongtag"></a>
 Flags and metadata attributes for a song.
 
@@ -2332,6 +2392,8 @@ Flags and metadata attributes for a song.
 | `B_16` | Bit depth is 16-bit. |
 | `B_24` | Bit depth is 24-bit. |
 | `HAS_LYRICS` | The song has associated lyrics. |
+| `HAS_SYNCED_LYRICS` | The song has lyrics synced per line or per word. |
+| `HAS_WORD_SYNCED_LYRICS` | The song has lyrics synced per word. |
 | `CUSTOM_UPLOAD` | The song was manually uploaded by a user. |
 | `HAS_MUSICBRAINZ_ID` | The song has a linked MusicBrainz Recording ID. |
 
@@ -2672,7 +2734,6 @@ Extends track metadata with user-specific information like favorite status.
 | `duration` | `Long` | Duration of the song in milliseconds. |
 | `explicit` | `Boolean` | Whether the song contains explicit content. |
 | `releaseDate` | `PlatformLocalDate`? | Original release date of the track. |
-| `lyrics` | `String` | The plain text lyrics of the song. |
 | `path` | `String` | Internal server path to the audio file. |
 | `originalUrl` | `String` | The URL to the item on its original platform. |
 | `trackNumber` | `Int` | The position of the track in the album. |
@@ -2690,6 +2751,7 @@ Extends track metadata with user-specific information like favorite status.
 | `animatedCoverBlurHash` | `String`? | BlurHash of the animated cover's first frame. |
 | `audioStartMs` | `Long`? | Offset in milliseconds of the first audible sound, or null if not yet analyzed. |
 | `tags` | `List`<[TitleTag](#devdertypdatatitletag)> | Version markers split off the title, e.g. remix, live or featuring, in order of extraction. The title never contains them. |
+| `lyricsInfo` | [SongLyricsInfo](#devdertypdatasonglyricsinfo)? | Summary of the lyrics available for this song. |
 | `atmosVariantPath` | `String`? |  |
 | `isFavourite` | `Boolean`? | Whether the current user has marked this song as a favorite. |
 | `userSongCreatedAt` | `PlatformDate`? | Timestamp of when the song record was created. |
@@ -3019,6 +3081,26 @@ A single line of lyrics with timing information.
 | `startTime` | `Duration` | Timestamp of when the line starts. |
 | `endTime` | `Duration` | Timestamp of when the line ends. |
 | `words` | `List`<[LyricWord](#devdertypservicesmodelslyricword)> | Collection of individual words in the line. |
+| `text` | `String`? | The full text of the line. When set, the word texts joined without a separator equal it exactly. When null, the words are joined with a space. |
+| `voice` | `String`? | The id of the voice singing the line, as a key of the voices of the lyrics. |
+| `background` | `Boolean` | Whether the line is a backing vocal. |
+| `group` | `Int` | Identifier shared by a lead line and the backing vocal lines that were split from the same line. |
+
+### LyricVoice <a name="devdertypservicesmodelslyricvoice"></a>
+A singer that lyric lines can be assigned to.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `name` | `String` | The display name of the singer. |
+| `type` | [LyricVoiceType](#devdertypservicesmodelslyricvoicetype) | Whether the voice is a single person or a group. |
+
+### LyricVoiceType <a name="devdertypservicesmodelslyricvoicetype"></a>
+Kind of singer behind a voice.
+
+| Value | Description |
+| :--- | :--- |
+| `PERSON` | A single person. |
+| `GROUP` | A group of singers. |
 
 ### LyricWord <a name="devdertypservicesmodelslyricword"></a>
 A single word in a synced lyric line with precise timing.
@@ -3029,6 +3111,78 @@ A single word in a synced lyric line with precise timing.
 | `startTime` | `Duration` | Timestamp of when the word starts. |
 | `endTime` | `Duration` | Timestamp of when the word ends. |
 | `chars` | `List`<[LyricChar](#devdertypservicesmodelslyricchar)>? | Optional character-level timing information. |
+
+### LyricsCandidate <a name="devdertypservicesmodelslyricscandidate"></a>
+One version of the lyrics of a song as offered by a provider.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `id` | `PlatformUUID` | The candidate unique identifier. |
+| `songId` | `PlatformUUID`? | The song unique identifier, or null if the candidate is not tied to a song. |
+| `provider` | [LyricsProviderInfo](#devdertypservicesmodelslyricsproviderinfo) | The provider the candidate comes from. |
+| `syncLevel` | [LyricsSyncLevel](#devdertypservicesmodelslyricssynclevel) | How finely the lyrics are synced. |
+| `instrumental` | `Boolean` | Whether the track is instrumental. |
+| `match` | [LyricsMatch](#devdertypservicesmodelslyricsmatch) | How sure it is that the lyrics belong to the song. |
+| `durationGapSec` | `Int`? | Difference in seconds between the duration of the lyrics and of the song, or null if unknown. |
+| `rank` | `Int` | Position among the candidates of the song, 1 is best. |
+| `preferred` | `Boolean` | Whether an admin pinned this candidate as the default. |
+| `fetchedAt` | `PlatformDate` | Timestamp of when the candidate was fetched. |
+| `plain` | `String` | The plain text of the lyrics. |
+| `lyrics` | [SyncedLyrics](#devdertypservicesmodelssyncedlyrics)? | The synced lyrics. Only filled when the content was requested. |
+
+### LyricsImport <a name="devdertypservicesmodelslyricsimport"></a>
+A lyrics file to import.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `format` | [LyricsImportFormat](#devdertypservicesmodelslyricsimportformat) | The format of the content. |
+| `content` | `String` | The content of the file. |
+
+### LyricsImportFormat <a name="devdertypservicesmodelslyricsimportformat"></a>
+File format of lyrics that are imported.
+
+| Value | Description |
+| :--- | :--- |
+| `LRC` | LRC with line stamps and optional word stamps. |
+| `TTML` | TTML with optionally timed words. |
+| `LYRICSFILE` | A lyricsfile in YAML. |
+
+### LyricsMatch <a name="devdertypservicesmodelslyricsmatch"></a>
+How sure it is that lyrics belong to the song.
+
+| Value | Description |
+| :--- | :--- |
+| `VERIFIED` | The title, artist and duration of the lyrics were checked against the song. |
+| `PROVIDER` | The provider returned the lyrics for the song, but did not tell which track they are for. |
+
+### LyricsProviderInfo <a name="devdertypservicesmodelslyricsproviderinfo"></a>
+A source of lyrics.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `id` | `String` | The provider identifier, such as betterlyrics or kugou. |
+| `name` | `String` | The display name of the provider. |
+| `url` | `String`? | The web address of the provider to credit, or null if it has none. |
+| `enabled` | `Boolean` | Whether lookups ask this provider. |
+| `priority` | `Int` | Position of the provider in the configured order, lower is asked and preferred first. |
+
+### LyricsSearchResult <a name="devdertypservicesmodelslyricssearchresult"></a>
+Lyrics candidates found for a song or a query.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `candidates` | `List`<[LyricsCandidate](#devdertypservicesmodelslyricscandidate)> | The candidates ordered by rank. |
+| `defaultCandidateId` | `PlatformUUID`? | The identifier of the default candidate. This is the pinned one, otherwise the best ranked one. |
+| `pending` | `List`<`String`> | Identifiers of the providers that did not answer in time and can be asked again later. |
+
+### LyricsSyncLevel <a name="devdertypservicesmodelslyricssynclevel"></a>
+How finely lyrics are synced to the audio.
+
+| Value | Description |
+| :--- | :--- |
+| `PLAIN` | Text only, without timing. |
+| `LINE` | Timed per line. |
+| `WORD` | Timed per word or syllable. |
 
 ### RecentRelease <a name="devdertypservicesmodelsrecentrelease"></a>
 Metadata for a recently released album or single from a followed artist.
@@ -3062,6 +3216,7 @@ A collection of time-synced lyrics for a song.
 | Field | Type | Description |
 | :--- | :--- | :--- |
 | `lines` | `List`<[LyricLine](#devdertypservicesmodelslyricline)> | List of individual lyric lines. |
+| `voices` | `Map`<`String`, [LyricVoice](#devdertypservicesmodelslyricvoice)> | The singers of the lyrics by voice id, used by duets and backing vocals. |
 
 ### ClientTimeZone <a name="devdertypuiclienttimezone"></a>
 The client's time zone, sent as an optional request header next to X-Ui-Schema-Version and Accept-Language. The server formats times on server-driven pages in this zone. Clients without it get times in UTC.
@@ -3263,7 +3418,8 @@ Elevated container with optional header and trailing actions.
 | `children` | `List`<[UiComponent](#devdertypuiuicomponent)> | Content of the card. |
 | `title` | `String`? | Header title. |
 | `subtitle` | `String`? | Header subtitle. |
-| `icon` | [UiIcon](#devdertypuiuiicon)? | Semantic icon name shown in the header. |
+| `icon` | [UiIcon](#devdertypuiuiicon)? | Semantic icon name shown in the header. Shown when there is no image. |
+| `image` | [UiImageRef](#devdertypuiuiimageref)? | Optional image shown in the header instead of the icon. |
 | `tone` | [UiTone](#devdertypuiuitone) | Tone of the card. |
 | `actions` | `List`<[UiComponent](#devdertypuiuicomponent)> | Action elements (typically Buttons) rendered in the card footer. |
 
@@ -3365,9 +3521,10 @@ A list row.
 | :--- | :--- | :--- |
 | `title` | `String` | Title. |
 | `subtitle` | `String`? | Subtitle. |
-| `icon` | [UiIcon](#devdertypuiuiicon)? | Semantic icon name. |
+| `icon` | [UiIcon](#devdertypuiuiicon)? | Semantic icon name. Shown when there is no image. |
 | `trailing` | `String`? | Trailing text. |
 | `action` | [UiAction](#devdertypuiuiaction)? | Action performed when activated. |
+| `image` | [UiImageRef](#devdertypuiuiimageref)? | Optional image shown instead of the icon. |
 
 ### Live <a name="devdertypuiuicomponentlive"></a>
 A subtree that updates independently of the page: render child, then subscribe to IUiService.subscribeLive(contributionId, key) and apply each UiLiveUpdate to it.
@@ -3428,6 +3585,22 @@ Horizontal layout container.
 | `spacing` | [UiSpacing](#devdertypuiuispacing) | Spacing between children. |
 | `align` | [UiAlign](#devdertypuiuialign) | Vertical alignment of children. |
 | `weights` | `List`<`Double`>? | Optional relative weights, one per child. |
+
+### SearchField <a name="devdertypuiuicomponentsearchfield"></a>
+Search-as-you-type picker. While the user types at least minChars characters, clients call IUiService.search(contributionId, key, query, context) with the contribution that rendered the field and show the returned options. The value of the picked option is submitted under key with the enclosing Form. Clients without search field support receive a query TextField, a Search button and a Select of the results.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `key` | `String` | Payload key, also passed to IUiService.search. |
+| `label` | `String` | Label. |
+| `value` | [UiOption](#devdertypuiuioption)? | Currently selected option. Its label is shown until the user picks another one. |
+| `placeholder` | `String`? | Placeholder. |
+| `helper` | `String`? | Helper text. |
+| `error` | `String`? | Validation error to display. |
+| `required` | `Boolean` | Whether a value is required. |
+| `enabled` | `Boolean` | Whether the field is editable. |
+| `minChars` | `Int` | Minimum number of typed characters before clients search. |
+| `toolbar` | `List`<[UiComponent](#devdertypuiuicomponent)> | Keyboard accessory toolbar shown above the on-screen keyboard while the field is focused. Items are trailing-aligned. Buttons, Icons and Native portals. |
 
 ### Section <a name="devdertypuiuicomponentsection"></a>
 Titled group of content.
@@ -3731,6 +3904,15 @@ Semantic icons clients map to their own icon set. Adding an entry requires a UI 
 | `MORE` | More / overflow menu. |
 | `BARCODE` | Barcode scanner. |
 
+### UiImageRef <a name="devdertypuiuiimageref"></a>
+A reference to a server image shown next to a row or option.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `imageId` | `PlatformUUID` | Id of a server image. |
+| `blurHash` | `String`? | Blur hash shown while the image loads. |
+| `rounded` | `Boolean` | Whether to render the image as a circle. |
+
 ### UiIntakeCodeKind <a name="devdertypuiuiintakecodekind"></a>
 Kind of a catalog code handed to the intake.
 
@@ -3830,7 +4012,8 @@ A selectable option of a Select field.
 | :--- | :--- | :--- |
 | `value` | `String` | Value submitted when selected. |
 | `label` | `String` | Display label. |
-| `icon` | [UiIcon](#devdertypuiuiicon)? | Optional icon. |
+| `icon` | [UiIcon](#devdertypuiuiicon)? | Optional icon. Shown when there is no image. |
+| `image` | [UiImageRef](#devdertypuiuiimageref)? | Optional image shown instead of the icon. |
 
 ### UiRender <a name="devdertypuiuirender"></a>
 A rendered contribution.

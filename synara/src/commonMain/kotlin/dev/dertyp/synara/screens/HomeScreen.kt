@@ -51,7 +51,7 @@ import dev.dertyp.synara.ui.models.AnnotatedSnackbarVisuals
 import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.ui.server.UiHost
 import dev.dertyp.synara.ui.server.UiHostOverlays
-import dev.dertyp.synara.ui.server.UiIconView
+import dev.dertyp.synara.ui.server.UiLeadingVisual
 import dev.dertyp.synara.ui.server.UiPageScreen
 import dev.dertyp.synara.ui.server.UiRenderer
 import dev.dertyp.synara.ui.server.UiSlot
@@ -549,7 +549,7 @@ class HomeScreen : Screen {
                     onItemClick?.invoke()
                 }
             },
-            icon = { entry.icon?.let { UiIconView(it, size = 20.dp) } }
+            icon = { UiLeadingVisual(entry.icon, entry.image, size = 20.dp) }
         )
     }
 

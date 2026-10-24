@@ -80,7 +80,6 @@ export interface UserSong {
 	duration: number;
 	explicit: boolean;
 	releaseDate: string | null;
-	lyrics: string;
 	trackNumber: number;
 	discNumber: number;
 	coverId: string | null;

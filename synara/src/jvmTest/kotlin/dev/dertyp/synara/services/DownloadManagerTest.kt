@@ -1,9 +1,13 @@
 package dev.dertyp.synara.services
 
-import com.russhwolf.settings.Settings
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.AudioInfo
 import dev.dertyp.data.BaseSong
+import dev.dertyp.data.EntityChange
+import dev.dertyp.data.EntityChangeAspect
+import dev.dertyp.data.EntityChangeKind
+import dev.dertyp.data.EntityChangeWindow
+import dev.dertyp.data.EntityType
 import dev.dertyp.data.PaginatedResponse
 import dev.dertyp.data.User
 import dev.dertyp.data.UserPlaylist
@@ -11,13 +15,24 @@ import dev.dertyp.data.UserProfile
 import dev.dertyp.data.UserSong
 import dev.dertyp.logging.Logger
 import dev.dertyp.randomPlatformUUID
+import dev.dertyp.services.IEntityChangeService
+import dev.dertyp.services.ILyricsCandidateService
 import dev.dertyp.services.ISongService
 import dev.dertyp.services.IUserPlaylistService
 import dev.dertyp.services.IUserService
+import dev.dertyp.services.models.LyricsCandidate
+import dev.dertyp.services.models.LyricsMatch
+import dev.dertyp.services.models.LyricsProviderInfo
+import dev.dertyp.services.models.LyricsSyncLevel
 import dev.dertyp.synara.Config
 import dev.dertyp.synara.db.*
+import dev.dertyp.synara.lyrics.LyricsRepository
 import dev.dertyp.synara.rpc.RpcServiceManager
+import dev.dertyp.synara.settings.SettingKey
+import dev.dertyp.synara.settings.getOrNull
+import dev.dertyp.synara.settings.put
 import dev.dertyp.synara.testing.ConfigFixture
+import dev.dertyp.synara.testing.InMemorySettings
 import dev.dertyp.synara.testing.UnconfinedDispatchers
 import dev.dertyp.synara.testing.startTestKoin
 import dev.dertyp.synara.testing.stopTestKoin
@@ -34,9 +49,11 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
@@ -51,6 +68,7 @@ import synara.synara.generated.resources.download_failed
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
+import java.util.Date
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -85,9 +103,20 @@ class DownloadManagerTest {
 
     private val songService = mockk<ISongService>()
     private val downloadService = mockk<ISongService>()
+    private val serverReachable = MutableStateFlow(false)
+    private val connectionState = MutableStateFlow(RpcServiceManager.ConnectionState.Loading)
     private val rpcManager = mockk<RpcServiceManager>(relaxed = true) {
         every { getService(ISongService::class, any()) } returns downloadService
+        every { isServerReachable } returns serverReachable
+        every { connectionState } returns this@DownloadManagerTest.connectionState
     }
+    private val lyricsService = mockk<ILyricsCandidateService> {
+        coEvery { getLyrics(any(), any()) } returns null
+    }
+    private val entityChangeService = mockk<IEntityChangeService>()
+    private val offlineLyricsStore = mockk<OfflineLyricsStore>(relaxed = true)
+    private val lyricsRepository = mockk<LyricsRepository>(relaxed = true)
+    private val settings = InMemorySettings()
     private val libraryRepository = mockk<LibraryRepository>(relaxed = true) {
         every { observeChanges() } returns emptyFlow()
         coEvery { getExplicitlySavedIds() } returns SavedLibraryIds(emptySet(), emptySet(), emptySet(), emptySet())
@@ -135,7 +164,8 @@ class DownloadManagerTest {
                 DownloadedUserPlaylistSongs,
                 DownloadedSongGenres,
                 DownloadedAlbumGenres,
-                DownloadedArtistGenres
+                DownloadedArtistGenres,
+                DownloadedSongLyrics
             )
         }
         database = connected
@@ -176,10 +206,14 @@ class DownloadManagerTest {
         artistService = mockk(),
         playlistService = playlistService,
         userService = userService,
+        lyricsService = lyricsService,
+        entityChangeService = entityChangeService,
+        offlineLyricsStore = offlineLyricsStore,
+        lyricsRepository = lyricsRepository,
         userRepository = userRepository,
         storageService = storage,
         libraryRepository = libraryRepository,
-        settings = mockk<Settings>(relaxed = true),
+        settings = settings,
         rpcManager = rpcManager,
         logger = logger,
         snackbarManager = snackbarManager,
@@ -408,6 +442,25 @@ class DownloadManagerTest {
     }
 
     @Test
+    fun cleanupDeletesTheStoredLyricsOfDeletedSongs() {
+        connectLibrary()
+        val inMix = storedSong(1)
+        val loose = storedSong(2)
+        Config.setDownloadedMixSongIds("mix:WEEK", listOf(inMix.id))
+        val store = ExposedOfflineLyricsStore()
+        runBlocking {
+            store.saveLyrics(inMix.id, lyricsOf(inMix, "kept"))
+            store.saveLyrics(loose.id, lyricsOf(loose, "dropped"))
+        }
+
+        val manager = createManager(UnconfinedDispatchers)
+        runBlocking { manager.cleanup() }
+
+        assertEquals("kept", runBlocking { store.getLyrics(inMix.id) }?.plain)
+        assertNull(runBlocking { store.getLyrics(loose.id) })
+    }
+
+    @Test
     fun emptyMixResultKeepsTheStoredMembership() {
         connectLibrary()
         val inMix = storedSong(1)
@@ -454,5 +507,225 @@ class DownloadManagerTest {
         assertTrue(isKept(shared))
         assertFalse(runBlocking { manager.isMixDownloaded("mix:WEEK").first() })
         assertTrue(runBlocking { manager.isMixDownloaded("mood:chill").first() })
+    }
+
+    private fun lyricsOf(song: UserSong, plain: String) = LyricsCandidate(
+        id = randomPlatformUUID(),
+        songId = song.id,
+        provider = LyricsProviderInfo("lrclib", "LRCLIB", null, enabled = true, priority = 0),
+        syncLevel = LyricsSyncLevel.PLAIN,
+        instrumental = false,
+        match = LyricsMatch.VERIFIED,
+        durationGapSec = null,
+        rank = 1,
+        preferred = false,
+        fetchedAt = Date(0L),
+        plain = plain
+    )
+
+    private fun change(id: PlatformUUID, aspect: EntityChangeAspect = EntityChangeAspect.DATA, kind: EntityChangeKind = EntityChangeKind.UPDATED) =
+        EntityChange(EntityType.SONG, id, aspect, kind, changedAt = 200L)
+
+    private fun connect() {
+        serverReachable.value = true
+        connectionState.value = RpcServiceManager.ConnectionState.Authenticated
+        scheduler.runCurrent()
+    }
+
+    private fun downloadedSongs(vararg songs: UserSong) {
+        coEvery { libraryRepository.getSongs(false) } returns songs.toList()
+        coEvery { entityChangeService.getWindow() } returns EntityChangeWindow(serverTime = 500L, availableSince = 50L)
+    }
+
+    @Test
+    fun aCompletedDownloadStoresTheDefaultLyricsOfTheSong() {
+        val song = song(fileSize = 8)
+        val lyrics = lyricsOf(song, "first line")
+        coEvery { lyricsService.getLyrics(song.id, null) } returns lyrics
+
+        download(song, flowOf(ByteArray(8)))
+
+        coVerifyOrder {
+            libraryRepository.saveSongMetadata(song, false)
+            offlineLyricsStore.saveLyrics(song.id, lyrics)
+        }
+    }
+
+    @Test
+    fun aDownloadWhoseLyricsCannotBeFetchedIsStillSavedOnce() {
+        val song = song(fileSize = 8)
+        coEvery { lyricsService.getLyrics(song.id, null) } throws IOException("lyrics unavailable")
+
+        val manager = download(song, flowOf(ByteArray(8)))
+
+        assertEquals(8L, File(storage.getInternalSongPath(song)).length())
+        verify(exactly = 1) { downloadService.streamSong(song.id, any(), any()) }
+        coVerify(exactly = 1) { libraryRepository.saveSongMetadata(song, false) }
+        coVerify(exactly = 0) { offlineLyricsStore.saveLyrics(any(), any()) }
+        coVerify(exactly = 0) { offlineLyricsStore.deleteLyrics(any()) }
+        verify(exactly = 0) { snackbarManager.showSnackbar(any(), any(), any(), any()) }
+        assertEquals(emptyList(), manager.queue.value)
+    }
+
+    @Test
+    fun lyricsOfDownloadedSongsThatChangedAreFetchedAgain() {
+        val changed = song(fileSize = 8)
+        val liked = song(fileSize = 8)
+        val elsewhere = randomPlatformUUID()
+        val lyrics = lyricsOf(changed, "new line")
+        downloadedSongs(changed, liked)
+        settings.put(SettingKey.SongChangesSince, 100L)
+        every { entityChangeService.allChanges(100L) } returns flowOf(
+            change(changed.id),
+            change(liked.id, aspect = EntityChangeAspect.LIKE),
+            change(elsewhere)
+        )
+        coEvery { lyricsService.getLyrics(changed.id, null) } returns lyrics
+
+        createManager()
+        connect()
+
+        coVerify(exactly = 1) { offlineLyricsStore.saveLyrics(changed.id, lyrics) }
+        coVerify(exactly = 0) { lyricsService.getLyrics(liked.id, any()) }
+        coVerify(exactly = 0) { lyricsService.getLyrics(elsewhere, any()) }
+        coVerify(exactly = 1) { lyricsRepository.invalidate(changed.id) }
+        coVerify(exactly = 1) { lyricsRepository.invalidate(elsewhere) }
+        coVerify(exactly = 0) { lyricsRepository.invalidate(liked.id) }
+        assertEquals(500L, settings.getOrNull(SettingKey.SongChangesSince))
+    }
+
+    @Test
+    fun lyricsRemovedOnTheServerAreDeletedFromTheStore() {
+        val changed = song(fileSize = 8)
+        downloadedSongs(changed)
+        settings.put(SettingKey.SongChangesSince, 100L)
+        every { entityChangeService.allChanges(100L) } returns flowOf(change(changed.id))
+
+        createManager()
+        connect()
+
+        coVerify(exactly = 1) { offlineLyricsStore.deleteLyrics(changed.id) }
+        coVerify(exactly = 0) { offlineLyricsStore.saveLyrics(any(), any()) }
+    }
+
+    @Test
+    fun aDeletedSongIsLeftToTheCleanup() {
+        val deleted = song(fileSize = 8)
+        downloadedSongs(deleted)
+        settings.put(SettingKey.SongChangesSince, 100L)
+        every { entityChangeService.allChanges(100L) } returns flowOf(change(deleted.id, kind = EntityChangeKind.DELETED))
+
+        createManager()
+        connect()
+
+        coVerify(exactly = 0) { lyricsService.getLyrics(deleted.id, any()) }
+        coVerify(exactly = 1) { lyricsRepository.invalidate(deleted.id) }
+        assertEquals(500L, settings.getOrNull(SettingKey.SongChangesSince))
+    }
+
+    @Test
+    fun aFailedRefetchKeepsTheStoredLyricsAndPullsTheChangeAgainAfterAReconnect() {
+        val changed = song(fileSize = 8)
+        downloadedSongs(changed)
+        settings.put(SettingKey.SongChangesSince, 100L)
+        every { entityChangeService.allChanges(100L) } returns flowOf(change(changed.id))
+        coEvery { lyricsService.getLyrics(changed.id, null) } throws IOException("connection lost")
+
+        createManager()
+        connect()
+
+        coVerify(exactly = 1) { lyricsService.getLyrics(changed.id, null) }
+        coVerify(exactly = 0) { offlineLyricsStore.saveLyrics(any(), any()) }
+        coVerify(exactly = 0) { offlineLyricsStore.deleteLyrics(any()) }
+        assertEquals(100L, settings.getOrNull(SettingKey.SongChangesSince))
+
+        serverReachable.value = false
+        scheduler.runCurrent()
+        serverReachable.value = true
+        scheduler.runCurrent()
+
+        verify(exactly = 2) { entityChangeService.allChanges(100L) }
+    }
+
+    @Test
+    fun withoutAPreviousPullTheLyricsOfEveryDownloadedSongAreFetched() {
+        val first = song(fileSize = 8)
+        val second = song(fileSize = 8)
+        downloadedSongs(first, second)
+        val firstLyrics = lyricsOf(first, "first")
+        val secondLyrics = lyricsOf(second, "second")
+        coEvery { lyricsService.getLyrics(first.id, null) } returns firstLyrics
+        coEvery { lyricsService.getLyrics(second.id, null) } returns secondLyrics
+
+        createManager()
+        connect()
+
+        coVerify(exactly = 1) { offlineLyricsStore.saveLyrics(first.id, firstLyrics) }
+        coVerify(exactly = 1) { offlineLyricsStore.saveLyrics(second.id, secondLyrics) }
+        verify(exactly = 0) { entityChangeService.allChanges(any()) }
+        assertEquals(500L, settings.getOrNull(SettingKey.SongChangesSince))
+    }
+
+    @Test
+    fun aPullOlderThanTheRecordedChangesFetchesEveryDownloadedSong() {
+        val song = song(fileSize = 8)
+        downloadedSongs(song)
+        settings.put(SettingKey.SongChangesSince, 10L)
+        val lyrics = lyricsOf(song, "line")
+        coEvery { lyricsService.getLyrics(song.id, null) } returns lyrics
+
+        createManager()
+        connect()
+
+        coVerify(exactly = 1) { offlineLyricsStore.saveLyrics(song.id, lyrics) }
+        verify(exactly = 0) { entityChangeService.allChanges(any()) }
+    }
+
+    @Test
+    fun aReconnectPullsFromTheTimeOfThePreviousPull() {
+        val changed = song(fileSize = 8)
+        downloadedSongs(changed)
+        settings.put(SettingKey.SongChangesSince, 100L)
+        every { entityChangeService.allChanges(100L) } returns flowOf(change(changed.id))
+        every { entityChangeService.allChanges(500L) } returns flowOf()
+
+        createManager()
+        connect()
+        coEvery { entityChangeService.getWindow() } returns EntityChangeWindow(serverTime = 900L, availableSince = 50L)
+        serverReachable.value = false
+        scheduler.runCurrent()
+        serverReachable.value = true
+        scheduler.runCurrent()
+
+        verify(exactly = 1) { entityChangeService.allChanges(100L) }
+        verify(exactly = 1) { entityChangeService.allChanges(500L) }
+        assertEquals(900L, settings.getOrNull(SettingKey.SongChangesSince))
+    }
+
+    @Test
+    fun aPullWithoutChangesTouchesNoLyrics() {
+        val song = song(fileSize = 8)
+        downloadedSongs(song)
+        settings.put(SettingKey.SongChangesSince, 100L)
+        every { entityChangeService.allChanges(100L) } returns flowOf()
+
+        createManager()
+        connect()
+        scheduler.advanceUntilIdle()
+
+        coVerify(exactly = 0) { lyricsService.getLyrics(any(), any()) }
+        coVerify(exactly = 0) { lyricsRepository.invalidate(any()) }
+        assertEquals(500L, settings.getOrNull(SettingKey.SongChangesSince))
+    }
+
+    @Test
+    fun nothingIsPulledWhileTheServerIsUnreachable() {
+        downloadedSongs()
+        connectionState.value = RpcServiceManager.ConnectionState.Authenticated
+
+        createManager()
+        scheduler.runCurrent()
+
+        coVerify(exactly = 0) { entityChangeService.getWindow() }
     }
 }

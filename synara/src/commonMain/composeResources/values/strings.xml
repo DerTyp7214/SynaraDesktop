@@ -390,12 +390,26 @@
 
     <!-- Metadata Edit -->
     <string name="lyrics">Lyrics</string>
+    <string name="lyrics_loading">Loading lyrics…</string>
+    <string name="lyrics_failed">Could not load the lyrics</string>
+    <string name="lyrics_none">No lyrics available</string>
+    <string name="lyrics_versions">Lyrics versions</string>
+    <string name="lyrics_search_providers">Search providers</string>
+    <string name="lyrics_make_default">Make default for everyone</string>
+    <string name="lyrics_verified">Verified</string>
+    <string name="lyrics_duration_gap">Δ %1$d s</string>
+    <string name="lyrics_sync_plain">Plain</string>
+    <string name="lyrics_sync_line">Line</string>
+    <string name="lyrics_sync_word">Word</string>
     <string name="edit_metadata">Edit Metadata</string>
     <string name="edit_lyrics">Edit Lyrics</string>
     <string name="edit_song_artists_title">Edit Song Artists</string>
     <string name="edit_song_artists_button">Save Artists</string>
     <string name="edit_song_artists_search_placeholder">Search artists for this song…</string>
     <string name="search_lyrics">Search Lyrics</string>
+    <string name="import_synced_lyrics">Import Synced Lyrics</string>
+    <string name="import_synced_lyrics_done">Lyrics imported, %1$d versions available</string>
+    <string name="import_synced_lyrics_unsupported">Unsupported lyrics file type</string>
     <string name="add_line">Add Line</string>
     <string name="delete_line">Delete Line</string>
     <string name="lyrics_hint">Lyrics line…</string>
@@ -563,6 +577,8 @@
     <string name="tag_b_16">16 bit</string>
     <string name="tag_b_24">24 bit</string>
     <string name="tag_has_lyrics">Lyrics</string>
+    <string name="tag_has_synced_lyrics">Synced lyrics</string>
+    <string name="tag_has_word_synced_lyrics">Word-synced lyrics</string>
     <string name="tag_custom_upload">Custom Upload</string>
     <string name="tag_has_musicbrainz_id">MusicBrainz</string>
     <string name="tag_filter_included">Included</string>
@@ -707,6 +723,10 @@
     <string name="ui_server_file_clear">Remove file</string>
     <string name="ui_server_file_paste">Or paste the content</string>
     <string name="ui_server_file_paste_base64">Or paste the content as base64</string>
+    <string name="ui_server_search_min_chars">Type at least %1$d characters to search</string>
+    <string name="ui_server_search_no_results">No results</string>
+    <string name="ui_server_search_failed">Search failed</string>
+    <string name="ui_server_search_clear">Clear search</string>
     <string name="home_cards_title">Cards</string>
     <string name="home_cards_edit">Customize cards</string>
     <string name="home_cards_pinned">Pinned</string>

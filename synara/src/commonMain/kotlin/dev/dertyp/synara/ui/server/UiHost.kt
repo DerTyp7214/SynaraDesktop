@@ -31,9 +31,11 @@ import dev.dertyp.ui.UiContext
 import dev.dertyp.ui.UiEntityType
 import dev.dertyp.ui.UiHookHandler
 import dev.dertyp.ui.UiIcon
+import dev.dertyp.ui.UiImageRef
 import dev.dertyp.ui.UiIntakeStatus
 import dev.dertyp.ui.UiInvokePayload
 import dev.dertyp.ui.UiInvokeStatus
+import dev.dertyp.ui.UiOption
 import dev.dertyp.ui.UiPortals
 import dev.dertyp.ui.UiValue
 import kotlinx.coroutines.CancellationException
@@ -73,10 +75,11 @@ data class UiEntry(
     val action: UiAction?,
     val enabled: Boolean = true,
     val destructive: Boolean = false,
+    val image: UiImageRef? = null,
 )
 
 fun UiComponent.asEntry(): UiEntry? = when (this) {
-    is UiComponent.ListItem -> UiEntry(title, subtitle, icon, action)
+    is UiComponent.ListItem -> UiEntry(title, subtitle, icon, action, image = image)
     is UiComponent.Tile -> UiEntry(title, subtitle, icon, action)
     is UiComponent.Button -> UiEntry(label, icon = icon, action = action, enabled = enabled, destructive = style == UiButtonStyle.DESTRUCTIVE)
     else -> null
@@ -88,6 +91,7 @@ interface UiHost {
     val entityId: PlatformUUID? get() = context.entityId
 
     fun dispatch(action: UiAction, form: UiFormBinding? = null)
+    suspend fun search(key: String, query: String): List<UiOption>
     fun portal(name: String): UiPortalContent?
     fun message(text: String)
     fun refresh()
@@ -124,6 +128,16 @@ class DefaultUiHost(
     }
 
     override fun refresh() = onRefresh()
+
+    override suspend fun search(key: String, query: String): List<UiOption> =
+        try {
+            uiService.search(contributionId, key, query, context)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            logger.error(ServerUiLogTag, "search $key failed", e)
+            throw e
+        }
 
     override fun dispatch(action: UiAction, form: UiFormBinding?) {
         when (action) {

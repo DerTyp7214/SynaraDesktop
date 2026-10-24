@@ -56,7 +56,7 @@ private fun UiSettingsSlotItem(component: UiComponent, host: UiHost) {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            entry.icon?.let { UiIconView(it, size = 20.dp) }
+            UiLeadingVisual(entry.icon, entry.image, size = 20.dp, imageSize = 32.dp)
         }
     }
 }

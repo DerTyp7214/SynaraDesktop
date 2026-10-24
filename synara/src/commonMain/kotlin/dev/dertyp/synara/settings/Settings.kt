@@ -110,6 +110,7 @@ sealed class SettingKey<T>(val name: String) {
     // Downloads
     data object DownloadFavorites : SettingKey<Boolean>("download_favorites")
     data object StreamingQuality : SettingKey<Int>("streaming_quality")
+    data object SongChangesSince : SettingKey<Long>("song_changes_since")
 
     // Performance
     data object ShowPerformanceOverlay : SettingKey<Boolean>("show_performance_overlay")
@@ -196,7 +197,7 @@ fun <T : Any> Settings.getOrNull(key: SettingKey<T>): T? {
 
         is SettingKey.TokenExpiration, is SettingKey.QueueSyncVersion,
         is SettingKey.QueueSyncLastAt, is SettingKey.SettingsSyncVersion,
-        is SettingKey.SettingsSyncLastAt -> getLongOrNull(key.name) as T?
+        is SettingKey.SettingsSyncLastAt, is SettingKey.SongChangesSince -> getLongOrNull(key.name) as T?
         is SettingKey.DarkTheme, is SettingKey.UseSongColor, is SettingKey.UsePywal,
         is SettingKey.IsServerScrobblingEnabled,
         is SettingKey.IsListenBrainzEnabled, is SettingKey.IsLastFmEnabled,

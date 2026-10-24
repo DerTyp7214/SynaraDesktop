@@ -6,6 +6,7 @@ import dev.dertyp.logging.LogTag
 import dev.dertyp.logging.Logger
 import dev.dertyp.synara.db.ExposedLibraryRepository
 import dev.dertyp.synara.db.ExposedLocalHistoryRepository
+import dev.dertyp.synara.db.ExposedOfflineLyricsStore
 import dev.dertyp.synara.db.ExposedRecentlyPlayedRepository
 import dev.dertyp.synara.db.ExposedScrobbleQueueRepository
 import dev.dertyp.synara.db.ExposedSettingsSyncRepository
@@ -13,6 +14,7 @@ import dev.dertyp.synara.db.SettingsSyncRepository
 import dev.dertyp.synara.db.ExposedUserRepository
 import dev.dertyp.synara.db.LibraryRepository
 import dev.dertyp.synara.db.LocalHistoryRepository
+import dev.dertyp.synara.db.OfflineLyricsStore
 import dev.dertyp.synara.db.RecentlyPlayedRepository
 import dev.dertyp.synara.db.ScrobbleQueueRepository
 import dev.dertyp.synara.db.SongGuessRepository
@@ -125,6 +127,7 @@ actual fun platformModule(): Module = module {
     singleOf(::ExposedScrobbleQueueRepository) bind ScrobbleQueueRepository::class
     singleOf(::ExposedLocalHistoryRepository) bind LocalHistoryRepository::class
     singleOf(::ExposedLibraryRepository) bind LibraryRepository::class
+    singleOf(::ExposedOfflineLyricsStore) bind OfflineLyricsStore::class
     singleOf(::ExposedSongGuessRepository) bind SongGuessRepository::class
     singleOf(::ExposedSettingsSyncRepository) bind SettingsSyncRepository::class
 }

@@ -6,10 +6,12 @@ import dev.dertyp.data.ArtistCredit
 import dev.dertyp.data.AudioInfo
 import dev.dertyp.data.Genre
 import dev.dertyp.data.LikeLevel
+import dev.dertyp.data.SongLyricsInfo
 import dev.dertyp.data.Song
 import dev.dertyp.data.TitleTag
 import dev.dertyp.data.TitleTagKind
 import dev.dertyp.data.UserSong
+import dev.dertyp.services.models.LyricsSyncLevel
 import dev.dertyp.randomPlatformUUID
 import dev.dertyp.toPlatformLocalDateISO
 import kotlin.test.Test
@@ -123,7 +125,7 @@ class TitleTagsDisplayTest {
             duration = 123_456,
             explicit = true,
             releaseDate = "2020-02-03".toPlatformLocalDateISO(),
-            lyrics = "la la",
+            lyricsInfo = SongLyricsInfo(available = true, syncLevel = LyricsSyncLevel.LINE, levels = setOf(LyricsSyncLevel.LINE)),
             path = "/music/song.flac",
             originalUrl = "https://example.org/song",
             trackNumber = 7,
@@ -152,7 +154,7 @@ class TitleTagsDisplayTest {
         assertEquals(userSong.duration, song.duration)
         assertEquals(userSong.explicit, song.explicit)
         assertEquals(userSong.releaseDate, song.releaseDate)
-        assertEquals(userSong.lyrics, song.lyrics)
+        assertEquals(userSong.lyricsInfo, song.lyricsInfo)
         assertEquals(userSong.path, song.path)
         assertEquals(userSong.originalUrl, song.originalUrl)
         assertEquals(userSong.trackNumber, song.trackNumber)

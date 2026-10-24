@@ -64,6 +64,18 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.17.0",
+                        date = "2026-10-24",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "**Word-synced lyrics**: lyrics timed per word or syllable fill in as they are sung, backing vocals appear under the main line and duet parts are aligned left and right."),
+                            Change(ChangeType.New, "Lyrics can be switched between the versions found for a song, and more versions can be searched for from the lyrics view."),
+                            Change(ChangeType.New, "Timed lyrics can be imported from .ttml, .lrc and .lyricsfile.yaml files in the song editor."),
+                            Change(ChangeType.New, "Downloaded songs keep their lyrics offline."),
+                            Change(ChangeType.Improved, "Lyrics scroll smoothly with playback, also while controlling another device.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.16.0",
                         date = "2026-10-20",
                         isPrerelease = true,

@@ -24,6 +24,9 @@ import dev.dertyp.data.MusicBrainzRecording
 import dev.dertyp.data.TitleTag
 import dev.dertyp.data.TitleTagKind
 import dev.dertyp.data.UserSong
+import dev.dertyp.logging.LogTag
+import dev.dertyp.logging.Logger
+import dev.dertyp.services.ILyricsCandidateService
 import dev.dertyp.services.ISongService
 import dev.dertyp.synara.core.displayTags
 import dev.dertyp.synara.core.localizedName
@@ -39,7 +42,10 @@ import dev.dertyp.synara.ui.components.dialogs.LyricsEditDialog
 import dev.dertyp.synara.ui.components.dialogs.MusicBrainzSearchDialog
 import dev.dertyp.synara.ui.components.formatDuration
 import dev.dertyp.synara.ui.components.formatFileSize
+import dev.dertyp.synara.ui.models.SnackbarManager
+import dev.dertyp.synara.utils.pickFile
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import synara.synara.generated.resources.*
@@ -56,12 +62,18 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
         val songService: ISongService = koinInject()
         val mbService: MusicBrainzService = koinInject()
         val libraryRepository: LibraryRepository = koinInject()
+        val lyricsService: ILyricsCandidateService = koinInject()
+        val snackbarManager: SnackbarManager = koinInject()
+        val logger: Logger = koinInject()
+        val lyricsEditor = remember(songService, lyricsService) { SongLyricsEditor(songService, lyricsService) }
 
         var song by remember { mutableStateOf<UserSong?>(null) }
         var title by remember { mutableStateOf("") }
         var tags by remember { mutableStateOf<List<TitleTag>>(emptyList()) }
         var artists by remember { mutableStateOf<List<ArtistCredit>>(emptyList()) }
         var lyrics by remember { mutableStateOf<List<String>>(emptyList()) }
+        var loadedLyrics by remember { mutableStateOf<List<String>>(emptyList()) }
+        var isImporting by remember { mutableStateOf(false) }
         var musicBrainzId by remember { mutableStateOf<PlatformUUID?>(null) }
         var mbRecording by remember { mutableStateOf<MusicBrainzRecording?>(null) }
 
@@ -77,7 +89,14 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
             title = song?.title ?: ""
             tags = song?.tags ?: emptyList()
             artists = song?.artists ?: emptyList()
-            lyrics = song?.lyrics?.lines()?.filter { it.isNotBlank() } ?: emptyList()
+            val loaded = try {
+                lyricsEditor.load(songId)
+            } catch (e: Exception) {
+                logger.error(LogTag.RPC, e.message ?: "", e)
+                emptyList()
+            }
+            lyrics = loaded
+            loadedLyrics = loaded
             musicBrainzId = song?.musicBrainzId
             if (musicBrainzId != null) {
                 mbRecording = mbService.getRecording(musicBrainzId!!)
@@ -121,10 +140,14 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
                                                     .map { it.copy(label = it.label.trim()) }
                                                     .filter { it.label.isNotBlank() },
                                                 artists = artists,
-                                                lyrics = lyrics.joinToString("\n"),
                                                 musicBrainzId = musicBrainzId,
                                             )
                                             val updated = songService.updateSong(payload)
+                                            try {
+                                                lyricsEditor.save(songId, loadedLyrics, lyrics)
+                                            } catch (e: Exception) {
+                                                logger.error(LogTag.RPC, e.message ?: "", e)
+                                            }
                                             if (updated != null &&
                                                 libraryRepository.isSongSaved(songId, explicitlySavedOnly = false)
                                             ) {
@@ -137,7 +160,8 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
                                                 )
                                             }
                                             navigator.pop()
-                                        } catch (_: Exception) {
+                                        } catch (e: Exception) {
+                                            logger.error(LogTag.RPC, e.message ?: "", e)
                                         } finally {
                                             isSaving = false
                                         }
@@ -211,6 +235,50 @@ class MetadataEditScreen(private val songId: PlatformUUID) : Screen {
                                 Icon(SynaraIcons.Lyrics.get(), contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(stringResource(Res.string.edit_lyrics))
+                            }
+
+                            Button(
+                                enabled = !isImporting,
+                                onClick = {
+                                    scope.launch {
+                                        isImporting = true
+                                        try {
+                                            val file = pickFile(
+                                                getString(Res.string.import_synced_lyrics),
+                                                lyricsImportExtensions
+                                            ) ?: return@launch
+                                            val result = lyricsEditor.import(
+                                                songId,
+                                                file.name,
+                                                file.bytes.decodeToString()
+                                            )
+                                            snackbarManager.showSnackbar(
+                                                if (result == null) {
+                                                    getString(Res.string.import_synced_lyrics_unsupported)
+                                                } else {
+                                                    getString(
+                                                        Res.string.import_synced_lyrics_done,
+                                                        result.candidates.size
+                                                    )
+                                                }
+                                            )
+                                        } catch (e: Exception) {
+                                            logger.error(LogTag.RPC, e.message ?: "", e)
+                                            snackbarManager.showSnackbar(e.message ?: e.toString())
+                                        } finally {
+                                            isImporting = false
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            ) {
+                                Icon(SynaraIcons.Lyrics.get(), contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(stringResource(Res.string.import_synced_lyrics))
                             }
 
                             Button(

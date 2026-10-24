@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
@@ -54,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -72,10 +74,12 @@ import dev.dertyp.ui.UiButtonStyle
 import dev.dertyp.ui.UiComponent
 import dev.dertyp.ui.UiEmphasis
 import dev.dertyp.ui.UiLiveUpdate
+import dev.dertyp.ui.UiOption
 import dev.dertyp.ui.UiTextKind
 import dev.dertyp.ui.UiTone
 import dev.dertyp.ui.UiValue
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
@@ -87,6 +91,10 @@ import synara.synara.generated.resources.ui_server_file_clear
 import synara.synara.generated.resources.ui_server_file_none
 import synara.synara.generated.resources.ui_server_file_paste
 import synara.synara.generated.resources.ui_server_file_paste_base64
+import synara.synara.generated.resources.ui_server_search_clear
+import synara.synara.generated.resources.ui_server_search_failed
+import synara.synara.generated.resources.ui_server_search_min_chars
+import synara.synara.generated.resources.ui_server_search_no_results
 import synara.synara.generated.resources.ui_server_unsupported_component
 
 @Composable
@@ -124,6 +132,7 @@ fun UiRenderer(
         is UiComponent.NumberField -> UiNumberField(component, host, modifier)
         is UiComponent.Switch -> UiSwitch(component, modifier)
         is UiComponent.Select -> UiSelect(component, modifier)
+        is UiComponent.SearchField -> UiSearchField(component, host, modifier)
     }
 }
 
@@ -269,12 +278,12 @@ private fun UiCard(component: UiComponent.Card, host: UiHost, modifier: Modifier
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (component.title != null || component.subtitle != null || component.icon != null) {
+            if (component.title != null || component.subtitle != null || component.icon != null || component.image != null) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    component.icon?.let { UiIconView(it, size = 24.dp) }
+                    UiLeadingVisual(component.icon, component.image, size = 24.dp, imageSize = 40.dp)
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         component.title?.let {
                             Text(it, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -350,6 +359,7 @@ private fun UiForm(component: UiComponent.Form, host: UiHost, modifier: Modifier
                 component.actions.forEach { UiRenderer(it, host) }
                 Button(
                     onClick = { host.dispatch(component.submit, state.binding()) },
+                    modifier = Modifier.testTag(UiTestTags.formSubmit(component.id)),
                     enabled = !state.busy,
                 ) {
                     if (state.busy) {
@@ -513,7 +523,9 @@ private fun UiListItem(component: UiComponent.ListItem, host: UiHost, modifier: 
                 .then(if (component.action != null) Modifier.clickable(onClick = onActivate) else Modifier),
             headlineContent = { Text(component.title) },
             supportingContent = component.subtitle?.let { { Text(it) } },
-            leadingContent = component.icon?.let { { UiIconView(it, size = 24.dp) } },
+            leadingContent = if (component.icon != null || component.image != null) {
+                { UiLeadingVisual(component.icon, component.image, size = 24.dp, imageSize = 40.dp) }
+            } else null,
             trailingContent = component.trailing?.let {
                 {
                     Text(
@@ -910,8 +922,8 @@ private fun UiSelect(component: UiComponent.Select, modifier: Modifier) {
                 enabled = component.enabled,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                selectedOption?.icon?.let {
-                    UiIconView(it, size = 18.dp)
+                if (selectedOption?.icon != null || selectedOption?.image != null) {
+                    UiLeadingVisual(selectedOption.icon, selectedOption.image, size = 18.dp, imageSize = 24.dp)
                     Spacer(Modifier.width(8.dp))
                 }
                 Text(
@@ -924,7 +936,9 @@ private fun UiSelect(component: UiComponent.Select, modifier: Modifier) {
                 component.options.forEach { option ->
                     DropdownMenuItem(
                         text = { Text(option.label) },
-                        leadingIcon = option.icon?.let { icon -> { UiIconView(icon) } },
+                        leadingIcon = if (option.icon != null || option.image != null) {
+                            { UiLeadingVisual(option.icon, option.image, size = 20.dp, imageSize = 24.dp) }
+                        } else null,
                         onClick = {
                             expanded = false
                             form.set(component.key, UiValue.of(option.value))
@@ -934,6 +948,150 @@ private fun UiSelect(component: UiComponent.Select, modifier: Modifier) {
             }
         }
         FieldSupport(error, component.helper)
+    }
+}
+
+internal const val UI_SEARCH_DEBOUNCE_MS = 250L
+
+@Composable
+private fun UiSearchField(component: UiComponent.SearchField, host: UiHost, modifier: Modifier) {
+    val form = rememberFieldForm()
+    remember(component.key, component.value) {
+        form.seed(component.key, UiValue.of(component.value?.value.orEmpty()))
+        component.key
+    }
+    val selected = form.text(component.key).orEmpty()
+    var picked by remember(component.key, component.value) { mutableStateOf(component.value) }
+    var query by remember(component.key, component.value) { mutableStateOf(component.value?.label.orEmpty()) }
+    var editing by remember(component.key, component.value) { mutableStateOf(false) }
+    var options by remember(component.key) { mutableStateOf<List<UiOption>?>(null) }
+    var loading by remember(component.key) { mutableStateOf(false) }
+    var failed by remember(component.key) { mutableStateOf(false) }
+    val error = form.errors[component.key] ?: component.error
+    val tooShort = editing && query.isNotBlank() && query.trim().length < component.minChars
+
+    LaunchedEffect(selected) {
+        if (selected != picked?.value.orEmpty()) {
+            picked = component.value?.takeIf { it.value == selected }
+            query = picked?.label.orEmpty()
+            editing = false
+        }
+    }
+
+    LaunchedEffect(query, editing, host.contributionId, host.context) {
+        loading = false
+        failed = false
+        if (!editing || query.trim().length < component.minChars) {
+            options = null
+            return@LaunchedEffect
+        }
+        delay(UI_SEARCH_DEBOUNCE_MS)
+        loading = true
+        try {
+            options = host.search(component.key, query)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Throwable) {
+            options = null
+            failed = true
+        } finally {
+            loading = false
+        }
+    }
+
+    fun pick(option: UiOption) {
+        form.set(component.key, UiValue.of(option.value))
+        picked = option
+        query = option.label
+        editing = false
+    }
+
+    fun clear() {
+        form.set(component.key, UiValue.of(""))
+        picked = null
+        query = ""
+        editing = false
+    }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        val shownPick = picked?.takeIf { !editing }
+        OutlinedTextField(
+            value = query,
+            onValueChange = {
+                query = it
+                editing = true
+            },
+            modifier = Modifier.fillMaxWidth().testTag(UiTestTags.searchField(component.key)),
+            label = { Text(if (component.required) "${component.label} *" else component.label) },
+            placeholder = component.placeholder?.let { { Text(it) } },
+            enabled = component.enabled,
+            isError = error != null || failed,
+            singleLine = true,
+            leadingIcon = {
+                if (shownPick != null && (shownPick.icon != null || shownPick.image != null)) {
+                    UiLeadingVisual(shownPick.icon, shownPick.image, size = 20.dp, imageSize = 24.dp)
+                } else {
+                    Icon(SynaraIcons.Search.get(), contentDescription = null)
+                }
+            },
+            trailingIcon = when {
+                loading -> {
+                    { CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp) }
+                }
+
+                query.isNotEmpty() || selected.isNotEmpty() -> {
+                    {
+                        IconButton(onClick = { clear() }, enabled = component.enabled) {
+                            Icon(SynaraIcons.Clear.get(), contentDescription = stringResource(Res.string.ui_server_search_clear))
+                        }
+                    }
+                }
+
+                else -> null
+            },
+        )
+        val results = options
+        if (editing && results != null) {
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                shape = MaterialTheme.shapes.small,
+            ) {
+                if (results.isEmpty()) {
+                    Text(
+                        text = stringResource(Res.string.ui_server_search_no_results),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(12.dp),
+                    )
+                } else {
+                    Column(modifier = Modifier.heightIn(max = 280.dp).verticalScroll(rememberScrollState())) {
+                        results.forEach { option ->
+                            key(option.value) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag(UiTestTags.searchOption(option.value))
+                                        .clickable(enabled = component.enabled) { pick(option) }
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    UiLeadingVisual(option.icon, option.image, size = 20.dp, imageSize = 32.dp)
+                                    Text(option.label, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        when {
+            failed -> FieldSupport(stringResource(Res.string.ui_server_search_failed), null)
+            tooShort -> FieldSupport(error, stringResource(Res.string.ui_server_search_min_chars, component.minChars))
+            else -> FieldSupport(error, component.helper)
+        }
+        FieldToolbar(component.toolbar, host)
     }
 }
 

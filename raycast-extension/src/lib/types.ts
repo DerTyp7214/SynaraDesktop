@@ -18,7 +18,6 @@ export interface UserSong {
   album?: Album;
   coverId?: string;
   duration: number;
-  lyrics?: string;
 }
 
 export interface UserPlaylist {

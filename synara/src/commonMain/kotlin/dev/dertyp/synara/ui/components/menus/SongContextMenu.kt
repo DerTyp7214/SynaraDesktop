@@ -32,7 +32,7 @@ import dev.dertyp.synara.ui.components.SynaraMenu
 import dev.dertyp.synara.ui.components.dialogs.*
 import dev.dertyp.synara.ui.server.UiEntry
 import dev.dertyp.synara.ui.server.UiHostOverlays
-import dev.dertyp.synara.ui.server.UiIconView
+import dev.dertyp.synara.ui.server.UiLeadingVisual
 import dev.dertyp.synara.ui.server.UiOpenMenuContent
 import dev.dertyp.synara.ui.server.asEntry
 import dev.dertyp.synara.ui.server.isServerUiAvailable
@@ -572,15 +572,16 @@ private fun SongMenuUiExtras(
                     host.dispatch(action)
                 }
             },
-            leadingIcon = entry.icon?.let { icon ->
+            leadingIcon = if (entry.icon != null || entry.image != null) {
                 {
-                    UiIconView(
-                        icon,
+                    UiLeadingVisual(
+                        entry.icon,
+                        entry.image,
                         size = 20.dp,
                         tint = if (destructive) MaterialTheme.colorScheme.error else LocalContentColor.current
                     )
                 }
-            },
+            } else null,
             colors = if (destructive) MenuDefaults.itemColors(
                 textColor = MaterialTheme.colorScheme.error,
                 leadingIconColor = MaterialTheme.colorScheme.error

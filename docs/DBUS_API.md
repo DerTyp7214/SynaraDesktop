@@ -13,7 +13,7 @@ Interface for interacting with Synara from external programs.
 | [`GetPlaybackState`](#getplaybackstate) | - | [SynaraPlaybackState](#synaraplaybackstate) | Get the current playback state (position, duration, isPlaying). |
 | [`GetCurrentSong`](#getcurrentsong) | - | [UserSong](#usersong) | Get metadata of the currently playing song. |
 | [`Search`](#search) | `query` (String)<br>`options` (Map<[SearchFilter](#searchfilter), Variant<Any>>) | [SynaraSearchResult](#synarasearchresult) | Search for music and playlists. |
-| [`GetCurrentLyrics`](#getcurrentlyrics) | - | String | Get the lyrics of the currently playing song. |
+| [`GetCurrentLyrics`](#getcurrentlyrics) | - | String | Get the plain text of the lyrics of the currently playing song. It is empty when the song has no lyrics. |
 | [`GetQueue`](#getqueue) | `limit` (Int) | List<[SynaraQueueItem](#synaraqueueitem)> | Get the upcoming songs in the queue. |
 | [`PlayQueueItem`](#playqueueitem) | `queueId` (String) | Unit | Play a specific item from the queue by its unique queueId. |
 | [`PlayNext`](#playnext) | `id` (String)<br>`type` (String) | Unit | Insert an item to play immediately after the current song. |
@@ -68,7 +68,7 @@ dbus-send --session --print-reply=literal --dest=org.mpris.MediaPlayer2.synara /
 ```
 
 #### `GetCurrentLyrics`
-Get the lyrics of the currently playing song.
+Get the plain text of the lyrics of the currently playing song. It is empty when the song has no lyrics.
 
 **Example Usage:**
 ```shell
@@ -321,6 +321,14 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `LIKE` |  |
 | `SUPER` |  |
 
+### LyricsSyncLevel
+
+| Value | Description |
+| :--- | :--- |
+| `PLAIN` |  |
+| `LINE` |  |
+| `WORD` |  |
+
 ### PlaylistAccess
 
 | Value | Description |
@@ -352,6 +360,18 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `includeAlbums` | Whether to include albums in the search results. |
 | `includeArtists` | Whether to include artists in the search results. |
 | `includePlaylists` | Whether to include playlists in the search results. |
+
+### SongLyricsInfo
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `available` | Boolean |  |
+| `syncLevel` | [LyricsSyncLevel](#lyricssynclevel)? |  |
+| `levels` | Set<[LyricsSyncLevel](#lyricssynclevel)> |  |
+| `instrumental` | Boolean |  |
+| `defaultCandidateId` | PlatformUUID? |  |
+| `defaultProvider` | String? |  |
+| `candidateCount` | Int |  |
 
 ### SynaraPlaybackState
 
@@ -498,7 +518,6 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `duration` | Long |  |
 | `explicit` | Boolean |  |
 | `releaseDate` | PlatformLocalDate? |  |
-| `lyrics` | String |  |
 | `path` | String |  |
 | `originalUrl` | String |  |
 | `trackNumber` | Int |  |
@@ -516,6 +535,7 @@ dbus-send --session --dest=org.mpris.MediaPlayer2.synara /dev/dertyp/synara dev.
 | `animatedCoverBlurHash` | String? |  |
 | `audioStartMs` | Long? |  |
 | `tags` | List<[TitleTag](#titletag)> |  |
+| `lyricsInfo` | [SongLyricsInfo](#songlyricsinfo)? |  |
 | `atmosVariantPath` | String? |  |
 | `isFavourite` | Boolean? |  |
 | `userSongCreatedAt` | PlatformDate? |  |

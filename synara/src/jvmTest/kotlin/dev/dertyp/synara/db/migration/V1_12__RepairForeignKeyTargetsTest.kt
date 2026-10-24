@@ -228,7 +228,6 @@ class V1_12__RepairForeignKeyTargetsTest {
                 it[albumId] = firstAlbum
                 it[duration] = 123_456L
                 it[releaseDate] = "2020-01-17"
-                it[lyrics] = "line one\nline two"
                 it[explicit] = true
                 it[filePath] = "/music/first.flac"
                 it[cover] = image

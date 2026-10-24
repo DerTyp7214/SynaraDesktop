@@ -44,6 +44,7 @@ import dev.dertyp.data.UserSong
 import dev.dertyp.services.IAnimatedImageService
 import dev.dertyp.synara.Config
 import dev.dertyp.synara.animateColorSchemeAsState
+import dev.dertyp.synara.lyrics.LyricsRepository
 import dev.dertyp.synara.player.*
 import dev.dertyp.synara.podcast.PodcastPlayer
 import dev.dertyp.synara.podcast.PodcastPlayerError
@@ -59,6 +60,8 @@ import dev.dertyp.synara.theme.rememberCoverScheme
 import dev.dertyp.synara.ui.LocalPlayerHudIdle
 import dev.dertyp.synara.ui.LocalWindowActions
 import dev.dertyp.synara.ui.SynaraIcons
+import dev.dertyp.synara.ui.components.lyrics.LyricsPicker
+import dev.dertyp.synara.ui.components.lyrics.LyricsState
 import dev.dertyp.synara.ui.components.menus.EpisodeContextMenu
 import dev.dertyp.synara.ui.components.menus.SongContextMenu
 import dev.dertyp.synara.ui.components.player.*
@@ -67,8 +70,10 @@ import dev.dertyp.synara.ui.components.podcast.TranscriptPanel
 import dev.dertyp.synara.ui.models.SnackbarManager
 import dev.dertyp.synara.viewmodels.GlobalStateModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
@@ -287,7 +292,7 @@ fun PlayerBar(
 
                         Key.L -> {
                             val hasLyrics = if (isPodcast) currentEpisode?.hasTranscript == true
-                            else currentSong?.lyrics?.isNotBlank() == true
+                            else currentSong?.lyricsInfo?.available == true
                             if (hasLyrics) {
                                 globalState.toggleLyricsExpanded()
                                 true
@@ -440,6 +445,8 @@ fun PlayerBar(
                                         coverCenter = coverCenter,
                                         isRemote = isRemote,
                                         position = if (isPodcast) podcastPlayer.position else surface.currentPosition,
+                                        isPlaying = surface.isPlaying,
+                                        seekEvents = if (isRemote) emptyFlow() else playerModel.seekEvents,
                                         duration = duration,
                                         onSeek = { seekTo(it) },
                                         currentEpisode = if (isPodcast) currentEpisode else null,
@@ -744,6 +751,37 @@ private fun DeviceMenuButton(
     }
 }
 
+@Composable
+private fun SongLyricsPanel(
+    song: UserSong?,
+    position: StateFlow<Long>,
+    isPlaying: StateFlow<Boolean>,
+    seekEvents: Flow<Long>,
+    onSeek: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+    lyricsRepository: LyricsRepository = koinInject()
+) {
+    val songId = song?.id ?: return
+    val info = song.lyricsInfo
+    val lyricsFlow = remember(songId, info?.defaultCandidateId) { lyricsRepository.lyricsState(songId, info) }
+    val lyrics by lyricsFlow.collectAsState(LyricsState.Loading)
+
+    LyricsView(
+        lyrics = lyrics,
+        position = position,
+        isPlaying = isPlaying,
+        seekEvents = seekEvents,
+        onSeek = onSeek,
+        modifier = modifier,
+        header = {
+            LyricsPicker(
+                songId = songId,
+                shown = (lyrics as? LyricsState.Loaded)?.candidate
+            )
+        }
+    )
+}
+
 private fun platformIcon(platform: String): SynaraIcons {
     val value = platform.lowercase()
     return when {
@@ -762,6 +800,8 @@ private fun ExpandedPlayerContent(
     parentCoordinates: LayoutCoordinates? = null,
     isRemote: Boolean,
     position: StateFlow<Long>,
+    isPlaying: StateFlow<Boolean>,
+    seekEvents: Flow<Long>,
     duration: Long,
     onSeek: (Long) -> Unit,
     onCollapse: () -> Unit,
@@ -855,7 +895,7 @@ private fun ExpandedPlayerContent(
                                 )
                             }
                         }
-                    } else if (currentSong?.lyrics?.isNotBlank() == true) {
+                    } else if (currentSong?.lyricsInfo?.available == true) {
                         IconButton(onClick = { globalState.toggleLyricsExpanded() }) {
                             Icon(
                                 SynaraIcons.Lyrics.get(),
@@ -1008,9 +1048,11 @@ private fun ExpandedPlayerContent(
                                             onSeek = onSeek
                                         )
                                     } else {
-                                        LyricsView(
+                                        SongLyricsPanel(
                                             song = currentSong,
                                             position = position,
+                                            isPlaying = isPlaying,
+                                            seekEvents = seekEvents,
                                             onSeek = onSeek
                                         )
                                     }
@@ -1115,11 +1157,13 @@ private fun ExpandedPlayerContent(
                                     modifier = Modifier.fillMaxSize().hudChrome(hud)
                                 )
                             } else {
-                                LyricsView(
-                                    modifier = Modifier.fillMaxSize().hudChrome(hud),
+                                SongLyricsPanel(
                                     song = currentSong,
                                     position = position,
-                                    onSeek = onSeek
+                                    isPlaying = isPlaying,
+                                    seekEvents = seekEvents,
+                                    onSeek = onSeek,
+                                    modifier = Modifier.fillMaxSize().hudChrome(hud)
                                 )
                             }
                         }

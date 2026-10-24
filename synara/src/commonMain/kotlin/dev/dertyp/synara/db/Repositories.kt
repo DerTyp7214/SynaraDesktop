@@ -2,6 +2,7 @@ package dev.dertyp.synara.db
 
 import dev.dertyp.PlatformUUID
 import dev.dertyp.data.*
+import dev.dertyp.services.models.LyricsCandidate
 import dev.dertyp.synara.game.LeaderboardEntry
 import dev.dertyp.synara.game.SavedGame
 import kotlinx.coroutines.flow.Flow
@@ -119,6 +120,12 @@ interface LibraryRepository {
     suspend fun getPlaylist(id: PlatformUUID): UserPlaylist?
 
     fun observeChanges(): Flow<Unit>
+}
+
+interface OfflineLyricsStore {
+    suspend fun saveLyrics(songId: PlatformUUID, candidate: LyricsCandidate)
+    suspend fun getLyrics(songId: PlatformUUID): LyricsCandidate?
+    suspend fun deleteLyrics(songId: PlatformUUID)
 }
 
 /** The last value and scope version this client saw for one synced settings key. */

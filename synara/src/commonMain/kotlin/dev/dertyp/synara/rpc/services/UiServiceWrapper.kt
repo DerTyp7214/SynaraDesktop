@@ -16,6 +16,7 @@ import dev.dertyp.ui.UiIntakeResult
 import dev.dertyp.ui.UiInvokePayload
 import dev.dertyp.ui.UiInvokeResult
 import dev.dertyp.ui.UiLiveUpdate
+import dev.dertyp.ui.UiOption
 import dev.dertyp.ui.UiRender
 import dev.dertyp.ui.UiSlotRender
 import kotlinx.coroutines.flow.Flow
@@ -23,6 +24,10 @@ import kotlinx.coroutines.flow.Flow
 class UiServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(manager), IUiService {
     override suspend fun listContributions(kind: UiContributionKind?, slot: String?): List<UiContributionInfo> {
         return manager.getService<IUiService>().listContributions(kind, slot)
+    }
+
+    override suspend fun search(contributionId: String, key: String, query: String, context: UiContext): List<UiOption> {
+        return manager.getService<IUiService>().search(contributionId, key, query, context)
     }
 
     override suspend fun renderSlot(slot: String, context: UiContext): UiSlotRender {
