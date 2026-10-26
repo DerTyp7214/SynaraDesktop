@@ -326,7 +326,7 @@ fun PlayerBar(
         val totalMaxWidth = maxWidth
         val totalMaxHeight = maxHeight
         val panelOpen = totalMaxWidth > ExpandedPlayerHorizontalMinWidth &&
-            sidePanelShowing(isQueueShowing, isLyricsShowing, isTagsExpanded, isPodcast)
+            sidePanelHides(isQueueShowing, isLyricsShowing, isTagsExpanded, isPodcast)
         val hudShift = remember(hud, visualizerShape, isRemote, heightPx, panelOpen) {
             derivedStateOf {
                 hudShiftOffsets(
@@ -834,6 +834,7 @@ private fun ExpandedPlayerContent(
     }
 
     val sideContentShowing = sidePanelShowing(isQueueShowing, isLyricsShowing, tagsExpanded, isPodcast)
+    val sideContentHides = sidePanelHides(isQueueShowing, isLyricsShowing, tagsExpanded, isPodcast)
 
     val visualizerPreset by Config.effectiveVisualizerPreset.collectAsState()
     val visualizerColors = rememberVisualizerColors(
@@ -1009,7 +1010,8 @@ private fun ExpandedPlayerContent(
                                 colors = visualizerColors,
                                 modifier = Modifier
                                     .hudLineWidth(hud.progress, visualizerWidthScale * visualizerWidthFraction) {
-                                        hud.contentWidth.intValue * LINE_WIDTH_SCALE_ALONE * visualizerWidthFraction
+                                        if (sideContentShowing && !sideContentHides) 0f
+                                        else hud.contentWidth.intValue * LINE_WIDTH_SCALE_ALONE * visualizerWidthFraction
                                     }
                                     .requiredHeight(visualizerHeight)
                                     .hudShift(hud.progress) { hudShift.value.line }
@@ -1027,7 +1029,7 @@ private fun ExpandedPlayerContent(
                             .weight(sideContentWeight)
                             .fillMaxHeight()
                             .onSizeChanged { hud.panelWidth.intValue = it.width }
-                            .hudChrome(hud)
+                            .then(if (sideContentHides) Modifier.hudChrome(hud) else Modifier)
                     ) {
                         Surface(
                             modifier = Modifier.fillMaxSize().padding(start = 24.dp),
@@ -1154,7 +1156,7 @@ private fun ExpandedPlayerContent(
                                     episode = currentEpisode,
                                     position = position,
                                     onSeek = onSeek,
-                                    modifier = Modifier.fillMaxSize().hudChrome(hud)
+                                    modifier = Modifier.fillMaxSize()
                                 )
                             } else {
                                 SongLyricsPanel(
@@ -1163,7 +1165,7 @@ private fun ExpandedPlayerContent(
                                     isPlaying = isPlaying,
                                     seekEvents = seekEvents,
                                     onSeek = onSeek,
-                                    modifier = Modifier.fillMaxSize().hudChrome(hud)
+                                    modifier = Modifier.fillMaxSize()
                                 )
                             }
                         }

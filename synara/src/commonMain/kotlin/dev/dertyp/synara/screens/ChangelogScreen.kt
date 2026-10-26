@@ -64,6 +64,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.18.1",
+                        date = "2026-10-26",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Fixed, "Lyrics and the seek bar stay in sync with the music after seeking in FLAC, Opus, MP3 and AAC songs."),
+                            Change(ChangeType.Improved, "Hiding the controls automatically in fullscreen keeps the lyrics visible.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.18.0",
                         date = "2026-10-24",
                         isPrerelease = true,

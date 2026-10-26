@@ -367,6 +367,16 @@ class FullscreenHudTest {
         onNodeWithContentDescription(getString(Res.string.fullscreen_hud_auto_hide_disable)).assertDoesNotExist()
     }
 
+    @Test
+    fun lyricsPanelStaysWhileQueueAndTagsHide() {
+        assertFalse(sidePanelHides(queue = false, lyrics = true, tags = false, isPodcast = false))
+        assertFalse(sidePanelHides(queue = true, lyrics = true, tags = true, isPodcast = false))
+        assertTrue(sidePanelHides(queue = true, lyrics = false, tags = false, isPodcast = false))
+        assertTrue(sidePanelHides(queue = false, lyrics = false, tags = true, isPodcast = false))
+        assertFalse(sidePanelHides(queue = false, lyrics = false, tags = true, isPodcast = true))
+        assertFalse(sidePanelHides(queue = false, lyrics = false, tags = false, isPodcast = false))
+    }
+
     private companion object {
         const val DELAY_SECONDS = 5
         const val FRAME_MS = 16L

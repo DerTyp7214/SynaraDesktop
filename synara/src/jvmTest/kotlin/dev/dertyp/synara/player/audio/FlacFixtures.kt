@@ -7,6 +7,8 @@ object FlacFixtures {
     private const val SAMPLE_SIZE_CODE_16 = 4
     private const val BLOCK_SIZE_CODE_16_BIT_FIELD = 7
     private const val VERBATIM_SUBFRAME_HEADER = 0x02
+    private const val CONSTANT_SUBFRAME_HEADER = 0x00
+    private const val SEEKTABLE = 3
 
     fun streamInfoMetadata(
         sampleRate: Int,
@@ -47,22 +49,78 @@ object FlacFixtures {
         return out.toByteArray()
     }
 
-    private fun verbatimFrame(channelSamples: List<ShortArray>, start: Int, count: Int, frameNumber: Int): ByteArray {
+    fun stream44100Bit16(
+        channelSamples: List<ShortArray>,
+        blockSize: Int,
+        seekPointEvery: Int = 0,
+        variable: Boolean = false
+    ): ByteArray {
         val channels = channelSamples.size
+        val total = channelSamples.first().size
+        val frames = ByteArrayOutputStream()
+        val seekPoints = mutableListOf<Pair<Long, Long>>()
+        var frameNumber = 0
+        var start = 0
+        while (start < total) {
+            val count = minOf(blockSize, total - start)
+            if (seekPointEvery > 0 && frameNumber % seekPointEvery == 0) seekPoints += start.toLong() to frames.size().toLong()
+            frames.write(frame(channelSamples, start, count, if (variable) start else frameNumber, variable, constantWhenFlat = true))
+            frameNumber++
+            start += count
+        }
+        val out = ByteArrayOutputStream()
+        val streamInfo = streamInfoMetadata(44100, channels, 16, total.toLong(), blockSize)
+        if (seekPoints.isEmpty()) {
+            out.write(streamInfo)
+        } else {
+            streamInfo[4] = 0
+            out.write(streamInfo)
+            val length = seekPoints.size * 18
+            out.write(byteArrayOf((0x80 or SEEKTABLE).toByte(), (length shr 16).toByte(), (length shr 8).toByte(), length.toByte()))
+            for ((sample, offset) in seekPoints) {
+                out.write(long64(sample))
+                out.write(long64(offset))
+                out.write(byteArrayOf((blockSize shr 8).toByte(), blockSize.toByte()))
+            }
+        }
+        out.write(frames.toByteArray())
+        return out.toByteArray()
+    }
+
+    fun frameHeader(channels: Int, count: Int, number: Int, variable: Boolean = false): ByteArray {
         val header = ByteArrayOutputStream()
         header.write(0xFF)
-        header.write(0xF8)
+        header.write(if (variable) 0xF9 else 0xF8)
         header.write((BLOCK_SIZE_CODE_16_BIT_FIELD shl 4) or SAMPLE_RATE_CODE_44100)
         header.write(((channels - 1) shl 4) or (SAMPLE_SIZE_CODE_16 shl 1))
-        header.write(utf8Number(frameNumber))
+        header.write(utf8Number(number))
         header.write((count - 1) shr 8)
         header.write((count - 1) and 0xFF)
         val headerBytes = header.toByteArray()
+        return headerBytes + crc8(headerBytes).toByte()
+    }
 
+    private fun verbatimFrame(channelSamples: List<ShortArray>, start: Int, count: Int, frameNumber: Int): ByteArray =
+        frame(channelSamples, start, count, frameNumber, variable = false, constantWhenFlat = false)
+
+    private fun frame(
+        channelSamples: List<ShortArray>,
+        start: Int,
+        count: Int,
+        number: Int,
+        variable: Boolean,
+        constantWhenFlat: Boolean
+    ): ByteArray {
         val frame = ByteArrayOutputStream()
-        frame.write(headerBytes)
-        frame.write(crc8(headerBytes))
+        frame.write(frameHeader(channelSamples.size, count, number, variable))
         for (samples in channelSamples) {
+            val flat = constantWhenFlat && (start until start + count).all { samples[it] == samples[start] }
+            if (flat) {
+                frame.write(CONSTANT_SUBFRAME_HEADER)
+                frame.write(samples[start].toInt() shr 8)
+                frame.write(samples[start].toInt() and 0xFF)
+                continue
+            }
             frame.write(VERBATIM_SUBFRAME_HEADER)
             for (i in start until start + count) {
                 frame.write(samples[i].toInt() shr 8)
@@ -73,6 +131,8 @@ object FlacFixtures {
         val crc = crc16(body)
         return body + byteArrayOf((crc shr 8).toByte(), crc.toByte())
     }
+
+    private fun long64(value: Long): ByteArray = ByteArray(8) { (value shr (56 - it * 8)).toByte() }
 
     private fun crc8(data: ByteArray): Int {
         var crc = 0

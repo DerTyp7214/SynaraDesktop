@@ -41,6 +41,9 @@ fun playerHudHidden(
 fun sidePanelShowing(queue: Boolean, lyrics: Boolean, tags: Boolean, isPodcast: Boolean): Boolean =
     queue || lyrics || (tags && !isPodcast)
 
+fun sidePanelHides(queue: Boolean, lyrics: Boolean, tags: Boolean, isPodcast: Boolean): Boolean =
+    !lyrics && sidePanelShowing(queue, lyrics, tags, isPodcast)
+
 data class HudShift(val cover: Offset, val line: Offset)
 
 fun hudShiftOffsets(

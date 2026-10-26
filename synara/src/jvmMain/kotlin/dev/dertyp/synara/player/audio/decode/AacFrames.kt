@@ -19,7 +19,7 @@ internal class AacFrameDecoder(audioSpecificConfig: ByteArray) {
     private var produced = false
     private var failures = 0
 
-    suspend fun decode(frame: ByteArray, sink: PcmSink) {
+    suspend fun decode(frame: ByteArray, sink: PcmSink, emit: Boolean = true) {
         if (!core.decode(frame, buffer)) {
             if (!produced && sbrEnabled && ++failures >= SBR_FAILURES_BEFORE_FALLBACK) {
                 sbrEnabled = false
@@ -31,6 +31,10 @@ internal class AacFrameDecoder(audioSpecificConfig: ByteArray) {
         if (buffer.bitsPerSample != 16) return
         val count = data.size / 2
         if (count == 0) return
+        if (!emit) {
+            produced = true
+            return
+        }
         if (!sink.accepts(buffer.sampleRate, buffer.channels)) return
         produced = true
         if (shorts.size < count) shorts = ShortArray(count)

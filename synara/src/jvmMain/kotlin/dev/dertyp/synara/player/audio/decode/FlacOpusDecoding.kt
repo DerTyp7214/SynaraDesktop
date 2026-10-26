@@ -32,7 +32,6 @@ import java.io.IOException
 import java.io.InputStream
 import java.io.SequenceInputStream
 import java.nio.ShortBuffer
-import java.util.ArrayDeque
 import kotlin.math.min
 import kotlin.time.Duration.Companion.seconds
 
@@ -72,84 +71,21 @@ internal object FlacOpusDecoding {
         durationMs: Long? = null
     ): DecodedStream? {
         val startMs = positionMs.coerceAtLeast(0L)
-        val mSize = metadata.size.toLong()
-        val exactSeek = startMs in 1..EXACT_SEEK_MAX_MS
-
-        val byteOffset = if (startMs > 0 && totalDuration > 0 && !exactSeek) {
-            val fileSize = source.size()
-            val audioDataSize = fileSize - mSize
-            if (audioDataSize > 0) {
-                mSize + (startMs.toDouble() / totalDuration * audioDataSize).toLong()
-            } else 0L
-        } else 0L
-
-        val rawStream = source.open(byteOffset, scope) ?: return null
-
-        val stream = if (byteOffset > 0) {
-            val syncStream = object : InputStream() {
-                private var foundSync = false
-                private val pushbackQueue = ArrayDeque<Int>()
-
-                override fun read(): Int {
-                    if (pushbackQueue.isNotEmpty()) return pushbackQueue.poll()
-                    if (foundSync) return rawStream.read()
-
-                    if (isOgg) {
-                        var state = 0
-                        while (true) {
-                            val b = rawStream.read()
-                            if (b == -1) return -1
-                            when (state) {
-                                0 -> state = if (b == 'O'.code) 1 else 0
-                                1 -> state = if (b == 'g'.code) 2 else if (b == 'O'.code) 1 else 0
-                                2 -> state = if (b == 'g'.code) 3 else if (b == 'O'.code) 1 else 0
-                                3 -> when (b) {
-                                    'S'.code -> {
-                                        foundSync = true
-                                        pushbackQueue.add('g'.code)
-                                        pushbackQueue.add('g'.code)
-                                        pushbackQueue.add('S'.code)
-                                        return 'O'.code
-                                    }
-                                    'O'.code -> state = 1
-                                    else -> state = 0
-                                }
-                            }
-                        }
-                    } else {
-                        var b = rawStream.read()
-                        while (b != -1) {
-                            if (b == 0xFF) {
-                                val b2 = rawStream.read()
-                                if (b2 == -1) return -1
-                                if ((b2 and 0xFC) == 0xF8) {
-                                    foundSync = true
-                                    pushbackQueue.add(b2)
-                                    return 0xFF
-                                }
-                                b = b2
-                            } else {
-                                b = rawStream.read()
-                            }
-                        }
-                    }
-                    return -1
-                }
-
-                override fun read(b: ByteArray, off: Int, len: Int): Int {
-                    if (len <= 0) return 0
-                    if (foundSync && pushbackQueue.isEmpty()) return rawStream.read(b, off, len)
-                    val next = read()
-                    if (next == -1) return -1
-                    b[off] = next.toByte()
-                    return 1
-                }
-
-                override fun close() = rawStream.close()
+        val flacInfo = if (isOgg) null else FlacStreamInfo.parse(metadata)
+        val oggStart = if (isOgg) OggTail.streamStart(metadata) else null
+        val targetFrame = startMs * (flacInfo?.sampleRate ?: 48000) / 1000
+        val landing = if (startMs > EXACT_SEEK_MAX_MS) {
+            when {
+                flacInfo != null -> FlacSeek.land(source, metadata, flacInfo, targetFrame, totalDuration, scope)
+                oggStart != null -> OggOpusSeek.land(source, oggStart.sid, oggStart.preSkip, targetFrame, totalDuration, scope)
+                else -> null
             }
-            if (isOgg) syncStream else SequenceInputStream(metadata.inputStream(), syncStream)
-        } else {
-            rawStream
+        } else null
+
+        val stream = when {
+            landing == null -> source.open(0, scope) ?: return null
+            isOgg -> landing.stream
+            else -> SequenceInputStream(metadata.inputStream(), landing.stream)
         }
 
         val pcmChannel = Channel<ShortBuffer>(Channel.BUFFERED)
@@ -188,7 +124,7 @@ internal object FlacOpusDecoding {
                     var opus: OpusStream? = null
                     var accumulator: PcmAccumulator? = null
 
-                    if (byteOffset > 0) {
+                    if (landing != null) {
                         val metaOgg = OggFile(metadata.inputStream())
                         val metaReader = metaOgg.getPacketReader()
                         var metaPacket = metaReader.getNextPacket()
@@ -208,10 +144,10 @@ internal object FlacOpusDecoding {
                     }
 
                     val page = ArrayList<OggPacket>()
-                    var trimsEnd = byteOffset == 0L
-                    var preSkip = 0
-                    var streamSid = 0
-                    var frames = 0L
+                    var trimsEnd = true
+                    var preSkip = oggStart?.preSkip ?: 0
+                    var streamSid = oggStart?.sid ?: 0
+                    var frames = landing?.position ?: 0L
                     var streamFailure: IOException? = null
                     var pageEnd = 0L
                     var endOfStream = false
@@ -273,7 +209,7 @@ internal object FlacOpusDecoding {
                                     if (opus == null) {
                                         val head = OpusHead.parse(opusPacket.data)
                                         if (head != null) {
-                                            opus = OpusStream(head, applyPreSkip = byteOffset == 0L)
+                                            opus = OpusStream(head, applyPreSkip = landing == null)
                                             accumulator = PcmAccumulator(head.channels, pcmChannel)
                                             preSkip = head.preSkip
                                             streamSid = packet.sid
@@ -305,7 +241,7 @@ internal object FlacOpusDecoding {
 
         return try {
             val info = withTimeout(5.seconds) { infoDeferred.await() }
-            val skipFrames = if (exactSeek) startMs * info.sampleRate / 1000 else 0L
+            val skipFrames = if (landing != null) targetFrame - landing.position else startMs * info.sampleRate / 1000
             DecodedStream(
                 sampleRate = info.sampleRate,
                 bitsPerSample = info.bitsPerSample,

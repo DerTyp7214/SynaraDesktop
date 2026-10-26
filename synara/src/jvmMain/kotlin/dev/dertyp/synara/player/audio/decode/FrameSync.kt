@@ -9,7 +9,11 @@ internal object FrameSync {
     private const val CHUNK = 64 * 1024
     private const val MAX_SCAN = 1024 * 1024
 
-    fun find(input: InputStream, confirm: (ByteArray, Int, Int) -> Boolean): InputStream? {
+    class Synced(val stream: InputStream, val skipped: Long)
+
+    fun find(input: InputStream, confirm: (ByteArray, Int, Int) -> Boolean): InputStream? = sync(input, confirm)?.stream
+
+    fun sync(input: InputStream, confirm: (ByteArray, Int, Int) -> Boolean): Synced? {
         var buffer = ByteArray(CHUNK)
         var length = readExactly(input, buffer)
         var from = 0
@@ -17,7 +21,7 @@ internal object FrameSync {
             val eof = length < buffer.size
             for (i in from until length - 1) {
                 if (buffer[i] == 0xFF.toByte() && confirm(buffer, i, length)) {
-                    return SequenceInputStream(ByteArrayInputStream(buffer, i, length - i), input)
+                    return Synced(SequenceInputStream(ByteArrayInputStream(buffer, i, length - i), input), i.toLong())
                 }
             }
             if (eof || length >= MAX_SCAN) return null

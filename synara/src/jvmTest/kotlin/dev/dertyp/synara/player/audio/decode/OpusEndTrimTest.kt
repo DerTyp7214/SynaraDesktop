@@ -195,30 +195,26 @@ class OpusEndTrimTest {
     }
 
     @Test
-    fun streamDecodedFromAByteOffsetIsNotTrimmed() {
-        val fixture = OggOpusFixture.tone(frames)
+    fun streamDecodedFromAPageIsTrimmedAtTheGranuleOfTheLastPage() {
+        val fixture = OggOpusFixture.tone(LONG_FRAMES, packetsPerPage = 8)
 
-        val decoded = decode(fixture, startMs = 30_000, durationMsHint = 60_000)
+        val decoded = decode(fixture, startMs = 20_000, durationMsHint = LONG_FRAMES * 1000L / 48000)
 
-        val offset = decoded.opens.last()
-        assertTrue(offset > 0)
-        val packets = fixture.packetsFrom(offset.toInt())
-        assertTrue(packets in 1 until fixture.packets)
-        assertEquals(30_000L, decoded.startMs)
-        assertEquals(packets * OggOpusFixture.PACKET_FRAMES, decoded.frames)
+        assertTrue(decoded.opens.last() > 0)
+        assertEquals(20_000L, decoded.startMs)
+        assertEquals(LONG_FRAMES - 20_000 * 48, decoded.frames)
         verifyWarnings(0)
     }
 
     @Test
-    fun streamDecodedFromAByteOffsetIgnoresAnEndGranuleBelowItsFrameCount() {
-        val fixture = OggOpusFixture.tone(frames) { OggOpusFixture.PRE_SKIP + 1000L }
+    fun streamDecodedFromAPageDropsALastPageBehindAnEndGranuleBelowItsFrameCount() {
+        val fixture = OggOpusFixture.tone(LONG_FRAMES, packetsPerPage = 8) { OggOpusFixture.PRE_SKIP + 1000L }
 
-        val decoded = decode(fixture, startMs = 30_000, durationMsHint = 60_000)
+        val decoded = decode(fixture, startMs = 20_000, durationMsHint = LONG_FRAMES * 1000L / 48000)
 
-        val packets = fixture.packetsFrom(decoded.opens.last().toInt())
-        assertTrue(packets * OggOpusFixture.PACKET_FRAMES > 1000)
-        assertEquals(packets * OggOpusFixture.PACKET_FRAMES, decoded.frames)
-        verifyWarnings(0)
+        assertTrue(decoded.opens.last() > 0)
+        assertEquals(fixture.framesBeforeLastPage - 20_000 * 48, decoded.frames)
+        verifyWarnings(1)
     }
 
     @Test
@@ -259,5 +255,9 @@ class OpusEndTrimTest {
 
         assertEquals(fixture.decodedFrames, decode(fixture).frames)
         verifyWarnings(0)
+    }
+
+    private companion object {
+        const val LONG_FRAMES = 30 * 48000 + 123
     }
 }

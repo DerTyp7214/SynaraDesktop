@@ -101,10 +101,30 @@ internal class OggOpusFixture(
                 for (channel in 0 until channels) pcm[frame * channels + channel] = sample
             }
 
+            return encode(pcm, frames, channels, packetsPerPage, tagsPadding, vbr = false, endGranule)
+        }
+
+        fun of(samples: ShortArray, channels: Int, packetsPerPage: Int, vbr: Boolean): OggOpusFixture {
+            val frames = samples.size / channels
+            val packets = (frames + PRE_SKIP + PACKET_FRAMES - 1) / PACKET_FRAMES
+            val pcm = ShortArray(packets * PACKET_FRAMES * channels)
+            System.arraycopy(samples, 0, pcm, 0, frames * channels)
+            return encode(pcm, frames, channels, packetsPerPage, tagsPadding = 0, vbr = vbr) { it }
+        }
+
+        private fun encode(
+            pcm: ShortArray,
+            frames: Int,
+            channels: Int,
+            packetsPerPage: Int,
+            tagsPadding: Int,
+            vbr: Boolean,
+            endGranule: (Long) -> Long
+        ): OggOpusFixture {
+            val packets = pcm.size / channels / PACKET_FRAMES
             val encoder = OpusEncoder(SAMPLE_RATE, channels, OpusApplication.OPUS_APPLICATION_AUDIO)
             encoder.setBitrate(128_000)
-            encoder.setUseVBR(false)
-
+            encoder.setUseVBR(vbr)
             val info = OpusInfo()
             info.setNumChannels(channels)
             info.setPreSkip(PRE_SKIP)
