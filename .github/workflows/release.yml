@@ -236,8 +236,8 @@ jobs:
             cp app/build/compose/binaries/main/msi/*.msi artifacts/Synara-windows-x64.msi || true
             cp classic/build/compose/binaries/main/msi/*.msi artifacts/ClassicApp-windows-x64.msi || true
           elif [ "${{ matrix.os }}" = "macos-latest" ]; then
-            cp app/build/compose/binaries/main/dmg/*.dmg artifacts/Synara-macos-x64.dmg || true
-            cp classic/build/compose/binaries/main/dmg/*.dmg artifacts/ClassicApp-macos-x64.dmg || true
+            cp app/build/compose/binaries/main/dmg/*.dmg artifacts/Synara-macos-arm64.dmg || true
+            cp classic/build/compose/binaries/main/dmg/*.dmg artifacts/ClassicApp-macos-arm64.dmg || true
           elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
             cp app/build/compose/binaries/main/deb/*.deb artifacts/Synara-linux-x64.deb || true
             cp classic/build/compose/binaries/main/deb/*.deb artifacts/ClassicApp-linux-x64.deb || true
@@ -320,8 +320,8 @@ jobs:
           files: |
             all-artifacts/Synara-windows-x64.msi
             all-artifacts/ClassicApp-windows-x64.msi
-            all-artifacts/Synara-macos-x64.dmg
-            all-artifacts/ClassicApp-macos-x64.dmg
+            all-artifacts/Synara-macos-arm64.dmg
+            all-artifacts/ClassicApp-macos-arm64.dmg
             all-artifacts/Synara-linux-x64.deb
             all-artifacts/ClassicApp-linux-x64.deb
             all-artifacts/Synara-linux-x64.tar.gz
