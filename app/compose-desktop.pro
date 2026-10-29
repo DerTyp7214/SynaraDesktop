@@ -6,6 +6,7 @@
 -dontnote org.slf4j.**
 -dontnote org.lwjgl.**
 -dontnote com.sun.jna.**
+-dontnote **
 
 -dontwarn ch.qos.logback.**
 -dontwarn io.github.oshai.kotlinlogging.logback.**

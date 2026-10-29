@@ -76,6 +76,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.19.4",
+                        date = "2026-10-29",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Improved, "Animated covers and offline lyrics use the current rendering and storage interfaces.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.19.3",
                         date = "2026-10-29",
                         isPrerelease = true,

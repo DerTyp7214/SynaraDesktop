@@ -13,7 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.skiaCanvas
 import dev.dertyp.synara.services.VideoFrameService
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
@@ -56,7 +56,7 @@ actual fun SynaraVideoPlayer(
             val offsetY = (canvasHeight - scaledHeight) / 2
 
             drawIntoCanvas {
-                it.nativeCanvas.drawImageRect(
+                it.skiaCanvas.drawImageRect(
                     frame,
                     Rect.makeWH(frameWidth, frameHeight),
                     Rect.makeXYWH(

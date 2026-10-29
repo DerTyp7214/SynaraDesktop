@@ -18,6 +18,7 @@ import dev.dertyp.synara.settings.get
 import dev.dertyp.synara.settings.getOrNull
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.v1.core.*
 import org.jetbrains.exposed.v1.core.dao.id.EntityID
@@ -1171,6 +1172,7 @@ class ExposedSettingsSyncRepository : SettingsSyncRepository {
     }
 }
 
+@OptIn(ExperimentalSerializationApi::class)
 class ExposedOfflineLyricsStore : OfflineLyricsStore {
     override suspend fun saveLyrics(songId: PlatformUUID, candidate: LyricsCandidate) {
         dbQuery {
