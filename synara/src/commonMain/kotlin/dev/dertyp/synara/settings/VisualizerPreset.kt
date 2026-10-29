@@ -40,6 +40,7 @@ data class VisualizerPreset(
     val opacity: Float = 1f,
     val waveFill: Boolean = true,
     val waveStroke: Float = 2f,
+    val waveClosedOutline: Boolean = false,
     val radialRoundness: Float = 1f,
     val radialInnerPadding: Float = 12f,
     val radialMaxLength: Float = 60f,

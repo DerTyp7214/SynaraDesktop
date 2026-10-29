@@ -64,6 +64,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.19.1",
+                        date = "2026-10-29",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Wave visualizers in the strip shape have an Outline ends option that closes the outline at the left and right ends of the wave."),
+                            Change(ChangeType.New, "With Outline ends on, the corner radius setting rounds the corners at the ends of the wave.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.19.0",
                         date = "2026-10-29",
                         isPrerelease = true,

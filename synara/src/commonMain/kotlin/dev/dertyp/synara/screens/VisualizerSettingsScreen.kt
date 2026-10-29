@@ -553,6 +553,16 @@ class VisualizerSettingsScreen : Screen {
                 checked = preset.waveFill
             ) { p, v -> p.copy(waveFill = v) }
             PresetSlider(Res.string.visualizer_wave_stroke, preset.waveStroke, VisualizerLimits.waveStroke, 0.5f, ::formatDp) { p, v -> p.copy(waveStroke = v) }
+            if (isStrip) {
+                PresetSwitch(
+                    title = Res.string.visualizer_wave_closed_outline,
+                    summary = Res.string.visualizer_wave_closed_outline_summary,
+                    checked = preset.waveClosedOutline
+                ) { p, v -> p.copy(waveClosedOutline = v) }
+                if (preset.waveClosedOutline) {
+                    PresetSlider(Res.string.visualizer_corner_radius, preset.cornerRadius, VisualizerLimits.cornerRadius, 0.5f, ::formatDp) { p, v -> p.copy(cornerRadius = v) }
+                }
+            }
         }
 
         if (isStrip) {

@@ -98,6 +98,8 @@
     <string name="visualizer_min_bar_height">Mindesthöhe der Balken</string>
     <string name="visualizer_wave_fill">Welle füllen</string>
     <string name="visualizer_wave_stroke">Linienstärke</string>
+    <string name="visualizer_wave_closed_outline">Enden umranden</string>
+    <string name="visualizer_wave_closed_outline_summary">Schließt die Umrandung an beiden Enden und rundet ihre Ecken ab</string>
     <string name="visualizer_height">Höhe</string>
     <string name="visualizer_width">Breite</string>
     <string name="visualizer_opacity">Deckkraft</string>

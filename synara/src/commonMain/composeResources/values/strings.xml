@@ -98,6 +98,8 @@
     <string name="visualizer_min_bar_height">Minimum bar height</string>
     <string name="visualizer_wave_fill">Fill wave</string>
     <string name="visualizer_wave_stroke">Line width</string>
+    <string name="visualizer_wave_closed_outline">Outline ends</string>
+    <string name="visualizer_wave_closed_outline_summary">Close the outline at both ends and round its corners</string>
     <string name="visualizer_height">Height</string>
     <string name="visualizer_width">Width</string>
     <string name="visualizer_opacity">Opacity</string>

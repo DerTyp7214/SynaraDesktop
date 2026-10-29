@@ -45,6 +45,7 @@ private const val WAVE_FILL_ALPHA_WITH_STROKE = 0.55f
 private const val MIN_RADIAL_BARS = 8
 private const val OVERLAY_BAR_WIDTH = 0.5f
 private const val OVERLAY_WAVE_ALPHA = 0.6f
+private const val WAVE_CORNER_MAX_SEGMENTS = 2f
 internal const val COVER_CORNER_RADIUS_DP = 16f
 
 internal class VisualizerSnapshot(
@@ -449,22 +450,74 @@ private fun glowColor(colors: VisualizerColors, fill: VisualizerFillMode, positi
     if (fill == VisualizerFillMode.GradientAcross) lerp(colors.base, colors.highlight, position)
     else colors.highlight
 
-private fun Path.openCurve(xs: FloatArray, ys: FloatArray, n: Int, reverse: Boolean) {
-    fun at(j: Int): Int {
-        val clamped = j.coerceIn(0, n - 1)
-        return if (reverse) n - 1 - clamped else clamped
+private fun splineIndex(j: Int, n: Int, reverse: Boolean): Int {
+    val clamped = j.coerceIn(0, n - 1)
+    return if (reverse) n - 1 - clamped else clamped
+}
+
+private fun splineSegment(u: Float, n: Int): Int = u.toInt().coerceIn(0, n - 2)
+
+private fun splineAt(v: FloatArray, n: Int, reverse: Boolean, u: Float, derivative: Boolean): Float {
+    val s = splineSegment(u, n)
+    val t = u - s
+    val p0 = v[splineIndex(s, n, reverse)]
+    val p3 = v[splineIndex(s + 1, n, reverse)]
+    val c1 = p0 + (p3 - v[splineIndex(s - 1, n, reverse)]) / 6f
+    val c2 = p3 - (v[splineIndex(s + 2, n, reverse)] - p0) / 6f
+    val m = 1f - t
+    return if (derivative) {
+        3f * (m * m * (c1 - p0) + 2f * m * t * (c2 - c1) + t * t * (p3 - c2))
+    } else {
+        m * m * m * p0 + 3f * m * m * t * c1 + 3f * m * t * t * c2 + t * t * t * p3
     }
-    for (s in 0 until n - 1) {
-        val i0 = at(s - 1)
-        val i1 = at(s)
-        val i2 = at(s + 1)
-        val i3 = at(s + 2)
-        cubicTo(
-            xs[i1] + (xs[i2] - xs[i0]) / 6f, ys[i1] + (ys[i2] - ys[i0]) / 6f,
-            xs[i2] - (xs[i3] - xs[i1]) / 6f, ys[i2] - (ys[i3] - ys[i1]) / 6f,
-            xs[i2], ys[i2]
-        )
+}
+
+private fun Path.splineCurve(xs: FloatArray, ys: FloatArray, n: Int, reverse: Boolean, from: Float, to: Float) {
+    for (s in splineSegment(from, n)..splineSegment(to, n)) {
+        val t0 = max(from - s, 0f)
+        val t1 = min(to - s, 1f)
+        if (t1 <= t0) continue
+        if (t0 == 0f && t1 == 1f) {
+            val i0 = splineIndex(s - 1, n, reverse)
+            val i1 = splineIndex(s, n, reverse)
+            val i2 = splineIndex(s + 1, n, reverse)
+            val i3 = splineIndex(s + 2, n, reverse)
+            cubicTo(
+                xs[i1] + (xs[i2] - xs[i0]) / 6f, ys[i1] + (ys[i2] - ys[i0]) / 6f,
+                xs[i2] - (xs[i3] - xs[i1]) / 6f, ys[i2] - (ys[i3] - ys[i1]) / 6f,
+                xs[i2], ys[i2]
+            )
+        } else {
+            val a = s + t0
+            val b = s + t1
+            val k = (t1 - t0) / 3f
+            val bx = splineAt(xs, n, reverse, b, false)
+            val by = splineAt(ys, n, reverse, b, false)
+            cubicTo(
+                splineAt(xs, n, reverse, a, false) + k * splineAt(xs, n, reverse, a, true),
+                splineAt(ys, n, reverse, a, false) + k * splineAt(ys, n, reverse, a, true),
+                bx - k * splineAt(xs, n, reverse, b, true),
+                by - k * splineAt(ys, n, reverse, b, true),
+                bx, by
+            )
+        }
     }
+}
+
+private fun Path.cornerIntoSpline(cornerX: Float, cornerY: Float, xs: FloatArray, ys: FloatArray, n: Int, reverse: Boolean, u: Float) {
+    if (u > 0f) quadraticTo(cornerX, cornerY, splineAt(xs, n, reverse, u, false), splineAt(ys, n, reverse, u, false))
+}
+
+private fun Path.anchoredWaveOutline(xs: FloatArray, ys: FloatArray, n: Int, base: Float, left: Float, right: Float, step: Float) {
+    val last = n - 1
+    val leftU = left / step
+    val rightU = right / step
+    moveTo(xs[0], base)
+    lineTo(xs[0], ys[0] + sign(base - ys[0]) * left)
+    cornerIntoSpline(xs[0], ys[0], xs, ys, n, false, leftU)
+    splineCurve(xs, ys, n, reverse = false, from = leftU, to = last - rightU)
+    if (right > 0f) quadraticTo(xs[last], ys[last], xs[last], ys[last] + sign(base - ys[last]) * right)
+    lineTo(xs[last], base)
 }
 
 private fun Path.closedCurve(xs: FloatArray, ys: FloatArray, n: Int) {
@@ -488,7 +541,9 @@ private class StripLayout(
     val barWidth: Float,
     val spacing: Float,
     val barCount: Int,
-    val anchor: VisualizerAnchor
+    val anchor: VisualizerAnchor,
+    val cornerRadius: Float,
+    val closedOutline: Boolean
 ) {
     val bottom get() = top + height
     val middle get() = top + height / 2f
@@ -543,7 +598,7 @@ private fun StripVisualizer(
 
         val barCount = (widthPx / (targetBarWidthPx + spacingPx)).toInt().coerceAtLeast(if (wave) 2 else 1)
         val actualBarWidth = ((widthPx - (barCount - 1) * spacingPx) / barCount).coerceAtLeast(1f)
-        val layout = StripLayout(insetPx, insetPx, widthPx, heightPx, actualBarWidth, spacingPx, barCount, preset.anchor)
+        val layout = StripLayout(insetPx, insetPx, widthPx, heightPx, actualBarWidth, spacingPx, barCount, preset.anchor, cornerRadiusPx, preset.waveClosedOutline)
 
         val engine = remember(barCount, preset.mirrored, preset.stereo) {
             VisualizerEngine(barCount, preset.mirrored, circular = false, stereo = preset.stereo, minHeightPx = minHeightPx)
@@ -763,25 +818,65 @@ private fun buildStripWave(buffers: WaveBuffers, heights: FloatArray, layout: St
     fill.reset()
     stroke.reset()
     val last = n - 1
+    if (!layout.closedOutline) {
+        buildOpenStripWave(buffers, layout, n)
+        return
+    }
+    val step = xs[1] - xs[0]
+    val maxCorner = (min(WAVE_CORNER_MAX_SEGMENTS, last / 2f) * step).coerceAtLeast(0f)
+    val cornerLimit = min(layout.cornerRadius, maxCorner)
+    if (layout.anchor == VisualizerAnchor.Center) {
+        val left = min(cornerLimit, (ys2[0] - ys[0]) / 2f).coerceAtLeast(0f)
+        val right = min(cornerLimit, (ys2[last] - ys[last]) / 2f).coerceAtLeast(0f)
+        val leftU = left / step
+        val rightU = right / step
+        fill.moveTo(xs[0], ys[0] + left)
+        fill.cornerIntoSpline(xs[0], ys[0], xs, ys, n, false, leftU)
+        fill.splineCurve(xs, ys, n, reverse = false, from = leftU, to = last - rightU)
+        if (right > 0f) fill.quadraticTo(xs[last], ys[last], xs[last], ys[last] + right)
+        fill.lineTo(xs[last], ys2[last] - right)
+        fill.cornerIntoSpline(xs[last], ys2[last], xs, ys2, n, true, rightU)
+        fill.splineCurve(xs, ys2, n, reverse = true, from = rightU, to = last - leftU)
+        if (left > 0f) fill.quadraticTo(xs[0], ys2[0], xs[0], ys2[0] - left)
+        fill.close()
+        stroke.addPath(fill)
+    } else {
+        val base = if (layout.anchor == VisualizerAnchor.Bottom) layout.bottom else layout.top
+        val left = min(cornerLimit, abs(base - ys[0]))
+        val right = min(cornerLimit, abs(base - ys[last]))
+        fill.anchoredWaveOutline(xs, ys, n, base, left, right, step)
+        fill.close()
+        stroke.anchoredWaveOutline(xs, ys, n, base, left, right, step)
+    }
+}
+
+private fun buildOpenStripWave(buffers: WaveBuffers, layout: StripLayout, n: Int) {
+    val xs = buffers.xs
+    val ys = buffers.ys
+    val ys2 = buffers.ys2
+    val fill = buffers.fill
+    val stroke = buffers.stroke
+    val last = n - 1
+    val end = last.toFloat()
     if (layout.anchor == VisualizerAnchor.Center) {
         fill.moveTo(xs[0], ys[0])
-        fill.openCurve(xs, ys, n, reverse = false)
+        fill.splineCurve(xs, ys, n, reverse = false, from = 0f, to = end)
         fill.lineTo(xs[last], ys2[last])
-        fill.openCurve(xs, ys2, n, reverse = true)
+        fill.splineCurve(xs, ys2, n, reverse = true, from = 0f, to = end)
         fill.close()
         stroke.moveTo(xs[0], ys[0])
-        stroke.openCurve(xs, ys, n, reverse = false)
+        stroke.splineCurve(xs, ys, n, reverse = false, from = 0f, to = end)
         stroke.moveTo(xs[0], ys2[0])
-        stroke.openCurve(xs, ys2, n, reverse = false)
+        stroke.splineCurve(xs, ys2, n, reverse = false, from = 0f, to = end)
     } else {
         val base = if (layout.anchor == VisualizerAnchor.Bottom) layout.bottom else layout.top
         fill.moveTo(xs[0], base)
         fill.lineTo(xs[0], ys[0])
-        fill.openCurve(xs, ys, n, reverse = false)
+        fill.splineCurve(xs, ys, n, reverse = false, from = 0f, to = end)
         fill.lineTo(xs[last], base)
         fill.close()
         stroke.moveTo(xs[0], ys[0])
-        stroke.openCurve(xs, ys, n, reverse = false)
+        stroke.splineCurve(xs, ys, n, reverse = false, from = 0f, to = end)
     }
 }
 
@@ -899,9 +994,9 @@ private fun DrawScope.drawStripCrest(
     path.reset()
     path.fillType = PathFillType.NonZero
     path.moveTo(xs[0], ys[0])
-    path.openCurve(xs, ys, n, reverse = false)
+    path.splineCurve(xs, ys, n, reverse = false, from = 0f, to = last.toFloat())
     path.lineTo(xs[last], crest[last])
-    path.openCurve(xs, crest, n, reverse = true)
+    path.splineCurve(xs, crest, n, reverse = true, from = 0f, to = last.toFloat())
     path.close()
     gradient.colors[0] = highlight.toArgb()
     gradient.colors[1] = highlight.copy(alpha = 0f).toArgb()

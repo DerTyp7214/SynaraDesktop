@@ -2,6 +2,7 @@ package dev.dertyp.synara.settings
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class VisualizerPresetTest {
@@ -37,6 +38,18 @@ class VisualizerPresetTest {
     fun oldJsonWithoutStereoDecodesToTrue() {
         val decoded = VisualizerPresets.decode("""[{"id":"user.old","name":"Old"}]""")
         assertTrue(decoded.single().stereo)
+    }
+
+    @Test
+    fun oldJsonWithoutWaveClosedOutlineDecodesToFalse() {
+        val decoded = VisualizerPresets.decode("""[{"id":"user.old","name":"Old","renderMode":"Wave","cornerRadius":6.0}]""")
+        assertFalse(decoded.single().waveClosedOutline)
+    }
+
+    @Test
+    fun waveClosedOutlineRoundTrips() {
+        val presets = listOf(custom.copy(shape = VisualizerShape.Strip, waveClosedOutline = true))
+        assertEquals(presets, VisualizerPresets.decode(VisualizerPresets.encode(presets)))
     }
 
     @Test
