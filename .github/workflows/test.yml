@@ -25,3 +25,11 @@ jobs:
 
       - name: Run tests
         run: xvfb-run -a ./gradlew :synara:jvmTest :common-rpc:jvmTest
+
+      - name: Upload golden diffs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-diffs
+          path: synara/build/*-golden-diffs/
+          if-no-files-found: ignore
