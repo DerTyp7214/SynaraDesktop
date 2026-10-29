@@ -58,6 +58,9 @@ object TimecodeTagRules {
         return if (songStart) decideStart(active, pos, durationMs) else decideCrossing(active, prevPos, pos, durationMs)
     }
 
+    fun startSeek(tags: List<TimecodeTag>, durationMs: Long): TagCommand.Seek? =
+        decide(tags, 0L, 0L, durationMs, songStart = true) as? TagCommand.Seek
+
     private fun chapterFade(tag: TimecodeTag): Long {
         val end = tag.endMs ?: return FADE_MS
         return minOf(FADE_MS, (end - tag.timestampMs) / 2)
@@ -255,7 +258,16 @@ class TimecodeTagAutomation(
         prevPos = -1L
         seekGuard = null
         clearFades()
+        if (playerModel.isRemote) return
+        val tags = songId?.let { playbackTags(it) } ?: return
+        val start = TimecodeTagRules.startSeek(tags, durationMs()) ?: return
+        if (start.positionMs == positionMs && start.fadeInMs > 0) {
+            fadeIn = positionMs to start.fadeInMs
+            applyGain(0f)
+        }
     }
+
+    private fun durationMs(): Long = songDurationMs.takeIf { it > 0 } ?: playerModel.duration.value
 
     private fun onTick(pos: Long) {
         syncCurrentSong(pos)
@@ -275,7 +287,7 @@ class TimecodeTagAutomation(
             prevPos = pos
             return
         }
-        val durationMs = songDurationMs.takeIf { it > 0 } ?: playerModel.duration.value
+        val durationMs = durationMs()
 
         if (pendingStart) {
             prevPos = pos

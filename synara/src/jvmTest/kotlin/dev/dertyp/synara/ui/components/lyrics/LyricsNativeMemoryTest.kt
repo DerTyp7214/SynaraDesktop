@@ -33,9 +33,9 @@ class LyricsNativeMemoryTest {
         return line.split(Regex("\\s+"))[1].toLong() / 1024
     }
 
-    private fun lyrics(): LyricsState.Loaded {
+    private fun lyrics(spacing: Long = LINE_MS): LyricsState.Loaded {
         val lines = (0 until LINES).flatMap { index ->
-            val start = index * LINE_MS
+            val start = index * spacing
             val words = (0 until 6).map { w ->
                 LyricWord("syl${w} ", (start + w * WORD_MS).milliseconds, (start + (w + 1) * WORD_MS).milliseconds)
             }
@@ -82,9 +82,13 @@ class LyricsNativeMemoryTest {
     }
 
     @Test
-    fun karaokeFramesKeepNativeMemoryFlat() {
+    fun karaokeFramesKeepNativeMemoryFlat() = soak(lyrics())
+
+    @Test
+    fun gapFramesKeepNativeMemoryFlat() = soak(lyrics(spacing = LINE_MS + GAP_MS))
+
+    private fun soak(state: LyricsState.Loaded) {
         assumeTrue(File("/proc/self/status").exists())
-        val state = lyrics()
         val position = MutableStateFlow(0L)
         val playing = MutableStateFlow(true)
         val seeks = MutableSharedFlow<Long>(extraBufferCapacity = 4)
@@ -119,6 +123,7 @@ class LyricsNativeMemoryTest {
     private companion object {
         const val LINES = 30
         const val LINE_MS = 1_800L
+        const val GAP_MS = 6_000L
         const val WORD_MS = 300L
         const val WARMUP_FRAMES = 200
         const val FRAMES = 2_500

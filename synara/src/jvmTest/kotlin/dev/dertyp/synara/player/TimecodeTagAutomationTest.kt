@@ -80,6 +80,32 @@ class TimecodeTagAutomationTest {
     }
 
     @Test
+    fun aSeekOntoTheTrackStartFadesInLikeTheStartRule() {
+        automation(listOf(marker(30_000, TimecodeTagAction.SKIP_TO).copy(fade = true)))
+        startAt(120_000)
+
+        seekEvents.tryEmit(30_000)
+        position.value = 30_000
+        tickUntil(30_000 + TimecodeTagRules.FADE_MS)
+
+        verifyOrder {
+            playerModel.setFadeGain(0f)
+            playerModel.setFadeGain(1f)
+        }
+    }
+
+    @Test
+    fun aSeekElsewhereDoesNotFadeIn() {
+        automation(listOf(marker(30_000, TimecodeTagAction.SKIP_TO).copy(fade = true)))
+        startAt(120_000)
+
+        seekEvents.tryEmit(50_000)
+        position.value = 50_000
+
+        verify(exactly = 0) { playerModel.setFadeGain(any()) }
+    }
+
+    @Test
     fun trackStartingBeyondTheStartWindowSkipsTheStartRule() {
         automation(listOf(marker(30_000, TimecodeTagAction.SKIP_TO)))
 

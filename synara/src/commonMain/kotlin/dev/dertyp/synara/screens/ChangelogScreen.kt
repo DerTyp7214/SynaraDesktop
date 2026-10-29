@@ -64,6 +64,16 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.19.0",
+                        date = "2026-10-29",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Instrumental breaks in synced lyrics show three dots that fill up until the next line, and the last sung line is no longer highlighted during the break."),
+                            Change(ChangeType.Improved, "Previous restarts the song when it has played for more than 3 seconds and goes to the previous song otherwise, like in the mobile apps."),
+                            Change(ChangeType.Improved, "Restarting a song with timecode tags starts where its tags let it begin.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.18.1",
                         date = "2026-10-26",
                         isPrerelease = true,

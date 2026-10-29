@@ -3,6 +3,9 @@ package dev.dertyp.synara.player
 import com.russhwolf.settings.Settings
 import dev.dertyp.data.PaginatedResponse
 import dev.dertyp.data.RepeatMode
+import dev.dertyp.data.TimecodeTag
+import dev.dertyp.data.TimecodeTagAction
+import dev.dertyp.data.TimecodeTagType
 import dev.dertyp.data.UserSong
 import dev.dertyp.logging.Logger
 import dev.dertyp.randomPlatformUUID
@@ -47,11 +50,13 @@ class PlayerModelPlaybackTest {
     private val songService = mockk<SongServiceWrapper>(relaxed = true)
     private val snackbarManager = mockk<SnackbarManager>(relaxed = true)
     private val logger = mockk<Logger>(relaxed = true)
+    private val tagStore = mockk<TimecodeTagStore>(relaxed = true)
     private val stateDir: File = Files.createTempDirectory("player-model-test").toFile()
 
     @BeforeTest
     fun setUp() {
         coEvery { songService.byId(any()) } returns null
+        every { tagStore.cached(any()) } returns null
     }
 
     @AfterTest
@@ -69,6 +74,7 @@ class PlayerModelPlaybackTest {
         userService = mockk<UserServiceWrapper>(relaxed = true),
         radioService = mockk<RadioServiceWrapper>(relaxed = true),
         songCache = SongCache(),
+        timecodeTagStore = tagStore,
         settings = mockk<Settings>(relaxed = true),
         snackbarManager = snackbarManager,
         cbor = AppCbor,
@@ -674,6 +680,117 @@ class PlayerModelPlaybackTest {
 
         assertEquals(2, audioPlayer.seeks.value)
         assertEquals(180_000L, readState().lastPosition)
+    }
+
+    private fun playingAt(songs: List<UserSong>, index: Int, positionMs: Long): PlayerModel {
+        val model = createModel()
+        model.playQueue(queueOf(songs))
+        audioPlayer.loads.await { it.size == 1 }
+        repeat(index) { model.skipNext() }
+        audioPlayer.loads.await { it.size == index + 1 }
+        model.currentSong.await { it?.id == songs[index].id }
+        audioPlayer.position.value = positionMs
+        model.currentPosition.await { it == positionMs }
+        return model
+    }
+
+    private fun tag(type: TimecodeTagType, at: Long, end: Long?, action: TimecodeTagAction) =
+        TimecodeTag(randomPlatformUUID(), randomPlatformUUID(), randomPlatformUUID(), type, "", at, end, 0L, 0L, action, false)
+
+    @Test
+    fun skipPreviousPastTheRestartThresholdSeeksToTheStart() {
+        val songs = songs(3)
+        val model = playingAt(songs, index = 1, positionMs = 5_000)
+
+        model.skipPrevious()
+
+        assertEquals(1, audioPlayer.seeks.value)
+        assertEquals(0L, audioPlayer.position.value)
+        assertEquals(1, model.currentIndex.value)
+        assertEquals(2, audioPlayer.loads.value.size)
+    }
+
+    @Test
+    fun skipPreviousNearTheStartPlaysThePreviousSong() {
+        val songs = songs(3)
+        val model = playingAt(songs, index = 1, positionMs = 1_000)
+
+        model.skipPrevious()
+
+        assertEquals(songs[0].id to true, audioPlayer.loads.await { it.size == 3 }.last())
+        assertEquals(0, model.currentIndex.value)
+        assertEquals(0, audioPlayer.seeks.value)
+    }
+
+    @Test
+    fun skipPreviousNearTheStartOfTheFirstSongSeeksToTheStart() {
+        val songs = songs(3)
+        val model = playingAt(songs, index = 0, positionMs = 1_000)
+
+        model.skipPrevious()
+
+        assertEquals(1, audioPlayer.seeks.value)
+        assertEquals(0L, audioPlayer.position.value)
+        assertEquals(0, model.currentIndex.value)
+        assertEquals(1, audioPlayer.loads.value.size)
+    }
+
+    @Test
+    fun skipPreviousNearTheStartOfTheFirstSongWithRepeatAllPlaysTheLastSong() {
+        val songs = songs(3)
+        val model = playingAt(songs, index = 0, positionMs = 1_000)
+        model.setRepeatMode(RepeatMode.ALL)
+
+        model.skipPrevious()
+
+        assertEquals(songs[2].id to true, audioPlayer.loads.await { it.size == 2 }.last())
+        assertEquals(2, model.currentIndex.value)
+        assertEquals(0, audioPlayer.seeks.value)
+    }
+
+    private fun songsWithSkipToMarker() = songs(3).map {
+        it.copy(playbackTags = listOf(tag(TimecodeTagType.MARKER, 30_000, null, TimecodeTagAction.SKIP_TO)))
+    }
+
+    @Test
+    fun skipPreviousShortlyAfterASkipToMarkerPlaysThePreviousSong() {
+        val songs = songsWithSkipToMarker()
+        val model = playingAt(songs, index = 1, positionMs = 31_000)
+
+        model.skipPrevious()
+
+        assertEquals(songs[0].id to true, audioPlayer.loads.await { it.size == 3 }.last())
+        assertEquals(0, model.currentIndex.value)
+        assertEquals(0, audioPlayer.seeks.value)
+    }
+
+    @Test
+    fun skipPreviousWellPastASkipToMarkerRestartsAtTheMarker() {
+        val songs = songsWithSkipToMarker()
+        val model = playingAt(songs, index = 1, positionMs = 40_000)
+
+        model.skipPrevious()
+
+        assertEquals(1, audioPlayer.seeks.value)
+        assertEquals(30_000L, audioPlayer.position.value)
+        assertEquals(1, model.currentIndex.value)
+        assertEquals(2, audioPlayer.loads.value.size)
+    }
+
+    @Test
+    fun skipPreviousRestartsAtTheStartOfTheFirstPlayOnlySpan() {
+        val songs = songs(3)
+        every { tagStore.cached(songs[1].id) } returns listOf(
+            tag(TimecodeTagType.CHAPTER, 10_000, 60_000, TimecodeTagAction.PLAY_ONLY)
+        )
+        val model = playingAt(songs, index = 1, positionMs = 20_000)
+
+        model.skipPrevious()
+
+        assertEquals(1, audioPlayer.seeks.value)
+        assertEquals(10_000L, audioPlayer.position.value)
+        assertEquals(1, model.currentIndex.value)
+        assertEquals(2, audioPlayer.loads.value.size)
     }
 
     private fun queuedDispatchers(scheduler: TestCoroutineScheduler) = object : SynaraDispatchers {

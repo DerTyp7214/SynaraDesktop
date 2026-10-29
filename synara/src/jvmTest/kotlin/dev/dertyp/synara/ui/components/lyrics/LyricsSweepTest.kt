@@ -133,6 +133,49 @@ class LyricsSweepTest {
     }
 
     @Test
+    fun gapDotsFillWithoutRecomposition() = runComposeUiTest {
+        mainClock.autoAdvance = false
+        val position = MutableStateFlow(0L)
+        val playing = MutableStateFlow(true)
+        val seeks = MutableSharedFlow<Long>(extraBufferCapacity = 4)
+        val lyrics = loaded(sung, later)
+        var composition: Composition? = null
+
+        setContent {
+            composition = currentComposer.composition
+            MaterialTheme {
+                Box(modifier = Modifier.size(900.dp, 700.dp).background(Color.Black)) {
+                    LyricsView(
+                        lyrics = lyrics,
+                        position = position,
+                        isPlaying = playing,
+                        seekEvents = seeks,
+                        onSeek = {}
+                    )
+                }
+            }
+        }
+        mainClock.advanceTimeBy(500)
+        runOnIdle {
+            position.value = 8_500L
+            seeks.tryEmit(8_500L)
+        }
+        mainClock.advanceTimeBy(1000)
+        val counter = ScopeCounter()
+        runOnIdle { composition!!.setObserver(counter) }
+
+        val early = brightPixels(onRoot().captureToImage())
+        mainClock.advanceTimeBy(4000)
+        val middle = brightPixels(onRoot().captureToImage())
+        mainClock.advanceTimeBy(4000)
+        val late = brightPixels(onRoot().captureToImage())
+
+        assertTrue(middle > early, "dots did not fill: $early -> $middle")
+        assertTrue(late > middle, "dots did not fill: $middle -> $late")
+        assertEquals(0, counter.entered, "gap dots recomposed")
+    }
+
+    @Test
     fun seekMovesTheSweepAtOnce() = runComposeUiTest {
         mainClock.autoAdvance = false
         val position = MutableStateFlow(0L)

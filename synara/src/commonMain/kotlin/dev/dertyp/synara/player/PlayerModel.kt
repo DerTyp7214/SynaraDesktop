@@ -46,6 +46,7 @@ private const val RADIO_BATCH_SIZE = 20
 private const val RADIO_TOP_UP_THRESHOLD = 8
 private const val MAX_AUTOMATIC_SKIPS = 5
 private const val SHORT_END_TOLERANCE_MS = 3_000L
+private const val RESTART_THRESHOLD_MS = 3_000L
 private const val STATE_MOVE_ATTEMPTS = 3
 private const val STATE_MOVE_RETRY_DELAY = 50L
 
@@ -59,6 +60,7 @@ class PlayerModel(
     private val userService: UserServiceWrapper,
     private val radioService: RadioServiceWrapper,
     private val songCache: SongCache,
+    private val timecodeTagStore: TimecodeTagStore,
     private val settings: Settings,
     private val snackbarManager: SnackbarManager,
     private val cbor: Cbor,
@@ -1065,11 +1067,24 @@ class PlayerModel(
 
     fun skipPrevious() {
         val prevIndex = _currentIndex.value - 1
-        if (prevIndex in _queue.value.indices) {
-            playAtIndex(prevIndex)
-        } else if (_repeatMode.value == RepeatMode.ALL && _queue.value.isNotEmpty()) {
-            playAtIndex(_queue.value.size - 1)
+        val previous = when {
+            prevIndex in _queue.value.indices -> prevIndex
+            _repeatMode.value == RepeatMode.ALL && _queue.value.isNotEmpty() -> _queue.value.size - 1
+            else -> null
         }
+        val startMs = trackStartMs()
+        if (previous != null && currentPosition.value - startMs <= RESTART_THRESHOLD_MS) {
+            playAtIndex(previous)
+        } else if (_currentIndex.value in _queue.value.indices) {
+            seekTo(startMs)
+        }
+    }
+
+    private fun trackStartMs(): Long {
+        if (isRemote) return 0L
+        val id = currentSongId ?: return 0L
+        val tags = timecodeTagStore.cached(id) ?: _currentSong.value?.takeIf { it.id == id }?.playbackTags ?: return 0L
+        return TimecodeTagRules.startSeek(tags, duration.value)?.positionMs ?: 0L
     }
 
     fun stop() {

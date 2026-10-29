@@ -33,7 +33,7 @@ class LyricsGoldenTest {
 
     private fun word(text: String, start: Long, end: Long) = LyricWord(text, start.milliseconds, end.milliseconds)
 
-    private data class Case(val name: String, val line: DisplayLine, val time: Long)
+    private data class Case(val name: String, val item: LyricsItem, val time: Long)
 
     private fun cases(): List<Case> {
         val synced = SyncedLyrics(
@@ -61,7 +61,19 @@ class LyricsGoldenTest {
             )
         )
         val line = LyricsDisplay.fromSynced(synced, wordTimed = true).lines.single()
-        return listOf(Case("half-sung-syllable", line, 1600L))
+        val gap = LyricsDisplay.fromSynced(
+            SyncedLyrics(
+                lines = listOf(
+                    LyricLine(startTime = 34_700.milliseconds, endTime = 37_100.milliseconds, words = emptyList(), text = "Now I'm lost in paradise"),
+                    LyricLine(startTime = 136_200.milliseconds, endTime = 139_000.milliseconds, words = emptyList(), text = "Take a chance forget the old")
+                )
+            ),
+            wordTimed = false
+        ).items.filterIsInstance<LyricsItem.Gap>().last()
+        return listOf(
+            Case("half-sung-syllable", LyricsItem.Line(line), 1600L),
+            Case("gap-half-filled", gap, 37_100L + (136_200L - 37_100L) / 2)
+        )
     }
 
     private fun render(case: Case): Image {
@@ -75,7 +87,10 @@ class LyricsGoldenTest {
         )
         val scene = ImageComposeScene(480, 160, Density(1f)) {
             Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-                LyricsRow(line = case.line, position = position, active = true, style = style, onSeek = {})
+                when (val item = case.item) {
+                    is LyricsItem.Line -> LyricsRow(line = item.line, position = position, active = true, style = style, onSeek = {})
+                    is LyricsItem.Gap -> LyricsGapRow(gap = item, position = position, active = true, onSeek = {})
+                }
             }
         }
         try {

@@ -66,6 +66,7 @@ class PlayerModelTrackEndTest {
             userService = mockk<UserServiceWrapper>(relaxed = true),
             radioService = mockk<RadioServiceWrapper>(relaxed = true),
             songCache = SongCache(),
+            timecodeTagStore = mockk<TimecodeTagStore>(relaxed = true),
             settings = InMemorySettings(),
             snackbarManager = mockk<SnackbarManager>(relaxed = true),
             cbor = AppCbor,

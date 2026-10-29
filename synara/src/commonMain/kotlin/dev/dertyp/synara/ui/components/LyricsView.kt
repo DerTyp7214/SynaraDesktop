@@ -92,7 +92,7 @@ fun LyricsView(
     followLabel: String? = null
 ) {
     TimedLinesView(
-        lines = lines,
+        items = remember(lines) { lines.map(LyricsItem::Line) },
         position = rememberReportedPosition(position),
         onSeek = onSeek,
         modifier = modifier,
@@ -115,7 +115,7 @@ private fun SongLyrics(
         rememberReportedPosition(position)
     }
     TimedLinesView(
-        lines = display.lines,
+        items = display.items,
         position = clock,
         onSeek = onSeek,
         modifier = Modifier,
@@ -151,7 +151,7 @@ private fun LyricsMessage(text: String, loading: Boolean = false) {
 
 @Composable
 private fun TimedLinesView(
-    lines: List<DisplayLine>,
+    items: List<LyricsItem>,
     position: LongState,
     onSeek: (Long) -> Unit,
     modifier: Modifier,
@@ -160,15 +160,15 @@ private fun TimedLinesView(
 ) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    var follow by remember(lines) { mutableStateOf(true) }
+    var follow by remember(items) { mutableStateOf(true) }
     var programmaticScroll by remember { mutableStateOf(false) }
 
-    var activeIndex by remember(lines, position) {
-        mutableIntStateOf(Snapshot.withoutReadObservation { activeLineAt(lines, position.longValue) })
+    var activeIndex by remember(items, position) {
+        mutableIntStateOf(Snapshot.withoutReadObservation { activeItemAt(items, position.longValue) })
     }
 
-    LaunchedEffect(lines, position) {
-        snapshotFlow { activeLineAt(lines, position.longValue) }
+    LaunchedEffect(items, position) {
+        snapshotFlow { activeItemAt(items, position.longValue) }
             .collect { activeIndex = it }
     }
 
@@ -180,7 +180,7 @@ private fun TimedLinesView(
     }
 
     LaunchedEffect(activeIndex, follow) {
-        if (follow && lines.isNotEmpty() && activeIndex >= 0) {
+        if (follow && items.isNotEmpty() && activeIndex >= 0) {
             programmaticScroll = true
             try {
                 listState.animateScrollToItem(activeIndex, scrollOffset = -200)
@@ -213,16 +213,24 @@ private fun TimedLinesView(
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             itemsIndexed(
-                items = lines,
+                items = items,
                 key = { index, _ -> index }
-            ) { index, line ->
-                LyricsRow(
-                    line = line,
-                    position = position,
-                    active = index == activeIndex,
-                    style = textStyle,
-                    onSeek = onSeek
-                )
+            ) { index, item ->
+                when (item) {
+                    is LyricsItem.Line -> LyricsRow(
+                        line = item.line,
+                        position = position,
+                        active = index == activeIndex,
+                        style = textStyle,
+                        onSeek = onSeek
+                    )
+                    is LyricsItem.Gap -> LyricsGapRow(
+                        gap = item,
+                        position = position,
+                        active = index == activeIndex,
+                        onSeek = onSeek
+                    )
+                }
             }
         }
 
@@ -261,6 +269,3 @@ private fun TimedLinesView(
         }
     }
 }
-
-private fun activeLineAt(lines: List<DisplayLine>, time: Long): Int =
-    lines.indexOfLast { it.start <= time }.coerceAtLeast(0)

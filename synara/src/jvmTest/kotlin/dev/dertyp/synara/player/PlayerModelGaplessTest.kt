@@ -87,6 +87,7 @@ class PlayerModelGaplessTest {
             userService = mockk<UserServiceWrapper>(relaxed = true),
             radioService = mockk<RadioServiceWrapper>(relaxed = true),
             songCache = songCache,
+            timecodeTagStore = mockk<TimecodeTagStore>(relaxed = true),
             settings = settings,
             snackbarManager = snackbarManager,
             cbor = AppCbor,

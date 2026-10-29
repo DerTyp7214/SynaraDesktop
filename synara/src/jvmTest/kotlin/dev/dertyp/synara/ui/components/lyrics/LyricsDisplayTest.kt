@@ -163,6 +163,106 @@ class LyricsDisplayTest {
         assertEquals(listOf("only plain"), display.lines.map { it.text })
     }
 
+    private fun gaps(display: LyricsDisplay) = display.items.filterIsInstance<LyricsItem.Gap>().map { it.start to it.end }
+
+    @Test
+    fun syncedLyricsGetIntroAndInstrumentalGaps() {
+        val synced = SyncedLyrics(
+            lines = listOf(
+                line(8_600, 12_000, text = "first"),
+                line(34_700, 37_100, text = "Now I'm lost in paradise"),
+                line(136_200, 140_000, text = "Take a chance forget the old")
+            )
+        )
+        val display = LyricsDisplay.fromSynced(synced, wordTimed = false)
+        assertEquals(listOf(0L to 8_600L, 12_000L to 34_700L, 37_100L to 136_200L), gaps(display))
+        assertEquals(6, display.items.size)
+        assertEquals(display.lines, display.items.filterIsInstance<LyricsItem.Line>().map { it.line })
+    }
+
+    @Test
+    fun gapsShorterThanFiveSecondsAreIgnored() {
+        val synced = SyncedLyrics(
+            lines = listOf(
+                line(4_999, 6_000, text = "one"),
+                line(10_999, 12_000, text = "two"),
+                line(17_000, 18_000, text = "three")
+            )
+        )
+        val display = LyricsDisplay.fromSynced(synced, wordTimed = false)
+        assertEquals(listOf(12_000L to 17_000L), gaps(display))
+    }
+
+    @Test
+    fun backingThatEndsLaterShortensTheGap() {
+        val synced = SyncedLyrics(
+            lines = listOf(
+                line(0, 2_000, text = "lead", group = 0),
+                line(1_000, 4_000, text = "(echo)", background = true, group = 0),
+                line(8_500, 9_000, text = "close", group = 1),
+                line(20_000, 21_000, text = "far", group = 2)
+            )
+        )
+        val display = LyricsDisplay.fromSynced(synced, wordTimed = false)
+        assertEquals(listOf(9_000L to 20_000L), gaps(display))
+    }
+
+    @Test
+    fun overlappingEarlierLineKeepsTheGapClosed() {
+        val synced = SyncedLyrics(
+            lines = listOf(
+                line(0, 30_000, text = "long"),
+                line(1_000, 2_000, text = "short"),
+                line(26_000, 27_000, text = "inside")
+            )
+        )
+        assertEquals(emptyList(), gaps(LyricsDisplay.fromSynced(synced, wordTimed = false)))
+    }
+
+    @Test
+    fun activeItemFollowsGaps() {
+        val synced = SyncedLyrics(
+            lines = listOf(
+                line(8_600, 12_000, text = "first"),
+                line(34_700, 37_100, text = "lost"),
+                line(38_000, 40_000, text = "close"),
+                line(136_200, 140_000, text = "take")
+            )
+        )
+        val items = LyricsDisplay.fromSynced(synced, wordTimed = false).items
+        fun activeAt(time: Long) = items[activeItemAt(items, time)]
+        assertTrue(activeAt(0) is LyricsItem.Gap)
+        assertTrue(activeAt(8_599) is LyricsItem.Gap)
+        assertEquals("first", (activeAt(8_600) as LyricsItem.Line).line.text)
+        assertEquals("first", (activeAt(11_999) as LyricsItem.Line).line.text)
+        assertEquals(LyricsItem.Gap(12_000, 34_700), activeAt(12_000))
+        assertEquals("lost", (activeAt(37_500) as LyricsItem.Line).line.text)
+        assertEquals("close", (activeAt(39_000) as LyricsItem.Line).line.text)
+        assertEquals(LyricsItem.Gap(40_000, 136_200), activeAt(100_000))
+        assertEquals("take", (activeAt(136_200) as LyricsItem.Line).line.text)
+        assertEquals("take", (activeAt(500_000) as LyricsItem.Line).line.text)
+    }
+
+    @Test
+    fun activeItemWithoutGapsMatchesLastStartedLine() {
+        val items = LyricsDisplay.fromText("a\nb\nc").items
+        assertEquals(0, activeItemAt(items, -10))
+        assertEquals(0, activeItemAt(items, 1_999))
+        assertEquals(1, activeItemAt(items, 2_000))
+        assertEquals(2, activeItemAt(items, 60_000))
+    }
+
+    @Test
+    fun plainLrcAndTranscriptsGetNoGaps() {
+        val plain = LyricsDisplay.from(candidate(LyricsSyncLevel.PLAIN, "a\nb", SyncedLyrics(listOf(line(0, 0, text = "x"), line(60_000, 61_000, text = "y")))))
+        val lrc = LyricsDisplay.fromText("[00:10.00] late\n[01:00.00] later\n")
+        val lineFallback = LyricsDisplay.from(candidate(LyricsSyncLevel.LINE, "[00:30.00] only", null))
+        val transcript = LyricsDisplay.fromTranscript(listOf(TranscriptCue(10_000, 11_000, null, "Hi"), TranscriptCue(60_000, 61_000, null, "There")))
+        listOf(plain, lrc, lineFallback, transcript).forEach { display ->
+            assertEquals(display.lines.map(LyricsItem::Line), display.items)
+        }
+    }
+
     @Test
     fun transcriptCuesKeepSpeakers() {
         val display = LyricsDisplay.fromTranscript(listOf(TranscriptCue(100, 900, "Host", "Hello"), TranscriptCue(1000, 1500, null, "Hi")))

@@ -23,7 +23,23 @@ data class DisplayLine(
     val backing: List<DisplayLine> = emptyList()
 )
 
-data class LyricsDisplay(val lines: List<DisplayLine>) {
+sealed interface LyricsItem {
+    val start: Long
+
+    data class Line(val line: DisplayLine) : LyricsItem {
+        override val start: Long get() = line.start
+    }
+
+    data class Gap(override val start: Long, val end: Long) : LyricsItem
+}
+
+internal fun activeItemAt(items: List<LyricsItem>, time: Long): Int =
+    items.indexOfLast { it.start <= time }.coerceAtLeast(0)
+
+data class LyricsDisplay(
+    val lines: List<DisplayLine>,
+    val items: List<LyricsItem> = lines.map(LyricsItem::Line)
+) {
     val isEmpty: Boolean get() = lines.isEmpty()
 
     val wordTimed: Boolean
@@ -31,6 +47,7 @@ data class LyricsDisplay(val lines: List<DisplayLine>) {
 
     companion object {
         const val PLAIN_SPACING_MS = 2000L
+        const val MIN_GAP_MS = 5000L
 
         val EMPTY = LyricsDisplay(emptyList())
 
@@ -72,7 +89,19 @@ data class LyricsDisplay(val lines: List<DisplayLine>) {
                     leads[leadIndex] = lead.copy(backing = lead.backing + backing.copy(voiceIndex = backing.voiceIndex ?: lead.voiceIndex))
                 }
             }
-            return LyricsDisplay((leads + orphans).sortedBy { it.start })
+            val lines = (leads + orphans).sortedBy { it.start }
+            return LyricsDisplay(lines, withGaps(lines))
+        }
+
+        private fun withGaps(lines: List<DisplayLine>): List<LyricsItem> {
+            val items = mutableListOf<LyricsItem>()
+            var reached = 0L
+            lines.forEach { line ->
+                if (line.start - reached >= MIN_GAP_MS) items += LyricsItem.Gap(reached, line.start)
+                items += LyricsItem.Line(line)
+                reached = maxOf(reached, line.start, line.end, line.backing.maxOfOrNull { it.end } ?: 0L)
+            }
+            return items
         }
 
         fun fromText(text: String): LyricsDisplay {
