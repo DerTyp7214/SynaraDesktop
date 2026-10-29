@@ -375,7 +375,7 @@ jobs:
 
           cp all-artifacts/*.pkg.tar.zst versioned/
           if [ -d all-artifacts/reused ]; then
-            cp all-artifacts/reused/*.pkg.tar.zst versioned/
+            find all-artifacts/reused -maxdepth 1 -name '*.pkg.tar.zst' -exec cp {} versioned/ \;
           fi
 
           for pkg in synara-runtime synara-libs synara-classic-libs synara synara-classic; do
