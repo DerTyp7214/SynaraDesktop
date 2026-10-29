@@ -17,6 +17,8 @@ import dev.dertyp.synara.ui.LocalIconPack
 import dev.dertyp.synara.ui.LocalIconStyle
 import org.koin.compose.koinInject
 
+val LocalDarkTheme = compositionLocalOf { true }
+
 @Composable
 fun SynaraTheme(content: @Composable () -> Unit) {
     val isDark = isAppDark()
@@ -35,6 +37,7 @@ fun SynaraTheme(content: @Composable () -> Unit) {
         LocalIconPack provides iconPack,
         LocalIconStyle provides iconStyle,
         LocalIconFilled provides iconFilled,
+        LocalDarkTheme provides isDark,
     ) {
         MaterialTheme(
             colorScheme = theme.colorScheme,

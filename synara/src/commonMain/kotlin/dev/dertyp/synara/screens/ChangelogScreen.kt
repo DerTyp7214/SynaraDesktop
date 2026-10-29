@@ -64,6 +64,15 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.19.2",
+                        date = "2026-10-29",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Improved, "The dots during instrumental breaks are outlined and fill up like a clock, one after another."),
+                            Change(ChangeType.Improved, "The expanded player is always dark, also when the app uses the light theme.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.19.1",
                         date = "2026-10-29",
                         isPrerelease = true,

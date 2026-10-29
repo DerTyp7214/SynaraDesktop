@@ -54,6 +54,7 @@ import dev.dertyp.synara.screens.podcasts.PodcastShowScreen
 import dev.dertyp.synara.scrobble.ScrobblerService
 import dev.dertyp.synara.settings.VisualizerLimits
 import dev.dertyp.synara.settings.VisualizerShape
+import dev.dertyp.synara.theme.LocalDarkTheme
 import dev.dertyp.synara.theme.createColorSchemeFromSeeds
 import dev.dertyp.synara.theme.isAppDark
 import dev.dertyp.synara.theme.rememberCoverScheme
@@ -346,10 +347,7 @@ fun PlayerBar(
         )
 
         val background by animateColorAsState(
-            targetValue = if (isExpanded) isAppDark().let {
-                if (it) Color.Black else Color.White
-            }
-            else MaterialTheme.colorScheme.surface.copy(alpha = .7f),
+            targetValue = if (isExpanded) Color.Black else MaterialTheme.colorScheme.surface.copy(alpha = .7f),
             animationSpec = tween(300),
             label = "playerBackground"
         )
@@ -372,13 +370,13 @@ fun PlayerBar(
             contentColor = MaterialTheme.colorScheme.onSurface,
             tonalElevation = 8.dp
         ) {
-            val isDark = isAppDark()
+            val appDark = isAppDark()
             val coverImageId = if (isPodcast) currentEpisode?.artworkId else currentSong?.animatedCoverImageId ?: currentSong?.coverId
-            val colorScheme by rememberCoverScheme(coverImageId, isDark = isDark)
+            val colorScheme by rememberCoverScheme(coverImageId, isDark = true)
 
-            val dynamicColorScheme = remember(videoFrameSeeds.value, colorScheme, isDark) {
+            val dynamicColorScheme = remember(videoFrameSeeds.value, colorScheme) {
                 if (videoFrameSeeds.value.first != null) {
-                    createColorSchemeFromSeeds(videoFrameSeeds.value, isDark)
+                    createColorSchemeFromSeeds(videoFrameSeeds.value, true)
                 } else {
                     colorScheme
                 }
@@ -400,7 +398,11 @@ fun PlayerBar(
             MaterialTheme(
                 colorScheme = animatedScheme
             ) {
-                CompositionLocalProvider(LocalPlayerHudHidden provides hudHidden) {
+                CompositionLocalProvider(
+                    LocalPlayerHudHidden provides hudHidden,
+                    LocalDarkTheme provides (isExpanded || appDark),
+                    LocalContentColor provides animatedScheme.onSurface
+                ) {
                     BlurredVideoCoverBackground(
                         imageId = coverImageId,
                         animatedImageId = if (isPodcast) null else currentSong?.animatedCoverId,

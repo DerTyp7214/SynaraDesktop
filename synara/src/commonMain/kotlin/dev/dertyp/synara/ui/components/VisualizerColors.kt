@@ -9,7 +9,7 @@ import androidx.compose.ui.graphics.luminance
 import dev.dertyp.PlatformUUID
 import dev.dertyp.synara.settings.VisualizerColorMode
 import dev.dertyp.synara.settings.VisualizerPreset
-import dev.dertyp.synara.theme.isAppDark
+import dev.dertyp.synara.theme.LocalDarkTheme
 import dev.dertyp.synara.theme.rememberCoverScheme
 
 data class VisualizerColors(val base: Color, val highlight: Color)
@@ -21,7 +21,7 @@ internal fun sortByLuminance(a: Color, b: Color): Pair<Color, Color> =
 fun rememberVisualizerColors(preset: VisualizerPreset, coverId: PlatformUUID?): VisualizerColors {
     val coverScheme by rememberCoverScheme(
         if (preset.colorMode == VisualizerColorMode.Cover) coverId else null,
-        isAppDark()
+        LocalDarkTheme.current
     )
     val scheme = when (preset.colorMode) {
         VisualizerColorMode.Cover -> coverScheme

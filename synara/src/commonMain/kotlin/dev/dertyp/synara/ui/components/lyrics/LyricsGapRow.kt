@@ -10,7 +10,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 
@@ -20,6 +22,7 @@ private const val PULSE_SCALE = 0.08f
 private const val PULSE_MS = 1200
 private val dotRadius = 6.dp
 private val dotSpacing = 20.dp
+private val dotOutline = 1.5.dp
 
 @Composable
 internal fun LyricsGapRow(
@@ -63,13 +66,23 @@ internal fun LyricsGapRow(
                     val spacing = dotSpacing.toPx()
                     val left = (size.width - spacing * (DOTS - 1)) / 2f
                     val amount = activity.value
+                    val outline = dotOutline.toPx()
+                    val ring = Stroke(width = outline)
+                    val ringColor = Color.White.copy(alpha = DIM_ALPHA + (1f - DIM_ALPHA) * amount)
                     for (dot in 0 until DOTS) {
                         val fill = (progress * DOTS - dot).coerceIn(0f, 1f) * amount
-                        drawCircle(
-                            color = Color.White.copy(alpha = DIM_ALPHA + (1f - DIM_ALPHA) * fill),
-                            radius = radius,
-                            center = Offset(left + spacing * dot, size.height / 2f)
-                        )
+                        val center = Offset(left + spacing * dot, size.height / 2f)
+                        drawCircle(color = ringColor, radius = radius - outline / 2f, center = center, style = ring)
+                        if (fill > 0f) {
+                            drawArc(
+                                color = Color.White,
+                                startAngle = -90f,
+                                sweepAngle = 360f * fill,
+                                useCenter = true,
+                                topLeft = Offset(center.x - radius, center.y - radius),
+                                size = Size(radius * 2f, radius * 2f)
+                            )
+                        }
                     }
                 }
         )
