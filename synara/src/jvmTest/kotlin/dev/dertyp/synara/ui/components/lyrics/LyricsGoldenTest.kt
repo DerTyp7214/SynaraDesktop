@@ -18,9 +18,9 @@ import androidx.compose.ui.unit.sp
 import dev.dertyp.services.models.LyricLine
 import dev.dertyp.services.models.LyricWord
 import dev.dertyp.services.models.SyncedLyrics
+import dev.dertyp.synara.ui.components.GoldenComparison
 import org.jetbrains.skia.*
 import java.io.File
-import kotlin.math.abs
 import kotlin.math.max
 import kotlin.test.Test
 import kotlin.test.fail
@@ -101,27 +101,12 @@ class LyricsGoldenTest {
         }
     }
 
-    private fun pixels(image: Image): ByteArray {
-        val bitmap = Bitmap()
-        bitmap.allocPixels(ImageInfo(image.width, image.height, ColorType.RGBA_8888, ColorAlphaType.PREMUL))
-        image.readPixels(bitmap, 0, 0)
-        return bitmap.readPixels() ?: error("no pixels")
-    }
-
-    private fun maxDifference(a: ByteArray, b: ByteArray): Int {
-        var largest = 0
-        for (i in a.indices) {
-            val d = abs((a[i].toInt() and 0xFF) - (b[i].toInt() and 0xFF))
-            if (d > largest) largest = d
-        }
-        return largest
-    }
-
     @Test
     fun rendersMatchGoldens() {
         val failures = mutableListOf<String>()
         val created = mutableListOf<String>()
-        var worst = 0
+        var worstInterior = 0
+        var worstEdge = 0
         for (case in cases()) {
             val name = "${case.name}.png"
             val image = render(case)
@@ -139,20 +124,17 @@ class LyricsGoldenTest {
                 continue
             }
             val actual = Image.makeFromEncoded(encoded)
-            val difference = maxDifference(pixels(expected), pixels(actual))
-            worst = max(worst, difference)
-            if (difference > MAX_CHANNEL_DIFFERENCE) {
+            val comparison = GoldenComparison.compare(expected, actual)
+            worstInterior = max(worstInterior, comparison.interiorDifference)
+            worstEdge = max(worstEdge, comparison.edgeDifference)
+            if (!comparison.matches) {
                 diffDir.mkdirs()
                 File(diffDir, name).writeBytes(encoded)
-                failures += "$name: max channel difference $difference"
+                failures += "$name: ${comparison.describe()}"
             }
         }
-        println("Lyrics goldens: worst channel difference $worst, created ${created.size}")
+        println("Lyrics goldens: worst channel difference interior $worstInterior, edge $worstEdge, created ${created.size}")
         if (created.isNotEmpty()) fail("Created ${created.size} missing goldens, rerun to compare: ${created.joinToString()}")
         if (failures.isNotEmpty()) fail(failures.joinToString("\n"))
-    }
-
-    private companion object {
-        const val MAX_CHANNEL_DIFFERENCE = 1
     }
 }
