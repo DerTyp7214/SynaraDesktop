@@ -167,7 +167,8 @@ jobs:
             for entry in "$app_stage/opt/$dir/lib/app"/* "$app_stage/opt/$dir/lib/app"/.[!.]*; do
               [ -e "$entry" ] || [ -L "$entry" ] || continue
               base=$(basename "$entry")
-              if [[ "$base" =~ $OWN_JAR_RE ]] || [[ "$base" == *.cfg ]] || [ "$base" = resources ]; then
+              if [[ "$base" =~ $OWN_JAR_RE ]] || [[ "$base" == *.cfg ]] || [ "$base" = resources ] \
+                || [ "$base" = .jpackage.xml ] || [[ "$base" == skiko-awt-runtime-*.jar ]]; then
                 continue
               fi
               mv "$entry" "$libs_stage/opt/$dir/lib/app/"
