@@ -26,6 +26,8 @@ private val cachedDeviceName: String by lazy {
 
 actual fun defaultDeviceName(): String = cachedDeviceName
 
+actual fun currentInstallChannel(): InstallChannel? = installChannelOf(System.getProperty("synara.installChannel"))
+
 private val imageExtensions = setOf("png", "jpg", "jpeg", "webp", "bmp", "gif")
 
 actual suspend fun pickImageBytes(): ByteArray? = pickFile("Select image", imageExtensions)?.bytes

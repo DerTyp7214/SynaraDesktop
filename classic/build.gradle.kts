@@ -1,9 +1,11 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.compose.desktop.application.tasks.AbstractJPackageTask
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.jetbrains.compose)
     alias(libs.plugins.kotlin.compose)
+    id("synara.reproducible-proguard")
 }
 
 kotlin {
@@ -33,6 +35,11 @@ compose.desktop {
     application {
         mainClass = "dev.dertyp.classic.MainKt"
 
+        buildTypes.release.proguard {
+            isEnabled.set(true)
+            configurationFiles.from(rootProject.file("app/compose-desktop.pro"), rootProject.file("proguard/arch-shrink.pro"))
+        }
+
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             val synaraVersion = project(":synara").version.toString()
@@ -58,5 +65,13 @@ compose.desktop {
 
             modules("jdk.unsupported", "java.sql", "jdk.security.auth", "java.naming", "java.management", "jdk.management", "jdk.crypto.ec")
         }
+    }
+}
+
+val installChannel = rootProject.extra["installChannel"] as String
+
+afterEvaluate {
+    tasks.withType<AbstractJPackageTask>().configureEach {
+        launcherJvmArgs.add("-Dsynara.installChannel=$installChannel")
     }
 }

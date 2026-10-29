@@ -26,6 +26,8 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.dertyp.synara.BuildConfig
 import dev.dertyp.synara.ui.SynaraIcons
+import dev.dertyp.synara.utils.InstallChannel
+import dev.dertyp.synara.utils.currentInstallChannel
 import org.jetbrains.compose.resources.stringResource
 import synara.synara.generated.resources.Res
 import synara.synara.generated.resources.back
@@ -38,7 +40,8 @@ enum class ChangeType {
 
 data class Change(
     val type: ChangeType,
-    val description: String
+    val description: String,
+    val channels: Set<InstallChannel>? = null
 )
 
 data class ChangelogEntry(
@@ -46,8 +49,17 @@ data class ChangelogEntry(
     val date: String,
     val changes: List<Change>,
     val isPrerelease: Boolean = false,
-    val prereleasePrefix: String? = null
+    val prereleasePrefix: String? = null,
+    val channels: Set<InstallChannel>? = null
 )
+
+private fun Set<InstallChannel>?.includes(channel: InstallChannel?): Boolean =
+    channel == null || this == null || channel in this
+
+fun visibleChangelog(entries: List<ChangelogEntry>, channel: InstallChannel?): List<ChangelogEntry> =
+    entries.filter { it.channels.includes(channel) }
+        .map { entry -> entry.copy(changes = entry.changes.filter { it.channels.includes(channel) }) }
+        .filter { it.changes.isNotEmpty() }
 
 class ChangelogScreen : Screen {
 
@@ -63,6 +75,17 @@ class ChangelogScreen : Screen {
         val rawChangelog = remember {
             listOf(
                 "1.0.0" to listOf(
+                    ChangelogEntry(
+                        version = "3.19.3",
+                        date = "2026-10-29",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.Improved, "The Arch packages are less than half the size.", channels = setOf(InstallChannel.PACMAN)),
+                            Change(ChangeType.Improved, "Icons and native libraries come in their own Arch packages and are only downloaded again when they change.", channels = setOf(InstallChannel.PACMAN)),
+                            Change(ChangeType.New, "On Arch Linux, synara-runtime-system lets Synara use the Java runtime from the official repositories instead of the bundled one.", channels = setOf(InstallChannel.PACMAN)),
+                            Change(ChangeType.Fixed, "The Arch packages pull in the system libraries Synara needs to start on minimal installations.", channels = setOf(InstallChannel.PACMAN))
+                        )
+                    ),
                     ChangelogEntry(
                         version = "3.19.2",
                         date = "2026-10-29",
@@ -1041,7 +1064,7 @@ class ChangelogScreen : Screen {
         }
 
         val displayChangelog = remember(isAppPrerelease) {
-            if (isAppPrerelease) {
+            val releaseChangelog = if (isAppPrerelease) {
                 rawChangelog.map { entry ->
                     if (entry.isPrerelease && entry.prereleasePrefix != null) {
                         entry.copy(version = "${entry.prereleasePrefix}-prerelease${entry.version}")
@@ -1050,6 +1073,7 @@ class ChangelogScreen : Screen {
             } else {
                 rawChangelog.filter { !it.isPrerelease }
             }
+            visibleChangelog(releaseChangelog, currentInstallChannel())
         }
 
         Scaffold(

@@ -20,6 +20,11 @@ val lwjglNativesClassifier = when {
     else -> "natives-linux"
 }
 extra["lwjglNativesClassifier"] = lwjglNativesClassifier
+extra["installChannel"] = when {
+    osName.contains("win") -> "msi"
+    osName.contains("mac") -> "dmg"
+    else -> "deb"
+}
 
 tasks.register<Exec>("installGitHooks") {
     group = "help"

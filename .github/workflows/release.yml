@@ -56,7 +56,7 @@ jobs:
           RUN_NUMBER: ${{ github.run_number }}
         run: |
           set -euo pipefail
-          ./gradlew :app:createDistributable :classic:createDistributable
+          ./gradlew :app:createReleaseDistributable :classic:createReleaseDistributable
 
           VERSION=$(./gradlew :synara:properties -q | grep "^version:" | cut -d' ' -f2 | tr -d '\r')
           [ -z "$VERSION" ] && VERSION="1.0.0"
@@ -65,8 +65,8 @@ jobs:
           STAMP=$(date -u +%Y%m%d.%H%M%S)
 
           ROOT=$PWD
-          APP_IMAGE=$ROOT/app/build/compose/binaries/main/app/Synara
-          CLASSIC_IMAGE=$ROOT/classic/build/compose/binaries/main/app/Synara
+          APP_IMAGE=$ROOT/app/build/compose/binaries/main-release/app/Synara
+          CLASSIC_IMAGE=$ROOT/classic/build/compose/binaries/main-release/app/Synara
           ICON_PNG=$ROOT/synara/src/commonMain/resources/icon.png
           ICON_SVG=$ROOT/synara/src/commonMain/resources/icon.svg
           STAGE=$ROOT/arch-stage
@@ -78,8 +78,26 @@ jobs:
           : > "$OUT/reused-packages.txt"
           ./gradlew -q :synara:printReleaseVersion | tr -d '\r' > "$OUT/release-version.txt"
 
-          (cd "$APP_IMAGE/.." && tar -czf "$ROOT/Synara-linux-x64.tar.gz" Synara)
-          (cd "$CLASSIC_IMAGE/.." && tar -czf "$ROOT/ClassicApp-linux-x64.tar.gz" Synara)
+          set_install_channel() {
+            local cfg=$1 channel=$2
+            if ! grep -qxF 'java-options=-Dsynara.installChannel=deb' "$cfg"; then
+              echo "::error::$cfg has no java-options=-Dsynara.installChannel=deb line"
+              exit 1
+            fi
+            sed -i "s/^java-options=-Dsynara\.installChannel=deb\$/java-options=-Dsynara.installChannel=$channel/" "$cfg"
+          }
+
+          make_tarball() {
+            local image=$1 tarball=$2 copy="$STAGE/tarball/Synara"
+            mkdir -p "$STAGE/tarball"
+            cp -a "$image" "$copy"
+            set_install_channel "$copy/lib/app/Synara.cfg" tarball
+            (cd "$STAGE/tarball" && tar -czf "$tarball" Synara)
+            rm -rf "$STAGE/tarball"
+          }
+
+          make_tarball "$APP_IMAGE" "$ROOT/Synara-linux-x64.tar.gz"
+          make_tarball "$CLASSIC_IMAGE" "$ROOT/ClassicApp-linux-x64.tar.gz"
 
           content_hash() {
             (cd "$1" && find . \( -type f -o -type l \) -print0 | LC_ALL=C sort -z | while IFS= read -r -d '' f; do
@@ -94,6 +112,15 @@ jobs:
           make_pkg() {
             local name=$1 ver=$2 desc=$3 stage=$4
             shift 4
+            local depends=() optdepends=() provides=() conflicts=()
+            while [ $# -gt 0 ]; do
+              case "$1" in
+                --optdepend) optdepends+=("$2"); shift 2 ;;
+                --provides) provides+=("$2"); shift 2 ;;
+                --conflicts) conflicts+=("$2"); shift 2 ;;
+                *) depends+=("$1"); shift ;;
+              esac
+            done
             local file="$name-$ver-1-x86_64.pkg.tar.zst"
             local entries size
             mapfile -t entries < <(cd "$stage" && find . -mindepth 1 -maxdepth 1 ! -name '.*' -printf '%P\n' | LC_ALL=C sort)
@@ -109,8 +136,11 @@ jobs:
               echo "size = $size"
               echo "arch = x86_64"
               echo "license = custom"
-              local dep
-              for dep in "$@"; do echo "depend = $dep"; done
+              local entry
+              for entry in "${depends[@]}"; do echo "depend = $entry"; done
+              for entry in "${optdepends[@]}"; do echo "optdepend = $entry"; done
+              for entry in "${conflicts[@]}"; do echo "conflict = $entry"; done
+              for entry in "${provides[@]}"; do echo "provides = $entry"; done
             } > "$stage/.PKGINFO"
             local meta=(.PKGINFO)
             [ -f "$stage/.INSTALL" ] && meta+=(.INSTALL)
@@ -121,7 +151,11 @@ jobs:
           PKG_VER=
           reuse_or_build() {
             local name=$1 desc=$2 stage=$3 hash prev_hash prev_file
+            shift 3
             hash=$(content_hash "$stage")
+            if [ $# -gt 0 ]; then
+              hash=$(printf '%s\n' "$hash" "$@" | sha256sum | cut -d' ' -f1)
+            fi
             if gh release download latest-dev --repo "$REPO" --pattern "$name.sha256" --dir "$PREV" --clobber 2>/dev/null; then
               read -r prev_hash prev_file < "$PREV/$name.sha256" || true
               if [ "${prev_hash:-}" = "$hash" ] && [[ "${prev_file:-}" =~ ^${name}-([0-9]{8}\.[0-9]{6})-1-x86_64\.pkg\.tar\.zst$ ]]; then
@@ -137,7 +171,7 @@ jobs:
               fi
             fi
             PKG_VER=$STAMP
-            make_pkg "$name" "$PKG_VER" "$desc" "$stage"
+            make_pkg "$name" "$PKG_VER" "$desc" "$stage" "$@"
             printf '%s %s\n' "$hash" "$name-$PKG_VER-1-x86_64.pkg.tar.zst" > "$OUT/$name.sha256"
           }
 
@@ -152,14 +186,101 @@ jobs:
 
           mkdir -p "$STAGE/runtime/usr/lib/synara-runtime"
           cp -a "$APP_IMAGE/lib/runtime/." "$STAGE/runtime/usr/lib/synara-runtime/"
-          reuse_or_build synara-runtime "Java runtime for Synara" "$STAGE/runtime"
-          RUNTIME_VER=$PKG_VER
+          reuse_or_build synara-runtime "Java runtime for Synara" "$STAGE/runtime" --provides synara-jre=21
+
+          mkdir -p "$STAGE/runtime-system/usr/lib"
+          ln -s /usr/lib/jvm/java-21-openjdk "$STAGE/runtime-system/usr/lib/synara-runtime"
+          reuse_or_build synara-runtime-system "Java runtime for Synara from the system jre21-openjdk" "$STAGE/runtime-system" \
+            jre21-openjdk --provides synara-jre=21 --conflicts synara-runtime
+
+          icon_members() {
+            local f
+            for f in "$1"/*.jar; do
+              if [[ "$(basename "$f")" == icons-*.jar ]] || [ "$(unzip -Z1 "$f" | grep -cxF 'icons/PhIcons.class')" != 0 ]; then
+                basename "$f"
+              fi
+            done | LC_ALL=C sort
+          }
+
+          native_members() {
+            local f base
+            for f in "$1"/*; do
+              base=$(basename "$f")
+              case "$base" in
+                libskiko-linux-x64.so|libskiko-linux-x64.so.sha256|sqlite-jdbc-*.jar|zstd-jni-*.jar|jna-[0-9]*.jar|lwjgl-*natives-linux*.jar)
+                  echo "$base"
+                  ;;
+                library-jvm-*.jar)
+                  if [ "$(unzip -Z1 "$f" | grep -cE '^dev/toastbits/mediasession/|libSMTCAdapter\.dll$')" != 0 ]; then
+                    echo "$base"
+                  fi
+                  ;;
+              esac
+            done | LC_ALL=C sort
+          }
+
+          require_members() {
+            local label=$1 members=$2 pattern
+            shift 2
+            for pattern in "$@"; do
+              if ! grep -qE "$pattern" <<< "$members"; then
+                echo "::error::$label has no member matching $pattern"
+                exit 1
+              fi
+            done
+          }
+
+          member_hashes() {
+            local dir=$1 member
+            shift
+            for member in "$@"; do
+              printf '%s %s\n' "$(sha256sum < "$dir/$member" | cut -d' ' -f1)" "$member"
+            done
+          }
+
+          ICON_PATTERNS=('^icons-material-symbols-.*\.jar$' '^icons-lucide-.*\.jar$' '^library-jvm-.*\.jar$')
+          NATIVE_PATTERNS=('^libskiko-linux-x64\.so$' '^libskiko-linux-x64\.so\.sha256$' '^sqlite-jdbc-.*\.jar$' '^zstd-jni-.*\.jar$' \
+            '^jna-[0-9].*\.jar$' '^library-jvm-.*\.jar$' '^lwjgl-.*natives-linux.*\.jar$')
+
+          mapfile -t ICON_FILES < <(icon_members "$APP_IMAGE/lib/app")
+          mapfile -t CLASSIC_ICON_FILES < <(icon_members "$CLASSIC_IMAGE/lib/app")
+          require_members "The app icons" "$(printf '%s\n' "${ICON_FILES[@]}")" "${ICON_PATTERNS[@]}"
+          require_members "The classic icons" "$(printf '%s\n' "${CLASSIC_ICON_FILES[@]}")" "${ICON_PATTERNS[@]}"
+          if ! diff <(member_hashes "$APP_IMAGE/lib/app" "${ICON_FILES[@]}") <(member_hashes "$CLASSIC_IMAGE/lib/app" "${CLASSIC_ICON_FILES[@]}"); then
+            echo "::error::The classic icon jars differ from the app icon jars, synara-icons cannot be shared"
+            exit 1
+          fi
+
+          mapfile -t APP_NATIVE_FILES < <(native_members "$APP_IMAGE/lib/app")
+          mapfile -t CLASSIC_NATIVE_FILES < <(native_members "$CLASSIC_IMAGE/lib/app")
+          require_members "The app natives" "$(printf '%s\n' "${APP_NATIVE_FILES[@]}")" "${NATIVE_PATTERNS[@]}"
+          require_members "The classic natives" "$(printf '%s\n' "${CLASSIC_NATIVE_FILES[@]}")" "${NATIVE_PATTERNS[@]}"
+          mapfile -t NATIVE_FILES < <(LC_ALL=C comm -12 <(printf '%s\n' "${APP_NATIVE_FILES[@]}") <(printf '%s\n' "${CLASSIC_NATIVE_FILES[@]}"))
+          echo "Native files only one edition has, they stay in its libs package:"
+          LC_ALL=C comm -3 <(printf '%s\n' "${APP_NATIVE_FILES[@]}") <(printf '%s\n' "${CLASSIC_NATIVE_FILES[@]}")
+          if ! diff <(member_hashes "$APP_IMAGE/lib/app" "${NATIVE_FILES[@]}") <(member_hashes "$CLASSIC_IMAGE/lib/app" "${NATIVE_FILES[@]}"); then
+            echo "::error::The classic native files differ from the app native files, synara-natives cannot be shared"
+            exit 1
+          fi
+
+          mkdir -p "$STAGE/icons/usr/lib/synara-icons" "$STAGE/natives/usr/lib/synara-natives"
+          for member in "${ICON_FILES[@]}"; do
+            cp -a "$APP_IMAGE/lib/app/$member" "$STAGE/icons/usr/lib/synara-icons/"
+          done
+          for member in "${NATIVE_FILES[@]}"; do
+            cp -a "$APP_IMAGE/lib/app/$member" "$STAGE/natives/usr/lib/synara-natives/"
+          done
+          reuse_or_build synara-icons "Icons for Synara" "$STAGE/icons"
+          ICONS_VER=$PKG_VER
+          reuse_or_build synara-natives "Native libraries for Synara" "$STAGE/natives"
+          NATIVES_VER=$PKG_VER
 
           build_edition() {
             local image=$1 pkg=$2 libs_pkg=$3 dir=$4 icon=$5 name=$6 desc=$7
             local app_stage="$STAGE/$pkg" libs_stage="$STAGE/$libs_pkg"
             mkdir -p "$app_stage/opt/$dir" "$libs_stage/opt/$dir/lib/app"
             cp -a "$image/." "$app_stage/opt/$dir/"
+            set_install_channel "$app_stage/opt/$dir/lib/app/Synara.cfg" pacman
             rm -rf "$app_stage/opt/$dir/lib/runtime"
             ln -s /usr/lib/synara-runtime "$app_stage/opt/$dir/lib/runtime"
 
@@ -175,6 +296,16 @@ jobs:
             done
             echo "Own files of $pkg in lib/app:"
             ls -1A "$app_stage/opt/$dir/lib/app"
+
+            local member
+            for member in "${ICON_FILES[@]}"; do
+              rm "$libs_stage/opt/$dir/lib/app/$member"
+              ln -s "/usr/lib/synara-icons/$member" "$libs_stage/opt/$dir/lib/app/$member"
+            done
+            for member in "${NATIVE_FILES[@]}"; do
+              rm "$libs_stage/opt/$dir/lib/app/$member"
+              ln -s "/usr/lib/synara-natives/$member" "$libs_stage/opt/$dir/lib/app/$member"
+            done
 
             reuse_or_build "$libs_pkg" "Third-party libraries for $desc" "$libs_stage"
             local libs_ver=$PKG_VER
@@ -201,8 +332,12 @@ jobs:
 
             cat <<'EOF' > "$app_stage/.INSTALL"
           post_install() {
-            update-desktop-database -q
-            gtk-update-icon-cache -q -t -f usr/share/icons/hicolor
+            if command -v update-desktop-database > /dev/null; then
+              update-desktop-database -q
+            fi
+            if command -v gtk-update-icon-cache > /dev/null; then
+              gtk-update-icon-cache -q -t -f usr/share/icons/hicolor
+            fi
           }
           post_upgrade() {
             post_install
@@ -212,7 +347,10 @@ jobs:
           }
           EOF
 
-            make_pkg "$pkg" "$APP_PKGVER" "$desc" "$app_stage" "synara-runtime=$RUNTIME_VER" "$libs_pkg=$libs_ver"
+            make_pkg "$pkg" "$APP_PKGVER" "$desc" "$app_stage" "synara-jre=21" "synara-icons=$ICONS_VER" "synara-natives=$NATIVES_VER" "$libs_pkg=$libs_ver" \
+              libxtst libxi ttf-font \
+              --optdepend "desktop-file-utils: update the desktop entry database" \
+              --optdepend "gtk-update-icon-cache: refresh the icon cache"
           }
 
           build_edition "$APP_IMAGE" synara synara-libs synara synara "Synara" "Synara Music Player"
@@ -379,7 +517,7 @@ jobs:
             find all-artifacts/reused -maxdepth 1 -name '*.pkg.tar.zst' -exec cp {} versioned/ \;
           fi
 
-          for pkg in synara-runtime synara-libs synara-classic-libs synara synara-classic; do
+          for pkg in synara-runtime synara-runtime-system synara-icons synara-natives synara-libs synara-classic-libs synara synara-classic; do
             [ "$(ls versioned/ | grep -cE "^$pkg-[^-]+-1-x86_64\.pkg\.tar\.zst$")" = 1 ] || { echo "::error::Expected exactly one $pkg package in versioned/"; exit 1; }
           done
 
@@ -409,10 +547,16 @@ jobs:
             echo "Server = $BASE_URL"
             echo '```'
             echo
-            echo "Or install the packages directly:"
+            echo "Or install the packages directly, with the bundled Java runtime:"
             echo '```sh'
-            echo "sudo pacman -U $(pkg_url synara-runtime) $(pkg_url synara-libs) $(pkg_url synara)"
-            echo "sudo pacman -U $(pkg_url synara-runtime) $(pkg_url synara-classic-libs) $(pkg_url synara-classic)"
+            echo "sudo pacman -U $(pkg_url synara-runtime) $(pkg_url synara-icons) $(pkg_url synara-natives) $(pkg_url synara-libs) $(pkg_url synara)"
+            echo "sudo pacman -U $(pkg_url synara-runtime) $(pkg_url synara-icons) $(pkg_url synara-natives) $(pkg_url synara-classic-libs) $(pkg_url synara-classic)"
+            echo '```'
+            echo
+            echo "Or with the system Java runtime, which needs \`jre21-openjdk\` from the official repositories:"
+            echo '```sh'
+            echo "sudo pacman -U $(pkg_url synara-runtime-system) $(pkg_url synara-icons) $(pkg_url synara-natives) $(pkg_url synara-libs) $(pkg_url synara)"
+            echo "sudo pacman -U $(pkg_url synara-runtime-system) $(pkg_url synara-icons) $(pkg_url synara-natives) $(pkg_url synara-classic-libs) $(pkg_url synara-classic)"
             echo '```'
           } > "$RUNNER_TEMP/versioned-body.md"
 
