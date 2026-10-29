@@ -11,8 +11,6 @@
 -dontwarn ch.qos.logback.**
 -dontwarn io.github.oshai.kotlinlogging.logback.**
 
--dontpreverify
-
 -keep class kotlinx.rpc.** { *; }
 -keep class dev.dertyp.** { *; }
 

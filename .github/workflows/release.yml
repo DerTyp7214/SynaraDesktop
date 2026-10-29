@@ -73,6 +73,10 @@ jobs:
           PREV=$ROOT/arch-prev
           OUT=$ROOT/arch-out
           OWN_JAR_RE='^(app|classic|synara|common-rpc|tray|dbus-api)-jvm(-[^/]*)?\.jar$'
+
+          java "$ROOT/scripts/verify-classes/VerifyClasses.java" "$APP_IMAGE/lib/app"
+          java "$ROOT/scripts/verify-classes/VerifyClasses.java" "$CLASSIC_IMAGE/lib/app"
+
           rm -rf "$STAGE" "$PREV" "$OUT"
           mkdir -p "$STAGE" "$PREV" "$OUT"
           : > "$OUT/reused-packages.txt"

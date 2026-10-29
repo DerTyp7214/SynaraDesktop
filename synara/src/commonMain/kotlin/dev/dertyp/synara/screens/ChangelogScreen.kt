@@ -76,6 +76,18 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.19.5",
+                        date = "2026-10-29",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(
+                                ChangeType.Fixed,
+                                "Synara no longer crashes when it shows icons, which happened in 3.19.3 and 3.19.4.",
+                                channels = setOf(InstallChannel.PACMAN, InstallChannel.TARBALL)
+                            )
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.19.4",
                         date = "2026-10-29",
                         isPrerelease = true,
