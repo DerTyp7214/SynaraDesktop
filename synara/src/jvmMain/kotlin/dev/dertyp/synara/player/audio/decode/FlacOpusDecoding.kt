@@ -10,6 +10,7 @@ import dev.dertyp.synara.player.audio.convertToShortBuffer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import dev.dertyp.synara.utils.AppDispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.flow
@@ -24,6 +25,9 @@ import org.gagravarr.opus.OpusInfo
 import org.gagravarr.opus.OpusPacketFactory
 import org.gagravarr.opus.OpusTags
 import org.jflac.FLACDecoder
+import org.jflac.FrameListener
+import org.jflac.frame.Frame
+import org.jflac.metadata.Metadata
 import org.jflac.PCMProcessor
 import org.jflac.metadata.StreamInfo
 import org.jflac.util.ByteData
@@ -50,6 +54,29 @@ internal object FlacOpusDecoding {
             val read = super.read(b, off, len)
             if (read > 0) count += read
             return read
+        }
+    }
+
+    // Past the last frame jflac can fail the header of a false trailing sync again and again without consuming a byte
+    // (reserved bit set, or the EOF of findFrameSync swallowed), so decode() never ends. Every failure that happens
+    // at the same stream position as the one before is such a repeat, a real bad header always consumes bytes.
+    private const val MAX_REPEATED_BAD_HEADERS = 8
+
+    private class FlacEndlessLoopException : RuntimeException("FLAC decoder fails the same header over and over")
+
+    private class GuardedInputStream(stream: InputStream, private val job: Job) : FilterInputStream(stream) {
+        private fun check() {
+            if (!job.isActive) throw CancellationException("FLAC decoding cancelled")
+        }
+
+        override fun read(): Int {
+            check()
+            return super.read()
+        }
+
+        override fun read(b: ByteArray, off: Int, len: Int): Int {
+            check()
+            return super.read(b, off, len)
         }
     }
 
@@ -96,7 +123,22 @@ internal object FlacOpusDecoding {
             var failure: Exception? = null
             try {
                 if (!isOgg) {
-                    val decoder = FLACDecoder(stream)
+                    val decoder = FLACDecoder(GuardedInputStream(stream, decoderJob))
+                    var lastBadHeaderAt = -1L
+                    var repeatedBadHeaders = 0
+                    decoder.addFrameListener(object : FrameListener {
+                        override fun processMetadata(metadata: Metadata) {}
+
+                        override fun processFrame(frame: Frame) {}
+
+                        override fun processError(msg: String) {
+                            if (!msg.startsWith("Found bad header")) return
+                            val position = decoder.totalBytesRead
+                            repeatedBadHeaders = if (position == lastBadHeaderAt) repeatedBadHeaders + 1 else 0
+                            lastBadHeaderAt = position
+                            if (repeatedBadHeaders >= MAX_REPEATED_BAD_HEADERS) throw FlacEndlessLoopException()
+                        }
+                    })
                     decoder.addPCMProcessor(object : PCMProcessor {
                         override fun processStreamInfo(info: StreamInfo) {
                             infoDeferred.complete(
@@ -116,7 +158,11 @@ internal object FlacOpusDecoding {
                             runBlocking(decoderJob) { pcmChannel.send(shortBuffer) }
                         }
                     })
-                    decoder.decode()
+                    try {
+                        decoder.decode()
+                    } catch (e: FlacEndlessLoopException) {
+                        logger.warning(DECODER_TAG, "FLAC stream of ${source.cacheKey} ends in a false frame sync, treating it as the end of the track")
+                    }
                 } else {
                     val counting = CountingInputStream(stream)
                     val ogg = OggFile(counting)

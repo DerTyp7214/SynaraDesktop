@@ -44,6 +44,7 @@ fun BlurredVideoCoverBackground(
 ) {
     val audioIntensity by playerSwitcher.audioIntensity.collectAsState()
     val isPlaying by playerSwitcher.isPlaying.collectAsState()
+    val visible = alpha > 0f
 
     val animatedCoverId = animatedImageId
     val displayCoverId = imageId
@@ -68,14 +69,20 @@ fun BlurredVideoCoverBackground(
 
             var manualSmoothedIntensity by remember { mutableFloatStateOf(0f) }
             val launchIntensity = Snapshot.withoutReadObservation { audioIntensity }
-            LaunchedEffect(isPlaying) {
+            LaunchedEffect(isPlaying, audioReactive) {
+                if (!audioReactive) return@LaunchedEffect
                 val clock = BackgroundIntensityClock(launchIntensity)
-                while (true) {
+                var settled = false
+                while (!settled) {
                     withFrameMillis { time ->
                         val intensity = audioIntensity
                         val dt = clock.frameDelta(time, intensity)
                         val target = if (isPlaying) intensity else 0f
                         manualSmoothedIntensity = smoothBackgroundIntensity(manualSmoothedIntensity, target, dt)
+                        if (!isPlaying && manualSmoothedIntensity < INTENSITY_SETTLED_THRESHOLD) {
+                            manualSmoothedIntensity = 0f
+                            settled = true
+                        }
                     }
                 }
             }
@@ -134,12 +141,14 @@ fun BlurredVideoCoverBackground(
                             onFrame = onFrame
                         )
 
-                        LaunchedEffect(videoFrames.frames, videoFrames.fps) {
+                        LaunchedEffect(videoFrames.frames, videoFrames.fps, visible) {
+                            if (!visible) return@LaunchedEffect
                             val frameTimeNanos = (1_000_000_000L / videoFrames.fps).roundToLong()
                             var startTime = -1L
+                            val resumeOffset = currentIndex * frameTimeNanos
                             while (true) {
                                 withFrameNanos { frameTime ->
-                                    if (startTime == -1L) startTime = frameTime
+                                    if (startTime == -1L) startTime = frameTime - resumeOffset
                                     val elapsed = frameTime - startTime
                                     val currentIdx = ((elapsed / frameTimeNanos) % videoFrames.frames.size).toInt()
                                     if (currentIndex != currentIdx) {
@@ -163,6 +172,8 @@ fun BlurredVideoCoverBackground(
         }
     }
 }
+
+private const val INTENSITY_SETTLED_THRESHOLD = 0.001f
 
 internal class BackgroundIntensityClock(private var keyIntensity: Float) {
     private var lastTime = 0L

@@ -3,6 +3,7 @@ package dev.dertyp.synara.player.audio.decode
 import dev.dertyp.logging.Logger
 import dev.dertyp.synara.player.audio.AudioSource
 import dev.dertyp.synara.player.audio.DecodedStream
+import dev.dertyp.synara.player.audio.FlacFixtures
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -18,6 +19,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
 
 class FlacOpusDecodingTest {
@@ -91,5 +93,80 @@ class FlacOpusDecodingTest {
         assertEquals(44100, stream.sampleRate)
         assertNull(stream.durationMs)
         stream.drain()
+    }
+
+    private fun flacWith(trailing: ByteArray): Pair<ByteArray, ShortArray> {
+        val random = Random(5)
+        val samples = ShortArray(44100 + 321) { random.nextInt(-12000, 12000).toShort() }
+        return FlacFixtures.stream44100Bit16(listOf(samples), 4096) + trailing to samples
+    }
+
+    private fun metadataOf(bytes: ByteArray): ByteArray = bytes.copyOf(42)
+
+    private fun openBytes(bytes: ByteArray, scope: CoroutineScope = this.scope): DecodedStream = runBlocking {
+        assertNotNull(
+            FlacOpusDecoding.open(logger, BytesSource(bytes), metadataOf(bytes), isOgg = false, positionMs = 0, totalDuration = 0, scope = scope)
+        )
+    }
+
+    private fun DecodedStream.shorts(): ShortArray {
+        val buffers = drain()
+        val out = ShortArray(buffers.sumOf { it.remaining() })
+        var position = 0
+        for (buffer in buffers) {
+            val count = buffer.remaining()
+            buffer.get(out, position, count)
+            position += count
+        }
+        return out
+    }
+
+    private fun decoderThreadsAlive() = Thread.getAllStackTraces().keys.any { thread ->
+        thread.isAlive && thread.stackTrace.any { it.className == "org.jflac.FLACDecoder" }
+    }
+
+    private fun awaitNoDecoderThread() {
+        val deadline = System.nanoTime() + 5_000_000_000L
+        while (decoderThreadsAlive() && System.nanoTime() < deadline) Thread.sleep(20)
+        assertTrue(!decoderThreadsAlive(), "a FLAC decoder thread is still running")
+    }
+
+    @Test
+    fun wellFormedFlacEndsCleanlyWithAllItsPcm() {
+        val (bytes, samples) = flacWith(ByteArray(0))
+
+        assertEquals(samples.toList(), openBytes(bytes).shorts().toList())
+        awaitNoDecoderThread()
+    }
+
+    @Test
+    fun flacEndingInAFalseSyncCompletesAndStopsTheDecoder() {
+        for (second in listOf(0xFA, 0xFB)) {
+            val (bytes, samples) = flacWith(byteArrayOf(0xFF.toByte(), second.toByte()))
+
+            assertEquals(samples.toList(), openBytes(bytes).shorts().toList())
+            awaitNoDecoderThread()
+        }
+    }
+
+    @Test
+    fun flacWithoutATotalSampleCountEndingInAFalseSyncCompletesAndStopsTheDecoder() {
+        val (bytes, samples) = flacWith(byteArrayOf(0xFF.toByte(), 0xFA.toByte()))
+        bytes[21] = (bytes[21].toInt() and 0xF0).toByte()
+        for (i in 22..25) bytes[i] = 0
+
+        assertEquals(samples.toList(), openBytes(bytes).shorts().toList())
+        awaitNoDecoderThread()
+    }
+
+    @Test
+    fun cancellingTheScopeStopsADecoderSpinningAtTheEndOfTheStream() {
+        val (bytes, _) = flacWith(byteArrayOf(0xFF.toByte(), 0xFA.toByte()))
+        val own = CoroutineScope(SupervisorJob())
+        val stream = openBytes(bytes, own)
+        own.cancel()
+
+        runBlocking { withTimeout(10.seconds) { runCatching { stream.pcmFlow.toList() } } }
+        awaitNoDecoderThread()
     }
 }

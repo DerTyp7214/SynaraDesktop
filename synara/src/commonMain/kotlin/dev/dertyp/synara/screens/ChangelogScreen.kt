@@ -76,6 +76,17 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.19.6",
+                        date = "2026-11-01",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(
+                                ChangeType.Fixed,
+                                "Synara no longer keeps using CPU while nothing is playing: some FLAC tracks could leave decoding running forever after they ended, and the player background kept redrawing while paused."
+                            )
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.19.5",
                         date = "2026-10-29",
                         isPrerelease = true,
