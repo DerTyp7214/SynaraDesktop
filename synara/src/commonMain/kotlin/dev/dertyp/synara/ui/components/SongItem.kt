@@ -54,6 +54,7 @@ fun SongItem(
     isInPlaylist: Boolean = false,
     onRemoveFromPlaylist: (() -> Unit)? = null,
     onRemoveFromQueue: (() -> Unit)? = null,
+    supportingText: String? = null,
     trailingContent: (@Composable RowScope.() -> Unit)? = null
 ) {
     var currentSongState by remember(song) { mutableStateOf(song) }
@@ -192,6 +193,16 @@ fun SongItem(
                             else -> {}
                         }
                     }
+                }
+
+                if (supportingText != null) {
+                    Text(
+                        text = supportingText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
                 }
 
                 Text(

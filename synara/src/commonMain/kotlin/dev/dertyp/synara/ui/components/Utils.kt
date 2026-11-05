@@ -22,6 +22,18 @@ fun formatListenedTime(durationMs: Long): String {
     }
 }
 
+fun formatCompactCount(count: Long): String {
+    val (divisor, suffix) = when {
+        count >= 1_000_000_000 -> 1_000_000_000L to "B"
+        count >= 1_000_000 -> 1_000_000L to "M"
+        count >= 1_000 -> 1_000L to "K"
+        else -> return count.toString()
+    }
+    val whole = count / divisor
+    val tenth = (count % divisor) * 10 / divisor
+    return if (whole >= 100 || tenth == 0L) "$whole$suffix" else "$whole.$tenth$suffix"
+}
+
 fun formatFileSize(bytes: Long): String {
     val kb = bytes / 1024.0
     val mb = kb / 1024.0

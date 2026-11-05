@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -120,6 +121,46 @@ class ArtistScreen(private val artistId: PlatformUUID) : Screen {
                                         navigator = navigator
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
+                                }
+                            }
+
+                            if (state.popularSongs.isNotEmpty()) {
+                                item {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            SectionHeader(stringResource(Res.string.artist_top_songs))
+                                            ArtistTopSongOrderChips(
+                                                order = state.popularOrder,
+                                                onOrderChange = { screenModel.setPopularOrder(it) }
+                                            )
+                                        }
+                                        TextButton(
+                                            onClick = { navigator?.push(ArtistTopSongsScreen(artistId, state.popularOrder)) },
+                                            modifier = Modifier.testTag("artist_top_songs_show_all")
+                                        ) {
+                                            Text(stringResource(Res.string.show_all))
+                                        }
+                                    }
+                                }
+
+                                itemsIndexed(state.popularSongs) { index, topSong ->
+                                    val currentSong by screenModel.playerModel.currentSong.collectAsState()
+                                    SongItem(
+                                        song = topSong.song,
+                                        index = index + 1,
+                                        isCurrent = currentSong?.id == topSong.song.id,
+                                        showCover = true,
+                                        onClick = { screenModel.playPopular(index) },
+                                        onPlayNext = { screenModel.playNext(topSong.song) },
+                                        supportingText = topSong.playsText(state.popularSongsOrder)
+                                    )
                                 }
                             }
 

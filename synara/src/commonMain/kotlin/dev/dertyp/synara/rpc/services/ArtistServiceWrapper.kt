@@ -89,6 +89,10 @@ class ArtistServiceWrapper(manager: RpcServiceManager) : BaseServiceWrapper(mana
         return manager.getService<IArtistService>().artistIdsWithoutMusicBrainzId()
     }
 
+    override suspend fun topSongs(artistId: PlatformUUID, limit: Int, order: ArtistTopSongOrder): List<ArtistTopSong> {
+        return manager.getService<IArtistService>().topSongs(artistId, limit, order)
+    }
+
     override suspend fun aliases(id: PlatformUUID): List<ArtistAlias> {
         return manager.getService<IArtistService>().aliases(id)
     }

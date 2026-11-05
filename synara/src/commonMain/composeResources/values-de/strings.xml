@@ -477,6 +477,11 @@
     <string name="other_versions">Andere Versionen (%1$d)</string>
     <string name="disc_number">Disc %1$d</string>
     <string name="versions_count">%1$d Versionen</string>
+    <string name="artist_top_songs">Top-Songs</string>
+    <string name="artist_top_songs_popular">Beliebt</string>
+    <string name="artist_top_songs_your_top">Deine Top</string>
+    <string name="artist_top_songs_plays">%1$s Wiedergaben</string>
+    <string name="artist_top_songs_empty">Für diesen Künstler wurden noch keine Wiedergaben gefunden.</string>
     <string name="top_liked_songs">Beliebteste geliebte Songs</string>
 
     <!-- Sessions -->

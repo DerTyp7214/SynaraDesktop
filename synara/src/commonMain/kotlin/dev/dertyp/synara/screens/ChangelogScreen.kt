@@ -76,6 +76,14 @@ class ChangelogScreen : Screen {
             listOf(
                 "1.0.0" to listOf(
                     ChangelogEntry(
+                        version = "3.20.0",
+                        date = "2026-11-05",
+                        isPrerelease = true,
+                        changes = listOf(
+                            Change(ChangeType.New, "Artist pages show the artist's most popular songs with their play counts, and a switch to your own most played songs of the artist. Show all opens the full list with play and shuffle.")
+                        )
+                    ),
+                    ChangelogEntry(
                         version = "3.19.6",
                         date = "2026-11-01",
                         isPrerelease = true,

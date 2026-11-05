@@ -479,6 +479,11 @@
     <string name="other_versions">Other Versions (%1$d)</string>
     <string name="disc_number">Disc %1$d</string>
     <string name="versions_count">%1$d versions</string>
+    <string name="artist_top_songs">Top Songs</string>
+    <string name="artist_top_songs_popular">Popular</string>
+    <string name="artist_top_songs_your_top">Your top</string>
+    <string name="artist_top_songs_plays">%1$s plays</string>
+    <string name="artist_top_songs_empty">No listens found for this artist yet.</string>
     <string name="top_liked_songs">Top Liked Songs</string>
 
     <!-- Sessions -->
